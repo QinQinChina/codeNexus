@@ -1,0 +1,57 @@
+:root {
+  /* Stable palette constants used by component tone tokens. */
+  --theme-seed-neutral-ink: rgb(30 41 59);
+  --theme-seed-neutral-paper: rgb(255 255 255);
+  --theme-seed-canvas-deep: rgb(4 9 18);
+  --theme-tone-violet: rgb(124 58 237);
+  --theme-tone-violet-strong: rgb(109 40 217);
+  --theme-tone-violet-soft: rgb(221 214 254);
+  --theme-tone-indigo: rgb(67 56 202);
+  --theme-tone-indigo-strong: rgb(79 70 229);
+  --theme-tone-indigo-soft: rgb(199 210 254);
+  --theme-tone-teal: rgb(13 148 136);
+  --theme-tone-teal-strong: rgb(20 184 166);
+  --theme-tone-teal-soft: rgb(153 246 228);
+  --theme-tone-sky: rgb(3 105 161);
+  --theme-tone-sky-strong: rgb(14 165 233);
+  --theme-tone-sky-soft: rgb(186 230 253);
+  --theme-tone-slate: rgb(71 85 105);
+  --theme-tone-slate-strong: rgb(100 116 139);
+  --theme-tone-slate-soft: rgb(226 232 240);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --theme-seed-bg: rgb(241 246 250);
+  --theme-seed-surface-1: rgb(248 251 253);
+  --theme-seed-surface-2: rgb(232 240 246);
+  --theme-seed-surface-3: rgb(222 234 242);
+  --theme-seed-elevated: rgb(255 255 255);
+  --theme-seed-text: rgb(35 48 65);
+  --theme-seed-text-muted: rgb(91 108 128);
+  --theme-seed-border-source: rgb(35 48 65);
+  --theme-seed-shadow-source: rgb(35 48 65);
+  --theme-seed-accent: rgb(8 145 178);
+  --theme-seed-accent-contrast: rgb(255 255 255);
+  --theme-seed-success: rgb(5 128 96);
+  --theme-seed-warning: rgb(180 83 9);
+  --theme-seed-danger: rgb(190 18 60);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --theme-seed-bg: rgb(8 13 24);
+  --theme-seed-surface-1: rgb(13 22 36);
+  --theme-seed-surface-2: rgb(18 31 49);
+  --theme-seed-surface-3: rgb(25 42 64);
+  --theme-seed-elevated: rgb(18 30 46);
+  --theme-seed-text: rgb(215 225 235);
+  --theme-seed-text-muted: rgb(145 160 176);
+  --theme-seed-border-source: rgb(148 163 184);
+  --theme-seed-shadow-source: rgb(2 7 16);
+  --theme-seed-accent: rgb(45 180 196);
+  --theme-seed-accent-contrast: rgb(4 16 22);
+  --theme-seed-success: rgb(78 192 120);
+  --theme-seed-warning: rgb(240 184 106);
+  --theme-seed-danger: rgb(248 113 113);
+}

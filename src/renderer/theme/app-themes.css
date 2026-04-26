@@ -1,0 +1,20 @@
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  --page-bg-image: var(--theme-page-bg-image);
+}
+
+:root[data-theme="light"] .content,
+:root[data-theme="dark"] .content {
+  background: transparent;
+}
+
+:root[data-theme="light"] .sidebar,
+:root[data-theme="dark"] .sidebar {
+  background: var(--sidebar-bg);
+}
+
+:root[data-theme="light"] .center-pane,
+:root[data-theme="dark"] .center-pane {
+  background: var(--center-bg);
+  color: var(--text);
+}

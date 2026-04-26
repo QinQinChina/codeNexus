@@ -1,0 +1,12 @@
+# src/renderer/features/context
+
+## 目录用途
+
+上下文能力扩展位。
+
+## 当前状态
+
+| 项目 | 说明 |
+| --- | --- |
+| 稳定实现 | 暂无独立文件 |
+| 当前主流程 | 主要由 `runtimeOrchestrator` 与事件流水线维护 |

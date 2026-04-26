@@ -1,0 +1,114 @@
+<template>
+  <TimelineCardShell
+    class="w-full"
+    tagText="MCP 资源"
+    :statusText="statusText"
+    :statusKind="statusKind"
+    :open="open"
+    :keepMounted="true"
+    @update:open="emit('update:open', $event)"
+  >
+    <template #icon>
+      <Database class="h-[13px] w-[13px] flex-none text-[color:var(--accent)] [stroke-width:2.2]" aria-hidden="true" />
+    </template>
+    <template #summary>
+      <div class="mono dim whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px]">
+        {{ summaryText }}
+      </div>
+    </template>
+    <div class="grid gap-2 px-2.5 pb-2.5">
+      <div
+        v-if="isRunning"
+        class="mono dim inline-flex items-center gap-2 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px]"
+      >
+        <span class="running-indicator is-muted" aria-hidden="true"></span>
+        <span>正在读取资源...</span>
+      </div>
+      <div class="grid gap-1">
+        <div class="text-[12px] font-medium text-[color:var(--text-muted)]">资源名</div>
+        <div
+          class="mono whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px] text-[var(--text)]"
+        >
+          {{ displayResourceLabel }}
+        </div>
+      </div>
+      <div class="grid gap-1">
+        <div class="text-[12px] font-medium text-[color:var(--text-muted)]">工具</div>
+        <div v-if="displayToolNames.length === 0" class="mono dim text-[11px]">无工具</div>
+        <div v-else class="flex flex-wrap gap-1.5">
+          <span
+            v-for="toolName in displayToolNames"
+            :key="toolName"
+            class="inline-flex items-center rounded-[6px] border border-[var(--ui-well-border)] bg-[var(--ui-well-bg)] px-2 py-1 mono text-[11px] text-[var(--text)]"
+          >
+            {{ toolName }}
+          </span>
+        </div>
+      </div>
+      <div class="grid gap-1">
+        <div class="text-[12px] font-medium text-[color:var(--text-muted)]">配置参数</div>
+        <div v-if="displayParameterEntries.length === 0" class="mono dim text-[11px]">无配置参数</div>
+        <div v-else class="grid gap-1">
+          <div
+            v-for="entry in displayParameterEntries"
+            :key="`${entry.key}:${entry.value}`"
+            class="rounded-[6px] border border-[var(--ui-well-border)] bg-[var(--ui-well-bg)] px-2.5 py-2"
+          >
+            <div class="mono dim whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px]">
+              {{ entry.key }}
+            </div>
+            <div
+              class="mono whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px] text-[var(--text)]"
+            >
+              {{ entry.value || "未填写" }}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        v-if="item.errorText"
+        class="mono whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px] leading-[1.4] text-[var(--fg-danger)]"
+      >
+        读取失败：{{ item.errorText }}
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" class="btn-mini" @click.stop="props.onOpenInPanel(item)">在 MCP 页打开</button>
+      </div>
+    </div>
+  </TimelineCardShell>
+</template>
+
+<script setup lang="ts">
+import { computed } from "vue";
+import { Database } from "lucide-vue-next";
+import TimelineCardShell from "../TimelineCardShell.vue";
+import type { McpResourceReadNode } from "../../../features/timeline/renderModel/buildTimelineNodes";
+
+const props = defineProps<{
+  open: boolean;
+  item: McpResourceReadNode;
+  onOpenInPanel: (item: McpResourceReadNode) => void;
+}>();
+
+const emit = defineEmits<{
+  (event: "update:open", value: boolean): void;
+}>();
+
+const isRunning = computed(() => props.item.status === "running");
+const statusKind = computed(() => {
+  if (props.item.status === "running") return "running";
+  if (props.item.status === "failed") return "failed";
+  return "completed";
+});
+const statusText = computed(() => {
+  if (props.item.status === "running") return "读取中";
+  if (props.item.status === "failed") return "失败";
+  return "已读取";
+});
+
+const displayResourceLabel = computed(() => props.item.resourceLabel || props.item.uri || "未命名资源");
+const displayToolNames = computed(() => props.item.toolNames ?? []);
+const displayParameterEntries = computed(() => props.item.parameterEntries ?? []);
+
+const summaryText = computed(() => displayResourceLabel.value);
+</script>

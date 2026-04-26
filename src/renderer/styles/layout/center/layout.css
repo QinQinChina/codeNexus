@@ -1,0 +1,307 @@
+.content {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 12px;
+  padding: 0;
+  background: transparent;
+}
+
+.content-center {
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+  position: relative;
+}
+
+.center-workbench {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.center-pane {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  gap: 12px;
+  padding: 0 8px 4px 8px;
+  border-radius: 0;
+  border: 0;
+  background: var(--center-bg);
+}
+
+.timeline-pane {
+  min-height: 0;
+  position: relative;
+  --timeline-card-padding: 8px;
+  --chat-content-max-w: 1000px;
+  row-gap: 0;
+}
+
+.timeline-pane.is-compact {
+  gap: 8px;
+  padding-left: 4px;
+  padding-right: 4px;
+  --timeline-card-padding: 6px;
+}
+
+.center-workbench-sash {
+  position: relative;
+  min-width: var(--center-editor-sash-w);
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.main > .center-workbench-sash {
+  grid-area: editor-sash;
+}
+
+.center-workbench-sash::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 84%, transparent);
+  transition:
+    background-color 0.14s ease,
+    box-shadow 0.14s ease;
+}
+
+.center-workbench-sash:hover::after,
+.center-workbench-sash:focus-visible::after {
+  background: color-mix(in srgb, var(--accent) 68%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.center-workbench-sash:focus-visible {
+  outline: none;
+}
+
+.workspace-editor-pane-host {
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+}
+
+.main > .workspace-editor-pane-host {
+  grid-area: editor;
+}
+
+/* Pane placement in main grid (uses grid-template-areas). */
+.main > .tasks-pane-host {
+  grid-area: tasks;
+}
+
+.main > .files-pane-host {
+  grid-area: files;
+}
+
+.main > #center-content {
+  grid-area: center;
+}
+
+.workspace-editor-pane.is-compact .workspace-editor-tabs {
+  gap: 1px;
+  min-height: 34px;
+  padding: 0 4px;
+}
+
+.workspace-editor-pane.is-compact .workspace-editor-tab {
+  max-width: clamp(124px, 16vw, 168px);
+}
+
+.workspace-editor-pane.is-compact .workspace-editor-tab__main {
+  gap: 4px;
+  height: 30px;
+  padding: 0 7px;
+}
+
+.workspace-editor-pane.is-compact .workspace-editor-tab__close {
+  width: 24px;
+  height: 24px;
+}
+
+.workspace-editor-pane.is-compact .workspace-editor-pane__breadcrumbs {
+  gap: 4px;
+  padding: 8px 10px 7px;
+  font-size: 11px;
+}
+
+.workspace-editor-pane.is-compact {
+  --we-cm-font-size: 12px;
+  --we-cm-line-height: 20px;
+  --we-cm-pad-top: 8px;
+  --we-cm-pad-bottom: 16px;
+  --we-cm-pad-left: 8px;
+  --we-cm-pad-right: 10px;
+  --we-cm-gutter-min-width: 36px;
+  --we-cm-gutter-pad-right: 6px;
+}
+
+.workspace-editor-pane.is-compact .workspace-editor-statusbar {
+  gap: 8px;
+  padding: 6px 10px;
+}
+
+.timeline-pane--chat {
+  --timeline-inline-pad: 12px;
+  --timeline-scrollbar-gutter-w: 11px;
+  --chat-column-w: min(
+    calc(100cqw - (var(--timeline-inline-pad) * 2) - (var(--timeline-scrollbar-gutter-w) * 2)),
+    var(--chat-content-max-w)
+  );
+  container-type: inline-size;
+  padding: 0;
+  gap: 0;
+  background: color-mix(in srgb, var(--bg) 92%, var(--theme-seed-canvas-deep) 8%);
+}
+
+.timeline-pane--chat #timeline,
+.timeline-pane--chat .timeline {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin-left: 0;
+  margin-right: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: var(--timeline-inline-pad) var(--timeline-inline-pad) var(--composer-dock-space, 120px);
+  scrollbar-gutter: stable both-edges;
+}
+
+.timeline-pane--chat .chat-pane {
+  gap: 10px;
+}
+
+.timeline-pane--chat #timeline > .plan-summary {
+  width: var(--chat-column-w);
+  margin-left: auto;
+  margin-right: auto;
+  position: sticky;
+  top: 0;
+  z-index: 12;
+}
+
+.timeline-pane--chat #timeline > .chat-pane,
+.timeline-pane--chat #timeline > .timeline-empty-state-shell {
+  width: var(--chat-column-w);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.timeline-pane--chat #timeline > .timeline-empty-state-shell {
+  min-height: calc(100% - var(--composer-dock-space, 120px));
+  display: grid;
+  place-items: center;
+}
+
+.timeline-pane--chat > .composer {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  z-index: 30;
+  width: var(--chat-column-w);
+  margin-left: 0;
+  margin-right: 0;
+  transform: translateX(-50%);
+}
+
+.timeline-pane--chat .chat-row {
+  animation: chat-row-soft-in 220ms ease both;
+}
+
+.timeline-pane--chat .chat-row--assistant,
+.timeline-pane--chat .chat-row--tool,
+.timeline-pane--chat .chat-row--activity,
+.timeline-pane--chat .chat-row--system {
+  border-radius: 10px;
+}
+
+.timeline-pane--chat .chat-assistant-message,
+.timeline-pane--chat .chat-activity-line,
+.timeline-pane--chat .chat-system-line,
+.timeline-pane--chat .chat-tool-wrap > * {
+  border-color: color-mix(in srgb, var(--border) 74%, var(--accent) 16%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 58%, transparent),
+    color-mix(in srgb, var(--surface-1) 88%, transparent)
+  );
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 5%, transparent);
+}
+
+.timeline-pane--chat .plan-summary {
+  width: min(100%, var(--chat-content-max-w));
+  margin-left: auto;
+  margin-right: auto;
+  border-radius: 10px;
+  border-color: color-mix(in srgb, var(--border) 76%, var(--accent) 18%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 68%, transparent),
+    color-mix(in srgb, var(--surface-1) 90%, transparent)
+  );
+}
+
+.timeline-pane--chat .composer-queue-fab {
+  right: max(14px, calc((100% - var(--chat-content-max-w)) / 2 + 14px));
+}
+
+@keyframes chat-row-soft-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* === Low-glare light workbench tuning === */
+:root[data-theme="light"] .timeline-pane--chat {
+  background: var(--chat-pane-bg);
+}
+
+:root[data-theme="light"] .timeline-pane--chat #timeline,
+:root[data-theme="light"] .timeline-pane--chat .timeline {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-theme="light"] .timeline-pane--chat .chat-assistant-message,
+:root[data-theme="light"] .timeline-pane--chat .chat-activity-line,
+:root[data-theme="light"] .timeline-pane--chat .chat-system-line,
+:root[data-theme="light"] .timeline-pane--chat .chat-tool-wrap > * {
+  border-color: color-mix(in srgb, var(--light-border) 78%, var(--accent) 12%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--light-elevated-bg) 82%, transparent),
+    color-mix(in srgb, var(--light-panel-bg) 94%, transparent)
+  );
+  box-shadow: inset 0 1px 0 rgb(from var(--light-elevated-bg) r g b / 0.82);
+}
+
+:root[data-theme="light"] .timeline-pane--chat .plan-summary {
+  border-color: color-mix(in srgb, var(--light-border) 76%, var(--accent) 18%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--light-elevated-bg) 78%, var(--accent) 5%),
+    color-mix(in srgb, var(--light-panel-bg) 92%, transparent)
+  );
+  box-shadow: var(--light-shadow-sm);
+}

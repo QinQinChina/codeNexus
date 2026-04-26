@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light" data-tone="light" data-font-family="system">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CodeNexus</title>
+    <script>
+      (() => {
+        try {
+          const raw = String(window.codexDesktop?.localState?.initialSettingsSnapshot?.settings?.ui?.theme ?? "")
+            .trim()
+            .toLowerCase();
+          if (raw === "light" || raw === "dark" || raw === "windsurf" || raw === "aurora" || raw === "moss") {
+            const theme = raw === "light" ? "light" : "dark";
+            document.documentElement.dataset.theme = theme;
+            document.documentElement.dataset.tone = theme === "light" ? "light" : "dark";
+          }
+
+          const rawFont = String(
+            window.codexDesktop?.localState?.initialSettingsSnapshot?.settings?.ui?.fontFamilyPreset ?? ""
+          )
+            .trim()
+            .toLowerCase();
+          if (
+            rawFont === "system" ||
+            rawFont === "serif" ||
+            rawFont === "mono" ||
+            rawFont === "cursive" ||
+            rawFont === "fangsong"
+          ) {
+            document.documentElement.dataset.fontFamily = rawFont;
+          }
+        } catch {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

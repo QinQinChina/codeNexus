@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.playwright-cli/
+
+# Build outputs
+dist/
+release/
+.vite/
+coverage/
+*.tsbuildinfo
+
+# Logs
+*.log
+*.pyc
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Local ML artifacts (do not ship/commit by default)
+models/
+benchmarks/
+.venv*/
+__pycache__/
+
+# Local temporary snippets
+.tmp/
+tmp-centerpane-setup-snippet.js
+tmp/
+flutter-app/
+
+# Workspace-local prompts / configs
+.codenexus/
+
+# Local diagrams (keep in publish but do not commit by default)
+publish/diagrams/

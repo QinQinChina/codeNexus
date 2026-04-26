@@ -1,0 +1,670 @@
+.topbar-menu-anchor {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  -webkit-app-region: no-drag;
+}
+
+.topbar-left {
+  grid-column: 1;
+  justify-self: start;
+  min-width: 0;
+  gap: 10px;
+}
+
+.topbar button.topbar-workspace-select {
+  -webkit-app-region: no-drag;
+  min-width: 0;
+  max-width: clamp(126px, 20vw, 220px);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+}
+
+.topbar .topbar-workspace-select__icon {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.1;
+  flex: 0 0 auto;
+}
+
+.topbar .topbar-workspace-select__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-controls {
+  overflow: visible;
+}
+
+.topbar .control-group-actions {
+  gap: 2px;
+}
+
+.topbar button.topbar-theme-switch {
+  position: relative;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--topbar-control-border, var(--topbar-border)) 72%, transparent);
+  background:
+    radial-gradient(circle at 32% 28%, color-mix(in srgb, white 34%, transparent) 0%, transparent 20%),
+    radial-gradient(circle at 70% 74%, color-mix(in srgb, var(--accent) 22%, transparent) 0%, transparent 60%),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--topbar-control-bg, var(--topbar-bg)) 88%, var(--accent) 12%),
+      color-mix(in srgb, var(--topbar-control-bg, var(--topbar-bg)) 96%, var(--bg) 4%)
+    );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 16%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--topbar-text) 6%, transparent),
+    0 8px 16px rgb(from var(--ui-shadow-source) r g b / 0.15);
+  overflow: hidden;
+  -webkit-app-region: no-drag;
+  transition:
+    transform 150ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 150ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.topbar button.topbar-theme-switch::before,
+.topbar button.topbar-theme-switch::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.topbar button.topbar-theme-switch::before {
+  inset: 4px;
+  background:
+    radial-gradient(
+      circle at 34% 28%,
+      color-mix(in srgb, white 38%, transparent) 0%,
+      color-mix(in srgb, white 12%, transparent) 18%,
+      transparent 36%
+    ),
+    radial-gradient(circle at 70% 78%, color-mix(in srgb, var(--accent) 34%, transparent) 0%, transparent 62%);
+  opacity: 0.92;
+}
+
+.topbar button.topbar-theme-switch::after {
+  background: radial-gradient(
+    circle at 50% 50%,
+    color-mix(in srgb, var(--accent) 16%, transparent) 0%,
+    transparent 70%
+  );
+  opacity: 0.82;
+  transition: opacity 180ms ease;
+}
+
+.topbar button.topbar-theme-switch:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.03);
+  border-color: color-mix(in srgb, var(--topbar-control-border, var(--topbar-border)) 58%, var(--accent) 42%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 18%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--topbar-text) 6%, transparent),
+    0 10px 18px rgb(from var(--ui-shadow-source) r g b / 0.19);
+}
+
+.topbar button.topbar-theme-switch:active:not(:disabled) {
+  transform: translateY(0) scale(0.96);
+}
+
+.topbar button.topbar-theme-switch:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--focus-ring, var(--accent-soft)) 84%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 18%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--topbar-text) 6%, transparent),
+    0 10px 18px rgb(from var(--ui-shadow-source) r g b / 0.19);
+}
+
+.topbar button.topbar-theme-switch:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
+}
+
+.topbar button.topbar-theme-switch .topbar-theme-switch-orb {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+}
+
+.topbar button.topbar-theme-switch .topbar-theme-switch-icon {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.1;
+  color: var(--topbar-text);
+  filter: drop-shadow(0 1px 0 color-mix(in srgb, white 16%, transparent));
+}
+
+.topbar button.topbar-theme-switch .topbar-theme-switch-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle at 36% 30%,
+      color-mix(in srgb, white 32%, transparent) 0%,
+      color-mix(in srgb, white 12%, transparent) 18%,
+      transparent 38%
+    ),
+    radial-gradient(circle at 68% 76%, color-mix(in srgb, var(--accent) 28%, transparent) 0%, transparent 60%);
+  opacity: 0.78;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.topbar button.topbar-theme-switch:hover:not(:disabled) .topbar-theme-switch-glow {
+  opacity: 0.92;
+  transform: scale(1.02);
+}
+
+.topbar-menu-shell {
+  position: absolute;
+  top: calc(100% + 10px);
+  z-index: 40;
+  width: min(360px, calc(100vw - 24px));
+  overflow: hidden;
+  border-radius: var(--floating-radius);
+  filter: drop-shadow(var(--topbar-dropdown-shadow, 0 16px 32px rgb(from var(--ui-shadow-source) r g b / 0.12)));
+  -webkit-app-region: no-drag;
+}
+
+.topbar-menu-shell--more {
+  right: 0;
+  width: min(320px, calc(100vw - 24px));
+}
+
+.topbar-menu-shell--tools {
+  left: 0;
+  width: min(380px, calc(100vw - 24px));
+}
+
+.topbar-menu-shell--turn-diff {
+  left: 0;
+  width: min(420px, calc(100vw - 24px));
+}
+
+.topbar-menu-shell--approval {
+  left: 0;
+  width: min(460px, calc(100vw - 24px));
+}
+
+.topbar-menu {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.topbar-menu--more {
+  padding: 0;
+  gap: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: var(--topbar-dropdown-bg-solid, var(--surface-1));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.topbar-menu-section {
+  display: grid;
+  gap: 8px;
+}
+
+/* More menu (root): tighter density + stronger button affordance */
+.topbar-menu--more .topbar-more-panel--root .topbar-menu-section {
+  gap: 4px;
+}
+
+.topbar-menu--more .topbar-more-panel--root button.topbar-menu-item {
+  min-height: 36px;
+  padding: 6px 10px;
+  gap: 9px;
+  border-color: color-mix(in srgb, var(--topbar-dropdown-border, var(--floating-border)) 68%, transparent);
+  background: color-mix(in srgb, var(--floating-item-bg, var(--button-bg, var(--surface-1))) 84%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 6%, transparent);
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 120ms ease;
+}
+
+.topbar-menu--more .topbar-more-panel--root button.topbar-menu-item:hover:not(:disabled),
+.topbar-menu--more .topbar-more-panel--root button.topbar-menu-item.is-selected {
+  background: var(
+    --floating-item-bg-hover,
+    color-mix(in srgb, var(--button-bg-hover, var(--button-bg, var(--surface-1))) 94%, transparent)
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--topbar-dropdown-border, var(--floating-border)) 78%,
+    var(--border-accent, var(--floating-border)) 22%
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 8%, transparent),
+    0 10px 18px rgb(from var(--ui-shadow-source) r g b / 0.1);
+}
+
+.topbar-menu--more .topbar-more-panel--root button.topbar-menu-item:active:not(:disabled) {
+  transform: translateY(0.5px);
+}
+
+.topbar-menu--more .topbar-more-panel--root button.topbar-menu-item:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
+}
+
+.topbar-menu--more .topbar-more-panel--root .topbar-menu-item-icon {
+  width: 26px;
+  height: 26px;
+}
+
+.topbar-menu--more .topbar-more-panel--root .topbar-menu-item-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.topbar-more-stage {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.topbar-more-panel {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  box-sizing: border-box;
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease;
+  will-change: transform, opacity;
+}
+
+.topbar-more-panel--root {
+  position: relative;
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.topbar-more-panel--dynamic-tools {
+  position: absolute;
+  inset: 0 0 auto 0;
+  transform: translateX(100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.topbar-more-stage.is-detail-open .topbar-more-panel--root {
+  position: absolute;
+  inset: 0 0 auto 0;
+  transform: translateX(-18px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.topbar-more-stage.is-detail-open .topbar-more-panel--dynamic-tools {
+  position: relative;
+  inset: auto;
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.topbar-more-detail-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+}
+
+.topbar-more-detail-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.topbar-more-detail-title {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--topbar-dropdown-text, var(--text));
+}
+
+.topbar-more-counter {
+  padding-top: 4px;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.topbar-more-back {
+  min-width: 0;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--topbar-dropdown-border, var(--floating-border)) 72%, transparent);
+  background: color-mix(in srgb, var(--floating-item-bg, var(--button-bg, var(--surface-1))) 84%, transparent);
+  color: var(--topbar-dropdown-text, var(--text));
+}
+
+.topbar-more-back:hover:not(:disabled) {
+  border-color: color-mix(
+    in srgb,
+    var(--topbar-dropdown-border, var(--floating-border)) 64%,
+    var(--border-accent, var(--floating-border)) 36%
+  );
+  background: var(
+    --floating-item-bg-hover,
+    color-mix(in srgb, var(--button-bg-hover, var(--button-bg, var(--surface-1))) 94%, transparent)
+  );
+}
+
+.topbar-more-back svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.2;
+  flex: 0 0 auto;
+}
+
+.topbar-more-back span {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.topbar-menu-heading {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--topbar-text-muted);
+}
+
+.topbar-menu-note {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.topbar-menu-divider {
+  height: 1px;
+  background: color-mix(in srgb, var(--topbar-dropdown-border, var(--floating-border)) 72%, transparent);
+}
+
+.topbar button.topbar-menu-item {
+  min-width: 0;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  -webkit-app-region: no-drag;
+}
+
+.topbar button.topbar-menu-item:hover:not(:disabled),
+.topbar button.topbar-menu-item.is-selected {
+  background: var(
+    --floating-item-bg-hover,
+    color-mix(in srgb, var(--button-bg-hover, var(--button-bg, var(--surface-1))) 94%, transparent)
+  );
+  border-color: color-mix(in srgb, var(--topbar-dropdown-border, var(--floating-border)) 74%, transparent);
+}
+
+.topbar button.topbar-menu-item.is-disabled,
+.topbar button.topbar-menu-item:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.topbar-menu-item-icon {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--floating-item-bg, var(--button-bg, var(--surface-1))) 84%, transparent);
+  color: var(--topbar-text);
+  flex: 0 0 auto;
+}
+
+.topbar-menu-item-icon svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.1;
+}
+
+.topbar-menu-item-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  flex: 1 1 auto;
+}
+
+.topbar-menu-item-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.topbar-menu-item-meta {
+  font-size: 11px;
+  line-height: 1;
+  color: color-mix(in srgb, var(--topbar-dropdown-text, var(--text)) 58%, transparent);
+  white-space: nowrap;
+}
+
+.topbar-menu-item-chevron {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.2;
+  color: color-mix(in srgb, var(--topbar-dropdown-text, var(--text)) 56%, transparent);
+  flex: 0 0 auto;
+  transition:
+    transform 150ms ease,
+    color 150ms ease;
+}
+
+.topbar button.topbar-menu-item--nav:hover:not(:disabled) .topbar-menu-item-chevron {
+  transform: translateX(1px);
+  color: var(--topbar-dropdown-text, var(--text));
+}
+
+.topbar-menu-item-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--topbar-dropdown-text, var(--text));
+}
+
+.topbar-menu-item-check {
+  width: 16px;
+  height: 16px;
+  color: var(--border-accent, var(--accent-soft));
+  flex: 0 0 auto;
+}
+
+.dynamic-tools-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dynamic-tools-list {
+  display: grid;
+}
+
+.dynamic-tools-popover-subtitle {
+  font-size: 11px;
+  line-height: 1.35;
+  word-break: break-all;
+}
+
+.dynamic-tools-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid color-mix(in srgb, var(--topbar-dropdown-border, var(--floating-border)) 60%, transparent);
+}
+
+.dynamic-tools-list .dynamic-tools-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.dynamic-tools-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.dynamic-tools-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dynamic-tools-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--topbar-dropdown-text, var(--text));
+}
+
+.dynamic-tools-desc {
+  font-size: 11px;
+  line-height: 1.35;
+  color: color-mix(in srgb, var(--topbar-dropdown-text, var(--text)) 58%, transparent);
+}
+
+.dynamic-tools-badge {
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--border-warning);
+  background: var(--bg-warning-soft);
+  color: var(--fg-warning);
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.dynamic-tools-switch {
+  position: relative;
+  width: 42px;
+  min-width: 42px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.dynamic-tools-switch-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  margin: 0;
+}
+
+.dynamic-tools-switch-track {
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-2) 72%, var(--border) 28%);
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.dynamic-tools-switch-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-1) 70%, var(--text) 30%);
+  transform: translateX(0);
+  transition: transform 0.15s ease;
+}
+
+.dynamic-tools-switch-input:checked + .dynamic-tools-switch-track {
+  background: color-mix(in srgb, var(--success) 30%, transparent);
+  border-color: var(--border-success);
+}
+
+.dynamic-tools-switch-input:checked + .dynamic-tools-switch-track .dynamic-tools-switch-thumb {
+  transform: translateX(18px);
+}
+
+.topbar-fly-enter-active,
+.topbar-fly-leave-active {
+  transition:
+    opacity var(--floating-enter-duration, 180ms) var(--floating-exit-ease, ease),
+    transform var(--floating-enter-duration, 180ms) var(--floating-enter-ease, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.topbar-fly-enter-from,
+.topbar-fly-leave-to {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.986);
+}
+
+.topbar-fly-enter-to,
+.topbar-fly-leave-from {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topbar-fly-enter-active,
+  .topbar-fly-leave-active,
+  .topbar button.topbar-theme-switch,
+  .topbar button.topbar-theme-switch::before,
+  .topbar button.topbar-theme-switch::after,
+  .topbar button.topbar-theme-switch .topbar-theme-switch-glow,
+  .dynamic-tools-switch-track,
+  .dynamic-tools-switch-thumb {
+    transition: none;
+  }
+
+  .topbar button.topbar-theme-switch:hover:not(:disabled),
+  .topbar button.topbar-theme-switch:active:not(:disabled) {
+    transform: none;
+  }
+}
+

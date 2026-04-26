@@ -1,0 +1,414 @@
+.main {
+  --left-sidebar-w: 200px;
+  --files-sidebar-w: 0px;
+  --center-editor-w: 640px;
+  --sash-hit-w: 10px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  display: grid;
+  grid-template-areas: "tasks center files";
+  grid-template-columns: var(--left-sidebar-w) minmax(0, 1fr) var(--files-sidebar-w);
+  transition: grid-template-columns 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+body.is-resizing .main {
+  transition: none;
+}
+
+.main.has-editor {
+  grid-template-areas: "tasks center editor-sash editor files";
+  grid-template-columns:
+    var(--left-sidebar-w) minmax(0, 1fr) var(--center-editor-sash-w) var(--center-editor-w)
+    var(--files-sidebar-w);
+}
+
+.main.has-settings {
+  grid-template-areas: "center";
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.main-view-enter-active,
+.main-view-leave-active {
+  transition:
+    opacity 160ms ease,
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+.main-view-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.main-view-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+.sash {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--sash-hit-w);
+  cursor: col-resize;
+  touch-action: none;
+  background: transparent;
+  z-index: 20;
+}
+
+.sash::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: color-mix(in srgb, var(--border-accent, var(--accent)) 82%, transparent);
+  opacity: 0.35;
+  transition: opacity 120ms ease;
+}
+
+.sash-left {
+  /* Keep the drag hit area inside the left sidebar (avoid covering chat). */
+  transform: translateX(-100%);
+}
+
+.sash-left.is-collapsed,
+.sash-files.is-collapsed {
+  --edge-wave-width: 52px;
+  --edge-wave-blur: 14px;
+  --edge-wave-shift-start: 12px;
+  --edge-wave-shift-end: -18px;
+  --edge-wave-scale-start: 0.8;
+  --edge-wave-scale-end: 1.24;
+  --edge-wave-opacity-peak: 0.84;
+  --edge-wave-line-opacity: 1;
+  --edge-wave-saturation: 1.34;
+  --edge-wave-duration: 0.92s;
+  --edge-wave-delay: -0.18s;
+  --edge-wave-line-bg: color-mix(in srgb, var(--border-accent, var(--accent)) 90%, var(--focus-ring) 10%);
+  --edge-wave-line-shadow:
+    0 0 18px color-mix(in srgb, var(--focus-ring) 78%, transparent),
+    0 0 34px color-mix(in srgb, var(--border-accent, var(--accent)) 46%, transparent);
+  width: 12px;
+}
+
+.sash-left.is-collapsed {
+  transform: none;
+}
+
+.sash-left.is-collapsed::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  width: var(--edge-wave-width);
+  pointer-events: none;
+  opacity: 0;
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--focus-ring) 88%, white 12%) 0%,
+      color-mix(in srgb, var(--accent) 74%, transparent) 12%,
+      transparent 30%
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--accent) 54%, white 10%) 0%,
+      color-mix(
+          in srgb,
+          var(--bg-accent-soft-hover, var(--bg-accent-soft, var(--accent-soft))) 82%,
+          var(--focus-ring) 18%
+        )
+        18%,
+      color-mix(in srgb, var(--bg-accent-soft, var(--accent-soft)) 94%, transparent) 54%,
+      color-mix(in srgb, var(--bg-accent-soft, var(--accent-soft)) 42%, transparent) 74%,
+      transparent 100%
+    );
+  filter: blur(var(--edge-wave-blur)) saturate(var(--edge-wave-saturation));
+  transform: translateX(var(--edge-wave-shift-start)) scaleX(var(--edge-wave-scale-start));
+  transform-origin: left center;
+  will-change: transform, opacity, filter;
+}
+
+.sash-files {
+  /* Keep the drag hit area inside the right sidebar (avoid covering chat). */
+  transform: translateX(100%);
+}
+
+.sash-files.is-collapsed {
+  transform: none;
+}
+
+.sash-files.is-collapsed::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  right: 0;
+  width: var(--edge-wave-width);
+  pointer-events: none;
+  opacity: 0;
+  background:
+    linear-gradient(
+      270deg,
+      color-mix(in srgb, var(--focus-ring) 88%, white 12%) 0%,
+      color-mix(in srgb, var(--accent) 74%, transparent) 12%,
+      transparent 30%
+    ),
+    linear-gradient(
+      270deg,
+      color-mix(in srgb, var(--accent) 54%, white 10%) 0%,
+      color-mix(
+          in srgb,
+          var(--bg-accent-soft-hover, var(--bg-accent-soft, var(--accent-soft))) 82%,
+          var(--focus-ring) 18%
+        )
+        18%,
+      color-mix(in srgb, var(--bg-accent-soft, var(--accent-soft)) 94%, transparent) 54%,
+      color-mix(in srgb, var(--bg-accent-soft, var(--accent-soft)) 42%, transparent) 74%,
+      transparent 100%
+    );
+  filter: blur(var(--edge-wave-blur)) saturate(var(--edge-wave-saturation));
+  transform: translateX(calc(-1 * var(--edge-wave-shift-start))) scaleX(var(--edge-wave-scale-start));
+  transform-origin: right center;
+  will-change: transform, opacity, filter;
+}
+
+.sash-left::after {
+  right: 0;
+}
+
+.sash-left.is-collapsed::after {
+  left: 0;
+  right: auto;
+  width: 3px;
+  opacity: 0;
+  background: var(--edge-wave-line-bg);
+  box-shadow: var(--edge-wave-line-shadow);
+}
+
+.sash-files::after {
+  left: 0;
+}
+
+.sash-files.is-collapsed::after {
+  left: auto;
+  right: 0;
+  width: 3px;
+  opacity: 0;
+  background: var(--edge-wave-line-bg);
+  box-shadow: var(--edge-wave-line-shadow);
+}
+
+.sash:hover::after,
+.sash:focus-visible::after,
+body.is-resizing .sash::after {
+  opacity: 1;
+}
+
+.sash-left.is-collapsed:hover::before,
+.sash-left.is-collapsed:focus-visible::before,
+body.is-resizing .sash-left.is-collapsed::before {
+  animation: left-edge-heatwave var(--edge-wave-duration) cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  animation-delay: var(--edge-wave-delay);
+}
+
+.sash-left.is-collapsed:hover::after,
+.sash-left.is-collapsed:focus-visible::after,
+body.is-resizing .sash-left.is-collapsed::after {
+  opacity: var(--edge-wave-line-opacity);
+}
+
+.sash-files.is-collapsed:hover::before,
+.sash-files.is-collapsed:focus-visible::before,
+body.is-resizing .sash-files.is-collapsed::before {
+  animation: right-edge-heatwave var(--edge-wave-duration) cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  animation-delay: var(--edge-wave-delay);
+}
+
+.sash-files.is-collapsed:hover::after,
+.sash-files.is-collapsed:focus-visible::after,
+body.is-resizing .sash-files.is-collapsed::after {
+  opacity: var(--edge-wave-line-opacity);
+}
+
+.sash:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+html[data-tone="light"] .sash-left.is-collapsed,
+html[data-tone="light"] .sash-files.is-collapsed {
+  --edge-wave-width: 42px;
+  --edge-wave-blur: 10px;
+  --edge-wave-shift-start: 9px;
+  --edge-wave-shift-end: -13px;
+  --edge-wave-scale-start: 0.86;
+  --edge-wave-scale-end: 1.14;
+  --edge-wave-opacity-peak: 0.62;
+  --edge-wave-line-opacity: 0.88;
+  --edge-wave-saturation: 1.18;
+  --edge-wave-line-shadow:
+    0 0 14px color-mix(in srgb, var(--focus-ring) 68%, transparent),
+    0 0 26px color-mix(in srgb, var(--border-accent, var(--accent)) 34%, transparent);
+}
+
+html[data-tone="light"] .sash-left.is-collapsed::before {
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--focus-ring) 70%, white 30%) 0%,
+      color-mix(in srgb, var(--accent) 52%, white 18%) 14%,
+      transparent 32%
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--accent) 42%, white 24%) 0%,
+      color-mix(in srgb, var(--bg-accent-soft-hover, var(--bg-accent-soft, var(--accent-soft))) 72%, white 28%) 20%,
+      color-mix(in srgb, var(--bg-accent-soft, var(--accent-soft)) 84%, transparent) 54%,
+      color-mix(in srgb, var(--bg-accent-soft, var(--accent-soft)) 34%, transparent) 74%,
+      transparent 100%
+    );
+}
+
+html[data-tone="light"] .sash-files.is-collapsed::before {
+  background:
+    linear-gradient(
+      270deg,
+      color-mix(in srgb, var(--focus-ring) 70%, white 30%) 0%,
+      color-mix(in srgb, var(--accent) 52%, white 18%) 14%,
+      transparent 32%
+    ),
+    linear-gradient(
+      270deg,
+      color-mix(in srgb, var(--accent) 42%, white 24%) 0%,
+      color-mix(in srgb, var(--bg-accent-soft-hover, var(--bg-accent-soft, var(--accent-soft))) 72%, white 28%) 20%,
+      color-mix(in srgb, var(--bg-accent-soft, var(--accent-soft)) 84%, transparent) 54%,
+      color-mix(in srgb, var(--bg-accent-soft, var(--accent-soft)) 34%, transparent) 74%,
+      transparent 100%
+    );
+}
+
+:root[data-theme="dark"] .sash-left.is-collapsed,
+:root[data-theme="dark"] .sash-files.is-collapsed {
+  --edge-wave-width: 48px;
+  --edge-wave-blur: 12px;
+  --edge-wave-shift-start: 7px;
+  --edge-wave-shift-end: -22px;
+  --edge-wave-scale-start: 0.7;
+  --edge-wave-scale-end: 1.3;
+  --edge-wave-opacity-peak: 0.98;
+  --edge-wave-line-opacity: 1;
+  --edge-wave-saturation: 1.62;
+  --edge-wave-duration: 0.74s;
+  --edge-wave-delay: -0.1s;
+  --edge-wave-line-bg: color-mix(in srgb, var(--border-accent) 84%, var(--border-success) 16%);
+  --edge-wave-line-shadow:
+    0 0 16px color-mix(in srgb, var(--focus-ring) 86%, transparent),
+    0 0 30px color-mix(in srgb, var(--border-accent) 58%, transparent),
+    0 0 44px color-mix(in srgb, var(--bg-success-soft) 32%, transparent);
+}
+
+:root[data-theme="dark"] .sash-left.is-collapsed::before {
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--focus-ring) 92%, white 8%) 0%,
+      color-mix(in srgb, var(--accent) 86%, white 14%) 9%,
+      transparent 22%
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--accent) 66%, white 34%) 0%,
+      color-mix(in srgb, var(--bg-accent-soft-hover, var(--bg-accent-soft)) 88%, var(--focus-ring) 12%) 14%,
+      color-mix(in srgb, var(--bg-success-soft, var(--bg-accent-soft)) 82%, transparent) 34%,
+      color-mix(in srgb, var(--bg-accent-soft) 56%, transparent) 56%,
+      transparent 100%
+    );
+}
+
+:root[data-theme="dark"] .sash-files.is-collapsed::before {
+  background:
+    linear-gradient(
+      270deg,
+      color-mix(in srgb, var(--focus-ring) 92%, white 8%) 0%,
+      color-mix(in srgb, var(--accent) 86%, white 14%) 9%,
+      transparent 22%
+    ),
+    linear-gradient(
+      270deg,
+      color-mix(in srgb, var(--accent) 66%, white 34%) 0%,
+      color-mix(in srgb, var(--bg-accent-soft-hover, var(--bg-accent-soft)) 88%, var(--focus-ring) 12%) 14%,
+      color-mix(in srgb, var(--bg-success-soft, var(--bg-accent-soft)) 82%, transparent) 34%,
+      color-mix(in srgb, var(--bg-accent-soft) 56%, transparent) 56%,
+      transparent 100%
+    );
+}
+
+@keyframes left-edge-heatwave {
+  0% {
+    opacity: 0;
+    transform: translateX(var(--edge-wave-shift-start)) scaleX(var(--edge-wave-scale-start));
+  }
+
+  28% {
+    opacity: var(--edge-wave-opacity-peak);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(var(--edge-wave-shift-end)) scaleX(var(--edge-wave-scale-end));
+  }
+}
+
+@keyframes right-edge-heatwave {
+  0% {
+    opacity: 0;
+    transform: translateX(calc(-1 * var(--edge-wave-shift-start))) scaleX(var(--edge-wave-scale-start));
+  }
+
+  28% {
+    opacity: var(--edge-wave-opacity-peak);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(calc(-1 * var(--edge-wave-shift-end))) scaleX(var(--edge-wave-scale-end));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main {
+    transition: none;
+  }
+
+  .main-view-enter-active,
+  .main-view-leave-active {
+    transition: none !important;
+  }
+
+  .main-view-enter-from,
+  .main-view-leave-to {
+    transform: none !important;
+  }
+
+  .sash-left.is-collapsed:hover::before,
+  .sash-left.is-collapsed:focus-visible::before,
+  body.is-resizing .sash-left.is-collapsed::before {
+    animation: none;
+    opacity: calc(var(--edge-wave-opacity-peak) * 0.82);
+    transform: translateX(0) scaleX(1);
+  }
+
+  .sash-files.is-collapsed:hover::before,
+  .sash-files.is-collapsed:focus-visible::before,
+  body.is-resizing .sash-files.is-collapsed::before {
+    animation: none;
+    opacity: calc(var(--edge-wave-opacity-peak) * 0.82);
+    transform: translateX(0) scaleX(1);
+  }
+}
+

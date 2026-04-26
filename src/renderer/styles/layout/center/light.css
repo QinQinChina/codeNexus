@@ -1,0 +1,47 @@
+:root[data-tone="light"] .center-pane .history-replay-indicator {
+  border-color: rgb(from var(--text) r g b / 0.14);
+  background: color-mix(in srgb, white 0.5500%, transparent);
+}
+
+:root[data-tone="light"] .center-pane .history-replay-indicator-loading {
+  border-color: rgb(from var(--accent) r g b / 0.35);
+  color: rgb(from var(--text) r g b / 0.92);
+  background: rgb(from var(--accent) r g b / 0.1);
+}
+
+:root[data-tone="light"] .center-pane .history-replay-indicator-error {
+  border-color: rgb(from var(--danger) r g b / 0.45);
+  color: rgb(from var(--danger) r g b / 0.92);
+  background: rgb(from var(--danger) r g b / 0.12);
+}
+
+:root[data-tone="light"] .composer-lightbox-overlay .composer-lightbox-backdrop {
+  background: rgb(from var(--text) r g b / 0.56);
+}
+
+:root[data-tone="light"] .composer-lightbox-overlay .composer-lightbox-image {
+  border-color: rgb(from var(--text) r g b / 0.18);
+  background: color-mix(in srgb, white 0.9500%, transparent);
+  box-shadow: 0 24px 56px rgb(from var(--text) r g b / 0.35);
+}
+
+:root[data-tone="light"] .composer-lightbox-overlay .composer-lightbox-close {
+  border-color: rgb(from var(--text) r g b / 0.22);
+  background: color-mix(in srgb, white 0.9500%, transparent);
+  color: rgb(from var(--surface-2) r g b / 0.94);
+}
+
+:root[data-tone="light"] .composer-lightbox-overlay .composer-lightbox-close:hover:not(:disabled) {
+  border-color: rgb(from var(--danger) r g b / 0.38);
+  background: rgb(from var(--bg-danger-soft) r g b / 0.98);
+  color: rgb(from var(--danger) r g b / 0.95);
+}
+
+:root[data-tone="light"] .composer-lightbox-overlay .composer-lightbox-close:focus-visible {
+  box-shadow:
+    0 0 0 2px rgb(from var(--accent) r g b / 0.28),
+    0 8px 20px rgb(from var(--text) r g b / 0.24);
+}
+
+
+

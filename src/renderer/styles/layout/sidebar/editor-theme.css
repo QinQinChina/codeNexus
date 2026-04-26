@@ -1,0 +1,86 @@
+:root[data-theme="dark"] .workspace-editor-pane {
+  --we-tabs-bg: color-mix(in srgb, var(--surface-2) 74%, var(--surface-1) 26%);
+  --we-tab-active-bg: color-mix(in srgb, var(--surface-2) 56%, var(--surface-1) 44%);
+  --we-tab-active-border: color-mix(in srgb, var(--border) 94%, transparent);
+  --we-tab-divider: color-mix(in srgb, var(--border) 86%, transparent);
+  --we-tab-text: color-mix(in srgb, var(--text) 72%, transparent);
+  --we-tab-text-active: color-mix(in srgb, white 94%, var(--text) 6%);
+  --we-tab-close-color: color-mix(in srgb, var(--text) 86%, transparent);
+  --we-tab-close-hover-color: color-mix(in srgb, white 96%, transparent);
+  --we-tab-close-hover-bg: color-mix(in srgb, var(--surface-2) 72%, transparent);
+  --we-chrome-bg: color-mix(in srgb, var(--surface-2) 74%, var(--surface-1) 26%);
+  --we-code-bg: color-mix(in srgb, var(--bg) 92%, var(--surface-1) 8%);
+  --we-code-gutter-bg: color-mix(in srgb, var(--surface-1) 96%, transparent);
+  --we-code-gutter-text: color-mix(in srgb, var(--text-muted) 96%, transparent);
+  --we-code-text: color-mix(in srgb, white 92%, var(--text) 8%);
+  --we-status-bg: color-mix(in srgb, var(--surface-2) 78%, var(--surface-1) 22%);
+  --we-cm-caret: var(--text);
+  --we-cm-selection-bg: rgb(from var(--accent) r g b / 0.24);
+  --we-cm-active-line-bg: rgb(from var(--border) r g b / 0.1);
+  --we-cm-gutter-active-bg: rgb(from var(--border) r g b / 0.12);
+  --we-cm-panel-bg: color-mix(in srgb, var(--bg) 88%, var(--surface-1) 12%);
+  --we-cm-panel-border: rgb(from var(--border) r g b / 0.18);
+  --we-cm-tooltip-bg: color-mix(in srgb, var(--surface-2) 92%, var(--surface-1) 8%);
+  --we-cm-tooltip-border: rgb(from var(--border) r g b / 0.18);
+  --we-cm-search-match-bg: rgb(from var(--warning) r g b / 0.16);
+  --we-cm-search-match-border: rgb(from var(--warning) r g b / 0.42);
+  --we-cm-search-match-selected-bg: rgb(from var(--warning) r g b / 0.3);
+  --we-cm-fold-bg: rgb(from var(--surface-2) r g b / 0.88);
+  --we-cm-fold-text: rgb(from var(--text) r g b / 0.88);
+  --we-cm-fold-border: rgb(from var(--border) r g b / 0.16);
+  --we-cm-bracket-match-bg: rgb(from var(--success) r g b / 0.16);
+  --we-cm-bracket-match-border: rgb(from var(--success) r g b / 0.42);
+  --we-cm-bracket-error-bg: rgb(from var(--danger) r g b / 0.18);
+  --we-cm-bracket-error-border: rgb(from var(--danger) r g b / 0.48);
+  --we-cm-keyword: var(--ui-editor-purple);
+  --we-cm-operator: var(--ui-editor-blue);
+  --we-cm-variable: var(--text);
+  --we-cm-definition: var(--ui-editor-blue);
+  --we-cm-type: var(--ui-editor-blue);
+  --we-cm-property: var(--ui-editor-blue);
+  --we-cm-function: var(--success);
+  --we-cm-string: var(--ui-editor-green);
+  --we-cm-number: var(--warning);
+  --we-cm-comment: var(--text-muted);
+  --we-cm-meta: var(--warning);
+  --we-cm-invalid: var(--danger);
+}
+
+:root[data-theme="light"] .workspace-editor-pane {
+  --we-tabs-bg: color-mix(in srgb, rgb(from var(--surface-1) r g b / 0.98) 86%, var(--accent-soft) 14%);
+  --we-tab-active-bg: color-mix(in srgb, white 0.9800%, transparent);
+  --we-tab-active-border: color-mix(in srgb, var(--border) 92%, transparent);
+  --we-tab-divider: color-mix(in srgb, rgb(from var(--text) r g b / 0.34) 92%, var(--border) 8%);
+  --we-tab-text: color-mix(in srgb, var(--text) 76%, transparent);
+  --we-tab-text-active: color-mix(in srgb, var(--text) 96%, transparent);
+  --we-tab-close-color: color-mix(in srgb, var(--text) 82%, transparent);
+  --we-tab-close-hover-color: color-mix(in srgb, var(--text) 96%, transparent);
+  --we-tab-close-hover-bg: color-mix(in srgb, rgb(from var(--surface-1) r g b / 0.92) 92%, var(--accent-soft) 8%);
+  --we-chrome-bg: color-mix(in srgb, white 0.9600%, transparent);
+  --we-code-bg: color-mix(in srgb, white 0.9800%, transparent);
+  --we-code-gutter-bg: rgb(from var(--surface-1) r g b / 0.98);
+  --we-code-gutter-text: color-mix(in srgb, var(--text-muted) 94%, transparent);
+  --we-code-text: color-mix(in srgb, var(--text) 96%, transparent);
+  --we-status-bg: rgb(from var(--surface-1) r g b / 0.98);
+  --we-cm-caret: color-mix(in srgb, var(--text) 94%, transparent);
+  --we-cm-selection-bg: rgb(from var(--accent) r g b / 0.18);
+  --we-cm-active-line-bg: rgb(from var(--text) r g b / 0.04);
+  --we-cm-gutter-active-bg: rgb(from var(--text) r g b / 0.05);
+  --we-cm-panel-bg: color-mix(in srgb, white 0.9800%, transparent);
+  --we-cm-panel-border: rgb(from var(--border) r g b / 0.22);
+  --we-cm-tooltip-bg: color-mix(in srgb, white 0.9800%, transparent);
+  --we-cm-tooltip-border: rgb(from var(--border) r g b / 0.22);
+  --we-cm-search-match-bg: rgb(from var(--warning) r g b / 0.22);
+  --we-cm-search-match-border: rgb(from var(--warning) r g b / 0.42);
+  --we-cm-search-match-selected-bg: rgb(from var(--warning) r g b / 0.34);
+  --we-cm-fold-bg: rgb(from var(--surface-1) r g b / 0.96);
+  --we-cm-fold-text: rgb(from var(--text-muted) r g b / 0.88);
+  --we-cm-fold-border: rgb(from var(--border) r g b / 0.18);
+  --we-cm-bracket-match-bg: rgb(from var(--success) r g b / 0.14);
+  --we-cm-bracket-match-border: rgb(from var(--success) r g b / 0.3);
+  --we-cm-bracket-error-bg: rgb(from var(--danger) r g b / 0.14);
+  --we-cm-bracket-error-border: rgb(from var(--danger) r g b / 0.32);
+}
+
+
+

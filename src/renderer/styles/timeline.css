@@ -1,0 +1,345 @@
+/* Shared scrollbar styling: add `app-scrollbar` to any scroll container. */
+.app-scrollbar,
+.workspace-editor-code-view .cm-scroller,
+body {
+  --app-scrollbar-track: var(--ui-scrollbar-track);
+  --app-scrollbar-track-hover: var(--ui-scrollbar-track-hover);
+  --app-scrollbar-thumb: var(--ui-scrollbar-thumb);
+  --app-scrollbar-thumb-hover: var(--ui-scrollbar-thumb-hover);
+  --app-scrollbar-thumb-active: var(--ui-scrollbar-thumb-active);
+  scrollbar-gutter: stable;
+}
+
+.app-scrollbar:hover,
+.app-scrollbar:focus-within,
+.workspace-editor-code-view .cm-scroller:hover,
+.workspace-editor-code-view .cm-scroller:focus-within,
+body:hover {
+  --app-scrollbar-track: var(--ui-scrollbar-track-hover);
+  --app-scrollbar-thumb: var(--ui-scrollbar-thumb-hover);
+}
+
+html[data-tone="light"] .app-scrollbar,
+html[data-tone="light"] .workspace-editor-code-view .cm-scroller,
+html[data-tone="light"] body {
+  --app-scrollbar-track-hover: var(--ui-scrollbar-track-hover);
+  --app-scrollbar-thumb: var(--ui-scrollbar-thumb);
+  --app-scrollbar-thumb-hover: var(--ui-scrollbar-thumb-hover);
+  --app-scrollbar-thumb-active: var(--ui-scrollbar-thumb-active);
+}
+
+html[data-tone="light"] .app-scrollbar:hover,
+html[data-tone="light"] .app-scrollbar:focus-within,
+html[data-tone="light"] .workspace-editor-code-view .cm-scroller:hover,
+html[data-tone="light"] .workspace-editor-code-view .cm-scroller:focus-within,
+html[data-tone="light"] body:hover {
+  --app-scrollbar-track: var(--ui-scrollbar-track-hover);
+  --app-scrollbar-thumb: var(--ui-scrollbar-thumb-hover);
+}
+
+.app-scrollbar::-webkit-scrollbar,
+.workspace-editor-code-view .cm-scroller::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+.app-scrollbar::-webkit-scrollbar-track,
+.workspace-editor-code-view .cm-scroller::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track {
+  background: var(--app-scrollbar-track);
+  border-radius: 999px;
+}
+
+.app-scrollbar::-webkit-scrollbar-track-piece,
+.workspace-editor-code-view .cm-scroller::-webkit-scrollbar-track-piece,
+body::-webkit-scrollbar-track-piece {
+  border-radius: 999px;
+}
+
+.app-scrollbar::-webkit-scrollbar-track:hover,
+.workspace-editor-code-view .cm-scroller::-webkit-scrollbar-track:hover,
+body::-webkit-scrollbar-track:hover {
+  background: var(--app-scrollbar-track-hover);
+}
+
+.app-scrollbar::-webkit-scrollbar-thumb,
+.workspace-editor-code-view .cm-scroller::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: var(--app-scrollbar-thumb);
+  box-shadow: var(--ui-scrollbar-inset);
+}
+
+.app-scrollbar::-webkit-scrollbar-thumb:hover,
+.workspace-editor-code-view .cm-scroller::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover {
+  background-color: var(--app-scrollbar-thumb-hover);
+}
+
+.app-scrollbar::-webkit-scrollbar-thumb:active,
+.workspace-editor-code-view .cm-scroller::-webkit-scrollbar-thumb:active,
+body::-webkit-scrollbar-thumb:active {
+  background-color: var(--app-scrollbar-thumb-active);
+}
+
+.app-scrollbar::-webkit-scrollbar-corner,
+.workspace-editor-code-view .cm-scroller::-webkit-scrollbar-corner,
+body::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.app-scrollbar::-webkit-scrollbar-button,
+.workspace-editor-code-view .cm-scroller::-webkit-scrollbar-button,
+body::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+  background: transparent;
+  border: 0;
+}
+
+.timeline {
+  position: relative;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  --timeline-edge-fade-top: 0px;
+  --timeline-edge-fade-bottom: 0px;
+  overscroll-behavior: contain;
+  padding: 0 2px 12px 0;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  z-index: 1;
+}
+
+.history-replay-panel {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 34px;
+  margin: 0 0 8px;
+}
+
+.history-replay-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 28px;
+  max-width: 100%;
+  padding: 5px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--ui-replay-border);
+  background: var(--ui-replay-bg);
+}
+
+.history-replay-indicator-placeholder {
+  width: min(188px, 100%);
+  border-color: transparent;
+  background: transparent;
+  pointer-events: none;
+}
+
+.history-replay-indicator-loading {
+  border-color: var(--ui-status-info-border);
+  color: var(--ui-replay-loading-text);
+  background: var(--ui-replay-loading-bg);
+}
+
+.history-replay-indicator-error {
+  border-color: var(--border-danger);
+  color: var(--ui-replay-error-text);
+  background: var(--ui-replay-error-bg);
+}
+
+.history-replay-indicator-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.history-orbit-loader {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.history-orbit-ring {
+  position: absolute;
+  border-radius: 999px;
+}
+
+.history-orbit-ring-outer {
+  inset: 0;
+  border: 1.6px solid var(--ui-orbit-border);
+  border-top-color: var(--ui-orbit-border-strong);
+  border-right-color: var(--accent);
+  filter: drop-shadow(0 0 7px rgb(from var(--accent) r g b / 0.45));
+  animation: history-orbit-spin var(--orbit-spin-duration, 1.6s) linear infinite;
+}
+
+.history-orbit-ring-inner {
+  inset: 3px;
+  border: 1.4px solid var(--ui-orbit-border);
+  border-bottom-color: var(--accent);
+  border-left-color: var(--ui-orbit-border-strong);
+  animation: history-orbit-spin-reverse var(--orbit-spin-reverse-duration, 1.25s) linear infinite;
+}
+
+.history-orbit-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  margin-top: -2px;
+  border-radius: 999px;
+  background: var(--ui-orbit-dot-bg);
+  box-shadow:
+    0 0 0 1px rgb(from var(--bg) r g b / 0.72),
+    0 0 8px rgb(from var(--accent) r g b / 0.7);
+  animation: history-orbit-pulse var(--orbit-pulse-duration, 1.35s) ease-in-out infinite;
+}
+
+.history-replay-retry {
+  flex: 0 0 auto;
+  height: 24px;
+  padding: 0 9px;
+  border-color: var(--border-danger);
+  color: var(--fg-danger);
+  background: var(--ui-danger-action-bg);
+}
+
+.history-replay-retry:hover:not(:disabled) {
+  border-color: var(--border-danger-hover);
+  background: var(--ui-danger-action-bg-hover);
+}
+
+.history-replay-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 5px 11px;
+  border-radius: 4px;
+  border: 1px solid var(--ui-replay-border);
+  background: var(--ui-replay-bg);
+  line-height: 1.4;
+}
+
+.history-replay-panel-incompatible .history-replay-status {
+  border-color: var(--border-danger);
+  color: var(--fg-danger);
+  background: var(--ui-replay-error-bg);
+}
+
+@keyframes history-orbit-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes history-orbit-spin-reverse {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes history-orbit-pulse {
+  0%,
+  100% {
+    transform: scale(0.85);
+    opacity: 0.78;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+}
+
+@keyframes wave-text-opacity {
+  0% {
+    opacity: var(--wave-min-op, 0.25);
+  }
+  50% {
+    opacity: var(--wave-max-op, 1);
+  }
+  100% {
+    opacity: var(--wave-min-op, 0.25);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .history-orbit-ring-outer,
+  .history-orbit-ring-inner,
+  .history-orbit-core {
+    animation: none;
+  }
+}
+
+.event.simple-file-change-event .ui-collapsible-content,
+.event.simple-mcp-tool-event .ui-collapsible-content,
+.event.simple-file-change-event .ui-collapsible-content.is-open,
+.event.simple-mcp-tool-event .ui-collapsible-content.is-open {
+  transform: none;
+}
+
+.event.simple-file-change-event .ui-collapsible-content,
+.event.simple-mcp-tool-event .ui-collapsible-content {
+  will-change: grid-template-rows, opacity;
+}
+
+/* 聊天视图 */
+.chat-pane {
+  --chat-card-w: 100%;
+}
+
+.chat-context-compaction-text {
+  width: 100%;
+  max-width: min(100%, 520px);
+  margin: 0 auto;
+  text-align: center;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-size: inherit;
+  line-height: inherit;
+  color: var(--text-muted);
+}
+
+.chat-context-compaction-text.is-completed {
+  color: var(--fg-success);
+  font-weight: 500;
+}
+
+html[data-tone="light"] .chat-context-compaction-text.is-completed {
+  color: var(--fg-success);
+}
+
+.is-loading-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.is-loading-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-120%);
+  background: linear-gradient(
+    100deg,
+    transparent 25%,
+    var(--ui-shimmer-highlight) 48%,
+    transparent 72%
+  );
+  animation: shimmer-sweep 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+

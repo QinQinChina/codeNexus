@@ -1,0 +1,217 @@
+:root {
+  --bg: var(--theme-seed-bg);
+  --surface-1: var(--theme-seed-surface-1);
+  --surface-2: var(--theme-seed-surface-2);
+  --surface-3: var(--theme-seed-surface-3);
+  --surface-elevated: var(--theme-seed-elevated);
+  --text: var(--theme-seed-text);
+  --text-1: color-mix(in srgb, var(--theme-seed-text) 96%, transparent);
+  --text-2: color-mix(in srgb, var(--theme-seed-text-muted) 92%, transparent);
+  --text-muted: color-mix(in srgb, var(--theme-seed-text-muted) 90%, transparent);
+  --theme-border: rgb(from var(--theme-seed-border-source) r g b / 0.16);
+  --theme-border-strong: rgb(from var(--theme-seed-border-source) r g b / 0.24);
+  --border: var(--theme-border);
+  --accent: var(--theme-seed-accent);
+  --accent-soft: rgb(from var(--theme-seed-accent) r g b / 0.14);
+  --success: var(--theme-seed-success);
+  --warning: var(--theme-seed-warning);
+  --danger: var(--theme-seed-danger);
+  --fg-accent: color-mix(in srgb, var(--accent) 78%, var(--text) 22%);
+  --bg-accent-soft: rgb(from var(--accent) r g b / 0.1);
+  --border-accent: rgb(from var(--accent) r g b / 0.28);
+  --border-accent-hover: rgb(from var(--accent) r g b / 0.42);
+  --fg-success: color-mix(in srgb, var(--success) 78%, var(--text) 22%);
+  --bg-success-soft: rgb(from var(--success) r g b / 0.1);
+  --border-success: rgb(from var(--success) r g b / 0.3);
+  --border-success-hover: rgb(from var(--success) r g b / 0.44);
+  --fg-warning: color-mix(in srgb, var(--warning) 78%, var(--text) 22%);
+  --bg-warning-soft: rgb(from var(--warning) r g b / 0.1);
+  --border-warning: rgb(from var(--warning) r g b / 0.3);
+  --border-warning-hover: rgb(from var(--warning) r g b / 0.44);
+  --fg-danger: color-mix(in srgb, var(--danger) 78%, var(--text) 22%);
+  --bg-danger-soft: rgb(from var(--danger) r g b / 0.1);
+  --border-danger: rgb(from var(--danger) r g b / 0.3);
+  --border-danger-hover: rgb(from var(--danger) r g b / 0.44);
+  --shadow-soft: 0 12px 30px rgb(from var(--theme-seed-shadow-source) r g b / 0.14);
+  --focus-ring: rgb(from var(--accent) r g b / 0.28);
+  --light-shell-bg: var(--theme-seed-bg);
+  --light-panel-bg: var(--theme-seed-surface-1);
+  --light-elevated-bg: var(--theme-seed-elevated);
+  --light-subtle-bg: var(--theme-seed-surface-2);
+  --light-text: var(--theme-seed-text);
+  --light-text-muted: var(--theme-seed-text-muted);
+  --light-border: var(--border);
+  --light-border-strong: var(--theme-border-strong);
+  --light-shadow-sm: var(--shadow-soft);
+  --light-shadow-md: 0 18px 42px rgb(from var(--theme-seed-shadow-source) r g b / 0.16);
+  --button-primary-text: var(--theme-seed-accent-contrast);
+
+  /* Shared semantic tokens. */
+  --accent-cool: var(--accent);
+  --accent-warm: var(--warning);
+  --status-success: var(--success);
+  --status-warn: var(--warning);
+  --status-danger: var(--danger);
+  --status-info: color-mix(in srgb, var(--accent) 78%, white 22%);
+
+  --bubble-max-w: min(720px, 78%);
+  --bubble-radius: var(--radius-lg);
+
+  /* === Semantic UI surfaces (avoid hard-coded component colors) === */
+  --ui-well-bg: color-mix(in srgb, var(--surface-1) 18%, transparent);
+  --ui-well-bg-strong: color-mix(in srgb, var(--surface-1) 28%, transparent);
+  --ui-well-border: color-mix(in srgb, var(--border) 88%, transparent);
+  --ui-well-border-hover: color-mix(in srgb, var(--border) 62%, var(--accent) 38%);
+  --ui-well-focus-outline: color-mix(in srgb, var(--focus-ring, var(--accent-soft)) 82%, transparent);
+
+  --ui-code-bg: color-mix(in srgb, var(--bg) 88%, transparent);
+  --ui-code-border: color-mix(in srgb, var(--surface-2) 88%, white 12%);
+  --ui-code-text: color-mix(in srgb, var(--text) 92%, white 8%);
+  --ui-code-text-muted: color-mix(in srgb, var(--text-muted) 92%, transparent);
+
+  --ui-inline-code-bg: color-mix(in srgb, var(--ui-code-bg) 72%, var(--surface-1) 28%);
+  --ui-inline-code-border: color-mix(in srgb, var(--ui-code-border) 84%, transparent);
+
+  --ui-link: color-mix(in srgb, var(--accent) 78%, white 22%);
+  --ui-link-hover: color-mix(in srgb, var(--accent) 62%, white 38%);
+
+  --ui-cta-border: var(--border-accent, var(--ui-well-border));
+  --ui-cta-border-hover: var(--border-accent-hover, var(--ui-cta-border));
+  --ui-cta-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-1) 70%, var(--accent) 30%),
+    color-mix(in srgb, var(--surface-1) 82%, var(--accent) 18%)
+  );
+  --ui-cta-bg-hover: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-1) 62%, var(--accent) 38%),
+    color-mix(in srgb, var(--surface-1) 78%, var(--accent) 22%)
+  );
+  --ui-cta-text: var(--fg-accent, var(--text));
+
+  --chat-pane-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 72%, transparent),
+    color-mix(in srgb, var(--surface-1) 94%, transparent)
+  );
+
+  --ui-timeline-card-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 66%, transparent),
+    color-mix(in srgb, var(--surface-1) 88%, transparent)
+  );
+  --ui-timeline-card-shadow: none;
+
+  --ui-overlay-backdrop: rgb(from var(--bg) r g b / 0.18);
+  --ui-activity-dot-bg: rgb(from var(--border) r g b / 0.55);
+  --ui-activity-dot-shadow: 0 0 0 2px rgb(from var(--bg) r g b / 0.4);
+
+  --ui-shadow-sm: 0 2px 8px rgb(from var(--bg) r g b / 0.18);
+  --ui-shadow-md: 0 3px 10px rgb(from var(--bg) r g b / 0.18);
+  --ui-shadow-fab: 0 12px 28px rgb(from var(--bg) r g b / 0.22);
+  --ui-shadow-source: var(--bg);
+
+  --ui-shimmer-highlight: color-mix(in srgb, white 34%, transparent);
+
+  --ui-scrollbar-track: transparent;
+  --ui-scrollbar-track-hover: rgb(from var(--border) r g b / 0.08);
+  --ui-scrollbar-thumb: rgb(from var(--border) r g b / 0.28);
+  --ui-scrollbar-thumb-hover: rgb(from var(--border) r g b / 0.44);
+  --ui-scrollbar-thumb-active: rgb(from var(--accent) r g b / 0.72);
+  --ui-scrollbar-inset: inset 0 0 0 1px rgb(from var(--bg) r g b / 0.08);
+
+  --ui-status-info: color-mix(in srgb, var(--accent) 84%, white 16%);
+  --ui-status-info-soft: rgb(from var(--accent) r g b / 0.12);
+  --ui-status-info-border: rgb(from var(--accent) r g b / 0.45);
+  --ui-status-neutral-soft: color-mix(in srgb, var(--surface-1) 72%, transparent);
+  --ui-status-neutral-border: color-mix(in srgb, var(--border) 92%, transparent);
+
+  --ui-replay-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 68%, transparent),
+    color-mix(in srgb, var(--surface-1) 82%, transparent)
+  );
+  --ui-replay-border: color-mix(in srgb, var(--border) 90%, transparent);
+  --ui-replay-loading-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 52%, var(--accent) 18%),
+    color-mix(in srgb, var(--surface-1) 78%, var(--accent) 10%)
+  );
+  --ui-replay-loading-text: var(--ui-status-info);
+  --ui-replay-error-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 58%, var(--danger) 20%),
+    color-mix(in srgb, var(--surface-1) 82%, var(--danger) 12%)
+  );
+  --ui-replay-error-text: var(--fg-danger, var(--danger));
+
+  --ui-orbit-border: rgb(from var(--accent) r g b / 0.24);
+  --ui-orbit-border-strong: color-mix(in srgb, var(--accent) 78%, white 22%);
+  --ui-orbit-dot-bg: radial-gradient(circle at 35% 35%, white 0%, color-mix(in srgb, var(--accent) 50%, white 50%) 56%, var(--accent) 100%);
+  --ui-orbit-dot-shadow: 0 0 0 1px rgb(from var(--bg) r g b / 0.72), 0 0 8px rgb(from var(--accent) r g b / 0.7);
+
+  --ui-spinner-track: rgb(from var(--border) r g b / 0.45);
+  --ui-spinner-track-muted: rgb(from var(--border) r g b / 0.35);
+  --ui-spinner-head-muted: rgb(from var(--text-muted) r g b / 0.85);
+
+  --ui-history-row-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 86%, transparent),
+    color-mix(in srgb, var(--surface-1) 92%, transparent)
+  );
+  --ui-history-row-border: color-mix(in srgb, var(--border) 90%, transparent);
+  --ui-history-active-shadow: inset 0 0 0 1px rgb(from var(--accent) r g b / 0.28);
+  --ui-danger-action-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 64%, var(--danger) 18%),
+    color-mix(in srgb, var(--surface-1) 88%, var(--danger) 10%)
+  );
+  --ui-danger-action-bg-hover: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 58%, var(--danger) 24%),
+    color-mix(in srgb, var(--surface-1) 86%, var(--danger) 12%)
+  );
+
+  --ui-editor-blue: color-mix(in srgb, var(--accent) 84%, white 16%);
+  --ui-editor-yellow: color-mix(in srgb, var(--warning) 82%, white 18%);
+  --ui-editor-green: color-mix(in srgb, var(--success) 82%, white 18%);
+  --ui-editor-purple: color-mix(in srgb, var(--accent) 58%, var(--danger) 42%);
+  --ui-editor-red: color-mix(in srgb, var(--danger) 88%, white 12%);
+  --ui-art-a: color-mix(in srgb, var(--accent) 44%, var(--success) 56%);
+  --ui-art-b: color-mix(in srgb, var(--accent) 48%, var(--danger) 52%);
+}
+
+:root[data-tone="light"] {
+  --ui-well-bg: color-mix(in srgb, var(--surface-1) 55%, transparent);
+  --ui-well-bg-strong: color-mix(in srgb, var(--surface-1) 74%, transparent);
+
+  --ui-code-bg: color-mix(in srgb, var(--surface-1) 55%, transparent);
+  --ui-code-border: var(--border);
+
+  --ui-link: color-mix(in srgb, var(--accent) 90%, black 10%);
+  --ui-link-hover: color-mix(in srgb, var(--accent) 78%, black 22%);
+
+  --ui-timeline-card-shadow: var(--shadow-soft);
+
+  --ui-overlay-backdrop: rgb(from var(--text) r g b / 0.18);
+  --ui-activity-dot-bg: rgb(from var(--border) r g b / 0.28);
+  --ui-activity-dot-shadow: 0 0 0 2px rgb(from var(--surface-1) r g b / 0.7);
+
+  --ui-shadow-sm: 0 2px 8px rgb(from var(--text) r g b / 0.12);
+  --ui-shadow-md: 0 3px 10px rgb(from var(--text) r g b / 0.12);
+  --ui-shadow-fab: 0 12px 28px rgb(from var(--text) r g b / 0.1);
+  --ui-shadow-source: var(--text);
+
+  --ui-scrollbar-track-hover: rgb(from var(--text) r g b / 0.04);
+  --ui-scrollbar-thumb: rgb(from var(--text) r g b / 0.18);
+  --ui-scrollbar-thumb-hover: rgb(from var(--text) r g b / 0.34);
+  --ui-scrollbar-thumb-active: rgb(from var(--accent) r g b / 0.72);
+  --ui-scrollbar-inset: inset 0 0 0 1px rgb(from var(--text) r g b / 0.08);
+
+  --ui-status-info: color-mix(in srgb, var(--accent) 86%, black 14%);
+  --ui-replay-loading-text: var(--ui-status-info);
+  --ui-orbit-dot-shadow: 0 0 0 1px rgb(from var(--text) r g b / 0.1), 0 0 8px rgb(from var(--accent) r g b / 0.45);
+  --ui-spinner-track: rgb(from var(--text) r g b / 0.18);
+  --ui-spinner-track-muted: rgb(from var(--text) r g b / 0.18);
+  --ui-spinner-head-muted: rgb(from var(--text) r g b / 0.55);
+}

@@ -1,0 +1,502 @@
+<template>
+  <div class="lsb-pane-content">
+    <div class="lsb-pane-head">
+      <div class="lsb-pane-head-row">
+        <div class="lsb-pane-title">线程</div>
+        <div class="lsb-head-badges">
+          <span class="lsb-head-badge is-accent mono" :title="threadsCountTitle">{{ threadsCountText }}</span>
+          <span
+            v-if="runningThreadsCount > 0"
+            class="lsb-head-badge is-success mono"
+            :title="`进行中的线程：${runningThreadsCount}`"
+          >
+            运行 {{ runningThreadsCount }}
+          </span>
+        </div>
+      </div>
+
+      <div class="lsb-pane-toolbar lsb-thread-toolbar">
+        <button
+          id="btn-add-thread"
+          class="lsb-nav-row lsb-thread-create-btn"
+          type="button"
+          @click="runtime.createThread"
+        >
+          <SquarePen class="lsb-nav-icon" aria-hidden="true" />
+          <span class="lsb-nav-text">新建线程</span>
+        </button>
+        <button
+          id="btn-refresh-history"
+          class="lsb-icon-btn lsb-thread-refresh-btn"
+          type="button"
+          title="从磁盘刷新历史"
+          aria-label="刷新"
+          :disabled="isRefreshingHistory"
+          @click="onRefreshHistoryClick"
+        >
+          <span class="inline-flex" :class="{ spin: isRefreshingHistory }">
+            <RefreshCw aria-hidden="true" />
+          </span>
+        </button>
+      </div>
+
+      <div class="lsb-pane-head-row">
+        <div class="lsb-search" role="search">
+          <Search class="lsb-search-icon" aria-hidden="true" />
+          <input
+            v-model="threadFilterText"
+            class="lsb-search-input mono"
+            type="text"
+            placeholder="搜索线程…"
+            aria-label="搜索线程"
+            @keydown.escape.prevent="threadFilterText = ''"
+          />
+          <button
+            v-if="threadFilterText"
+            class="lsb-search-clear"
+            type="button"
+            title="清空搜索"
+            aria-label="清空搜索"
+            @click="threadFilterText = ''"
+          >
+            <X aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="thread-history" class="lsb-scroll app-scrollbar">
+      <div class="lsb-thread-groups" :class="{ dim: threadStore.threadHistory.length === 0 }">
+        <template v-if="threadStore.threadHistory.length === 0">
+          <div class="lsb-empty lsb-thread-empty mono">
+            <div class="dim">暂无线程</div>
+            <button class="lsb-nav-row lsb-nav-row--workspace" type="button" @click="runtime.createThread">
+              <span class="lsb-nav-text">新建线程</span>
+            </button>
+          </div>
+        </template>
+        <template v-else-if="visibleThreadGroups.length === 0">
+          <div class="lsb-empty lsb-thread-empty mono">
+            <div class="dim">没有匹配的线程</div>
+            <button class="lsb-nav-row lsb-nav-row--workspace" type="button" @click="threadFilterText = ''">
+              <span class="lsb-nav-text">清空搜索</span>
+            </button>
+          </div>
+        </template>
+        <template v-else>
+          <section v-for="group in visibleThreadGroups" :key="group.key" class="lsb-section">
+            <Collapsible
+              class="lsb-section-collapsible"
+              :open="threadFilterActive ? true : isThreadGroupExpanded(group.key)"
+              @update:open="(next) => onThreadGroupOpenChangeMaybe(group.key, next)"
+            >
+              <template #trigger="{ open, triggerProps }">
+                <div role="heading" aria-level="3">
+                  <button
+                    class="lsb-group-head lsb-group-head-toggle"
+                    type="button"
+                    v-bind="triggerProps"
+                    :title="threadGroupToggleTitle(group, open)"
+                  >
+                    <span class="lsb-group-head-left">
+                      <Folder class="lsb-group-icon" aria-hidden="true" />
+                      <span class="lsb-group-title" :title="group.cwdFull">{{ group.title }}</span>
+                      <span v-if="threadFilterActive" class="lsb-head-badge mono" :title="`匹配 ${group.rows.length} 条`">{{
+                        group.rows.length
+                      }}</span>
+                    </span>
+                    <ChevronDown class="lsb-chevron" :class="{ open }" aria-hidden="true" />
+                  </button>
+                </div>
+              </template>
+
+              <div class="lsb-group-body">
+                <ThreadRow
+                  v-for="row in group.rows"
+                  :key="`row:${row.item.id}`"
+                  :row="row"
+                  :active-thread-id="runtimeStore.currentThreadId"
+                  :is-invalid-workspace-item="isInvalidWorkspaceItem"
+                  :is-pending-thread-id="isPendingThreadId"
+                  :should-show-user-input-badge="shouldShowUserInputBadge"
+                  :should-show-thread-attention="shouldShowThreadAttention"
+                  :running-thread-ids="threadStore.runningThreadIds"
+                  :recently-completed-thread-ids="threadStore.recentlyCompletedThreadIds"
+                  :thread-aria-label="threadAriaLabel"
+                  :thread-item-hover-title="threadItemHoverTitle"
+                  :thread-status-title="threadStatusTitle"
+                  :thread-row-depth-style="threadRowDepthStyle"
+                  :format-relative-time="formatRelativeTime"
+                  @open-thread="onThreadItemClick"
+                  @clear-thread-attention="onClearThreadAttention"
+                  @rename-thread="onRenameThread"
+                  @delete-thread="runtime.deleteHistoryThread"
+                />
+              </div>
+            </Collapsible>
+          </section>
+        </template>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { ChevronDown, Folder, RefreshCw, Search, SquarePen, X } from "lucide-vue-next";
+import type { ThreadHistoryItem } from "../../../domain/types";
+import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
+import { codexDesktop } from "../../../api/codexDesktopClient";
+import { useAppShellStore } from "../../../stores/appShell.store";
+import { useRuntimeStore } from "../../../stores/runtime.store";
+import { useThreadStore } from "../../../stores/thread.store";
+import { useUserInputStore } from "../../../stores/userInput.store";
+import { normalizeThreadTitleOverride } from "../../../features/history/threadTitle";
+import { isPendingThreadId } from "../../../shared/threadCreateDebug";
+import Collapsible from "../../ui/Collapsible.vue";
+import ThreadRow from "./ThreadRow.vue";
+import { showToast } from "../../../ui/toast";
+
+type ThreadListItem = Pick<
+  ThreadHistoryItem,
+  | "id"
+  | "title"
+  | "meta"
+  | "updatedAt"
+  | "cwd"
+  | "unpersisted"
+  | "forkedFromId"
+  | "agentNickname"
+  | "agentRole"
+  | "agentPath"
+>;
+type ThreadRowModel = {
+  item: ThreadListItem;
+  depth: number;
+};
+type ThreadGroup = { key: string; title: string; cwdFull: string; updatedAt: number; rows: ThreadRowModel[] };
+
+const runtime = getRuntimeOrchestrator();
+const appShellStore = useAppShellStore();
+const runtimeStore = useRuntimeStore();
+const threadStore = useThreadStore();
+const userInputStore = useUserInputStore();
+
+const isRefreshingHistory = ref(false);
+const nowMs = ref(Date.now());
+const threadFilterText = ref("");
+let intervalId: number | null = null;
+
+const onRefreshHistoryClick = async () => {
+  if (isRefreshingHistory.value) return;
+  isRefreshingHistory.value = true;
+  try {
+    await runtime.refreshHistory(true);
+  } finally {
+    isRefreshingHistory.value = false;
+  }
+};
+
+function normalizeFsPath(value: string): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  let s = raw.replace(/\//g, "\\");
+  while (s.endsWith("\\") && s.length > 3) s = s.slice(0, -1);
+  return s.toLowerCase();
+}
+
+function normalizeThreadId(value: unknown): string {
+  return String(value ?? "").trim();
+}
+
+function toBasename(pathValue: string): string {
+  const normalized = String(pathValue ?? "")
+    .trim()
+    .replace(/\//g, "\\")
+    .replace(/\\+$/, "");
+  if (!normalized) return "";
+  const parts = normalized.split("\\").filter(Boolean);
+  return parts.length > 0 ? String(parts[parts.length - 1] ?? "").trim() : normalized;
+}
+
+const workspaceTitleCollator =
+  typeof Intl !== "undefined" && typeof Intl.Collator === "function"
+    ? new Intl.Collator(["zh-Hans-u-co-pinyin", "zh-CN-u-co-pinyin", "zh-CN", "en"], {
+        usage: "sort",
+        sensitivity: "base",
+        numeric: true,
+        ignorePunctuation: true,
+      })
+    : null;
+const compareWorkspaceTitle = (a: string, b: string) =>
+  workspaceTitleCollator
+    ? workspaceTitleCollator.compare(String(a ?? "").trim(), String(b ?? "").trim())
+    : String(a ?? "")
+        .trim()
+        .localeCompare(String(b ?? "").trim(), "zh-CN", { sensitivity: "base", numeric: true });
+const sortByUpdatedAtDesc = (a: ThreadListItem, b: ThreadListItem) =>
+  a.updatedAt !== b.updatedAt ? b.updatedAt - a.updatedAt : a.title.localeCompare(b.title);
+
+const threadHistoryById = computed(() => {
+  const map = new Map<string, ThreadListItem>();
+  for (const item of threadStore.threadHistory) {
+    const id = normalizeThreadId(item.id);
+    if (id) map.set(id, item);
+  }
+  return map;
+});
+
+const threadGroups = computed<ThreadGroup[]>(() => {
+  const groups = new Map<
+    string,
+    { key: string; title: string; cwdFull: string; updatedAt: number; items: ThreadListItem[] }
+  >();
+  for (const sourceItem of threadStore.threadHistory) {
+    const item: ThreadListItem = {
+      id: String(sourceItem.id ?? ""),
+      title: threadStore.displayThreadTitle(sourceItem.id, sourceItem.title),
+      meta: String(sourceItem.meta ?? ""),
+      updatedAt: Number(sourceItem.updatedAt ?? 0),
+      cwd: sourceItem.cwd,
+      unpersisted: Boolean(sourceItem.unpersisted),
+      forkedFromId: sourceItem.forkedFromId,
+      agentNickname: sourceItem.agentNickname,
+      agentRole: sourceItem.agentRole,
+      agentPath: sourceItem.agentPath,
+    };
+    const cwd = String(item.cwd ?? "").trim();
+    const key = cwd ? normalizeFsPath(cwd) : "__no_workspace__";
+    const title = cwd ? toBasename(cwd) : "No workspace";
+    const existing = groups.get(key);
+    if (existing) {
+      existing.updatedAt = Math.max(existing.updatedAt, item.updatedAt);
+      existing.items.push(item);
+      continue;
+    }
+    groups.set(key, { key, title, cwdFull: cwd, updatedAt: item.updatedAt, items: [item] });
+  }
+  const out: ThreadGroup[] = [];
+  for (const group of groups.values()) {
+    const items = [...group.items].sort(sortByUpdatedAtDesc);
+    const rows: ThreadRowModel[] = items.map((item) => ({ item, depth: 0 }));
+    out.push({ key: group.key, title: group.title, cwdFull: group.cwdFull, updatedAt: group.updatedAt, rows });
+  }
+  out.sort((a, b) => {
+    if (a.key === "__no_workspace__" && b.key !== "__no_workspace__") return 1;
+    if (b.key === "__no_workspace__" && a.key !== "__no_workspace__") return -1;
+    const byTitle = compareWorkspaceTitle(a.title, b.title);
+    return byTitle !== 0 ? byTitle : compareWorkspaceTitle(a.cwdFull || a.key, b.cwdFull || b.key);
+  });
+  return out;
+});
+
+const threadFilterActive = computed(() => Boolean(String(threadFilterText.value ?? "").trim()));
+
+function isThreadMatch(item: ThreadListItem, query: string): boolean {
+  const q = query.toLowerCase();
+  const title = String(item.title ?? "").toLowerCase();
+  const meta = String(item.meta ?? "").toLowerCase();
+  const id = String(item.id ?? "").toLowerCase();
+  const agentNickname = String(item.agentNickname ?? "").toLowerCase();
+  const agentRole = String(item.agentRole ?? "").toLowerCase();
+  const agentPath = String(item.agentPath ?? "").toLowerCase();
+  return (
+    title.includes(q) ||
+    meta.includes(q) ||
+    id.includes(q) ||
+    agentNickname.includes(q) ||
+    agentRole.includes(q) ||
+    agentPath.includes(q)
+  );
+}
+
+const visibleThreadGroups = computed<ThreadGroup[]>(() => {
+  const q = String(threadFilterText.value ?? "").trim();
+  if (!q) return threadGroups.value;
+  const qLower = q.toLowerCase();
+  const out: ThreadGroup[] = [];
+  for (const group of threadGroups.value) {
+    const groupHit = String(group.title ?? "").toLowerCase().includes(qLower) || String(group.cwdFull ?? "").toLowerCase().includes(qLower);
+    if (groupHit) {
+      out.push(group);
+      continue;
+    }
+    const rows = group.rows.filter((row) => isThreadMatch(row.item, q));
+    if (rows.length === 0) continue;
+    out.push({ ...group, rows });
+  }
+  return out;
+});
+
+const runningThreadsCount = computed(() => threadStore.runningThreadIds.size);
+const threadsCountText = computed(() => {
+  const total = threadStore.threadHistory.length;
+  if (!threadFilterActive.value) return `总计 ${total}`;
+  const matched = visibleThreadGroups.value.reduce((acc, g) => acc + g.rows.length, 0);
+  return `匹配 ${matched} / ${total}`;
+});
+const threadsCountTitle = computed(() => {
+  const total = threadStore.threadHistory.length;
+  if (!threadFilterActive.value) return `线程总数：${total}`;
+  const matched = visibleThreadGroups.value.reduce((acc, g) => acc + g.rows.length, 0);
+  return `匹配线程：${matched} / ${total}`;
+});
+
+const visibleThreadGroupKeys = computed(() => {
+  return new Set(threadGroups.value.map((group) => String(group.key ?? "").trim()).filter(Boolean));
+});
+
+const currentThreadGroupKey = computed(() => {
+  const currentId = normalizeThreadId(runtimeStore.currentThreadId);
+  if (!currentId) return "";
+
+  const currentThread = threadHistoryById.value.get(currentId);
+  if (currentThread) {
+    const cwd = String(currentThread.cwd ?? "").trim();
+    return cwd ? normalizeFsPath(cwd) : "__no_workspace__";
+  }
+
+  const fallbackWorkspace = String(threadStore.currentWorkspace ?? runtimeStore.workspacePath ?? "").trim();
+  return fallbackWorkspace ? normalizeFsPath(fallbackWorkspace) : "__no_workspace__";
+});
+
+watch(
+  [currentThreadGroupKey, visibleThreadGroupKeys],
+  ([groupKey, visibleKeys]) => {
+    if (!groupKey || !visibleKeys.has(groupKey)) return;
+    appShellStore.ensureThreadWorkspaceGroupExpanded(groupKey);
+  },
+  { immediate: true }
+);
+
+const isThreadGroupExpanded = (groupKeyValue: string) => !appShellStore.isThreadWorkspaceGroupCollapsed(groupKeyValue);
+const onThreadGroupOpenChange = (groupKeyValue: string, open: boolean) =>
+  appShellStore.setThreadWorkspaceGroupCollapsed(groupKeyValue, !open);
+const onThreadGroupOpenChangeMaybe = (groupKeyValue: string, open: boolean) => {
+  if (threadFilterActive.value) return;
+  onThreadGroupOpenChange(groupKeyValue, open);
+};
+const threadGroupToggleTitle = (group: ThreadGroup, open: boolean) =>
+  [group.cwdFull || "未选择工作区", open ? "点击折叠该工作区线程" : "点击展开该工作区线程"].filter(Boolean).join("\n");
+
+function extractInvalidWorkspacePathFromError(errorText: string): string {
+  const text = String(errorText ?? "");
+  for (const re of [
+    /工作区目录不存在：([^\r\n。]+)(?:。|$)/,
+    /工作区路径不是目录：([^\r\n。]+)(?:。|$)/,
+    /工作区目录不可访问：([^\r\n。（]+)(?:（|。|$)/,
+  ]) {
+    const candidate = String(text.match(re)?.[1] ?? "").trim();
+    if (candidate) return candidate;
+  }
+  return "";
+}
+const invalidWorkspacePath = computed(() =>
+  appShellStore.serverConnState !== "failed" ? "" : extractInvalidWorkspacePathFromError(appShellStore.serverError)
+);
+const isInvalidWorkspaceItem = (item: { cwd?: string }) => {
+  const bad = normalizeFsPath(invalidWorkspacePath.value);
+  const cwd = normalizeFsPath(String(item?.cwd ?? ""));
+  return Boolean(bad && cwd && cwd === bad);
+};
+const shouldShowUserInputBadge = (threadIdValue: string) =>
+  userInputStore.queueSizeForThread(String(threadIdValue ?? "").trim()) > 0;
+const threadItemHoverTitle = (row: ThreadRowModel) => {
+  const title = threadStore.displayThreadTitle(row.item.id, row.item.title);
+  const meta = String(row.item.meta ?? "").trim();
+  const ts = Number(row.item.updatedAt ?? 0);
+  const timeText = Number.isFinite(ts) && ts > 0 ? new Date(ts).toLocaleString() : "";
+  const agentNicknameText = String(row.item.agentNickname ?? "").trim();
+  const agentRoleText = String(row.item.agentRole ?? "").trim();
+  const agentPathText = String(row.item.agentPath ?? "").trim();
+  const forkedFromId = normalizeThreadId(row.item.forkedFromId);
+  const forkedFromTitle = forkedFromId
+    ? String(threadHistoryById.value.get(forkedFromId)?.title ?? forkedFromId).trim()
+    : "";
+  return [
+    title,
+    meta,
+    timeText,
+    agentNicknameText ? `Agent：${agentNicknameText}` : "",
+    agentRoleText ? `角色：${agentRoleText}` : "",
+    agentPathText ? `路径：${agentPathText}` : "",
+    forkedFromId ? `Fork 自：${forkedFromTitle}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+};
+const threadAriaLabel = (row: ThreadRowModel) => `打开线程：${threadStore.displayThreadTitle(row.item.id, row.item.title)}`;
+const shouldShowThreadAttention = (threadId: string) => {
+  const tid = String(threadId ?? "").trim();
+  return Boolean(tid && tid !== runtimeStore.currentThreadId && threadStore.attentionThreadIds.has(tid));
+};
+const onClearThreadAttention = (threadId: string) => threadStore.clearThreadAttention(threadId);
+const onRenameThread = async (threadIdValue: string, titleValue: string) => {
+  const threadId = normalizeThreadId(threadIdValue);
+  if (!threadId) return;
+
+  const normalized = normalizeThreadTitleOverride(titleValue);
+  const previous = threadStore.threadTitleOverridesByThreadId.get(threadId) ?? "";
+
+  if (normalized) threadStore.setThreadTitleOverride(threadId, normalized);
+  else threadStore.clearThreadTitleOverride(threadId);
+
+  try {
+    if (normalized) {
+      await codexDesktop.history.setThreadTitleOverride({ threadId, title: normalized });
+    } else {
+      await codexDesktop.history.clearThreadTitleOverride({ threadId });
+    }
+  } catch (error) {
+    if (previous) threadStore.setThreadTitleOverride(threadId, previous);
+    else threadStore.clearThreadTitleOverride(threadId);
+    showToast({
+      kind: "error",
+      title: "重命名失败",
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+};
+const threadStatusTitle = (threadId: string) => {
+  const tid = String(threadId ?? "").trim();
+  return !tid
+    ? ""
+    : threadStore.runningThreadIds.has(tid)
+      ? "进行中"
+      : shouldShowThreadAttention(tid)
+        ? "有新完成（点击清除）"
+        : threadStore.recentlyCompletedThreadIds.has(tid)
+          ? "刚完成"
+          : "";
+};
+const threadRowDepthStyle = (depth: number) =>
+  ({ "--lsb-thread-depth": String(Math.max(0, Math.round(depth))) }) as Record<string, string>;
+const onThreadItemClick = (threadId: string) => {
+  const tid = String(threadId ?? "").trim();
+  if (!tid) return;
+  threadStore.clearThreadAttention(tid);
+  if (tid === runtimeStore.currentThreadId) return;
+  runtime.switchThread(tid);
+};
+
+onMounted(() => {
+  intervalId = window.setInterval(() => {
+    nowMs.value = Date.now();
+  }, 30_000);
+});
+onBeforeUnmount(() => {
+  if (intervalId != null) window.clearInterval(intervalId);
+});
+
+function formatRelativeTime(updatedAt: number): string {
+  const ts = Number(updatedAt);
+  if (!Number.isFinite(ts) || ts <= 0) return "";
+  const deltaSec = Math.floor(Math.max(0, nowMs.value - ts) / 1000);
+  if (deltaSec < 90) return "Now";
+  const deltaMin = Math.floor(deltaSec / 60);
+  if (deltaMin < 60) return `${deltaMin}m`;
+  const deltaH = Math.floor(deltaMin / 60);
+  if (deltaH < 24) return `${deltaH}h`;
+  return `${Math.floor(deltaH / 24)}d`;
+}
+</script>

@@ -1,0 +1,472 @@
+.context-controls {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+#global-config-status,
+.global-config-status {
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.global-config-topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.global-config-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.global-config-status {
+  flex: 1 1 auto;
+  margin-top: 0;
+  padding: 6px 10px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--surface-3) 40%, transparent);
+}
+
+.global-config-status--inline {
+  flex: 0 1 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  max-width: min(50vw, 240px);
+  margin-top: 0;
+  padding: 0 10px;
+  border-radius: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  backdrop-filter: blur(8px);
+}
+
+.global-config-status--inline .global-config-status-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.global-config-drawer-overlay {
+  position: fixed;
+  inset: calc(var(--topbar-h) + var(--window-edge-pad)) var(--window-edge-pad) var(--window-edge-pad)
+    var(--window-edge-pad);
+  z-index: 1180;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 10px;
+}
+
+.global-config-drawer-overlay.is-settings {
+  position: static;
+  inset: auto;
+  z-index: auto;
+  display: block;
+  padding: 0;
+}
+
+.global-config-drawer-backdrop {
+  position: absolute;
+  inset: -100px;
+  background: color-mix(in srgb, var(--surface-1) 40%, transparent);
+  backdrop-filter: blur(12px);
+  will-change: opacity;
+}
+
+.global-config-drawer-panel {
+  position: relative;
+  width: clamp(380px, 35vw, 480px);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  background: color-mix(in srgb, var(--surface-1) 68%, transparent);
+  box-shadow:
+    0 32px 80px rgb(from var(--ui-shadow-source) r g b / 0.4),
+    inset 0 1px 0 color-mix(in srgb, white 5%, transparent);
+  backdrop-filter: blur(32px);
+}
+
+.global-config-drawer-overlay.is-settings .global-config-drawer-panel {
+  width: 100%;
+  max-width: 860px;
+  height: auto;
+  min-height: 70vh;
+  margin: 10px auto;
+  border-radius: 5px;
+  box-shadow: 0 18px 50px rgb(from var(--ui-shadow-source) r g b / 0.2);
+}
+
+.global-config-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
+  background: color-mix(in srgb, var(--surface-2) 30%, transparent);
+}
+
+.panel-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.global-config-drawer-body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.global-config-drawer-body.is-settings {
+  overflow: visible;
+  padding: 10px;
+}
+
+/* Animations */
+.global-config-drawer-enter-active,
+.global-config-drawer-leave-active {
+  transition: opacity 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.global-config-drawer-leave-to {
+  opacity: 0;
+}
+
+.global-config-drawer-enter-active .global-config-drawer-panel,
+.global-config-drawer-leave-active .global-config-drawer-panel {
+  transition:
+    transform 300ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 200ms ease;
+  will-change: transform, opacity;
+}
+
+.global-config-drawer-enter-from .global-config-drawer-panel,
+.global-config-drawer-leave-to .global-config-drawer-panel {
+  transform: translateX(30px) scale(0.98);
+  opacity: 0;
+}
+
+.global-config-status-refresh-fx {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 0;
+  margin-left: 0;
+  opacity: 0;
+  overflow: hidden;
+  clip-path: inset(0 0 0 100%);
+  animation: global-config-status-refresh-fx 1600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.global-config-status-refresh-icon {
+  width: 13px;
+  height: 13px;
+  color: currentColor;
+  animation: global-config-status-refresh-spin 900ms linear;
+}
+
+@keyframes global-config-status-refresh-fx {
+  0%,
+  100% {
+    width: 0;
+    margin-left: 0;
+    opacity: 0;
+    clip-path: inset(0 0 0 100%);
+    transform: translateX(3px);
+  }
+  22%,
+  72% {
+    width: 14px;
+    margin-left: 6px;
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+    transform: translateX(0);
+  }
+}
+
+@keyframes global-config-status-refresh-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(270deg);
+  }
+}
+
+/* Status variants */
+.global-config-status.is-neutral {
+  border-color: color-mix(in srgb, var(--border) 40%, transparent);
+  color: var(--text-2);
+}
+.global-config-status.is-info {
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: color-mix(in srgb, var(--accent) 90%, white);
+}
+.global-config-status.is-success {
+  border-color: color-mix(in srgb, var(--success) 30%, transparent);
+  background: color-mix(in srgb, var(--success) 15%, transparent);
+  color: color-mix(in srgb, var(--success) 90%, white);
+}
+.global-config-status.is-warning {
+  border-color: color-mix(in srgb, var(--warning) 30%, transparent);
+  background: color-mix(in srgb, var(--warning) 15%, transparent);
+  color: color-mix(in srgb, var(--warning) 90%, white);
+}
+.global-config-status.is-error {
+  border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
+  color: color-mix(in srgb, var(--danger) 90%, white);
+}
+
+.global-config-dirty-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.global-config-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.global-config-section {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  background: color-mix(in srgb, var(--surface-2) 35%, transparent);
+}
+
+.global-row {
+  display: grid;
+  grid-template-columns: 86px 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+.global-row.is-dirty .context-label,
+.global-toggle-row.is-dirty .global-toggle-title {
+  color: var(--text-1);
+  font-weight: 500;
+}
+
+.global-row.is-dirty .context-input,
+.global-row.is-dirty .service-tier-segment {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.global-row-checkbox,
+.global-row-service-tier {
+  grid-template-columns: 86px auto;
+}
+
+.context-label {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.service-tier-field {
+  gap: 8px;
+}
+
+.service-tier-segment {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  height: 34px;
+  padding: 3px;
+  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  background: color-mix(in srgb, var(--surface-1) 50%, transparent);
+  overflow: hidden;
+}
+
+.service-tier-segment.is-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.service-tier-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  border-radius: 4px;
+  background: var(--accent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 40%, transparent);
+  transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.service-tier-segment.is-fast .service-tier-thumb {
+  transform: translateX(100%);
+}
+
+.service-tier-option {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 150ms ease;
+}
+
+.service-tier-option[aria-checked="true"] {
+  color: white;
+  font-weight: 600;
+}
+
+.global-field-stack {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.context-input {
+  min-width: 0;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  background: color-mix(in srgb, var(--surface-1) 80%, transparent);
+  color: var(--text-1);
+  font-size: 13px;
+  transition: border-color 0.2s;
+}
+
+.context-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.context-input.is-invalid {
+  border-color: color-mix(in srgb, var(--danger) 50%, transparent);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
+.global-field-error {
+  font-size: 12px;
+  color: var(--danger);
+}
+
+.global-toggle-list {
+  display: grid;
+  gap: 10px;
+}
+
+.global-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  background: color-mix(in srgb, var(--surface-3) 25%, transparent);
+}
+
+.global-toggle-row.is-dirty {
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+.global-toggle-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.global-toggle-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-1);
+}
+
+.global-toggle-note {
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.global-config-actions {
+  position: sticky;
+  bottom: -10px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: auto -10px -10px;
+  padding: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--surface-1) 95%, transparent) 20%);
+}
+
+.is-settings .global-config-actions {
+  bottom: -10px;
+  margin: auto -10px -10px;
+  padding: 10px;
+}
+
+.global-config-actions-meta {
+  display: grid;
+  gap: 4px;
+}
+
+.global-config-actions-summary {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.global-config-actions-hint {
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.global-config-actions-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+
+

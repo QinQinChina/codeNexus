@@ -1,0 +1,183 @@
+{
+  "version": "2026-04-12",
+  "generatedFrom": "xmsleep_flutter/assets/sounds",
+  "baseDirectory": "xmsleep/sounds",
+  "sounds": [
+    {
+      "id": "umbrella_rain",
+      "name": "雨伞雨声",
+      "group": "weather",
+      "order": 10,
+      "fileName": "umbrella_rain.ogg",
+      "relativePath": "xmsleep/sounds/umbrella_rain.ogg",
+      "format": "ogg",
+      "defaultVolume": 0.6,
+      "sourceProject": "xmsleep_flutter"
+    },
+    {
+      "id": "rowing",
+      "name": "划船",
+      "group": "water",
+      "order": 20,
+      "fileName": "rowing.ogg",
+      "relativePath": "xmsleep/sounds/rowing.ogg",
+      "format": "ogg",
+      "defaultVolume": 0.6,
+      "sourceProject": "xmsleep_flutter"
+    },
+    {
+      "id": "office",
+      "name": "办公室",
+      "group": "indoor",
+      "order": 30,
+      "fileName": "office.ogg",
+      "relativePath": "xmsleep/sounds/office.ogg",
+      "format": "ogg",
+      "defaultVolume": 0.6,
+      "sourceProject": "xmsleep_flutter"
+    },
+    {
+      "id": "library",
+      "name": "图书馆",
+      "group": "indoor",
+      "order": 40,
+      "fileName": "library.ogg",
+      "relativePath": "xmsleep/sounds/library.ogg",
+      "format": "ogg",
+      "defaultVolume": 0.6,
+      "sourceProject": "xmsleep_flutter"
+    },
+    {
+      "id": "heavy_rain",
+      "name": "大雨",
+      "group": "weather",
+      "order": 50,
+      "fileName": "heavy_rain.ogg",
+      "relativePath": "xmsleep/sounds/heavy_rain.ogg",
+      "format": "ogg",
+      "defaultVolume": 0.6,
+      "sourceProject": "xmsleep_flutter"
+    },
+    {
+      "id": "typewriter",
+      "name": "打字机",
+      "group": "indoor",
+      "order": 60,
+      "fileName": "typewriter.ogg",
+      "relativePath": "xmsleep/sounds/typewriter.ogg",
+      "format": "ogg",
+      "defaultVolume": 0.6,
+      "sourceProject": "xmsleep_flutter"
+    },
+    {
+      "id": "thunder",
+      "name": "雷雨",
+      "group": "weather",
+      "order": 70,
+      "fileName": "thunder.ogg",
+      "relativePath": "xmsleep/sounds/thunder.ogg",
+      "format": "ogg",
+      "defaultVolume": 0.6,
+      "sourceProject": "xmsleep_flutter"
+    },
+    {
+      "id": "clock",
+      "name": "时钟",
+      "group": "indoor",
+      "order": 80,
+      "fileName": "clock.ogg",
+      "relativePath": "xmsleep/sounds/clock.ogg",
+      "format": "ogg",
+      "defaultVolume": 0.45,
+      "sourceProject": "xmsleep_flutter"
+    },
+    {
+      "id": "forest_birds",
+      "name": "森林鸟鸣",
+      "group": "nature",
+      "order": 90,
+      "fileName": "forest_birds.ogg",
+      "relativePath": "xmsleep/sounds/forest_birds.ogg",
+      "format": "ogg",
+      "defaultVolume": 0.6,
+      "sourceProject": "xmsleep_flutter"
+    },
+    {
+      "id": "drifting",
+      "name": "漂流",
+      "group": "water",
+      "order": 100,
+      "fileName": "drifting.ogg",
+      "relativePath": "xmsleep/sounds/drifting.ogg",
+      "format": "ogg",
+      "defaultVolume": 0.6,
+      "sourceProject": "xmsleep_flutter"
+    },
+    {
+      "id": "campfire",
+      "name": "篝火",
+      "group": "nature",
+      "order": 110,
+      "fileName": "campfire.ogg",
+      "relativePath": "xmsleep/sounds/campfire.ogg",
+      "format": "ogg",
+      "defaultVolume": 0.6,
+      "sourceProject": "xmsleep_flutter"
+    },
+    {
+      "id": "wind",
+      "name": "风声",
+      "group": "weather",
+      "order": 120,
+      "fileName": "wind.ogg",
+      "relativePath": "xmsleep/sounds/wind.ogg",
+      "format": "ogg",
+      "defaultVolume": 0.55,
+      "sourceProject": "xmsleep_flutter"
+    },
+    {
+      "id": "keyboard",
+      "name": "键盘声",
+      "group": "indoor",
+      "order": 130,
+      "fileName": "keyboard.ogg",
+      "relativePath": "xmsleep/sounds/keyboard.ogg",
+      "format": "ogg",
+      "defaultVolume": 0.5,
+      "sourceProject": "xmsleep_flutter"
+    },
+    {
+      "id": "snow_walking",
+      "name": "雪地行走",
+      "group": "outdoor",
+      "order": 140,
+      "fileName": "snow_walking.ogg",
+      "relativePath": "xmsleep/sounds/snow_walking.ogg",
+      "format": "ogg",
+      "defaultVolume": 0.55,
+      "sourceProject": "xmsleep_flutter"
+    },
+    {
+      "id": "morning_coffee",
+      "name": "晨间咖啡",
+      "group": "indoor",
+      "order": 150,
+      "fileName": "morning_coffee.ogg",
+      "relativePath": "xmsleep/sounds/morning_coffee.ogg",
+      "format": "ogg",
+      "defaultVolume": 0.55,
+      "sourceProject": "xmsleep_flutter"
+    },
+    {
+      "id": "windmill",
+      "name": "风车",
+      "group": "outdoor",
+      "order": 160,
+      "fileName": "windmill.ogg",
+      "relativePath": "xmsleep/sounds/windmill.ogg",
+      "format": "ogg",
+      "defaultVolume": 0.55,
+      "sourceProject": "xmsleep_flutter"
+    }
+  ]
+}

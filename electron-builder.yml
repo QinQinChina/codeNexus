@@ -1,0 +1,45 @@
+appId: com.throughstate.desktop
+productName: CodeNexus
+
+directories:
+  buildResources: build
+  output: release
+
+asar: true
+
+publish:
+  provider: generic
+  # 直接使用 MinIO S3 API（通常为 9000）的 HTTPS 对外地址（path-style）。
+  # 该目录下需能匿名读取 latest.yml / .exe / .blockmap（至少 GET）。
+  url: https://minio.huiqing.cyou/campus-second-hand-market/through_state/win/x64/
+
+files:
+  - from: .
+    to: .
+    filter:
+      - package.json
+  - from: dist
+    to: dist
+    filter:
+      - "**/*"
+
+extraResources:
+  - from: music
+    to: music
+    filter:
+      - "**/*"
+  - from: build/icon.ico
+    to: icon.ico
+
+win:
+  icon: build/icon.ico
+  signAndEditExecutable: true
+  target:
+    - target: nsis
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true

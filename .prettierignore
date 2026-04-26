@@ -1,0 +1,21 @@
+node_modules/
+dist/
+build/
+release/
+publish/
+tmp/
+.playwright/
+.git/
+
+# Bundled artifacts
+src/renderer/dist/
+.tmp/
+
+# Electron / native build outputs (keep untouched unless explicitly formatting them)
+native/**/dist/
+native/**/build/
+native/**/obj/
+native/**/bin/
+
+# Lockfiles
+pnpm-lock.yaml

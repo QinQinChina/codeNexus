@@ -1,0 +1,154 @@
+@media (max-width: 1500px) {
+  .context-input {
+    height: 30px;
+    padding: 0 8px;
+    border-radius: 2px;
+  }
+
+  .history-list {
+    gap: 6px;
+  }
+
+  .history-row {
+    height: 78px;
+    border-radius: 2px;
+  }
+
+  .history-item {
+    padding: 6px 8px;
+    padding-right: 64px;
+    padding-bottom: 8px;
+    border-radius: 2px;
+    gap: 2px;
+  }
+
+  .history-item .title {
+    font-size: 11px;
+  }
+
+  .history-item .meta {
+    font-size: 10px;
+  }
+
+  .history-delete,
+  .history-delete {
+    width: 22px;
+    height: 22px;
+  }
+
+  .global-config-topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .global-config-head-actions {
+    gap: 4px;
+  }
+
+  .global-config-status--inline {
+    min-height: 24px;
+    max-width: min(52vw, 220px);
+    padding: 0 8px;
+    font-size: 11px;
+  }
+
+  .global-config-drawer-panel {
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: min(92vw, 460px);
+  }
+
+  .global-config-status-refresh-icon {
+    width: 12px;
+    height: 12px;
+  }
+
+  .global-config-grid {
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .global-config-section {
+    gap: 6px;
+    padding: 8px;
+  }
+  .global-config-section--advanced {
+    padding: 7px 8px;
+  }
+
+  .global-advanced-summary {
+    gap: 8px;
+  }
+
+  .global-advanced-body {
+    margin-top: 6px;
+  }
+
+  .global-row {
+    grid-template-columns: 76px 1fr;
+    gap: 8px;
+  }
+
+  .global-field-stack {
+    gap: 5px;
+  }
+
+  .global-toggle-row {
+    padding: 8px 10px;
+  }
+
+  .global-config-actions {
+    gap: 8px;
+    margin: 8px -12px -12px;
+    padding-top: 8px;
+  }
+
+  .global-config-actions-buttons {
+    width: 100%;
+  }
+
+  .instruction-file-editor {
+    min-height: 132px;
+    margin-top: 6px;
+    padding: 7px 8px;
+    border-radius: 2px;
+  }
+
+  .instruction-editor-overlay {
+    padding: 10px;
+  }
+
+  .instruction-editor-window {
+    width: min(980px, calc(100vw - 20px));
+    height: min(760px, calc(100vh - 20px));
+    border-radius: 4px;
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .skills-list,
+  .mcp-list {
+    gap: 8px;
+    margin-top: 6px;
+  }
+
+  .skill-details,
+  .mcp-details {
+    padding: 8px 9px;
+    border-radius: 4px;
+  }
+
+  .skill-body,
+  .mcp-body {
+    padding-top: 6px;
+    gap: 6px;
+  }
+
+  .user-input-card,
+  .user-input-options,
+  .user-input-actions {
+    gap: 8px;
+    /* 语义化 token：供主题（如 Windsurf 等）复用。 */
+  }
+}

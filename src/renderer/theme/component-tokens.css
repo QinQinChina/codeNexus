@@ -1,0 +1,586 @@
+:root {
+  --theme-page-bg-image:
+    radial-gradient(900px 520px at 18% 0%, rgb(from var(--accent) r g b / 0.1) 0%, transparent 62%),
+    radial-gradient(780px 500px at 82% 8%, rgb(from var(--warning) r g b / 0.06) 0%, transparent 64%),
+    linear-gradient(180deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 88%, var(--surface-1) 12%) 100%);
+
+  --topbar-color-scheme: inherit;
+  --topbar-dropdown-bg: color-mix(in srgb, var(--surface-elevated) 94%, transparent);
+  --topbar-dropdown-bg-solid: var(--surface-elevated);
+  --topbar-dropdown-border: var(--theme-border-strong);
+  --topbar-dropdown-text: var(--text);
+  --topbar-dropdown-shadow: 0 18px 40px rgb(from var(--theme-seed-shadow-source) r g b / 0.16);
+  --topbar-bg: var(--surface-1);
+  --topbar-border: var(--border);
+  --topbar-text: var(--text);
+  --topbar-text-muted: var(--text-muted);
+  --topbar-hover-bg: rgb(from var(--accent) r g b / 0.08);
+  --topbar-active-bg: rgb(from var(--accent) r g b / 0.12);
+  --topbar-btn-active-bg: rgb(from var(--accent) r g b / 0.14);
+  --topbar-btn-active-text: var(--fg-accent);
+  --topbar-control-bg: color-mix(in srgb, var(--surface-elevated) 78%, transparent);
+  --topbar-control-border: var(--border);
+  --topbar-control-server-border: rgb(from var(--accent) r g b / 0.34);
+
+  --app-backdrop: rgb(from var(--theme-seed-shadow-source) r g b / calc(0.03 + 0.18 * var(--page-shell-opacity-factor)));
+  --sidebar-bg: linear-gradient(180deg, var(--surface-1) 0%, var(--surface-2) 100%);
+  --center-bg: linear-gradient(180deg, var(--bg) 0%, var(--surface-1) 100%);
+
+  --bubble-user-bg: rgb(from var(--accent) r g b / 0.08);
+  --bubble-user-border: rgb(from var(--accent) r g b / 0.24);
+  --bubble-assistant-bg: color-mix(in srgb, var(--surface-elevated) 78%, transparent);
+  --bubble-assistant-border: var(--border);
+  --bubble-assistant-tint: rgb(from var(--accent) r g b / 0.04);
+  --bubble-shadow: var(--shadow-soft);
+
+  --button-bg: color-mix(in srgb, var(--surface-elevated) 78%, transparent);
+  --button-bg-hover: color-mix(in srgb, var(--surface-elevated) 88%, var(--accent) 8%);
+  --button-border: var(--border);
+  --button-border-hover: var(--border-accent);
+  --button-text: var(--text);
+  --button-text-hover: var(--text);
+
+  --input-bg: color-mix(in srgb, var(--surface-elevated) 80%, transparent);
+  --input-bg-strong: var(--surface-elevated);
+  --input-border: var(--border);
+  --input-text: var(--text);
+  --input-placeholder: rgb(from var(--theme-seed-text-muted) r g b / 0.66);
+
+  --panel-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-elevated) 84%, transparent),
+    color-mix(in srgb, var(--surface-1) 94%, transparent)
+  );
+  --panel-border: var(--border);
+  --panel-shadow: var(--shadow-soft);
+  --panel-hover-bg: rgb(from var(--accent) r g b / 0.06);
+  --panel-active-bg: rgb(from var(--accent) r g b / 0.1);
+  --panel-backdrop-filter: blur(10px) saturate(112%);
+
+  --card-bg: color-mix(in srgb, var(--surface-elevated) 74%, transparent);
+  --card-border: var(--border);
+
+  --mcp-dot-border: rgb(from var(--theme-seed-text) r g b / 0.2);
+  --mcp-dot-bg: rgb(from var(--theme-seed-text) r g b / 0.1);
+  --mcp-dot-shadow: inset 0 0 0 2px rgb(from var(--surface-elevated) r g b / 0.7);
+
+  --bg-accent-soft-hover: rgb(from var(--accent) r g b / 0.14);
+  --bg-danger-soft-hover: rgb(from var(--danger) r g b / 0.14);
+
+  --chat-pane-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 70%, transparent),
+    color-mix(in srgb, var(--surface-1) 94%, transparent)
+  );
+  --timeline-item-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-elevated) 78%, transparent),
+    color-mix(in srgb, var(--surface-1) 92%, transparent)
+  );
+
+  --diff-meta-text: color-mix(in srgb, var(--text-muted) 88%, transparent);
+  --diff-meta-bg: rgb(from var(--text) r g b / 0.04);
+  --diff-hunk-text: var(--text);
+  --diff-hunk-bg: rgb(from var(--accent) r g b / 0.14);
+  --diff-hunk-shadow: inset 3px 0 0 rgb(from var(--accent) r g b / 0.68);
+  --diff-add-bg: color-mix(in srgb, var(--success) 34%, var(--surface-1) 66%);
+  --diff-add-shadow: inset 3px 0 0 rgb(from var(--success) r g b / 0.76);
+  --diff-del-bg: color-mix(in srgb, var(--danger) 34%, var(--surface-1) 66%);
+  --diff-del-shadow: inset 3px 0 0 rgb(from var(--danger) r g b / 0.76);
+  --diff-plain-bg: rgb(from var(--text) r g b / 0.025);
+
+  --timeline-status-running-border: rgb(from var(--accent) r g b / 0.55);
+  --timeline-status-completed-border: rgb(from var(--success) r g b / 0.52);
+  --timeline-status-failed-border: rgb(from var(--danger) r g b / 0.62);
+  --timeline-status-declined-border: rgb(from var(--warning) r g b / 0.62);
+  --timeline-status-unknown-border: rgb(from var(--border) r g b / 0.95);
+
+  --timeline-kind-add-bg: rgb(from var(--success) r g b / 0.14);
+  --timeline-kind-add-text: var(--fg-success);
+  --timeline-kind-modify-bg: rgb(from var(--accent) r g b / 0.13);
+  --timeline-kind-modify-text: var(--fg-accent);
+  --timeline-kind-delete-bg: rgb(from var(--danger) r g b / 0.13);
+  --timeline-kind-delete-text: var(--fg-danger);
+  --timeline-kind-rename-bg: rgb(from var(--warning) r g b / 0.13);
+  --timeline-kind-rename-text: var(--fg-warning);
+  --timeline-kind-unknown-bg: rgb(from var(--text) r g b / 0.06);
+  --timeline-kind-unknown-text: var(--text-muted);
+
+  --composer-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-elevated) 86%, transparent),
+    color-mix(in srgb, var(--surface-1) 94%, transparent)
+  );
+  --composer-shell-bg: var(--composer-bg);
+  --composer-shell-border: color-mix(in srgb, var(--border) 76%, var(--accent) 24%);
+  --composer-shell-focus-border: var(--border-accent-hover);
+  --composer-shell-focus-ring: rgb(from var(--accent) r g b / 0.16);
+  --composer-shell-shadow: var(--shadow-soft);
+  --composer-shell-backdrop: saturate(1.06) blur(16px);
+  --composer-divider: color-mix(in srgb, var(--border) 82%, transparent);
+  --composer-mode-group-bg: color-mix(in srgb, var(--button-bg) 78%, transparent);
+  --composer-mode-group-border: color-mix(in srgb, var(--border) 84%, transparent);
+  --composer-mode-hover-bg: color-mix(in srgb, var(--button-bg-hover) 84%, transparent);
+  --composer-mode-active-bg: color-mix(in srgb, var(--bg-accent-soft) 88%, var(--surface-1) 12%);
+  --composer-mode-active-border: color-mix(in srgb, var(--border-accent) 86%, transparent);
+  --composer-mode-active-text: var(--fg-accent);
+  --composer-control-icon-bg: color-mix(in srgb, var(--input-bg) 90%, var(--surface-1) 10%);
+  --composer-control-icon-border: color-mix(in srgb, var(--input-border) 90%, transparent);
+  --composer-control-icon-color: color-mix(in srgb, var(--text-muted) 82%, var(--text) 18%);
+  --composer-select-bg: color-mix(in srgb, var(--input-bg) 92%, var(--surface-1) 8%);
+  --composer-select-border: color-mix(in srgb, var(--input-border) 90%, transparent);
+  --composer-select-hover-bg: color-mix(in srgb, var(--button-bg-hover) 90%, var(--surface-1) 10%);
+  --composer-select-hover-border: var(--button-border-hover);
+  --composer-chip-bg: color-mix(in srgb, var(--button-bg) 88%, var(--surface-1) 12%);
+  --composer-chip-border: color-mix(in srgb, var(--border) 88%, transparent);
+  --composer-chip-hover-bg: color-mix(in srgb, var(--button-bg-hover) 88%, var(--surface-1) 12%);
+  --composer-input-text: var(--text);
+  --composer-input-placeholder: var(--input-placeholder);
+  --composer-agent-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-elevated) 84%, var(--accent) 10%),
+    color-mix(in srgb, var(--surface-1) 94%, var(--success) 4%)
+  );
+  --composer-agent-border: color-mix(in srgb, var(--border-accent) 74%, var(--success) 16%);
+  --composer-agent-focus-border: var(--border-accent-hover);
+  --composer-agent-focus-ring: rgb(from var(--accent) r g b / 0.15);
+  --composer-agent-mode-bg: color-mix(in srgb, var(--bg-accent-soft) 84%, var(--surface-1) 16%);
+  --composer-agent-mode-border: color-mix(in srgb, var(--border-accent) 86%, transparent);
+  --composer-agent-mode-text: var(--fg-accent);
+  --composer-agent-glow: rgb(from var(--accent) r g b / 0.12);
+  --composer-plan-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-elevated) 84%, var(--warning) 8%),
+    color-mix(in srgb, var(--surface-1) 96%, transparent)
+  );
+  --composer-plan-border: color-mix(in srgb, var(--border-warning) 82%, var(--border) 18%);
+  --composer-plan-focus-border: var(--border-warning-hover);
+  --composer-plan-focus-ring: rgb(from var(--warning) r g b / 0.14);
+  --composer-plan-mode-bg: color-mix(in srgb, var(--bg-warning-soft) 88%, var(--surface-1) 12%);
+  --composer-plan-mode-border: color-mix(in srgb, var(--border-warning) 86%, transparent);
+  --composer-plan-mode-text: var(--fg-warning);
+  --composer-plan-glow: rgb(from var(--warning) r g b / 0.12);
+  --composer-shell-plan-bg: var(--composer-plan-bg);
+  --composer-shell-plan-border: var(--composer-plan-border);
+  --composer-shell-plan-focus-border: var(--composer-plan-focus-border);
+  --composer-shell-plan-focus-ring: var(--composer-plan-focus-ring);
+
+  --composer-tone-bg-surface-mix: 82%;
+  --composer-tone-bg-accent-mix: 18%;
+  --composer-tone-hover-surface-mix: 74%;
+  --composer-tone-hover-accent-mix: 26%;
+  --composer-tone-border-base-mix: 56%;
+  --composer-tone-border-accent-mix: 44%;
+  --composer-tone-text-base-mix: 88%;
+  --composer-tone-text-accent-mix: 12%;
+  --composer-option-bg-surface-mix: 84%;
+  --composer-option-bg-accent-mix: 16%;
+  --composer-option-border-base-mix: 62%;
+  --composer-option-border-accent-mix: 38%;
+}
+
+:root[data-theme="light"] {
+  --diff-add-bg: color-mix(in srgb, var(--success) 16%, var(--surface-1) 84%);
+  --diff-del-bg: color-mix(in srgb, var(--danger) 14%, var(--surface-1) 86%);
+}
+
+:root[data-theme="dark"] {
+  --diff-add-bg: color-mix(in srgb, var(--success) 24%, var(--bg) 76%);
+  --diff-del-bg: color-mix(in srgb, var(--danger) 24%, var(--bg) 76%);
+}
+
+.composer-select--model,
+.composer-select--effort,
+.composer-select--sandbox {
+  --composer-select-tone-accent: var(--accent);
+  --composer-select-tone-accent-strong: var(--accent);
+  --composer-select-tone-text-accent: var(--accent);
+  --composer-select-tone-bg: color-mix(
+    in srgb,
+    var(--surface-1) var(--composer-tone-bg-surface-mix),
+    var(--composer-select-tone-accent) var(--composer-tone-bg-accent-mix)
+  );
+  --composer-select-tone-border: color-mix(
+    in srgb,
+    var(--border) var(--composer-tone-border-base-mix),
+    var(--composer-select-tone-accent-strong) var(--composer-tone-border-accent-mix)
+  );
+  --composer-select-tone-text: color-mix(
+    in srgb,
+    var(--input-text) var(--composer-tone-text-base-mix),
+    var(--composer-select-tone-text-accent) var(--composer-tone-text-accent-mix)
+  );
+  --composer-select-tone-hover-bg: color-mix(
+    in srgb,
+    var(--surface-1) var(--composer-tone-hover-surface-mix),
+    var(--composer-select-tone-accent) var(--composer-tone-hover-accent-mix)
+  );
+  --composer-select-tone-hover-border: color-mix(
+    in srgb,
+    var(--border) calc(var(--composer-tone-border-base-mix) - 12%),
+    var(--composer-select-tone-accent-strong) calc(var(--composer-tone-border-accent-mix) + 12%)
+  );
+}
+
+.composer-select--model.is-gpt-5-4 {
+  --composer-select-tone-accent: var(--theme-tone-violet-strong);
+  --composer-select-tone-accent-strong: var(--theme-tone-violet);
+  --composer-select-tone-text-accent: var(--theme-tone-violet-soft);
+}
+
+.composer-select--model.is-gpt-5-4-mini {
+  --composer-select-tone-accent: var(--theme-tone-indigo);
+  --composer-select-tone-accent-strong: var(--theme-tone-indigo-strong);
+  --composer-select-tone-text-accent: var(--theme-tone-indigo-soft);
+}
+
+.composer-select--model.is-gpt-5-3-codex {
+  --composer-select-tone-accent: var(--theme-tone-teal);
+  --composer-select-tone-accent-strong: var(--theme-tone-teal-strong);
+  --composer-select-tone-text-accent: var(--theme-tone-teal-soft);
+}
+
+.composer-select--model.is-gpt-5-2-codex {
+  --composer-select-tone-accent: var(--theme-tone-sky);
+  --composer-select-tone-accent-strong: var(--theme-tone-sky-strong);
+  --composer-select-tone-text-accent: var(--theme-tone-sky-soft);
+}
+
+.composer-select--model.is-gpt-5-2,
+.composer-select--sandbox.is-read-only {
+  --composer-select-tone-accent: var(--theme-tone-slate);
+  --composer-select-tone-accent-strong: var(--theme-tone-slate-strong);
+  --composer-select-tone-text-accent: var(--theme-tone-slate-soft);
+}
+
+.composer-select--effort.is-low,
+.composer-select--sandbox.is-workspace-write {
+  --composer-select-tone-accent: var(--success);
+  --composer-select-tone-accent-strong: var(--success);
+  --composer-select-tone-text-accent: var(--fg-success);
+}
+
+.composer-select--effort.is-medium {
+  --composer-select-tone-accent: var(--accent);
+  --composer-select-tone-accent-strong: var(--accent);
+  --composer-select-tone-text-accent: var(--fg-accent);
+}
+
+.composer-select--effort.is-high {
+  --composer-select-tone-accent: var(--warning);
+  --composer-select-tone-accent-strong: var(--warning);
+  --composer-select-tone-text-accent: var(--fg-warning);
+}
+
+.composer-select--effort.is-xhigh,
+.composer-select--sandbox.is-danger-full-access {
+  --composer-select-tone-accent: var(--danger);
+  --composer-select-tone-accent-strong: var(--danger);
+  --composer-select-tone-text-accent: var(--fg-danger);
+}
+
+.ui-select-option[data-value] {
+  --ui-option-tone-accent: var(--composer-select-tone-accent, var(--accent));
+  background: color-mix(
+    in srgb,
+    var(--surface-1) var(--composer-option-bg-surface-mix),
+    var(--ui-option-tone-accent) var(--composer-option-bg-accent-mix)
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--border) var(--composer-option-border-base-mix),
+    var(--ui-option-tone-accent) var(--composer-option-border-accent-mix)
+  );
+}
+
+.ui-select-option[data-value="gpt-5.4"] {
+  --ui-option-tone-accent: var(--theme-tone-violet);
+}
+
+.ui-select-option[data-value="gpt-5.4-mini"] {
+  --ui-option-tone-accent: var(--theme-tone-indigo-strong);
+}
+
+.ui-select-option[data-value="gpt-5.3-codex"] {
+  --ui-option-tone-accent: var(--theme-tone-teal-strong);
+}
+
+.ui-select-option[data-value="gpt-5.2-codex"] {
+  --ui-option-tone-accent: var(--theme-tone-sky-strong);
+}
+
+.ui-select-option[data-value="gpt-5.2"],
+.ui-select-option[data-value="read-only"] {
+  --ui-option-tone-accent: var(--theme-tone-slate-strong);
+}
+
+.ui-select-option[data-value="low"],
+.ui-select-option[data-value="workspace-write"] {
+  --ui-option-tone-accent: var(--success);
+}
+
+.ui-select-option[data-value="medium"] {
+  --ui-option-tone-accent: var(--accent);
+}
+
+.ui-select-option[data-value="high"] {
+  --ui-option-tone-accent: var(--warning);
+}
+
+.ui-select-option[data-value="xhigh"],
+.ui-select-option[data-value="danger-full-access"] {
+  --ui-option-tone-accent: var(--danger);
+}
+
+.app-closing-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.app-closing-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      circle at top center,
+      color-mix(in srgb, var(--bg-accent-soft-hover) 96%, transparent),
+      transparent 36%
+    ),
+    color-mix(in srgb, var(--bg) 62%, var(--theme-seed-canvas-deep) 38%);
+  opacity: 1;
+}
+
+.app-closing-panel {
+  position: relative;
+  width: min(560px, calc(100vw - 40px));
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 76%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-elevated) 94%, var(--bg) 6%) 0%,
+    color-mix(in srgb, var(--card-bg) 92%, var(--bg) 8%) 100%
+  );
+  box-shadow: var(--panel-shadow);
+}
+
+.app-closing-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.app-closing-orb {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--border-accent) 78%, transparent);
+  background: color-mix(in srgb, var(--bg-accent-soft) 88%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.app-closing-copy {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.app-closing-kicker,
+.app-closing-task-kicker {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.app-closing-title,
+.app-closing-task-title {
+  margin: 0;
+  font-size: 21px;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.app-closing-subtitle,
+.app-closing-task-description {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.app-closing-step-list,
+.app-closing-task-steps {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app-closing-step-item,
+.app-closing-task-step,
+.app-closing-task-card {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 12px 14px;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--card-border) 88%, transparent);
+  background: color-mix(in srgb, var(--card-bg) 84%, var(--bg-accent-soft) 16%);
+  isolation: isolate;
+}
+
+.app-closing-step-item,
+.app-closing-task-step {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  animation: app-closing-row-breathe 1.8s ease-in-out infinite;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    opacity 180ms ease;
+}
+
+.app-closing-step-item::before,
+.app-closing-task-step::before {
+  content: "";
+  position: absolute;
+  inset: -1px auto -1px -36%;
+  width: 36%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--bg-accent-soft) 36%, transparent) 18%,
+    color-mix(in srgb, var(--bg-accent-soft-hover) 86%, transparent) 50%,
+    color-mix(in srgb, var(--bg-accent-soft) 36%, transparent) 82%,
+    transparent 100%
+  );
+  transform: translate3d(0, 0, 0);
+  animation: app-closing-row-sheen 1.45s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app-closing-step-item.is-completed,
+.app-closing-task-step.is-completed {
+  animation: none;
+  border-color: color-mix(in srgb, var(--border-success) 86%, transparent);
+  background: color-mix(in srgb, var(--card-bg) 78%, var(--bg-success-soft) 22%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-success) 26%, transparent);
+}
+
+.app-closing-step-item.is-completed::before,
+.app-closing-task-step.is-completed::before {
+  opacity: 0;
+  animation: none;
+}
+
+.app-closing-refresh-badge,
+.app-closing-step-text,
+.app-closing-task-step-text {
+  position: relative;
+  z-index: 1;
+}
+
+.app-closing-refresh-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border-accent) 72%, transparent);
+  background: color-mix(in srgb, var(--bg-accent-soft) 82%, transparent);
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.app-closing-step-item.is-completed .app-closing-refresh-badge,
+.app-closing-task-step.is-completed .app-closing-refresh-badge {
+  border-color: color-mix(in srgb, var(--border-success) 84%, transparent);
+  background: color-mix(in srgb, var(--bg-success-soft) 88%, transparent);
+}
+
+.app-closing-complete-icon {
+  color: var(--success);
+}
+
+.app-closing-step-text,
+.app-closing-task-step-text {
+  min-width: 0;
+  color: var(--text);
+}
+
+.app-closing-task-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+@keyframes app-closing-row-sheen {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: translate3d(420%, 0, 0);
+  }
+}
+
+@keyframes app-closing-row-breathe {
+  0%,
+  100% {
+    opacity: 0.92;
+    transform: translate3d(0, 0, 0);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translate3d(0, -1px, 0);
+  }
+}
+
+.app-closing-overlay-enter-active,
+.app-closing-overlay-leave-active {
+  transition: opacity 180ms ease;
+}
+
+.app-closing-overlay-enter-active .app-closing-overlay-backdrop,
+.app-closing-overlay-leave-active .app-closing-overlay-backdrop {
+  transition: opacity 180ms ease;
+}
+
+.app-closing-overlay-enter-active .app-closing-panel,
+.app-closing-overlay-leave-active .app-closing-panel {
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.app-closing-overlay-enter-from,
+.app-closing-overlay-leave-to,
+.app-closing-overlay-enter-from .app-closing-overlay-backdrop,
+.app-closing-overlay-leave-to .app-closing-overlay-backdrop {
+  opacity: 0;
+}
+
+.app-closing-overlay-enter-from .app-closing-panel,
+.app-closing-overlay-leave-to .app-closing-panel {
+  opacity: 0;
+  transform: translate3d(0, 10px, 0) scale(0.985);
+}

@@ -1,0 +1,304 @@
+// 领域类型定义：跨组件/Store 复用的状态与数据结构。
+import type { ApprovalsReviewer } from "../../generated/codex-app-server/v2/ApprovalsReviewer";
+import type { SandboxMode } from "../../generated/codex-app-server/v2/SandboxMode";
+import type { ThreadSourceKind } from "../../generated/codex-app-server/v2/ThreadSourceKind";
+import type { TextElement } from "../../generated/codex-app-server/v2/TextElement";
+import type { AppTextEncoding, AppTextLineEnding } from "../../shared/ipc/contracts";
+
+export type ServerConnState = "disconnected" | "connecting" | "connected" | "failed";
+export type CollaborationModeKind = "default" | "plan";
+
+export type TextUserInput = {
+  type: "text";
+  text: string;
+  text_elements?: TextElement[];
+};
+
+export type ImageUserInput = {
+  type: "image";
+  url: string;
+};
+
+export type LocalImageUserInput = {
+  type: "localImage";
+  path: string;
+};
+
+export type UserTurnInput = TextUserInput | ImageUserInput | LocalImageUserInput;
+
+export type TimelineUserMessageParams = {
+  role: "user";
+  text: string;
+  text_elements?: TextElement[];
+  images?: string[] | null;
+  local_images?: string[];
+};
+
+export type ComposeImageAttachment = {
+  id: string;
+  name: string;
+  size: number;
+  mimeType: string;
+  previewUrl: string;
+  revokePreviewUrlOnDispose?: boolean;
+  input: ImageUserInput | LocalImageUserInput;
+};
+
+export type ComposeWorkspaceFileMention = {
+  id: string;
+  path: string;
+};
+
+export type ThreadHistoryItem = {
+  id: string;
+  title: string;
+  meta: string;
+  updatedAt: number;
+  cwd?: string;
+  modelProvider?: string;
+  running?: boolean;
+  unpersisted?: boolean;
+  threadSourceKind?: ThreadSourceKind;
+  forkedFromId?: string;
+  agentNickname?: string;
+  agentRole?: string;
+  agentPath?: string;
+};
+
+export type TimelineEventLevel = "info" | "warn" | "error";
+
+export type TimelineEventItem = {
+  id: string;
+  method: string;
+  paramsText: string;
+  params?: unknown;
+  createdAt: number;
+  threadId?: string;
+  turnId?: string;
+  level: TimelineEventLevel;
+  localKind?: "user" | "thinking";
+  localState?: "pending" | "queued" | "sending" | "sent" | "failed";
+  thinkingPhase?: "queued" | "preparing" | "reasoning" | "streaming" | "waiting_more" | "completed" | "failed";
+  localMessageId?: string;
+  hidden?: boolean;
+};
+
+export type TokenUsageState = {
+  usedTokens: number | null;
+  contextWindow: number | null;
+};
+
+export type ThreadTurnDiagnostics = {
+  totalTurns: number;
+  completedTurns: number;
+  lastTurnStartedAt: number | null;
+  lastTurnCompletedAt: number | null;
+  lastTurnDurationMs: number | null;
+};
+
+export type ThreadHandoffDiagnosticsState = {
+  threadId: string;
+  parentThreadId: string | null;
+  fetchedAt: number;
+  current: ThreadTurnDiagnostics;
+  parent: ThreadTurnDiagnostics | null;
+  inheritedTurns: number | null;
+  postHandoffTurns: number | null;
+};
+
+export type GlobalConfigDraft = {
+  model: string;
+  fastModeEnabled: boolean;
+  modelContextWindow: number | null;
+  modelAutoCompactTokenLimit: number | null;
+  modelReasoningEffort: string;
+  modelReasoningSummary: string;
+  approvalPolicy: string;
+  approvalsReviewer: ApprovalsReviewer;
+  sandboxMode: SandboxMode;
+  windowsElevatedSandboxEnabled: boolean;
+  powershellUtf8Enabled: boolean;
+  unifiedExecEnabled: boolean;
+};
+
+export type McpResourceEntry = {
+  uri: string;
+  name: string;
+  title?: string;
+  description?: string;
+  mimeType?: string;
+  size?: number;
+};
+
+export type McpResourceTemplateEntry = {
+  uriTemplate: string;
+  name: string;
+  title?: string;
+  description?: string;
+  mimeType?: string;
+};
+
+export type McpToolDefinitionState = {
+  name: string;
+  title?: string;
+  description?: string;
+  inputSchema: unknown;
+  outputSchema?: unknown;
+  annotations?: unknown;
+  _meta?: unknown;
+};
+
+export type McpResourceContentState =
+  | {
+      uri: string;
+      mimeType?: string;
+      text: string;
+    }
+  | {
+      uri: string;
+      mimeType?: string;
+      blob: string;
+    };
+
+export type McpServerState = {
+  id: string;
+  enabled: boolean;
+  state: "connected" | "connecting" | "error" | "disabled" | "unknown";
+  url?: string;
+  command?: string;
+  args?: string[];
+  authenticated?: boolean;
+  authStatus?: string;
+  message?: string;
+  tools: McpToolDefinitionState[];
+  resources: McpResourceEntry[];
+  resourceTemplates: McpResourceTemplateEntry[];
+};
+
+export type McpResourceViewerTab = "resources" | "templates";
+
+export type McpResourceParameterEntry = {
+  key: string;
+  value: string;
+};
+
+export type McpResourceReadLoadState = "idle" | "loading" | "ready" | "error";
+
+export type McpResourceReadResultState = {
+  threadId: string;
+  serverId: string;
+  uri: string;
+  contents: McpResourceContentState[];
+  fetchedAt: number;
+  resourceLabel: string;
+  toolNames: string[];
+  parameterEntries: McpResourceParameterEntry[];
+};
+
+export type McpResourceTemplateDraftState = {
+  values: Record<string, string>;
+  manualUri: string;
+};
+
+export type SkillState = {
+  path: string | null;
+  name: string;
+  description?: string;
+  displayName?: string;
+  shortDescription?: string;
+  defaultPrompt?: string;
+  enabled: boolean;
+  configurable: boolean;
+};
+
+export type WorkspaceFileSource = "local";
+
+export type WorkspaceDirectoryEntryState = {
+  path: string;
+  fileName: string;
+  isDirectory: boolean;
+  isFile: boolean;
+  source: WorkspaceFileSource;
+};
+
+export type WorkspaceDirectoryReadResult = {
+  path: string;
+  entries: WorkspaceDirectoryEntryState[];
+  source: WorkspaceFileSource;
+};
+
+export type WorkspaceFileMetadataState = {
+  path: string;
+  isDirectory: boolean;
+  isFile: boolean;
+  createdAtMs: number;
+  modifiedAtMs: number;
+  source: WorkspaceFileSource;
+};
+
+export type WorkspaceTextFileReadResult = {
+  path: string;
+  content: string;
+  source: WorkspaceFileSource;
+  encoding: AppTextEncoding;
+  lineEnding: AppTextLineEnding;
+};
+
+export type WorkspaceTextFileWriteResult = {
+  path: string;
+  source: WorkspaceFileSource;
+  encoding: AppTextEncoding;
+  lineEnding: AppTextLineEnding;
+};
+
+export type UserInputOption = {
+  label: string;
+  description?: string;
+};
+
+export type UserInputQuestion = {
+  id: string;
+  header: string;
+  question: string;
+  options: UserInputOption[];
+  isOther: boolean;
+  isSecret: boolean;
+};
+
+type BaseUserInputPrompt = {
+  serverId: string;
+  requestId: number | string;
+  threadId?: string;
+  turnId?: string;
+  itemId?: string;
+  questions: UserInputQuestion[];
+};
+
+export type UserInputPrompt = BaseUserInputPrompt & {
+  kind: "questions" | "elicitationForm" | "elicitationUrl";
+  method: "item/tool/requestUserInput" | "mcpServer/elicitation/request";
+  serverName?: string;
+  message?: string;
+  requestedSchema?: unknown;
+  url?: string;
+  elicitationId?: string;
+};
+
+export type PlanStepState = {
+  step: string;
+  status: "pending" | "inProgress" | "completed";
+};
+
+export type TurnPlanState = {
+  threadId: string;
+  turnId: string;
+  explanation: string | null;
+  plan: PlanStepState[];
+  updatedAt: number;
+};
+
+export type CompletedTurnState = {
+  turnId: string;
+  diffText: string;
+  completedAt: number;
+};
