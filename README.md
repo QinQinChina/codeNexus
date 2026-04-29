@@ -92,17 +92,9 @@ MINIO_PREFIX=through_state/win/x64
 | `src/renderer` | Vue 界面、Pinia 状态、运行时编排 |
 | `src/shared` | 跨进程共享契约与协议类型 |
 | `scripts` | 开发、构建、图标、发布脚本 |
-| `docs` | 适配清单与专题说明 |
+| `src/README.md` | 应用功能文档入口 |
 | `server` | 远程同步后端（Spring Boot + MySQL + Redis） |
 | `android/remote_monitor` | Android 远程查看端（Flutter） |
-
-## 文档入口
-
-- [src/README.md](src/README.md)
-- [docs/codex-cli-adaptation-checklist.md](docs/codex-cli-adaptation-checklist.md)
-- [docs/codex-cli-adaptation-checklist-0.110.0-0.116.0.md](docs/codex-cli-adaptation-checklist-0.110.0-0.116.0.md)
-- [docs/topbar-more-vs-settings.md](docs/topbar-more-vs-settings.md)
-- [docs/remote-sync-phase1.md](docs/remote-sync-phase1.md)
 
 ## 边界说明
 
