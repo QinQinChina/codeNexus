@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { app } from "electron";
+import { discoverExistingCodexPaths } from "./codexNativeDiscovery";
 import type {
   CodexIncomingMessage,
   CodexNotifyParams,
@@ -320,28 +321,17 @@ export class CodexAppServer {
 
   private preflightNative(): void {
     const found = spawnSync("where.exe", ["codex"], { encoding: "utf8" });
-    let out = (found.stdout || "").trim();
+    const paths = discoverExistingCodexPaths({
+      whereStdout: found.stdout,
+      appData: process.env.APPDATA,
+      exists: existsSync,
+    });
 
-    // 兜底：如果 codex 是通过 npm -g 安装但 PATH 尚未生效，尝试从默认前缀推断位置。
-    // 与 systemChecks.detectCodexNative 的策略保持一致，避免“抽屉检测 OK，但启动报未安装”的不一致体验。
-    if (found.status !== 0 || !out) {
-      const appData = String(process.env.APPDATA || "").trim();
-      if (appData) {
-        const candidate = join(appData, "npm", "codex.cmd");
-        if (existsSync(candidate)) out = candidate;
-      }
-    }
-
-    if (!out) {
+    if (paths.length === 0) {
       throw new Error(
         "未检测到 codex（native）。请先安装 Node.js LTS（包含 npm），然后执行：npm i -g @openai/codex，并确保 codex 在 PATH 中可用（必要时重启终端/本应用）。"
       );
     }
-
-    const paths = out
-      .split(/\r?\n/)
-      .map((s) => s.trim())
-      .filter(Boolean);
 
     const exe = paths.find((p) => p.toLowerCase().endsWith(".exe"));
     if (exe) {

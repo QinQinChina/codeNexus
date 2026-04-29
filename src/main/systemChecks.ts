@@ -1,19 +1,16 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { discoverExistingCodexPaths } from "./codexNativeDiscovery";
 
 export function detectCodexNative(): { ok: boolean; details?: string } {
   // 在 Windows 环境通过 where.exe 检查 codex 是否已加入 PATH。
   const res = spawnSync("where.exe", ["codex"], { encoding: "utf8" });
-  if (res.status === 0) return { ok: true, details: res.stdout.trim() };
-
-  // 兜底：如果 codex 是通过 npm -g 安装但 PATH 尚未生效，尝试从默认前缀推断位置。
-  // 注意：这不是严格保证，只是尽量减少误报。
-  const appData = String(process.env.APPDATA || "").trim();
-  if (appData) {
-    const candidate = join(appData, "npm", "codex.cmd");
-    if (existsSync(candidate)) return { ok: true, details: candidate };
-  }
+  const paths = discoverExistingCodexPaths({
+    whereStdout: res.stdout,
+    appData: process.env.APPDATA,
+    exists: existsSync,
+  });
+  if (paths.length > 0) return { ok: true, details: paths.join("\n") };
 
   return { ok: false, details: (res.stderr || res.stdout || "").trim() };
 }
