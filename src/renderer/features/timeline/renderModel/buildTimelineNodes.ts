@@ -18,6 +18,7 @@ export type CommandGroupItem = {
   id: string;
   outputKey: string;
   status: CommandGroupItemStatus;
+  actions: CommandParsedAction[];
   commandShort: string;
   commandFull: string;
   lastEventMethod: CommandEventMethod | "";
@@ -36,6 +37,68 @@ export type CommandActionNode = {
   createdAt: number;
   turnId: string;
   item: CommandGroupItem;
+};
+
+export type CommandParsedAction = {
+  type: "read" | "listFiles" | "search" | "unknown";
+  command: string;
+  name: string;
+  path: string;
+  query: string;
+  startLine: number | null;
+  endLine: number | null;
+};
+
+export type CommandReadNode = {
+  id: string;
+  createdAt: number;
+  turnId: string;
+  status: CommandGroupItemStatus;
+  commandFull: string;
+  outputFull: string;
+  outputKey: string;
+  exitCode: number | null;
+  durationMs: number | null;
+  name: string;
+  path: string;
+  startLine: number | null;
+  endLine: number | null;
+  lineCount: number;
+  previewLines: string[];
+};
+
+export type CommandListNode = {
+  id: string;
+  createdAt: number;
+  turnId: string;
+  status: CommandGroupItemStatus;
+  commandFull: string;
+  outputFull: string;
+  outputKey: string;
+  path: string;
+  files: string[];
+  filesCount: number;
+};
+
+export type CommandSearchMatch = {
+  path: string;
+  line: number | null;
+  column: number | null;
+  text: string;
+};
+
+export type CommandSearchNode = {
+  id: string;
+  createdAt: number;
+  turnId: string;
+  status: CommandGroupItemStatus;
+  commandFull: string;
+  outputFull: string;
+  outputKey: string;
+  query: string;
+  path: string;
+  matches: CommandSearchMatch[];
+  matchCount: number;
 };
 
 export type McpToolCallStatus = "running" | "completed" | "failed" | "unknown";
@@ -157,6 +220,9 @@ export type TimelineRenderNode =
   | { id: string; kind: "event"; event: TimelineEventItem }
   | { id: string; kind: "reasoningBlock"; item: ReasoningBlockNode }
   | { id: string; kind: "commandAction"; item: CommandActionNode }
+  | { id: string; kind: "commandRead"; item: CommandReadNode }
+  | { id: string; kind: "commandList"; item: CommandListNode }
+  | { id: string; kind: "commandSearch"; item: CommandSearchNode }
   | { id: string; kind: "mcpToolGroup"; group: McpToolGroupNode }
   | { id: string; kind: "mcpResourceRead"; item: McpResourceReadNode }
   | { id: string; kind: "fileChange"; item: FileChangeNode };
@@ -251,7 +317,13 @@ const normalizeWhitespace = (value: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-const isDirectoryListingCommand = (cmd: string) => /\b(get-childitem|gci|dir|ls)\b/i.test(String(cmd ?? ""));
+const isDirectoryListingCommand = (cmd: string) =>
+  /\b(get-childitem|gci|dir|ls)\b/i.test(String(cmd ?? "")) || /\brg\b[\s\S]*\s--files\b/i.test(String(cmd ?? ""));
+
+const isReadCommand = (cmd: string) => /\b(get-content|cat|type)\b/i.test(String(cmd ?? ""));
+
+const isSearchCommand = (cmd: string) =>
+  /\b(rg|grep|findstr)\b/i.test(String(cmd ?? "")) || /\bselect-string\b/i.test(String(cmd ?? ""));
 
 const parseGetChildItemOutputFiles = (output: string): { ok: boolean; files: string[] } => {
   const cleaned = stripAnsi(output);
@@ -316,6 +388,412 @@ const parseGetChildItemOutputFiles = (output: string): { ok: boolean; files: str
   }
 
   return { ok: true, files };
+};
+
+const splitCommandOutputBody = (value: string): { headerLines: string[]; body: string } => {
+  const text = stripAnsi(String(value ?? ""))
+    .replace(/\r\n/g, "\n")
+    .trimEnd();
+  if (!text.trim()) return { headerLines: [], body: "" };
+  const lines = text.split("\n");
+  const idx = lines.findIndex(
+    (line) =>
+      String(line ?? "")
+        .trim()
+        .toLowerCase() === "output:"
+  );
+  if (idx < 0) return { headerLines: [], body: text };
+  return {
+    headerLines: lines
+      .slice(0, idx)
+      .map((line) => line.trimEnd())
+      .filter((line) => line.trim().length > 0),
+    body: lines
+      .slice(idx + 1)
+      .join("\n")
+      .trim(),
+  };
+};
+
+const toMeaningfulOutputLines = (output: string) => {
+  const { body } = splitCommandOutputBody(output);
+  if (!body.trim()) return [];
+  return body
+    .split(/\n/)
+    .map((line) => line.replace(/\r/g, "").trimEnd())
+    .filter((line) => line.trim().length > 0);
+};
+
+const parsePlainFileListOutput = (output: string): { ok: boolean; files: string[] } => {
+  const lines = toMeaningfulOutputLines(output);
+  const seen = new Set<string>();
+  const files: string[] = [];
+  const maxFiles = 5000;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (/^(Exit code|Wall time|Total output lines)\b/i.test(trimmed)) continue;
+    if (/^Output:\s*$/i.test(trimmed)) continue;
+    if (/^[-\s]+$/.test(trimmed)) continue;
+    if (/^\w+:\s/.test(trimmed) && !/^[a-zA-Z]:[\\/]/.test(trimmed)) continue;
+    const value = trimmed.replace(/\//g, "\\");
+    if (seen.has(value)) continue;
+    seen.add(value);
+    files.push(value);
+    if (files.length >= maxFiles) break;
+  }
+  return { ok: files.length > 0, files };
+};
+
+const parseCommandListOutputFiles = (output: string): { ok: boolean; files: string[] } => {
+  const table = parseGetChildItemOutputFiles(output);
+  if (table.ok) return table;
+  return parsePlainFileListOutput(output);
+};
+
+const readLineRangeFromAction = (raw: Record<string, any>): { startLine: number | null; endLine: number | null } => {
+  const explicitStart =
+    toPositiveLineNumberOrNull(raw.startLine) ??
+    toPositiveLineNumberOrNull(raw.start_line) ??
+    toPositiveLineNumberOrNull(raw.lineStart) ??
+    toPositiveLineNumberOrNull(raw.line_start);
+  const explicitEnd =
+    toPositiveLineNumberOrNull(raw.endLine) ??
+    toPositiveLineNumberOrNull(raw.end_line) ??
+    toPositiveLineNumberOrNull(raw.lineEnd) ??
+    toPositiveLineNumberOrNull(raw.line_end);
+  if (explicitStart != null || explicitEnd != null) {
+    return { startLine: explicitStart, endLine: explicitEnd };
+  }
+
+  const rangeValue = raw.lineRange ?? raw.line_range ?? raw.range;
+  if (typeof rangeValue === "string") {
+    const match = rangeValue.trim().match(/^L?(\d+)\s*[-:]\s*L?(\d+)$/i);
+    if (match) {
+      return {
+        startLine: toPositiveLineNumberOrNull(match[1]),
+        endLine: toPositiveLineNumberOrNull(match[2]),
+      };
+    }
+  }
+  if (rangeValue && typeof rangeValue === "object") {
+    return {
+      startLine:
+        toPositiveLineNumberOrNull((rangeValue as any).startLine) ??
+        toPositiveLineNumberOrNull((rangeValue as any).start) ??
+        toPositiveLineNumberOrNull((rangeValue as any).from),
+      endLine:
+        toPositiveLineNumberOrNull((rangeValue as any).endLine) ??
+        toPositiveLineNumberOrNull((rangeValue as any).end) ??
+        toPositiveLineNumberOrNull((rangeValue as any).to),
+    };
+  }
+
+  return { startLine: null, endLine: null };
+};
+
+const normalizeCommandParsedAction = (value: unknown, fallbackCommand: string): CommandParsedAction | null => {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Record<string, any>;
+  const rawType = String(raw.type ?? "")
+    .trim()
+    .toLowerCase();
+  const type =
+    rawType === "read"
+      ? "read"
+      : rawType === "listfiles" || rawType === "list_files"
+        ? "listFiles"
+        : rawType === "search"
+          ? "search"
+          : rawType === "unknown"
+            ? "unknown"
+            : null;
+  if (!type) return null;
+  const command = String(raw.command ?? raw.cmd ?? fallbackCommand ?? "").trim();
+  const lineRange = readLineRangeFromAction(raw);
+  return {
+    type,
+    command,
+    name: String(raw.name ?? "").trim(),
+    path: String(raw.path ?? "").trim(),
+    query: String(raw.query ?? "").trim(),
+    startLine: lineRange.startLine,
+    endLine: lineRange.endLine,
+  };
+};
+
+const normalizeCommandParsedActions = (value: unknown, fallbackCommand: string): CommandParsedAction[] => {
+  const raw = Array.isArray(value) ? value : [];
+  const actions = raw
+    .map((entry) => normalizeCommandParsedAction(entry, fallbackCommand))
+    .filter((entry): entry is CommandParsedAction => Boolean(entry));
+  return actions;
+};
+
+const tokenizeCommandLike = (cmd: string): string[] => {
+  const text = String(cmd ?? "").trim();
+  if (!text) return [];
+  const tokens: string[] = [];
+  const re = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'|(\S+)/g;
+  let match: RegExpExecArray | null = null;
+  while ((match = re.exec(text))) {
+    const token = String(match[1] ?? match[2] ?? match[3] ?? "").replace(/\\(["'\\])/g, "$1");
+    if (token.trim()) tokens.push(token.trim());
+  }
+  return tokens;
+};
+
+const extractFlagTokenValue = (tokens: string[], ...flags: string[]) => {
+  const wanted = new Set(flags.map((flag) => flag.toLowerCase()));
+  for (let i = 0; i < tokens.length; i += 1) {
+    const token = String(tokens[i] ?? "").toLowerCase();
+    if (!wanted.has(token)) continue;
+    const next = String(tokens[i + 1] ?? "").trim();
+    if (next && next !== "|" && next !== ";") return next.replace(/[;|]+$/g, "");
+  }
+  return "";
+};
+
+const extractReadPathFromCommand = (command: string) => {
+  const tokens = tokenizeCommandLike(command);
+  const lower = tokens.map((token) => token.toLowerCase());
+  const start = lower.findIndex((token) => token === "get-content" || token === "cat" || token === "type");
+  if (start < 0) return "";
+  const flagged = extractFlagTokenValue(tokens, "-Path", "-LiteralPath");
+  if (flagged) return flagged;
+  const flagsWithValue = new Set(["-encoding", "-totalcount", "-tail", "-readcount", "-delimiter", "-stream", "-head"]);
+  for (let i = start + 1; i < tokens.length; i += 1) {
+    const token = tokens[i];
+    if (token === "|" || token === ";") break;
+    if (token.startsWith("-")) {
+      if (flagsWithValue.has(token.toLowerCase())) i += 1;
+      continue;
+    }
+    return token.replace(/[;|]+$/g, "");
+  }
+  return "";
+};
+
+const extractListPathFromCommand = (command: string) => {
+  const tokens = tokenizeCommandLike(command);
+  const lower = tokens.map((token) => token.toLowerCase());
+  if (lower.includes("--files")) {
+    const rgIndex = lower.findIndex(
+      (token) => token === "rg" || token.endsWith("\\rg.exe") || token.endsWith("/rg.exe")
+    );
+    const afterFiles = lower.indexOf("--files");
+    for (let i = Math.max(rgIndex, afterFiles) + 1; i < tokens.length; i += 1) {
+      const token = tokens[i];
+      if (!token || token.startsWith("-") || token === "|" || token === ";") continue;
+      return token.replace(/[;|]+$/g, "");
+    }
+  }
+  const start = lower.findIndex(
+    (token) => token === "get-childitem" || token === "gci" || token === "dir" || token === "ls"
+  );
+  if (start < 0) return "";
+  const flagged = extractFlagTokenValue(tokens, "-Path", "-LiteralPath");
+  if (flagged) return flagged;
+  for (let i = start + 1; i < tokens.length; i += 1) {
+    const token = tokens[i];
+    if (token === "|" || token === ";") break;
+    if (token.startsWith("-")) {
+      if (["-filter", "-include", "-exclude"].includes(token.toLowerCase())) i += 1;
+      continue;
+    }
+    return token.replace(/[;|]+$/g, "");
+  }
+  return "";
+};
+
+const extractSearchInfoFromCommand = (command: string): { query: string; path: string } => {
+  const tokens = tokenizeCommandLike(command);
+  const lower = tokens.map((token) => token.toLowerCase());
+  const selectStringIndex = lower.findIndex((token) => token === "select-string");
+  if (selectStringIndex >= 0) {
+    return {
+      query: extractFlagTokenValue(tokens, "-Pattern"),
+      path: extractFlagTokenValue(tokens, "-Path", "-LiteralPath"),
+    };
+  }
+  const searchIndex = lower.findIndex(
+    (token) =>
+      token === "rg" ||
+      token === "grep" ||
+      token === "findstr" ||
+      token.endsWith("\\rg.exe") ||
+      token.endsWith("/rg.exe")
+  );
+  if (searchIndex < 0) return { query: "", path: "" };
+  const positional: string[] = [];
+  const flagsWithValue = new Set(["-g", "--glob", "--type", "--path-separator", "-e", "--regexp"]);
+  for (let i = searchIndex + 1; i < tokens.length; i += 1) {
+    const token = tokens[i];
+    if (token === "|" || token === ";") break;
+    if (token.startsWith("-")) {
+      if (flagsWithValue.has(token.toLowerCase())) {
+        if (token.toLowerCase() === "-e" || token.toLowerCase() === "--regexp") positional.push(tokens[i + 1] ?? "");
+        i += 1;
+      }
+      continue;
+    }
+    positional.push(token.replace(/[;|]+$/g, ""));
+    if (positional.length >= 2) break;
+  }
+  return { query: positional[0] ?? "", path: positional[1] ?? "" };
+};
+
+const firstVisualCommandAction = (item: CommandGroupItem): CommandParsedAction | null => {
+  return (
+    (item.actions ?? []).find(
+      (action) => action.type === "read" || action.type === "listFiles" || action.type === "search"
+    ) ?? null
+  );
+};
+
+const inferFallbackCommandAction = (item: CommandGroupItem): CommandParsedAction | null => {
+  const command = String(item.commandFull || item.commandShort || "").trim();
+  if (!command) return null;
+  if (isReadCommand(command))
+    return {
+      type: "read",
+      command,
+      name: "",
+      path: extractReadPathFromCommand(command),
+      query: "",
+      startLine: null,
+      endLine: null,
+    };
+  if (isDirectoryListingCommand(command))
+    return {
+      type: "listFiles",
+      command,
+      name: "",
+      path: extractListPathFromCommand(command),
+      query: "",
+      startLine: null,
+      endLine: null,
+    };
+  if (isSearchCommand(command)) {
+    const { query, path } = extractSearchInfoFromCommand(command);
+    return { type: "search", command, name: "", path, query, startLine: null, endLine: null };
+  }
+  return null;
+};
+
+const parseCommandSearchMatches = (output: string, workspaceRoot: string): CommandSearchMatch[] => {
+  const lines = toMeaningfulOutputLines(output);
+  const matches: CommandSearchMatch[] = [];
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd();
+    if (!line.trim()) continue;
+    const match = line.match(/^(.+?):(\d+)(?::(\d+))?:(.*)$/);
+    if (match) {
+      matches.push({
+        path: toWorkspaceRelativePath(match[1] ?? "", workspaceRoot),
+        line: Number.parseInt(match[2] ?? "", 10),
+        column: match[3] ? Number.parseInt(match[3], 10) : null,
+        text: String(match[4] ?? "").trim(),
+      });
+      continue;
+    }
+    matches.push({ path: "", line: null, column: null, text: line.trim() });
+  }
+  return matches;
+};
+
+const buildSpecializedCommandNode = (
+  nodeId: string,
+  createdAt: number,
+  turnId: string,
+  item: CommandGroupItem,
+  workspaceRoot: string
+): TimelineRenderNode | null => {
+  const action = firstVisualCommandAction(item) ?? inferFallbackCommandAction(item);
+  if (!action) return null;
+
+  const commandFull = item.commandFull || action.command || item.commandShort;
+  if (action.type === "read") {
+    const lines = toMeaningfulOutputLines(item.outputFull);
+    const actionPath = action.path || "";
+    const path = toWorkspaceRelativePath(actionPath, workspaceRoot) || actionPath;
+    const fallbackName =
+      path
+        .split(/[\\/]+/)
+        .filter(Boolean)
+        .pop() ?? "";
+    return {
+      id: nodeId,
+      kind: "commandRead",
+      item: {
+        id: nodeId,
+        createdAt,
+        turnId,
+        status: ensureCommandGroupItemStatus(item),
+        commandFull,
+        outputFull: item.outputFull,
+        outputKey: item.outputKey,
+        exitCode: item.exitCode,
+        durationMs: item.durationMs,
+        name: action.name || fallbackName || path || "读取内容",
+        path,
+        startLine: action.startLine,
+        endLine: action.endLine,
+        lineCount: lines.length,
+        previewLines: lines.slice(0, 40),
+      },
+    };
+  }
+
+  if (action.type === "listFiles") {
+    const parsed = parseCommandListOutputFiles(item.outputFull);
+    const files = parsed.ok
+      ? parsed.files
+          .map((file) => toWorkspaceRelativePath(String(file ?? ""), workspaceRoot))
+          .filter((file) => file.trim().length > 0)
+      : item.files;
+    const path = action.path ? toWorkspaceRelativePath(action.path, workspaceRoot) || action.path : "";
+    return {
+      id: nodeId,
+      kind: "commandList",
+      item: {
+        id: nodeId,
+        createdAt,
+        turnId,
+        status: ensureCommandGroupItemStatus(item),
+        commandFull,
+        outputFull: item.outputFull,
+        outputKey: item.outputKey,
+        path,
+        files,
+        filesCount: Math.max(files.length, item.filesCount ?? 0),
+      },
+    };
+  }
+
+  if (action.type === "search") {
+    const matches = parseCommandSearchMatches(item.outputFull, workspaceRoot);
+    const path = action.path ? toWorkspaceRelativePath(action.path, workspaceRoot) || action.path : "";
+    return {
+      id: nodeId,
+      kind: "commandSearch",
+      item: {
+        id: nodeId,
+        createdAt,
+        turnId,
+        status: ensureCommandGroupItemStatus(item),
+        commandFull,
+        outputFull: item.outputFull,
+        outputKey: item.outputKey,
+        query: action.query,
+        path,
+        matches: matches.slice(0, 1000),
+        matchCount: matches.length,
+      },
+    };
+  }
+
+  return null;
 };
 
 const toPrettyJsonOrText = (value: unknown) => {
@@ -478,6 +956,13 @@ const toNumberOrNull = (value: unknown): number | null => {
   return null;
 };
 
+const toPositiveLineNumberOrNull = (value: unknown): number | null => {
+  const numberValue = typeof value === "number" ? value : typeof value === "string" ? Number(value.trim()) : Number.NaN;
+  if (!Number.isFinite(numberValue)) return null;
+  const rounded = Math.floor(numberValue);
+  return rounded > 0 ? rounded : null;
+};
+
 const toEventParamsObject = (event: TimelineEventItem): Record<string, any> | null => {
   if (event.params && typeof event.params === "object") return event.params as Record<string, any>;
   const text = String(event.paramsText ?? "").trim();
@@ -631,6 +1116,7 @@ type ParsedCommandEvent = {
   turnId: string;
   method: CommandEventMethod;
   command: string;
+  actions: CommandParsedAction[];
   hasCommand: boolean;
   statusRaw: string;
   exitCode: number | null;
@@ -660,6 +1146,7 @@ const parseCommandExecutionEvent = (event: TimelineEventItem): ParsedCommandEven
       turnId,
       method: event.method,
       command: "终端交互",
+      actions: [],
       hasCommand: false,
       statusRaw: "running",
       exitCode: null,
@@ -678,12 +1165,14 @@ const parseCommandExecutionEvent = (event: TimelineEventItem): ParsedCommandEven
   const commandRaw = String(item.command ?? "").trim();
   const hasCommand = Boolean(commandAction || commandRaw);
   const command = commandAction || commandRaw || "命令执行";
+  const actions = normalizeCommandParsedActions(item.commandActions, command);
   const turnId = String(payload.turnId ?? event.turnId ?? "").trim() || "unknown";
   return {
     itemId,
     turnId,
     method: event.method,
     command,
+    actions,
     hasCommand,
     statusRaw: String(item.status ?? "").trim(),
     exitCode: toNumberOrNull(item.exitCode),
@@ -1250,7 +1739,9 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
       const streamUpdateCount =
         (existing?.streamUpdateCount ?? 0) + (fileEvent.method === "item/fileChange/patchUpdated" ? 1 : 0);
       const lastPatchUpdatedAt =
-        fileEvent.method === "item/fileChange/patchUpdated" ? fileEvent.createdAt : (existing?.lastPatchUpdatedAt ?? null);
+        fileEvent.method === "item/fileChange/patchUpdated"
+          ? fileEvent.createdAt
+          : (existing?.lastPatchUpdatedAt ?? null);
 
       const startedAt =
         fileEvent.method === "item/completed"
@@ -1285,6 +1776,7 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
         id: commandEvent.itemId,
         outputKey: `${params.timelineKey}:${itemKey}`,
         status: "unknown",
+        actions: [],
         commandShort: shortenText(commandEvent.command, 150),
         commandFull: commandEvent.command,
         lastEventMethod: "",
@@ -1312,6 +1804,18 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
         baseItem.commandShort = shortenText(baseItem.commandFull, 150);
       }
       baseItem.lastEventMethod = commandEvent.method;
+      if (commandEvent.actions.length > 0) {
+        const bySignature = new Map(
+          (baseItem.actions ?? []).map((action) => [
+            `${action.type}:${action.command}:${action.path}:${action.query}:${action.startLine ?? ""}:${action.endLine ?? ""}`,
+            action,
+          ])
+        );
+        for (const action of commandEvent.actions) {
+          bySignature.set(`${action.type}:${action.command}:${action.path}:${action.query}:${action.startLine ?? ""}:${action.endLine ?? ""}`, action);
+        }
+        baseItem.actions = [...bySignature.values()];
+      }
 
       if (commandEvent.method === "item/started") {
         baseItem.startedAt =
@@ -1335,7 +1839,7 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
         baseItem.outputFull = commandEvent.output;
         baseItem.outputPreview = toCommandOutputPreview(commandEvent.output);
         if (isDirectoryListingCommand(baseItem.commandFull)) {
-          const parsed = parseGetChildItemOutputFiles(commandEvent.output);
+          const parsed = parseCommandListOutputFiles(commandEvent.output);
           if (parsed.ok) {
             const normalized = parsed.files
               .map((f) => toWorkspaceRelativePath(String(f ?? ""), params.workspaceRoot))
@@ -1598,6 +2102,16 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
 
     keepItem.commandFull = chooseIfBetterText(keepItem.commandFull, incomingItem.commandFull);
     keepItem.commandShort = chooseIfBetterText(keepItem.commandShort, incomingItem.commandShort);
+    const actionsBySignature = new Map(
+      (keepItem.actions ?? []).map((action) => [
+        `${action.type}:${action.command}:${action.path}:${action.query}:${action.startLine ?? ""}:${action.endLine ?? ""}`,
+        action,
+      ])
+    );
+    for (const action of incomingItem.actions ?? []) {
+      actionsBySignature.set(`${action.type}:${action.command}:${action.path}:${action.query}:${action.startLine ?? ""}:${action.endLine ?? ""}`, action);
+    }
+    keepItem.actions = [...actionsBySignature.values()];
     keepItem.lastEventMethod = String(incomingItem.lastEventMethod || keepItem.lastEventMethod) as
       | CommandEventMethod
       | "";
@@ -1637,6 +2151,21 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
   for (const entry of commandEntriesBySignature.values()) {
     const anchorTs = entry.item.startedAt ?? entry.item.completedAt ?? entry.firstCreatedAt;
     const nodeId = `cmd:${params.timelineKey}:${entry.turnId}:${entry.item.id}`;
+    const specializedNode = buildSpecializedCommandNode(
+      nodeId,
+      anchorTs,
+      entry.turnId,
+      entry.item,
+      params.workspaceRoot
+    );
+    if (specializedNode) {
+      renderNodes.push({
+        index: entry.firstIndex,
+        createdAt: anchorTs,
+        node: specializedNode,
+      });
+      continue;
+    }
     renderNodes.push({
       index: entry.firstIndex,
       createdAt: anchorTs,
