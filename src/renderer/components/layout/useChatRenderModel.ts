@@ -248,6 +248,18 @@ export function useChatRenderModel(
         pushRow({ id: `c:${node.id}`, turnKey, kind: "commandAction", item: node.item });
         continue;
       }
+      if (node.kind === "commandRead") {
+        pushRow({ id: `cr:${node.id}`, turnKey, kind: "commandRead", item: node.item });
+        continue;
+      }
+      if (node.kind === "commandList") {
+        pushRow({ id: `cl:${node.id}`, turnKey, kind: "commandList", item: node.item });
+        continue;
+      }
+      if (node.kind === "commandSearch") {
+        pushRow({ id: `cs:${node.id}`, turnKey, kind: "commandSearch", item: node.item });
+        continue;
+      }
       if (node.kind === "mcpResourceRead") {
         pushRow({ id: `mr:${node.id}`, turnKey, kind: "mcpResourceRead", item: node.item });
         continue;

@@ -3,6 +3,9 @@ import type {
   ReasoningBlockNode,
   FileChangeNode,
   CommandActionNode,
+  CommandListNode,
+  CommandReadNode,
+  CommandSearchNode,
   McpResourceReadNode,
   McpToolGroupNode,
 } from "../../features/timeline/renderModel/buildTimelineNodes";
@@ -64,6 +67,9 @@ export type ChatRow =
   | (ChatRowBase & { kind: "reasoningBlock"; item: ReasoningBlockNode })
   | (ChatRowBase & { kind: "fileChange"; item: FileChangeNode })
   | (ChatRowBase & { kind: "commandAction"; item: CommandActionNode })
+  | (ChatRowBase & { kind: "commandRead"; item: CommandReadNode })
+  | (ChatRowBase & { kind: "commandList"; item: CommandListNode })
+  | (ChatRowBase & { kind: "commandSearch"; item: CommandSearchNode })
   | (ChatRowBase & { kind: "mcpResourceRead"; item: McpResourceReadNode })
   | (ChatRowBase & { kind: "mcpToolGroup"; group: McpToolGroupNode });
 

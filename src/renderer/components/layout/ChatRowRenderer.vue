@@ -98,6 +98,34 @@
     class="chat-row chat-row--activity flex min-w-0 m-0"
   />
 
+  <div v-else-if="renderedRow.kind === 'commandRead'" class="chat-row chat-row--tool flex min-w-0 m-0">
+    <ChatReadFileCard :item="(renderedRow as any).item" />
+  </div>
+
+  <div v-else-if="renderedRow.kind === 'commandList'" class="chat-row chat-row--tool flex min-w-0 m-0">
+    <div class="chat-tool-wrap w-full max-w-full min-w-0">
+      <CommandVisualCardContent
+        kind="list"
+        :item="(renderedRow as any).item"
+        :open="isCommandFilesOpen((renderedRow as any).item.id)"
+        :renderLimit="COMMAND_FILES_RENDER_LIMIT"
+        @update:open="toggleCommandFilesOpen((renderedRow as any).item.id)"
+      />
+    </div>
+  </div>
+
+  <div v-else-if="renderedRow.kind === 'commandSearch'" class="chat-row chat-row--tool flex min-w-0 m-0">
+    <div class="chat-tool-wrap w-full max-w-full min-w-0">
+      <CommandVisualCardContent
+        kind="search"
+        :item="(renderedRow as any).item"
+        :open="isCommandFilesOpen((renderedRow as any).item.id)"
+        :renderLimit="COMMAND_FILES_RENDER_LIMIT"
+        @update:open="toggleCommandFilesOpen((renderedRow as any).item.id)"
+      />
+    </div>
+  </div>
+
   <div v-else-if="renderedRow.kind === 'mcpResourceRead'" class="chat-row chat-row--tool flex min-w-0 m-0">
     <div class="chat-tool-wrap w-full max-w-full min-w-0">
       <McpResourceReadCardContent
@@ -141,6 +169,8 @@ import ChatImageToolCard from "../chat/ChatImageToolCard.vue";
 import ChatWebSearchCard from "../chat/ChatWebSearchCard.vue";
 import ChatCommandActionRow from "../chat/ChatCommandActionRow.vue";
 import ChatFileChangeCard from "../chat/ChatFileChangeCard.vue";
+import ChatReadFileCard from "../chat/ChatReadFileCard.vue";
+import CommandVisualCardContent from "../timeline/cards/CommandVisualCardContent.vue";
 import McpResourceReadCardContent from "../timeline/cards/McpResourceReadCardContent.vue";
 import McpToolCardContent from "../timeline/cards/McpToolCardContent.vue";
 

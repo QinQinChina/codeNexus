@@ -38,7 +38,9 @@
         />
         <div v-else-if="isMarkdownEvent(node.event)">
           <PlanOutputCard
-            v-if="node.event.method === 'item/plan/delta' && appShellStore.assistantPlanMessageFormat === 'plan-card-v1'"
+            v-if="
+              node.event.method === 'item/plan/delta' && appShellStore.assistantPlanMessageFormat === 'plan-card-v1'
+            "
             class="body min-w-0"
             :class="eventBodyClass(node.event)"
             :rawText="node.event.paramsText"
@@ -109,7 +111,9 @@
         />
         <div v-else-if="isMarkdownEvent(node.event)">
           <PlanOutputCard
-            v-if="node.event.method === 'item/plan/delta' && appShellStore.assistantPlanMessageFormat === 'plan-card-v1'"
+            v-if="
+              node.event.method === 'item/plan/delta' && appShellStore.assistantPlanMessageFormat === 'plan-card-v1'
+            "
             class="body min-w-0"
             :class="eventBodyClass(node.event)"
             :rawText="node.event.paramsText"
@@ -282,6 +286,33 @@
       @update:open="onMcpResourceToggle(node.item.id, $event)"
     />
 
+    <CommandVisualCardContent
+      v-else-if="node.kind === 'commandRead'"
+      kind="read"
+      :item="node.item"
+      :open="isCommandFilesOpen(node.item.id)"
+      :renderLimit="COMMAND_FILES_RENDER_LIMIT"
+      @update:open="toggleCommandFilesOpen(node.item.id)"
+    />
+
+    <CommandVisualCardContent
+      v-else-if="node.kind === 'commandList'"
+      kind="list"
+      :item="node.item"
+      :open="isCommandFilesOpen(node.item.id)"
+      :renderLimit="COMMAND_FILES_RENDER_LIMIT"
+      @update:open="toggleCommandFilesOpen(node.item.id)"
+    />
+
+    <CommandVisualCardContent
+      v-else-if="node.kind === 'commandSearch'"
+      kind="search"
+      :item="node.item"
+      :open="isCommandFilesOpen(node.item.id)"
+      :renderLimit="COMMAND_FILES_RENDER_LIMIT"
+      @update:open="toggleCommandFilesOpen(node.item.id)"
+    />
+
     <McpToolCardContent
       v-else-if="node.kind === 'mcpToolGroup'"
       :open="isMcpToolGroupOpen(node.group.id)"
@@ -306,6 +337,7 @@
 <script setup lang="ts">
 // 时间线视图：承载时间线卡片渲染与交互，包括 diff、markdown、工具输出等。
 import { computed, ref, watch } from "vue";
+import CommandVisualCardContent from "../timeline/cards/CommandVisualCardContent.vue";
 import FileChangeCardContent from "../timeline/cards/FileChangeCardContent.vue";
 import McpResourceReadCardContent from "../timeline/cards/McpResourceReadCardContent.vue";
 import McpToolCardContent from "../timeline/cards/McpToolCardContent.vue";
@@ -631,23 +663,13 @@ const eventShellClass = (event: TimelineEventItem) => {
     else if (localState === "sent") borderColorClass = "border-[var(--border-success)]";
     else if (localState === "failed") borderColorClass = "border-[var(--border-danger)]";
 
-    const classes = [
-      ...base,
-      "mb-2.5",
-      "p-[var(--timeline-card-padding,10px)]",
-      borderColorClass,
-    ];
+    const classes = [...base, "mb-2.5", "p-[var(--timeline-card-padding,10px)]", borderColorClass];
 
     return classes.join(" ");
   }
 
   if (isReasoningStream) {
-    return [
-      ...base,
-      "mb-2.5",
-      "p-[var(--timeline-card-padding,10px)]",
-      "border-[var(--border-warning)]",
-    ].join(" ");
+    return [...base, "mb-2.5", "p-[var(--timeline-card-padding,10px)]", "border-[var(--border-warning)]"].join(" ");
   }
 
   if (workspaceFileSave) {
