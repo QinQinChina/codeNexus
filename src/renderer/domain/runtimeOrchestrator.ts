@@ -1,25 +1,23 @@
 import { nextTick } from "vue";
 import type { Pinia } from "pinia";
 import { codexDesktop } from "../api/codexDesktopClient";
-import { parseSessionReplayEvents, type ReplayTimelineEvent } from "../features/history/replayParsers";
+import type { ReplayTimelineEvent } from "../features/history/replayParsers";
 import {
   ALL_THREAD_SOURCE_KINDS,
   buildHistoryThreadMetadataPatchFromServerThread,
   normalizeOptionalText,
   resolveThreadParentIdForGraph,
 } from "../features/history/threadMetadata";
-import { buildThreadHandoffDiagnostics } from "../features/history/threadHandoffDiagnostics";
 import { toThreadHistoryItem as toThreadHistoryItemFromHistory } from "../features/history/threadHistoryItem";
 import {
   fallbackThreadTitle,
   isBootstrapThreadTitleSource,
   titleFromFirstUserMessage,
 } from "../features/history/threadTitle";
-import { confirmModal, promptNumberModal } from "../ui/modal";
 import { showToast } from "../ui/toast";
 import { appendDebugLog } from "../shared/debugLog";
 import { isIpcHandlerMissingError } from "../shared/ipcErrors";
-import { sandboxKebabFromUi, sandboxPolicyFromUi } from "../shared/sandboxPolicy";
+import { sandboxKebabFromUi } from "../shared/sandboxPolicy";
 import { safeJsonStringify } from "../utils/safeJson";
 import {
   beginThreadCreateAttempt,
@@ -43,13 +41,7 @@ import { useApprovalStore } from "../stores/approval.store";
 import { useWorkspaceFilesStore } from "../stores/workspaceFiles.store";
 import { installEventPipeline } from "../processes/protocol-event-pipeline/installEventPipeline";
 import { installRequestResponder } from "../processes/protocol-request-responder/installRequestResponder";
-import { clearLocalImageCache, getLocalImageCacheStats } from "../features/media/localImageCache";
-import { clearNotificationSoundCache, getNotificationSoundCacheStats } from "../features/notificationSound/player";
 import { notifyTurnCompleted } from "../features/systemNotification/systemNotification";
-import { clearLocalDraftMemoryCache, getLocalDraftMemoryCacheStats } from "./localDraftState";
-import { clearLocalMessageOutboxMemoryCache, getLocalMessageOutboxMemoryCacheStats } from "./localMessageOutbox";
-import { clearLocalSettingsMemoryCache, getLocalSettingsMemoryCacheStats } from "./localSettings";
-import { STRUCTURED_FINAL_ANSWER_OUTPUT_SCHEMA_V1 } from "./structuredFinalAnswer";
 import {
   buildCompletedTurnsFromReplay,
   countReplayTurns,
@@ -65,28 +57,18 @@ import {
   toPlanTurnKey,
   type ThreadReplayCache,
 } from "./runtime/historyReplayRuntime";
+import { createHistoryThreadRuntime } from "./runtime/historyThreadRuntime";
+import { createConfigRuntime } from "./runtime/configRuntime";
+import { createMcpRuntime } from "./runtime/mcpRuntime";
+import { createMcpResourceReadRuntime } from "./runtime/mcpResourceRuntime";
+import { createSkillsRuntime } from "./runtime/skillsRuntime";
+import { createTurnInputRuntime } from "./runtime/turnInputRuntime";
+import { createTurnStartRuntime } from "./runtime/turnStartRuntime";
+import { createWorkspaceFileRuntime } from "./runtime/workspaceFileRuntime";
 import {
-  buildMcpResourceReadSummary,
-  summarizeMcpResourceMimeTypes,
-  toMcpResourceSourceTab,
-  toMcpResourceTimelineContents,
-} from "./runtime/mcpResourceRuntime";
-import {
-  cloneHistoryThreadContentResult,
   invalidateThreadContentCache,
-  normalizeCacheNamespace,
-  pruneExpiredThreadContentCache,
-  toRendererCacheItem,
-  toThreadContentCacheKey,
-  type RendererCacheProvider,
   type ThreadContentCacheEntry,
 } from "./runtime/rendererCacheRuntime";
-import { clearMarkdownHtmlCache, getMarkdownHtmlCacheStats } from "../features/timeline/markdownRenderer";
-import { clearParsedDiffCache, getParsedDiffCacheStats } from "../features/timeline/renderModel/diff";
-import {
-  clearDiffSyntaxHighlightCache,
-  getDiffSyntaxHighlightCacheStats,
-} from "../features/timeline/renderModel/diffSyntaxHighlight";
 import {
   buildConfigBatchChangesFromDraft,
   createDefaultGlobalConfigDraft,
@@ -96,28 +78,16 @@ import {
   normalizeApprovalsReviewer,
   normalizeEffort,
   normalizeMcpServersFromConfig,
-  normalizeMcpStatusListResult,
   normalizeModelName,
   normalizeReasoningSummary,
   normalizeSandboxMode,
-  normalizeSkillsErrors,
-  normalizeSkillsListResult,
-  summarizeSkillsListResult,
-  type ConfigWriteChange,
 } from "./serverInterop";
 import { isWithinWorkspaceFsPath, resolveWorkspaceFsPath } from "./workspacePath";
 import {
   buildComposeDraftFromUserTurnInputs,
-  cloneComposeTextElements,
-  buildUserTurnInputsFromComposeDraft,
   hasMeaningfulComposeText,
 } from "./composeFileMentions";
 import type { HistoryThread } from "../../shared/ipc";
-import type { ConfigReadParams } from "../../generated/codex-app-server/v2/ConfigReadParams";
-import type { ConfigReadResponse } from "../../generated/codex-app-server/v2/ConfigReadResponse";
-import type { ConfigRequirementsReadResponse } from "../../generated/codex-app-server/v2/ConfigRequirementsReadResponse";
-import type { ListMcpServerStatusParams } from "../../generated/codex-app-server/v2/ListMcpServerStatusParams";
-import type { McpResourceReadParams } from "../../generated/codex-app-server/v2/McpResourceReadParams";
 import type { Thread as ServerThread } from "../../generated/codex-app-server/v2/Thread";
 import type { ThreadListParams } from "../../generated/codex-app-server/v2/ThreadListParams";
 import type { ThreadListResponse } from "../../generated/codex-app-server/v2/ThreadListResponse";
@@ -125,8 +95,6 @@ import type { ThreadReadParams } from "../../generated/codex-app-server/v2/Threa
 import type { ThreadResumeParams } from "../../generated/codex-app-server/v2/ThreadResumeParams";
 import type { ThreadStartParams } from "../../generated/codex-app-server/v2/ThreadStartParams";
 import type { ThreadMemoryMode } from "../../generated/codex-app-server/ThreadMemoryMode";
-import type { TurnStartParams } from "../../generated/codex-app-server/v2/TurnStartParams";
-import type { UserInput as CodexUserInput } from "../../generated/codex-app-server/v2/UserInput";
 import type { JsonValue } from "../../generated/codex-app-server/serde_json/JsonValue";
 import type {
   ComposeImageAttachment,
@@ -137,14 +105,13 @@ import type {
   SkillState,
   ThreadHistoryItem,
   TimelineEventItem,
-  TimelineUserMessageParams,
   UserTurnInput,
   WorkspaceDirectoryReadResult,
   WorkspaceFileMetadataState,
   WorkspaceTextFileReadResult,
   WorkspaceTextFileWriteResult,
 } from "./types";
-import { IPC_APP_CHANNELS, IPC_HISTORY_CHANNELS } from "../../shared/ipc";
+import { IPC_HISTORY_CHANNELS } from "../../shared/ipc";
 import {
   buildThreadStartConfigOverridesForModel,
   hasThreadStartConfigOverridesForModel,
@@ -157,7 +124,6 @@ import type {
   CacheClearArgs,
   CacheClearResult,
   CacheListResult,
-  CacheStatsItem,
   HistoryThreadContentResult,
   HistoryThreadTaskCreateArgs,
   HistoryThreadTaskCreateResult,
@@ -170,6 +136,8 @@ const APP_TIMELINE_ID = "__app__";
 // 历史回放仍按事件页读取，但聊天首屏只保留最近几个 turn，旧历史按需继续补。
 const HISTORY_REPLAY_BATCH = 1000;
 const HISTORY_REPLAY_TURN_SEGMENTS = 4;
+// UI：最多显示最近 N 轮对话（不做虚拟列表/窗口化渲染）。
+const TIMELINE_MAX_VISIBLE_TURNS = 16;
 const THREAD_METADATA_PAGE_SIZE = 200;
 const THREAD_CONTENT_CACHE_TTL_MS = 2000;
 
@@ -201,8 +169,22 @@ type JsonRpcErrorLike = {
   message: string;
 };
 
-function normalizeEditorTextContent(content: string): string {
-  return String(content ?? "").replace(/\r\n?/g, "\n");
+async function confirmModalLazy(options: Parameters<typeof import("../ui/modal")["confirmModal"]>[0]) {
+  const { confirmModal } = await import("../ui/modal");
+  return confirmModal(options);
+}
+
+async function promptNumberModalLazy(options: Parameters<typeof import("../ui/modal")["promptNumberModal"]>[0]) {
+  const { promptNumberModal } = await import("../ui/modal");
+  return promptNumberModal(options);
+}
+
+async function parseSessionReplayEventsLazy(
+  entries: Parameters<typeof import("../features/history/replayParsers")["parseSessionReplayEvents"]>[0],
+  threadId: string
+): Promise<ReplayTimelineEvent[]> {
+  const { parseSessionReplayEvents } = await import("../features/history/replayParsers");
+  return parseSessionReplayEvents(entries, threadId);
 }
 
 export type RuntimeOrchestrator = {
@@ -316,7 +298,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   let latestSwitchThreadSeq = 0;
   const skillsSnapshotByWorkspace = new Map<string, SkillsSnapshot>();
   const mcpSnapshotByWorkspace = new Map<string, McpSnapshot>();
-  const rendererCacheProviders = new Map<string, RendererCacheProvider>();
   let globalConfigAutoLoadAttempted = false;
   const disposers: Array<() => void> = [];
 
@@ -398,93 +379,26 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     return String(error ?? "unknown error");
   };
 
-  const estimateBytes = (value: unknown): number => {
-    try {
-      return JSON.stringify(value).length;
-    } catch {
-      return 0;
-    }
-  };
-
-  const registerRendererCacheProvider = (provider: RendererCacheProvider) => {
-    const namespace = normalizeCacheNamespace(provider.namespace);
-    if (!namespace) return;
-    rendererCacheProviders.set(namespace, {
-      ...provider,
-      namespace,
-      clearable: provider.clearable !== false && typeof provider.clear === "function",
-    });
-  };
+  const createRendererCacheContext = () => ({
+    threadContentCacheByKey,
+    replayCacheByThread,
+    replayWindowStateByThread,
+    replayRequestSeqByThread,
+    olderHistoryLoadPromiseByThread,
+    skillsSnapshotByWorkspace,
+    mcpSnapshotByWorkspace,
+    mcpResourceStore,
+    workspaceFilesStore,
+  });
 
   const listRendererCaches = async (): Promise<CacheListResult> => {
-    const items: CacheStatsItem[] = [];
-    for (const [namespace, provider] of rendererCacheProviders.entries()) {
-      try {
-        const stats = await provider.getStats();
-        items.push(toRendererCacheItem(namespace, provider, stats));
-      } catch (error) {
-        items.push(
-          toRendererCacheItem(namespace, provider, {
-            items: 0,
-            bytes: 0,
-            updatedAt: Date.now(),
-            note: `stats-error: ${readErrorMessage(error)}`,
-          })
-        );
-      }
-    }
-    items.sort((a, b) => a.namespace.localeCompare(b.namespace, "en"));
-    return {
-      items,
-      generatedAt: Date.now(),
-    };
+    const { listRendererCachesForRuntime } = await import("./runtime/rendererCacheRegistry");
+    return listRendererCachesForRuntime(createRendererCacheContext());
   };
 
   const clearRendererCaches = async (args?: CacheClearArgs): Promise<CacheClearResult> => {
-    const clearAll = Boolean(args?.clearAll);
-    const requested = Array.isArray(args?.namespaces)
-      ? args.namespaces.map((item) => normalizeCacheNamespace(item)).filter(Boolean)
-      : [];
-    const cleared: string[] = [];
-    const skipped: CacheClearResult["skipped"] = [];
-    const targets = clearAll ? [...rendererCacheProviders.keys()] : requested;
-
-    if (!clearAll && targets.length === 0) {
-      const listed = await listRendererCaches();
-      return {
-        ok: true,
-        cleared: [],
-        skipped: [{ namespace: "", reason: "no-namespaces" }],
-        items: listed.items,
-        generatedAt: listed.generatedAt,
-      };
-    }
-
-    for (const namespace of targets) {
-      const provider = rendererCacheProviders.get(namespace);
-      if (!provider) {
-        skipped.push({ namespace, reason: "not-found" });
-        continue;
-      }
-      if (provider.clearable === false || typeof provider.clear !== "function") {
-        skipped.push({ namespace, reason: "not-clearable" });
-        continue;
-      }
-      try {
-        await provider.clear();
-        cleared.push(namespace);
-      } catch (error) {
-        skipped.push({ namespace, reason: `clear-failed: ${readErrorMessage(error)}` });
-      }
-    }
-    const listed = await listRendererCaches();
-    return {
-      ok: true,
-      cleared,
-      skipped,
-      items: listed.items,
-      generatedAt: listed.generatedAt,
-    };
+    const { clearRendererCachesForRuntime } = await import("./runtime/rendererCacheRegistry");
+    return clearRendererCachesForRuntime(createRendererCacheContext(), args);
   };
 
   const parseJsonRpcError = (error: unknown): JsonRpcErrorLike | null => {
@@ -594,149 +508,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     applySkillsSnapshot(workspace);
     applyMcpSnapshot(workspace);
   };
-
-  registerRendererCacheProvider({
-    namespace: "renderer.history.threadContent",
-    getStats: () => {
-      pruneExpiredThreadContentCache(threadContentCacheByKey);
-      let bytes = 0;
-      for (const [key, entry] of threadContentCacheByKey.entries()) {
-        bytes += key.length;
-        bytes += estimateBytes(entry.result);
-      }
-      return {
-        items: threadContentCacheByKey.size,
-        bytes,
-        note: "threadContent 短 TTL 缓存",
-      };
-    },
-    clear: () => {
-      invalidateThreadContentCache(threadContentCacheByKey);
-    },
-  });
-
-  registerRendererCacheProvider({
-    namespace: "renderer.runtime.replay",
-    getStats: () => {
-      let items = 0;
-      for (const entry of replayCacheByThread.values()) items += entry.length;
-      return {
-        items,
-        bytes: estimateBytes([...replayCacheByThread.entries()]),
-        note: "线程回放事件缓存",
-      };
-    },
-    clear: () => {
-      replayCacheByThread.clear();
-      replayWindowStateByThread.clear();
-      replayRequestSeqByThread.clear();
-      olderHistoryLoadPromiseByThread.clear();
-    },
-  });
-
-  registerRendererCacheProvider({
-    namespace: "renderer.runtime.skillsSnapshot",
-    getStats: () => ({
-      items: skillsSnapshotByWorkspace.size,
-      bytes: estimateBytes([...skillsSnapshotByWorkspace.entries()]),
-      note: "右侧 skills 快照缓存",
-    }),
-    clear: () => {
-      skillsSnapshotByWorkspace.clear();
-    },
-  });
-
-  registerRendererCacheProvider({
-    namespace: "renderer.runtime.mcpSnapshot",
-    getStats: () => ({
-      items: mcpSnapshotByWorkspace.size,
-      bytes: estimateBytes([...mcpSnapshotByWorkspace.entries()]),
-      note: "右侧 mcp 快照缓存",
-    }),
-    clear: () => {
-      mcpSnapshotByWorkspace.clear();
-    },
-  });
-
-  registerRendererCacheProvider({
-    namespace: "renderer.mcp.resource",
-    getStats: () => ({ ...mcpResourceStore.getResourceCacheStats(), note: "MCP 资源读取缓存" }),
-    clear: () => {
-      mcpResourceStore.clearResourceCache();
-    },
-  });
-
-  registerRendererCacheProvider({
-    namespace: "renderer.workspace.tree",
-    getStats: () => ({ ...workspaceFilesStore.getTreeCacheStats(), note: "工作区目录树缓存" }),
-    clear: () => {
-      workspaceFilesStore.clearTreeCache();
-    },
-  });
-
-  registerRendererCacheProvider({
-    namespace: "renderer.timeline.markdown",
-    getStats: () => ({ ...getMarkdownHtmlCacheStats(), note: "Markdown HTML 缓存" }),
-    clear: () => {
-      clearMarkdownHtmlCache();
-    },
-  });
-
-  registerRendererCacheProvider({
-    namespace: "renderer.timeline.diffParsed",
-    getStats: () => ({ ...getParsedDiffCacheStats(), note: "Diff 解析缓存" }),
-    clear: () => {
-      clearParsedDiffCache();
-    },
-  });
-
-  registerRendererCacheProvider({
-    namespace: "renderer.timeline.diffHighlight",
-    getStats: () => ({ ...getDiffSyntaxHighlightCacheStats(), note: "Diff 高亮缓存" }),
-    clear: () => {
-      clearDiffSyntaxHighlightCache();
-    },
-  });
-
-  registerRendererCacheProvider({
-    namespace: "renderer.media.localImage",
-    getStats: () => ({ ...getLocalImageCacheStats(), note: "本地图片 DataURL 缓存" }),
-    clear: () => {
-      clearLocalImageCache();
-    },
-  });
-
-  registerRendererCacheProvider({
-    namespace: "renderer.media.notificationSound",
-    getStats: () => ({ ...getNotificationSoundCacheStats(), note: "提示音 DataURL 缓存" }),
-    clear: () => {
-      clearNotificationSoundCache();
-    },
-  });
-
-  registerRendererCacheProvider({
-    namespace: "renderer.local.settingsMemory",
-    getStats: () => ({ ...getLocalSettingsMemoryCacheStats(), note: "本地设置内存镜像" }),
-    clear: () => {
-      clearLocalSettingsMemoryCache();
-    },
-  });
-
-  registerRendererCacheProvider({
-    namespace: "renderer.local.draftMemory",
-    getStats: () => ({ ...getLocalDraftMemoryCacheStats(), note: "草稿内存镜像" }),
-    clear: () => {
-      clearLocalDraftMemoryCache();
-    },
-  });
-
-  registerRendererCacheProvider({
-    namespace: "renderer.local.outboxMemory",
-    getStats: () => ({ ...getLocalMessageOutboxMemoryCacheStats(), note: "消息出站内存镜像" }),
-    clear: () => {
-      clearLocalMessageOutboxMemoryCache();
-    },
-  });
 
   // 统一重置右侧面板 store，避免状态残留。
   const resetSidePanelStores = (statusText = "未连接服务") => {
@@ -852,17 +623,17 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     return workspace;
   };
 
-  const requestConfigRead = async (): Promise<ConfigReadResponse> => {
-    const serverId = requireActiveWorkspaceServerId();
-    const cwd = String(runtimeStore.workspacePath ?? "").trim();
-    const params: ConfigReadParams = { includeLayers: true, ...(cwd ? { cwd } : {}) };
-    const res = await codexDesktop.codexServer.rpc({
-      serverId,
-      method: "config/read",
-      params,
-    });
-    return res.result;
-  };
+  const configRuntime = createConfigRuntime({
+    requireActiveWorkspaceServerId,
+    getWorkspacePath: () => String(runtimeStore.workspacePath ?? "").trim(),
+    onBatchWriteUnavailable: () => {
+      pushEvent("config", "config/batchWrite 不可用，已降级为 config/value/write", {
+        threadId: APP_TIMELINE_ID,
+        level: "warn",
+      });
+    },
+  });
+  const { requestConfigRead, requestConfigRequirementsRead, requestConfigBatchWrite } = configRuntime;
 
   const requestThreadRead = async (threadIdValue: string): Promise<ServerThread> => {
     const threadId = String(threadIdValue ?? "").trim();
@@ -879,206 +650,26 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     return res.result.thread;
   };
 
-  const requestConfigRequirementsRead = async (): Promise<ConfigRequirementsReadResponse> => {
-    const serverId = requireActiveWorkspaceServerId();
-    const res = await codexDesktop.codexServer.rpc({
-      serverId,
-      method: "configRequirements/read",
-    });
-    return res.result;
-  };
+  const skillsRuntime = createSkillsRuntime({
+    requireActiveWorkspaceServerId,
+    getServerIdForWorkspace,
+    getWorkspacePath: () => String(runtimeStore.workspacePath ?? "").trim(),
+  });
+  const { requestSkillsList, writeSkillConfig } = skillsRuntime;
 
-  const requestConfigBatchWrite = async (changes: ConfigWriteChange[]): Promise<void> => {
-    const serverId = requireActiveWorkspaceServerId();
-    const normalized = changes
-      .map((change) => ({
-        keyPath: String(change.keyPath ?? "").trim(),
-        value: change.value === undefined ? null : change.value,
-      }))
-      .filter((change) => Boolean(change.keyPath));
-    if (normalized.length === 0) return;
-
-    const valueWrite = async (keyPath: string, value: unknown) => {
-      await codexDesktop.codexServer.rpc({
-        serverId,
-        method: "config/value/write",
-        params: { keyPath, value: value as JsonValue, mergeStrategy: "replace" },
-      });
-    };
-
-    try {
-      await codexDesktop.codexServer.rpc({
-        serverId,
-        method: "config/batchWrite",
-        params: {
-          edits: normalized.map((change) => ({
-            keyPath: change.keyPath,
-            value: change.value as JsonValue,
-            mergeStrategy: "replace" as const,
-          })),
-        },
-      });
-    } catch (e: any) {
-      const rpcErr = parseJsonRpcError(e);
-      // 服务端不支持 batchWrite 时自动降级为逐项写入。
-      if (rpcErr?.code === -32601) {
-        pushEvent("config", "config/batchWrite 不可用，已降级为 config/value/write", {
-          threadId: APP_TIMELINE_ID,
-          level: "warn",
-        });
-        for (const change of normalized) {
-          await valueWrite(change.keyPath, change.value);
-        }
-        return;
-      }
-      throw e;
-    }
-  };
-
-  const requestSkillsList = async (
-    forceReload: boolean
-  ): Promise<{ entries: SkillState[]; errors: string[]; summary: string }> => {
-    const serverId = getServerIdForWorkspace(runtimeStore.workspacePath);
-    if (!serverId) return { entries: [], errors: [], summary: "shape=none skills=0" };
-    const cwd = String(runtimeStore.workspacePath ?? "").trim();
-    const { result } = await codexDesktop.codexServer.rpc({
-      serverId,
-      method: "skills/list",
-      params: { cwds: cwd ? [cwd] : [], forceReload },
-    });
-    return {
-      entries: normalizeSkillsListResult(result),
-      errors: normalizeSkillsErrors(result),
-      summary: summarizeSkillsListResult(result),
-    };
-  };
-
-  const writeSkillConfig = async (skillPath: string, enabled: boolean): Promise<void> => {
-    const serverId = requireActiveWorkspaceServerId();
-    const path = String(skillPath ?? "").trim();
-    if (!path) throw new Error("missing skill path");
-    await codexDesktop.codexServer.rpc({
-      serverId,
-      method: "skills/config/write",
-      params: { path, enabled },
-    });
-  };
-
-  const requestMcpStatusList = async (): Promise<
-    Array<
-      Pick<
-        McpServerState,
-        "id" | "state" | "authenticated" | "authStatus" | "message" | "tools" | "resources" | "resourceTemplates"
-      >
-    >
-  > => {
-    const serverId = requireActiveWorkspaceServerId();
-    const mergedById = new Map<
-      string,
-      Pick<
-        McpServerState,
-        "id" | "state" | "authenticated" | "authStatus" | "message" | "tools" | "resources" | "resourceTemplates"
-      >
-    >();
-    const seenCursors = new Set<string>();
-    let cursor: string | null = null;
-
-    while (true) {
-      const params: ListMcpServerStatusParams = {
-        detail: "full",
-        ...(cursor ? { cursor } : {}),
-      };
-      const { result } = await codexDesktop.codexServer.rpc({ serverId, method: "mcpServerStatus/list", params });
-      const normalized = normalizeMcpStatusListResult(result);
-      for (const item of normalized) mergedById.set(item.id, item);
-      const nextCursor = typeof result?.nextCursor === "string" ? result.nextCursor.trim() : "";
-      if (!nextCursor || seenCursors.has(nextCursor)) break;
-      seenCursors.add(nextCursor);
-      cursor = nextCursor;
-    }
-
-    return [...mergedById.values()].sort((a, b) => a.id.localeCompare(b.id));
-  };
-
-  const requestReloadMcpConfig = async (): Promise<void> => {
-    const serverId = requireActiveWorkspaceServerId();
-    await codexDesktop.codexServer.rpc({ serverId, method: "config/mcpServer/reload" });
-  };
-
-  const requestWriteMcpEnabled = async (serverKey: string, enabled: boolean): Promise<void> => {
-    const serverId = requireActiveWorkspaceServerId();
-    const id = String(serverKey ?? "").trim();
-    if (!id) throw new Error("missing mcp server id");
-    const keyPath = `mcp_servers.${id}.enabled`;
-    await codexDesktop.codexServer.rpc({
-      serverId,
-      method: "config/value/write",
-      params: { keyPath, value: enabled, mergeStrategy: "replace" },
-    });
-  };
-
-  const requestStartMcpOAuthLogin = async (serverKey: string): Promise<string> => {
-    const serverId = requireActiveWorkspaceServerId();
-    const id = String(serverKey ?? "").trim();
-    if (!id) throw new Error("missing mcp server id");
-    const { result } = await codexDesktop.codexServer.rpc({
-      serverId,
-      method: "mcpServer/oauth/login",
-      params: { name: id },
-    });
-    const url = typeof result.authorizationUrl === "string" ? result.authorizationUrl : "";
-    if (!url) throw new Error("服务端未返回 authorizationUrl");
-    return url;
-  };
-
-  const requestMcpResourceRead = async (params: {
-    threadId: string;
-    serverKey: string;
-    uri: string;
-  }): Promise<{ contents: McpResourceContentState[] }> => {
-    const threadId = String(params.threadId ?? "").trim();
-    const serverKey = String(params.serverKey ?? "").trim();
-    const uri = String(params.uri ?? "").trim();
-    if (!threadId) throw new Error("缺少 threadId，无法读取 MCP 资源。");
-    if (!serverKey) throw new Error("缺少 MCP 服务器标识。");
-    if (!uri) throw new Error("缺少资源 URI。");
-    const workspace = normalizeWorkspacePath(getWorkspaceForThread(threadId) || runtimeStore.workspacePath);
-    const serverId = await ensureServerForWorkspace(workspace);
-    if (!serverId) throw new Error("未连接服务。");
-    const rpcParams: McpResourceReadParams = {
-      threadId,
-      server: serverKey,
-      uri,
-    };
-    const { result } = await codexDesktop.codexServer.rpc({
-      serverId,
-      method: "mcpServer/resource/read",
-      params: rpcParams,
-    });
-    const contents: McpResourceContentState[] = [];
-    if (Array.isArray(result?.contents)) {
-      for (const content of result.contents) {
-        const uriValue = String(content?.uri ?? "").trim();
-        const mimeType = typeof content?.mimeType === "string" ? content.mimeType.trim() : "";
-        if (typeof (content as { text?: unknown }).text === "string") {
-          contents.push({
-            uri: uriValue,
-            ...(mimeType ? { mimeType } : {}),
-            text: String((content as { text: string }).text ?? ""),
-          });
-          continue;
-        }
-        if (typeof (content as { blob?: unknown }).blob === "string") {
-          contents.push({
-            uri: uriValue,
-            ...(mimeType ? { mimeType } : {}),
-            blob: String((content as { blob: string }).blob ?? ""),
-          });
-        }
-      }
-    }
-    return { contents };
-  };
+  const mcpRuntime = createMcpRuntime({
+    requireActiveWorkspaceServerId,
+    getWorkspacePath: () => String(runtimeStore.workspacePath ?? "").trim(),
+    getWorkspaceForThread,
+    ensureServerForWorkspace: (workspace) => ensureServerForWorkspace(workspace),
+  });
+  const {
+    requestMcpStatusList,
+    requestReloadMcpConfig,
+    requestWriteMcpEnabled,
+    requestStartMcpOAuthLogin,
+    requestMcpResourceRead,
+  } = mcpRuntime;
 
   const requestThreadRollback = async (threadIdValue: string, turns: number): Promise<boolean> => {
     const tid = String(threadIdValue ?? "").trim();
@@ -1150,7 +741,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
 
     let confirmed = false;
     try {
-      confirmed = await confirmModal({
+      confirmed = await confirmModalLazy({
         title: "发送编辑后的历史消息？",
         message: `会先撤回从该消息开始的 ${rollback.count} 个已完成回合，再发送编辑后的内容。`,
         detail: "撤回会回退线程上下文，并尝试回退这些回合产生的文件内容改动（不回退命令副作用）。",
@@ -1456,7 +1047,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       before,
     });
     const entries = Array.isArray(page?.entries) ? page.entries : [];
-    const events = entries.length > 0 ? parseSessionReplayEvents(entries, threadIdValue) : [];
+    const events = entries.length > 0 ? await parseSessionReplayEventsLazy(entries, threadIdValue) : [];
     return {
       loaded: Number.isFinite(page?.loaded) ? Math.max(0, Math.round(Number(page.loaded))) : 0,
       hasMore: Boolean(page?.hasMore),
@@ -1504,6 +1095,19 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     };
   };
 
+  const countTimelineTurnsForThread = (threadIdValue: string): number => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId) return 0;
+    timelineStore.flushPendingAppends();
+    const events = timelineStore.eventsForThread(threadId);
+    const turnIds = new Set<string>();
+    for (const event of events) {
+      const turnId = String(event?.turnId ?? "").trim();
+      if (turnId) turnIds.add(turnId);
+    }
+    return turnIds.size;
+  };
+
   const loadHistoryMessages = async (threadIdValue: string): Promise<boolean> => {
     if (!threadIdValue) return false;
 
@@ -1543,6 +1147,9 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
 
     const pending = olderHistoryLoadPromiseByThread.get(threadId);
     if (pending) return pending;
+
+    // turn window：达到上限后不再继续向上补历史。
+    if (countTimelineTurnsForThread(threadId) >= TIMELINE_MAX_VISIBLE_TURNS) return false;
     const requestSeq = nextReplayRequestSeq(threadId);
 
     const task = (async () => {
@@ -1700,6 +1307,9 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         ]);
         if (currentResult.status !== "fulfilled") throw currentResult.reason;
 
+        const { buildThreadHandoffDiagnostics } = await import(
+          "../features/history/threadHandoffDiagnostics"
+        );
         const diagnostics = buildThreadHandoffDiagnostics({
           threadId,
           parentThreadId,
@@ -1853,164 +1463,15 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     await codexDesktop.app.openExternal({ url: value });
   };
 
-  const readTextFileViaLocalIpc = async (path: string): Promise<string> => {
-    const filePath = String(path ?? "").trim();
-    if (!filePath) return "";
-    try {
-      const res = await codexDesktop.app.readTextFile({ path: filePath });
-      return String(res?.content ?? "");
-    } catch (e: any) {
-      const msg = readErrorMessage(e);
-      if (isIpcHandlerMissingError(msg, IPC_APP_CHANNELS.appReadTextFile)) {
-        throw new Error("主进程未加载文件读取能力，请重启应用后重试。");
-      }
-      throw e;
-    }
-  };
-
-  const readTextFileDetailViaLocalIpc = async (
-    path: string
-  ): Promise<{ content: string; encoding: AppTextEncoding; lineEnding: AppTextLineEnding }> => {
-    const filePath = String(path ?? "").trim();
-    if (!filePath) {
-      return { content: "", encoding: "UTF-8", lineEnding: "LF" };
-    }
-    try {
-      const res = await codexDesktop.app.readTextFile({ path: filePath });
-      return {
-        content: normalizeEditorTextContent(String(res?.content ?? "")),
-        encoding: res?.encoding === "UTF-8 BOM" ? "UTF-8 BOM" : "UTF-8",
-        lineEnding: res?.lineEnding === "CRLF" || res?.lineEnding === "CR" ? res.lineEnding : "LF",
-      };
-    } catch (e: any) {
-      const msg = readErrorMessage(e);
-      if (isIpcHandlerMissingError(msg, IPC_APP_CHANNELS.appReadTextFile)) {
-        throw new Error("主进程未加载文件读取能力，请重启应用后重试。");
-      }
-      throw e;
-    }
-  };
-
-  const writeTextFileViaLocalIpc = async (path: string, content: string): Promise<void> => {
-    const filePath = String(path ?? "").trim();
-    if (!filePath) throw new Error("missing file path");
-    try {
-      await codexDesktop.app.writeTextFile({ path: filePath, content: String(content ?? "") });
-    } catch (e: any) {
-      const msg = readErrorMessage(e);
-      if (isIpcHandlerMissingError(msg, IPC_APP_CHANNELS.appWriteTextFile)) {
-        throw new Error("主进程未加载文件写入能力，请重启应用后重试。");
-      }
-      throw e;
-    }
-  };
-
-  const readDirectoryViaLocalIpc = async (path: string): Promise<WorkspaceDirectoryReadResult> => {
-    const dirPath = String(path ?? "").trim();
-    if (!dirPath) throw new Error("missing directory path");
-    try {
-      const res = await codexDesktop.app.readDirectory({ path: dirPath });
-      const entries = (Array.isArray(res?.entries) ? res.entries : [])
-        .map((entry) => ({
-          path: resolveWorkspaceFsPath(dirPath, String(entry.fileName ?? "")),
-          fileName: String(entry.fileName ?? "").trim(),
-          isDirectory: Boolean(entry.isDirectory),
-          isFile: Boolean(entry.isFile),
-          source: "local" as const,
-        }))
-        .filter((entry) => Boolean(entry.fileName))
-        .sort((a, b) => {
-          if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
-          return a.fileName.localeCompare(b.fileName, "zh-CN");
-        });
-      return {
-        path: dirPath,
-        entries,
-        source: "local",
-      };
-    } catch (e: any) {
-      const msg = readErrorMessage(e);
-      if (isIpcHandlerMissingError(msg, IPC_APP_CHANNELS.appReadDirectory)) {
-        throw new Error("主进程未加载目录读取能力，请重启应用后重试。");
-      }
-      throw e;
-    }
-  };
-
-  const getMetadataViaLocalIpc = async (path: string): Promise<WorkspaceFileMetadataState> => {
-    const filePath = String(path ?? "").trim();
-    if (!filePath) throw new Error("missing file path");
-    try {
-      const res = await codexDesktop.app.getFileMetadata({ path: filePath });
-      return {
-        path: filePath,
-        isDirectory: Boolean(res?.metadata?.isDirectory),
-        isFile: Boolean(res?.metadata?.isFile),
-        createdAtMs: Number.isFinite(res?.metadata?.createdAtMs) ? Number(res.metadata.createdAtMs) : 0,
-        modifiedAtMs: Number.isFinite(res?.metadata?.modifiedAtMs) ? Number(res.metadata.modifiedAtMs) : 0,
-        source: "local",
-      };
-    } catch (e: any) {
-      const msg = readErrorMessage(e);
-      if (isIpcHandlerMissingError(msg, IPC_APP_CHANNELS.appGetFileMetadata)) {
-        throw new Error("主进程未加载文件元数据能力，请重启应用后重试。");
-      }
-      throw e;
-    }
-  };
-
-  const readTextFile = async (path: string): Promise<string> => {
-    return await readTextFileViaLocalIpc(path);
-  };
-
-  const writeTextFile = async (path: string, content: string): Promise<void> => {
-    await writeTextFileViaLocalIpc(path, content);
-  };
-
-  const readWorkspaceDirectory = async (path = ""): Promise<WorkspaceDirectoryReadResult> => {
-    const resolved = resolveWorkspacePathForFileAccess(path);
-    return await readDirectoryViaLocalIpc(resolved.path);
-  };
-
-  const getWorkspaceMetadata = async (path: string): Promise<WorkspaceFileMetadataState> => {
-    const resolved = resolveWorkspacePathForFileAccess(path);
-    return await getMetadataViaLocalIpc(resolved.path);
-  };
-
-  const readWorkspaceTextFile = async (path: string): Promise<WorkspaceTextFileReadResult> => {
-    const resolved = resolveWorkspacePathForFileAccess(path);
-    const readResult = await readTextFileDetailViaLocalIpc(resolved.path);
-    return {
-      path: resolved.path,
-      content: readResult.content,
-      source: "local",
-      encoding: readResult.encoding,
-      lineEnding: readResult.lineEnding,
-    };
-  };
-
-  const writeWorkspaceTextFile = async (
-    path: string,
-    content: string,
-    options?: { encoding?: AppTextEncoding; lineEnding?: AppTextLineEnding }
-  ): Promise<WorkspaceTextFileWriteResult> => {
-    const resolved = resolveWorkspacePathForFileAccess(path);
-    const encoding = options?.encoding === "UTF-8 BOM" ? "UTF-8 BOM" : "UTF-8";
-    const lineEnding = options?.lineEnding === "CRLF" || options?.lineEnding === "CR" ? options.lineEnding : "LF";
-    const normalizedContent =
-      lineEnding === "CRLF"
-        ? String(content ?? "").replace(/\r?\n/g, "\r\n")
-        : lineEnding === "CR"
-          ? String(content ?? "").replace(/\r?\n/g, "\r")
-          : String(content ?? "").replace(/\r\n?/g, "\n");
-    await codexDesktop.app.writeTextFile({ path: resolved.path, content: normalizedContent, encoding });
-    return {
-      path: resolved.path,
-      source: "local",
-      encoding,
-      lineEnding,
-    };
-  };
+  const workspaceFileRuntime = createWorkspaceFileRuntime(resolveWorkspacePathForFileAccess);
+  const {
+    readTextFile,
+    writeTextFile,
+    readWorkspaceDirectory,
+    getWorkspaceMetadata,
+    readWorkspaceTextFile,
+    writeWorkspaceTextFile,
+  } = workspaceFileRuntime;
 
   const refreshSkills = async (forceReload = false) => {
     const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
@@ -2183,186 +1644,20 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     }
   };
 
-  const readThreadContent = async (params?: {
-    threadId?: string;
-    messageLimit?: number;
-    eventLimit?: number;
-    eventBefore?: number;
-    includeAux?: boolean;
-  }): Promise<HistoryThreadContentResult> => {
-    const threadId = String(params?.threadId ?? runtimeStore.currentThreadId ?? "").trim();
-    if (!threadId) {
-      return {
-        found: false,
-        threadId: "",
-        thread: null,
-        messages: [],
-        eventsPage: { entries: [], total: 0, loaded: 0, hasMore: false },
-      };
-    }
+  const historyThreadRuntime = createHistoryThreadRuntime({
+    getCurrentThreadId: () => String(runtimeStore.currentThreadId ?? "").trim(),
+    threadContentCacheByKey,
+    threadContentCacheTtlMs: THREAD_CONTENT_CACHE_TTL_MS,
+  });
+  const { readThreadContent, createThreadTask, updateThreadTask } = historyThreadRuntime;
 
-    const messageLimitRaw = Number(params?.messageLimit);
-    const eventLimitRaw = Number(params?.eventLimit);
-    const eventBeforeRaw = Number(params?.eventBefore);
-    const messageLimit = Number.isFinite(messageLimitRaw) ? Math.round(messageLimitRaw) : undefined;
-    const eventLimit = Number.isFinite(eventLimitRaw) ? Math.round(eventLimitRaw) : undefined;
-    const eventBefore = Number.isFinite(eventBeforeRaw) ? Math.round(eventBeforeRaw) : undefined;
-    const includeAux = typeof params?.includeAux === "boolean" ? params.includeAux : undefined;
-    const cacheKey = toThreadContentCacheKey({
-      threadId,
-      messageLimit,
-      eventLimit,
-      eventBefore,
-      includeAux,
-    });
-    pruneExpiredThreadContentCache(threadContentCacheByKey);
-    const cached = threadContentCacheByKey.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      return cloneHistoryThreadContentResult(cached.result);
-    }
-
-    const fetched = await codexDesktop.history.getThreadContent({
-      threadId,
-      ...(messageLimit != null ? { messageLimit } : {}),
-      ...(eventLimit != null ? { eventLimit } : {}),
-      ...(eventBefore != null ? { eventBefore } : {}),
-      ...(includeAux != null ? { includeAux } : {}),
-    });
-    threadContentCacheByKey.set(cacheKey, {
-      threadId,
-      expiresAt: Date.now() + THREAD_CONTENT_CACHE_TTL_MS,
-      result: cloneHistoryThreadContentResult(fetched),
-    });
-    return fetched;
-  };
-
-  const createThreadTask = async (args: HistoryThreadTaskCreateArgs): Promise<HistoryThreadTaskCreateResult> => {
-    return await codexDesktop.history.createThreadTask(args);
-  };
-
-  const updateThreadTask = async (args: HistoryThreadTaskUpdateArgs): Promise<HistoryThreadTaskUpdateResult> => {
-    return await codexDesktop.history.updateThreadTask(args);
-  };
-
-  const readMcpResource = async (params: {
-    threadId: string;
-    serverKey: string;
-    uri: string;
-    sourceTab?: "resources" | "templates";
-    templateKey?: string;
-  }) => {
-    const threadId = String(params.threadId ?? "").trim();
-    const serverKey = String(params.serverKey ?? "").trim();
-    const uri = String(params.uri ?? "").trim();
-    const sourceTab = toMcpResourceSourceTab(params.sourceTab);
-    const templateKey = String(params.templateKey ?? "").trim();
-    const startedAt = Date.now();
-    const shouldTrackTimeline = Boolean(threadId && serverKey && uri);
-    const eventId = `mcp:resourceRead:${threadId || "__app__"}:${startedAt}:${Math.random().toString(16).slice(2)}`;
-    const readSummary = buildMcpResourceReadSummary({
-      serverKey,
-      uri,
-      sourceTab,
-      templateKey,
-      servers: mcpStore.servers,
-      getTemplateDraft: (key) => mcpResourceStore.getTemplateDraft(key),
-    });
-    const buildTimelinePayload = (payload: {
-      status: "running" | "completed" | "failed";
-      fetchedAt: number | null;
-      contents: ReturnType<typeof toMcpResourceTimelineContents>;
-      previewText: string;
-      mimeSummary: string;
-      error: string | null;
-    }) => ({
-      threadId,
-      server: serverKey,
-      uri,
-      sourceTab,
-      templateKey: templateKey || null,
-      fetchedAt: payload.fetchedAt,
-      status: payload.status,
-      resourceLabel: readSummary.resourceLabel,
-      toolNames: readSummary.toolNames,
-      parameterEntries: readSummary.parameterEntries,
-      contents: payload.contents,
-      previewText: payload.previewText,
-      mimeSummary: payload.mimeSummary,
-      error: payload.error,
-    });
-
-    if (shouldTrackTimeline) {
-      const runningPayload = buildTimelinePayload({
-        status: "running",
-        fetchedAt: null,
-        contents: [],
-        previewText: "",
-        mimeSummary: "",
-        error: null,
-      });
-      timelineStore.upsertEvent({
-        threadId,
-        id: eventId,
-        method: "mcp/resourceRead",
-        paramsText: safeJsonStringify(runningPayload, { space: 2 }),
-        params: runningPayload,
-        createdAt: startedAt,
-      });
-    }
-
-    try {
-      const result = await requestMcpResourceRead({ threadId, serverKey, uri });
-      const contents = Array.isArray(result.contents) ? [...result.contents] : [];
-      const eventContents = toMcpResourceTimelineContents(contents);
-      if (shouldTrackTimeline) {
-        const fetchedAt = Date.now();
-        const completedPayload = buildTimelinePayload({
-          status: "completed",
-          fetchedAt,
-          contents: eventContents,
-          previewText: eventContents.find((content) => content.previewText)?.previewText ?? "",
-          mimeSummary: summarizeMcpResourceMimeTypes(eventContents),
-          error: null,
-        });
-        timelineStore.upsertEvent({
-          threadId,
-          id: eventId,
-          method: "mcp/resourceRead",
-          paramsText: safeJsonStringify(completedPayload, { space: 2 }),
-          params: completedPayload,
-          createdAt: startedAt,
-        });
-      }
-      return {
-        contents,
-        resourceLabel: readSummary.resourceLabel,
-        toolNames: [...readSummary.toolNames],
-        parameterEntries: readSummary.parameterEntries.map((entry) => ({ ...entry })),
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error ?? "读取失败");
-      if (shouldTrackTimeline) {
-        const failedPayload = buildTimelinePayload({
-          status: "failed",
-          fetchedAt: Date.now(),
-          contents: [],
-          previewText: "",
-          mimeSummary: "",
-          error: message,
-        });
-        timelineStore.upsertEvent({
-          threadId,
-          id: eventId,
-          method: "mcp/resourceRead",
-          paramsText: safeJsonStringify(failedPayload, { space: 2 }),
-          params: failedPayload,
-          level: "error",
-          createdAt: startedAt,
-        });
-      }
-      throw error;
-    }
-  };
+  const mcpResourceReadRuntime = createMcpResourceReadRuntime({
+    getServers: () => mcpStore.servers,
+    getTemplateDraft: (templateKey) => mcpResourceStore.getTemplateDraft(templateKey),
+    requestMcpResourceRead,
+    upsertTimelineEvent: (params) => timelineStore.upsertEvent(params),
+  });
+  const { readMcpResource } = mcpResourceReadRuntime;
 
   const refreshRightPanels = async (opts?: { forceSkills?: boolean; forceMcp?: boolean }) => {
     const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
@@ -3192,206 +2487,16 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     }
   };
 
-  const cloneUserTurnInput = (value: UserTurnInput): UserTurnInput => {
-    if (value.type === "text") {
-      return {
-        type: "text",
-        text: String(value.text ?? ""),
-        ...(Array.isArray(value.text_elements) ? { text_elements: cloneComposeTextElements(value.text_elements) } : {}),
-      };
-    }
-    if (value.type === "image") {
-      return { type: "image", url: String(value.url ?? "") };
-    }
-    return { type: "localImage", path: String(value.path ?? "") };
-  };
-
-  const cloneUserTurnInputs = (values: UserTurnInput[]): UserTurnInput[] => {
-    if (!Array.isArray(values) || values.length === 0) return [];
-    return values.map((value) => cloneUserTurnInput(value));
-  };
-
-  const toCodexUserInputs = (values: UserTurnInput[]): CodexUserInput[] => {
-    return cloneUserTurnInputs(values).map((value) => {
-      if (value.type === "text") {
-        return {
-          type: "text",
-          text: String(value.text ?? ""),
-          text_elements: cloneComposeTextElements(value.text_elements),
-        };
-      }
-      if (value.type === "image") {
-        return { type: "image", url: String(value.url ?? "") };
-      }
-      return { type: "localImage", path: String(value.path ?? "") };
-    });
-  };
-
-  const parseImageMimeTypeFromDataUrl = (value: string): string => {
-    const match = String(value ?? "")
-      .trim()
-      .match(/^data:(image\/[^;]+);base64,/i);
-    return String(match?.[1] ?? "image/png").toLowerCase();
-  };
-
-  const imageExtensionFromMimeType = (mimeTypeValue: string): string => {
-    const mimeType = String(mimeTypeValue ?? "")
-      .trim()
-      .toLowerCase();
-    if (!mimeType) return "png";
-    if (mimeType.includes("jpeg")) return "jpg";
-    const ext = mimeType.split("/")[1] ?? "png";
-    const normalized = ext.replace(/[^a-z0-9.+-]/gi, "");
-    return normalized || "png";
-  };
-
-  const fileNameFromPathLike = (value: string, fallback: string): string => {
-    const normalized = String(value ?? "").trim();
-    if (!normalized) return fallback;
-    const parts = normalized.split(/[\/]+/).filter(Boolean);
-    return parts[parts.length - 1] || fallback;
-  };
-
-  const buildComposeAttachmentFromImageUrl = (urlValue: string, imageIndex: number): ComposeImageAttachment | null => {
-    const url = String(urlValue ?? "").trim();
-    if (!url) return null;
-    const mimeType = url.startsWith("data:image/") ? parseImageMimeTypeFromDataUrl(url) : "image/*";
-    const extension = imageExtensionFromMimeType(mimeType);
-    const base64 = url.startsWith("data:") && url.includes(",") ? url.slice(url.indexOf(",") + 1) : "";
-    const estimatedSize = base64 ? Math.max(0, Math.floor((base64.length * 3) / 4)) : 0;
-    return {
-      id: `queue-image:${Date.now()}:${imageIndex}:${Math.random().toString(16).slice(2)}`,
-      name: `queue-image-${imageIndex + 1}.${extension}`,
-      size: estimatedSize,
-      mimeType,
-      previewUrl: url,
-      revokePreviewUrlOnDispose: false,
-      input: { type: "image", url },
-    };
-  };
-
-  const buildComposeAttachmentFromLocalImagePath = async (
-    pathValue: string,
-    imageIndex: number
-  ): Promise<ComposeImageAttachment | null> => {
-    const filePath = String(pathValue ?? "").trim();
-    if (!filePath) return null;
-    const result = await codexDesktop.app.readImageFileDataUrl({ path: filePath });
-    const dataUrl = String(result?.dataUrl ?? "").trim();
-    if (!dataUrl) return null;
-    return {
-      id: `queue-local-image:${Date.now()}:${imageIndex}:${Math.random().toString(16).slice(2)}`,
-      name: fileNameFromPathLike(filePath, `queue-image-${imageIndex + 1}.png`),
-      size: 0,
-      mimeType: parseImageMimeTypeFromDataUrl(dataUrl),
-      previewUrl: dataUrl,
-      revokePreviewUrlOnDispose: false,
-      input: { type: "localImage", path: filePath },
-    };
-  };
-
-  const buildComposeAttachmentsFromUserTurnInputs = async (
-    values: UserTurnInput[]
-  ): Promise<{ attachments: ComposeImageAttachment[]; failedLocalPaths: string[] }> => {
-    const attachments: ComposeImageAttachment[] = [];
-    const failedLocalPaths: string[] = [];
-    let imageIndex = 0;
-    for (const value of Array.isArray(values) ? values : []) {
-      if (!value) continue;
-      if (value.type === "image") {
-        const attachment = buildComposeAttachmentFromImageUrl(value.url, imageIndex);
-        imageIndex += 1;
-        if (attachment) attachments.push(attachment);
-        continue;
-      }
-      if (value.type !== "localImage") continue;
-      const filePath = String(value.path ?? "").trim();
-      try {
-        const attachment = await buildComposeAttachmentFromLocalImagePath(filePath, imageIndex);
-        if (attachment) attachments.push(attachment);
-        else if (filePath) failedLocalPaths.push(filePath);
-      } catch {
-        if (filePath) failedLocalPaths.push(filePath);
-      }
-      imageIndex += 1;
-    }
-    return { attachments, failedLocalPaths };
-  };
-
-  const buildTimelineUserMessagePayload = (
-    values: UserTurnInput[]
-  ): {
-    displayText: string;
-    payload: TimelineUserMessageParams;
-  } => {
-    const normalizedInputs = cloneUserTurnInputs(values);
-    const draft = buildComposeDraftFromUserTurnInputs(normalizedInputs);
-    const textInput = buildUserTurnInputsFromComposeDraft(draft.composeInput, draft.composeFileMentions).find(
-      (item): item is Extract<UserTurnInput, { type: "text" }> => item.type === "text"
-    ) ?? { type: "text", text: "", text_elements: [] };
-
-    const images = normalizedInputs
-      .filter((item): item is Extract<UserTurnInput, { type: "image" }> => item.type === "image")
-      .map((item) => String(item.url ?? ""));
-    const localImages = normalizedInputs
-      .filter((item): item is Extract<UserTurnInput, { type: "localImage" }> => item.type === "localImage")
-      .map((item) => String(item.path ?? ""));
-
-    const imageCount = images.length + localImages.length;
-    const baseText = String(textInput.text ?? "");
-    const imageSummary = imageCount > 0 ? `（附图 ${imageCount} 张）` : "";
-    const displayText = baseText ? (imageSummary ? `${baseText}\n${imageSummary}` : baseText) : imageSummary;
-
-    return {
-      displayText,
-      payload: {
-        role: "user",
-        text: baseText,
-        ...(Array.isArray(textInput.text_elements) && textInput.text_elements.length > 0
-          ? { text_elements: cloneComposeTextElements(textInput.text_elements) }
-          : {}),
-        images: images.length > 0 ? [...images] : null,
-        local_images: [...localImages],
-      },
-    };
-  };
-
-  const buildUserTurnInput = (
-    composeInput: string,
-    attachments: ComposeImageAttachment[],
-    mentions: ComposeWorkspaceFileMention[]
-  ): UserTurnInput[] => {
-    const result: UserTurnInput[] = buildUserTurnInputsFromComposeDraft(composeInput, mentions);
-    const seen = new Set<string>();
-
-    for (const attachment of attachments) {
-      const input = attachment.input;
-      if (input.type === "localImage") {
-        const path = String(input.path ?? "").trim();
-        if (!path) continue;
-        const key = `localImage:${path}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        result.push({ type: "localImage", path });
-        continue;
-      }
-
-      const url = String(input.url ?? "").trim();
-      if (!url) continue;
-      const key = `image:${url}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      result.push({ type: "image", url });
-    }
-
-    return result;
-  };
-
-  const summarizeLocalUserMessage = (
-    values: UserTurnInput[]
-  ): { displayText: string; payload: TimelineUserMessageParams } => {
-    return buildTimelineUserMessagePayload(values);
-  };
+  const turnInputRuntime = createTurnInputRuntime();
+  const {
+    cloneUserTurnInputs,
+    toCodexUserInputs,
+    fileNameFromPathLike,
+    buildComposeAttachmentsFromUserTurnInputs,
+    buildTimelineUserMessagePayload,
+    buildUserTurnInput,
+    summarizeLocalUserMessage,
+  } = turnInputRuntime;
 
   const requestTurnSteer = async (threadId: string, input: UserTurnInput[], turnIdValue: string) => {
     const serverId = getServerIdForThread(threadId);
@@ -3415,141 +2520,24 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     }
   };
 
-  const startTurnWithInput = async (params: {
-    threadId: string;
-    threadWorkspace: string;
-    threadServerId: string;
-    input: UserTurnInput[];
-    model?: string;
-    effort?: string;
-    summary?: string;
-    approvalPolicy?: string;
-    approvalsReviewer?: TurnStartParams["approvalsReviewer"];
-    sandboxMode?: string;
-    composeModeOverride?: "default" | "plan";
-  }) => {
-    const hasExperimentalApi = Boolean(serverExperimentalApiById.get(params.threadServerId));
-    const composeMode = params.composeModeOverride ?? runtimeStore.composeMode;
-    const wantsPlan = composeMode === "plan";
-    const wantsStructuredFinalAnswer = !wantsPlan && appShellStore.assistantFinalMessageFormat === "structured-json-v1";
-    const requestedModel = normalizeModelName(params.model ?? runtimeStore.model);
-    const requestedEffort = normalizeEffort(params.effort ?? runtimeStore.reasoningEffort);
-    const requestedSummary = normalizeReasoningSummary(params.summary ?? runtimeStore.reasoningSummary);
-    const hasApprovalPolicyOverride = String(params.approvalPolicy ?? "").trim().length > 0;
-    const requestedApprovalPolicy = normalizeApprovalPolicy(
-      hasApprovalPolicyOverride ? params.approvalPolicy : configStore.draft.approvalPolicy
-    );
-    const hasApprovalsReviewerOverride = params.approvalsReviewer != null;
-    const requestedApprovalsReviewer = hasApprovalsReviewerOverride
-      ? normalizeApprovalsReviewer(params.approvalsReviewer)
-      : normalizeApprovalsReviewer(configStore.draft.approvalsReviewer);
-    const requestedSandboxMode = normalizeSandboxMode(params.sandboxMode ?? runtimeStore.sandboxMode);
-    // collaborationMode 会影响“本回合及后续回合”的行为，因此即使切回 Agent 也要显式发送 default，
-    // 避免服务端沿用上一轮 plan 模式导致“看似切换但仍在 plan”。
-    const shouldSendCollaborationMode = hasExperimentalApi;
-    const collaborationMode = shouldSendCollaborationMode
-      ? {
-          mode: composeMode,
-          settings: {
-            model: requestedModel,
-            reasoning_effort: requestedEffort,
-            developer_instructions: null,
-          },
-        }
-      : null;
-
-    const isExperimentalApiCapabilityError = (e: unknown) => {
-      const msg =
-        e && typeof e === "object" && "message" in (e as any) ? String((e as any).message ?? "") : String(e ?? "");
-      const normalized = msg.toLowerCase();
-      return (
-        normalized.includes("requires experimentalapi capability") || normalized.includes("experimentalapi capability")
-      );
-    };
-
-    const isOutputSchemaUnsupportedError = (e: unknown) => {
-      const rpcErr = parseJsonRpcError(e);
-      const msg = rpcErr?.message
-        ? String(rpcErr.message ?? "")
-        : e && typeof e === "object" && "message" in (e as any)
-          ? String((e as any).message ?? "")
-          : String(e ?? "");
-      const normalized = msg.toLowerCase();
-      return normalized.includes("outputschema") || normalized.includes("output_schema");
-    };
-
-    const buildTurnStartParams = (options?: { omitOutputSchema?: boolean }): TurnStartParams => {
-      // 重要：`turn/start` 的 `sandboxPolicy.type` 使用 camelCase（见 schema 的 v2/TurnStartParams.json）。
-      const sandboxPolicy = sandboxPolicyFromUi(requestedSandboxMode, params.threadWorkspace, "camel");
-      const input = toCodexUserInputs(params.input);
-      return {
-        threadId: params.threadId,
-        input,
-        cwd: params.threadWorkspace,
-        approvalPolicy: requestedApprovalPolicy as TurnStartParams["approvalPolicy"],
-        approvalsReviewer: requestedApprovalsReviewer as TurnStartParams["approvalsReviewer"],
-        sandboxPolicy: sandboxPolicy as TurnStartParams["sandboxPolicy"],
-        model: requestedModel,
-        effort: requestedEffort,
-        ...(requestedSummary !== "auto" ? { summary: requestedSummary } : {}),
-        ...(wantsStructuredFinalAnswer && !options?.omitOutputSchema
-          ? { outputSchema: STRUCTURED_FINAL_ANSWER_OUTPUT_SCHEMA_V1 }
-          : {}),
-      };
-    };
-
-    let includeCollaborationMode = shouldSendCollaborationMode;
-    let includeOutputSchema = wantsStructuredFinalAnswer;
-    let collaborationModeFallbackAttempted = false;
-    let outputSchemaFallbackAttempted = false;
-
-    for (let attemptIndex = 0; attemptIndex < 3; attemptIndex += 1) {
-      try {
-        const baseParams = buildTurnStartParams({ omitOutputSchema: !includeOutputSchema });
-        await codexDesktop.codexServer.rpc({
-          serverId: params.threadServerId,
-          method: "turn/start",
-          params: includeCollaborationMode ? { ...baseParams, collaborationMode } : baseParams,
-        });
-        return { ok: true as const };
-      } catch (e: any) {
-        // 自动降级：如果计划模式发送了 experimental 字段但服务端不接受，则回退为普通 turn/start。
-        if (includeCollaborationMode && !collaborationModeFallbackAttempted && isExperimentalApiCapabilityError(e)) {
-          collaborationModeFallbackAttempted = true;
-          includeCollaborationMode = false;
-          serverExperimentalApiById.set(params.threadServerId, false);
-          if (wantsPlan) {
-            runtimeStore.setComposeMode("default");
-            warnExperimentalApiUnavailableOnce(
-              "当前 Codex 服务不支持 Plan（experimentalApi 未启用），已自动切回 Agent 模式。建议升级 codex。"
-            );
-          } else {
-            warnExperimentalApiUnavailableOnce(
-              "当前 Codex 服务未启用 experimentalApi，部分高级能力将自动降级，建议升级 codex。"
-            );
-          }
-          continue;
-        }
-
-        if (includeOutputSchema && !outputSchemaFallbackAttempted && isOutputSchemaUnsupportedError(e)) {
-          outputSchemaFallbackAttempted = true;
-          includeOutputSchema = false;
-          appShellStore.setAssistantFinalMessageFormat("markdown");
-          showToast({
-            kind: "warn",
-            title: "结构化输出不可用",
-            message: "当前服务不支持 outputSchema，已自动切回 Markdown 输出。",
-          });
-          continue;
-        }
-
-        const msg = e?.message ? String(e.message) : String(e);
-        return { ok: false as const, error: msg || "turn/start failed" };
-      }
-    }
-
-    return { ok: false as const, error: "turn/start failed" };
-  };
+  const turnStartRuntime = createTurnStartRuntime({
+    getServerExperimentalApi: (serverId) => Boolean(serverExperimentalApiById.get(serverId)),
+    setServerExperimentalApi: (serverId, enabled) => serverExperimentalApiById.set(serverId, enabled),
+    getComposeMode: () => runtimeStore.composeMode,
+    setComposeMode: (mode) => runtimeStore.setComposeMode(mode),
+    getAssistantFinalMessageFormat: () => appShellStore.assistantFinalMessageFormat,
+    setAssistantFinalMessageFormat: (format) => appShellStore.setAssistantFinalMessageFormat(format),
+    getModel: () => runtimeStore.model,
+    getReasoningEffort: () => runtimeStore.reasoningEffort,
+    getReasoningSummary: () => runtimeStore.reasoningSummary,
+    getSandboxMode: () => runtimeStore.sandboxMode,
+    getApprovalPolicy: () => configStore.draft.approvalPolicy,
+    getApprovalsReviewer: () => configStore.draft.approvalsReviewer,
+    toCodexUserInputs,
+    parseJsonRpcError,
+    warnExperimentalApiUnavailableOnce,
+  });
+  const { startTurnWithInput } = turnStartRuntime;
 
   const sendOrQueueText = async (mode: "auto" | "steer") => {
     const composeInput = String(runtimeStore.composeInput ?? "");
@@ -4170,7 +3158,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     }
     let n: number | null = null;
     try {
-      n = await promptNumberModal({
+      n = await promptNumberModalLazy({
         title: "撤回最近 N 轮",
         message: "撤回会回退线程上下文，并尝试回退这些回合产生的文件内容改动（不回退命令副作用）。",
         detail: `可撤回：1..${stack.length}`,

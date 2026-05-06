@@ -157,6 +157,7 @@ const ALLOWED_NOTIFICATION_SOUND_IDS = new Set<string>([
   "你干嘛 哎呦.mp3",
   "通知铃声.mp3",
   "主人，有消息哦，.mp3",
+  "木琴铃声-手机来电通知音效_爱给网_aigei_com.mp3",
 ]);
 
 function toAudioMime(ext: string): string {

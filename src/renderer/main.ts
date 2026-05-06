@@ -1,4 +1,3 @@
-import "element-plus/dist/index.css";
 import "./tailwind.css";
 import "./styles/index.css";
 

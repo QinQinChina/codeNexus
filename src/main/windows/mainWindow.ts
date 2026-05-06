@@ -41,7 +41,7 @@ export async function createMainWindow(opts: MainWindowOptions): Promise<Browser
     minWidth: 950,
     height: 780,
     autoHideMenuBar: true,
-    backgroundColor: "#0c1118",
+    backgroundColor: "#1f1f1f",
     frame: !useCustomTitlebar,
     icon: windowIcon,
     webPreferences: {

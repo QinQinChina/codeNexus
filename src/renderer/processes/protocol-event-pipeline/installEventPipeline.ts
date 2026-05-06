@@ -8,12 +8,7 @@ import { safeJsonStringify } from "../../utils/safeJson";
 import { useDebugTimelineStore } from "../../stores/debugTimeline.store";
 import { resolveThreadTitle } from "../../features/history/threadTitle";
 import { buildThreadHistoryMetadataFromServerThread } from "../../features/history/threadMetadata";
-import {
-  buildGuardianApprovalReviewActivity,
-  buildGuardianApprovalReviewEventId,
-} from "../../features/guardian/guardianApprovalReview";
 import { codexDesktop } from "../../api/codexDesktopClient";
-import { playConfiguredNotificationSoundOnce } from "../../features/notificationSound/player";
 import { buildProtocolNoticeTimelineText, buildProtocolNoticeToast } from "../../features/timeline/protocolNoticeRender";
 import { showToast } from "../../ui/toast";
 import { appendDebugLog } from "../../shared/debugLog";
@@ -137,6 +132,57 @@ function resolveId(...candidates: unknown[]): string {
 // 将值转换为 Record 对象
 function toRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+async function playConfiguredNotificationSoundOnceLazy() {
+  const { playConfiguredNotificationSoundOnce } = await import("../../features/notificationSound/player");
+  await playConfiguredNotificationSoundOnce();
+}
+
+function isGuardianApprovalReviewMethodName(method: unknown): boolean {
+  return method === "item/autoApprovalReview/started" || method === "item/autoApprovalReview/completed";
+}
+
+// UI：最多保留最近 N 轮对话，避免长对话导致渲染/内存持续膨胀。
+const TIMELINE_MAX_VISIBLE_TURNS = 16;
+
+function pruneTimelineToRecentTurns(
+  timelineStore: ReturnType<typeof useTimelineStore>,
+  threadIdValue: string,
+  maxTurns: number = TIMELINE_MAX_VISIBLE_TURNS
+) {
+  const threadId = String(threadIdValue ?? "").trim();
+  if (!threadId || threadId === "__app__") return;
+  const limit = Math.max(0, Math.round(Number(maxTurns) || 0));
+  if (limit <= 0) return;
+
+  // turn/completed 到达时可能仍有 delta 未 flush；先刷一次保证 turnId 集合准确。
+  timelineStore.flushPendingAppends();
+  const events = timelineStore.eventsForThread(threadId);
+  if (events.length === 0) return;
+
+  const allTurnIds = new Set<string>();
+  for (const event of events) {
+    const turnId = String(event?.turnId ?? "").trim();
+    if (turnId) allTurnIds.add(turnId);
+  }
+  if (allTurnIds.size <= limit) return;
+
+  const keepTurnIds = new Set<string>();
+  for (let idx = events.length - 1; idx >= 0 && keepTurnIds.size < limit; idx -= 1) {
+    const turnId = String(events[idx]?.turnId ?? "").trim();
+    if (!turnId) continue;
+    keepTurnIds.add(turnId);
+  }
+  if (keepTurnIds.size === 0) return;
+
+  const dropTurnIds: string[] = [];
+  for (const turnId of allTurnIds) {
+    if (!keepTurnIds.has(turnId)) dropTurnIds.push(turnId);
+  }
+  if (dropTurnIds.length > 0) {
+    timelineStore.removeTurnEvents(threadId, dropTurnIds);
+  }
 }
 
 // 生成命令生命周期事件 ID
@@ -441,36 +487,49 @@ export function installEventPipeline(pinia: Pinia) {
     const userItemType = lifecycleItem?.type ?? "";
     const isFileChangeItem = lifecycleItem?.type === "fileChange";
 
-    // 处理 Guardian 审批活动
-    const guardianReviewActivity = buildGuardianApprovalReviewActivity(n.method, params);
-    if (guardianReviewActivity) {
-      const guardianThreadId = effectiveThreadId;
-      const guardianTurnId = resolveId(paramsRecord.turnId, rawTurnId, activeTurnId);
-      const guardianEventId = buildGuardianApprovalReviewEventId(
-        guardianThreadId,
-        guardianTurnId,
-        guardianReviewActivity.reviewId
-      );
-      timelineStore.upsertEvent({
-        threadId: guardianThreadId,
-        id: guardianEventId,
-        method: n.method,
-        paramsText: guardianReviewActivity.summaryText,
-        params,
-        turnId: guardianTurnId || undefined,
-        level: guardianReviewActivity.level,
-      });
-      appendAuxJsonlLog({
-        ts: Date.now(),
-        method: n.method,
-        serverId: n.serverId,
-        threadId: guardianThreadId,
-        turnId: guardianTurnId || null,
-        itemId: guardianReviewActivity.targetItemId,
-        reviewId: guardianReviewActivity.reviewId,
-        paramsText: guardianReviewActivity.summaryText,
-        params,
-      });
+    // 处理 Guardian 审批活动。该分支很低频，按需加载可避免首包拉入审批诊断格式化逻辑。
+    if (isGuardianApprovalReviewMethodName(n.method)) {
+      void (async () => {
+        try {
+          const { buildGuardianApprovalReviewActivity, buildGuardianApprovalReviewEventId } = await import(
+            "../../features/guardian/guardianApprovalReview"
+          );
+          const guardianReviewActivity = buildGuardianApprovalReviewActivity(n.method, params);
+          if (!guardianReviewActivity) return;
+          const guardianThreadId = effectiveThreadId;
+          const guardianTurnId = resolveId(paramsRecord.turnId, rawTurnId, activeTurnId);
+          const guardianEventId = buildGuardianApprovalReviewEventId(
+            guardianThreadId,
+            guardianTurnId,
+            guardianReviewActivity.reviewId
+          );
+          timelineStore.upsertEvent({
+            threadId: guardianThreadId,
+            id: guardianEventId,
+            method: n.method,
+            paramsText: guardianReviewActivity.summaryText,
+            params,
+            turnId: guardianTurnId || undefined,
+            level: guardianReviewActivity.level,
+          });
+          appendAuxJsonlLog({
+            ts: Date.now(),
+            method: n.method,
+            serverId: n.serverId,
+            threadId: guardianThreadId,
+            turnId: guardianTurnId || null,
+            itemId: guardianReviewActivity.targetItemId,
+            reviewId: guardianReviewActivity.reviewId,
+            paramsText: guardianReviewActivity.summaryText,
+            params,
+          });
+        } catch (error) {
+          appendDebugLog("event-pipeline", "guardian-review-lazy-load-failed", {
+            method: n.method,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      })();
       return;
     }
 
@@ -998,10 +1057,13 @@ export function installEventPipeline(pinia: Pinia) {
             turn: { ...params.turn, id: completedTurnId || params.turn.id },
           },
         });
+
+        // 只保留最近 N 轮对话，旧 turn 从 timelineStore 中裁掉（不做虚拟列表）。
+        pruneTimelineToRecentTurns(timelineStore, effectiveThreadId, TIMELINE_MAX_VISIBLE_TURNS);
       }
 
       // 线程结束提示音（全局配置，所有线程 turn/completed 均触发）。
-      void playConfiguredNotificationSoundOnce();
+      void playConfiguredNotificationSoundOnceLazy();
       return;
     }
 

@@ -21,6 +21,11 @@ function toPrettyJson(value: unknown): string {
   return safeJsonStringify(value ?? {}, { space: 2 });
 }
 
+async function playPlanQnaNotificationSoundTwiceLazy() {
+  const { playPlanQnaNotificationSoundTwice } = await import("../../features/notificationSound/player");
+  await playPlanQnaNotificationSoundTwice();
+}
+
 export function installRequestResponder(pinia: Pinia) {
   const timelineStore = useTimelineStore(pinia);
   const userInputStore = useUserInputStore(pinia);
@@ -109,10 +114,14 @@ export function installRequestResponder(pinia: Pinia) {
       }
       const resolvedThreadId = String(prompt.threadId || threadId).trim();
       if (!resolvedThreadId) return;
+      const hadPendingUserInput = userInputStore.queueSizeForThread(resolvedThreadId) > 0;
       userInputStore.enqueuePrompt(
         resolvedThreadId === String(prompt.threadId ?? "").trim() ? prompt : { ...prompt, threadId: resolvedThreadId },
         { threadIdFallback: resolvedThreadId }
       );
+      if (!hadPendingUserInput && userInputStore.queueSizeForThread(resolvedThreadId) > 0) {
+        void playPlanQnaNotificationSoundTwiceLazy();
+      }
       timelineStore.appendEvent({
         threadId: resolvedThreadId,
         method: msg.method,

@@ -4,6 +4,7 @@ import type {
   McpResourceTemplateDraftState,
   McpServerState,
 } from "../types";
+import { safeJsonStringify } from "../../utils/safeJson";
 
 export type McpResourceSourceTab = "resources" | "templates";
 
@@ -13,6 +14,40 @@ export type McpResourceTimelineContent = {
   kind: "text" | "blob";
   previewText: string;
   sizeBytes: number;
+};
+
+type McpResourceReadRuntimeDeps = {
+  getServers: () => McpServerState[];
+  getTemplateDraft: (templateKey: string) => McpResourceTemplateDraftState | undefined;
+  requestMcpResourceRead: (params: {
+    threadId: string;
+    serverKey: string;
+    uri: string;
+  }) => Promise<{ contents: McpResourceContentState[] }>;
+  upsertTimelineEvent: (params: {
+    threadId: string;
+    id: string;
+    method: string;
+    paramsText: string;
+    params?: unknown;
+    level?: "info" | "warn" | "error";
+    createdAt?: number;
+  }) => void;
+};
+
+export type McpResourceReadRuntime = {
+  readMcpResource: (params: {
+    threadId: string;
+    serverKey: string;
+    uri: string;
+    sourceTab?: "resources" | "templates";
+    templateKey?: string;
+  }) => Promise<{
+    contents: McpResourceContentState[];
+    resourceLabel: string;
+    toolNames: string[];
+    parameterEntries: McpResourceParameterEntry[];
+  }>;
 };
 
 const SIMPLE_MCP_TEMPLATE_EXPR_RE = /\{([^{}]+)\}/g;
@@ -173,4 +208,122 @@ export function summarizeMcpResourceMimeTypes(contents: McpResourceTimelineConte
     .slice(0, 3)
     .map(([mimeType, count]) => (count > 1 ? `${mimeType} ×${count}` : mimeType))
     .join(" ｜ ");
+}
+
+export function createMcpResourceReadRuntime(deps: McpResourceReadRuntimeDeps): McpResourceReadRuntime {
+  const readMcpResource: McpResourceReadRuntime["readMcpResource"] = async (params) => {
+    const threadId = String(params.threadId ?? "").trim();
+    const serverKey = String(params.serverKey ?? "").trim();
+    const uri = String(params.uri ?? "").trim();
+    const sourceTab = toMcpResourceSourceTab(params.sourceTab);
+    const templateKey = String(params.templateKey ?? "").trim();
+    const startedAt = Date.now();
+    const shouldTrackTimeline = Boolean(threadId && serverKey && uri);
+    const eventId = `mcp:resourceRead:${threadId || "__app__"}:${startedAt}:${Math.random().toString(16).slice(2)}`;
+    const readSummary = buildMcpResourceReadSummary({
+      serverKey,
+      uri,
+      sourceTab,
+      templateKey,
+      servers: deps.getServers(),
+      getTemplateDraft: deps.getTemplateDraft,
+    });
+    const buildTimelinePayload = (payload: {
+      status: "running" | "completed" | "failed";
+      fetchedAt: number | null;
+      contents: McpResourceTimelineContent[];
+      previewText: string;
+      mimeSummary: string;
+      error: string | null;
+    }) => ({
+      threadId,
+      server: serverKey,
+      uri,
+      sourceTab,
+      templateKey: templateKey || null,
+      fetchedAt: payload.fetchedAt,
+      status: payload.status,
+      resourceLabel: readSummary.resourceLabel,
+      toolNames: readSummary.toolNames,
+      parameterEntries: readSummary.parameterEntries,
+      contents: payload.contents,
+      previewText: payload.previewText,
+      mimeSummary: payload.mimeSummary,
+      error: payload.error,
+    });
+
+    if (shouldTrackTimeline) {
+      const runningPayload = buildTimelinePayload({
+        status: "running",
+        fetchedAt: null,
+        contents: [],
+        previewText: "",
+        mimeSummary: "",
+        error: null,
+      });
+      deps.upsertTimelineEvent({
+        threadId,
+        id: eventId,
+        method: "mcp/resourceRead",
+        paramsText: safeJsonStringify(runningPayload, { space: 2 }),
+        params: runningPayload,
+        createdAt: startedAt,
+      });
+    }
+
+    try {
+      const result = await deps.requestMcpResourceRead({ threadId, serverKey, uri });
+      const contents = Array.isArray(result.contents) ? [...result.contents] : [];
+      const eventContents = toMcpResourceTimelineContents(contents);
+      if (shouldTrackTimeline) {
+        const fetchedAt = Date.now();
+        const completedPayload = buildTimelinePayload({
+          status: "completed",
+          fetchedAt,
+          contents: eventContents,
+          previewText: eventContents.find((content) => content.previewText)?.previewText ?? "",
+          mimeSummary: summarizeMcpResourceMimeTypes(eventContents),
+          error: null,
+        });
+        deps.upsertTimelineEvent({
+          threadId,
+          id: eventId,
+          method: "mcp/resourceRead",
+          paramsText: safeJsonStringify(completedPayload, { space: 2 }),
+          params: completedPayload,
+          createdAt: startedAt,
+        });
+      }
+      return {
+        contents,
+        resourceLabel: readSummary.resourceLabel,
+        toolNames: [...readSummary.toolNames],
+        parameterEntries: readSummary.parameterEntries.map((entry) => ({ ...entry })),
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error ?? "读取失败");
+      if (shouldTrackTimeline) {
+        const failedPayload = buildTimelinePayload({
+          status: "failed",
+          fetchedAt: Date.now(),
+          contents: [],
+          previewText: "",
+          mimeSummary: "",
+          error: message,
+        });
+        deps.upsertTimelineEvent({
+          threadId,
+          id: eventId,
+          method: "mcp/resourceRead",
+          paramsText: safeJsonStringify(failedPayload, { space: 2 }),
+          params: failedPayload,
+          level: "error",
+          createdAt: startedAt,
+        });
+      }
+      throw error;
+    }
+  };
+
+  return { readMcpResource };
 }

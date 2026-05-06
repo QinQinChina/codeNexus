@@ -26,6 +26,7 @@ export type GlobalBackgroundFitMode = "cover" | "contain" | "tile";
 export type MainView = "chat";
 export type UiFontFamilyPreset = "alibaba-puhuiti" | "source-han-sans-sc";
 export type UiFontSizePreset = "small" | "medium" | "large";
+export type UiWorkspaceFileIconTheme = "lucide" | "vscode-icons";
 export type AssistantFinalMessageFormat = "markdown" | "structured-json-v1";
 export type AssistantPlanMessageFormat = "markdown" | "plan-card-v1";
 
@@ -42,11 +43,11 @@ export type UserLocalSettings = {
     centerEditorWidthPx: number;
     fontFamilyPreset: UiFontFamilyPreset;
     fontSizePreset: UiFontSizePreset;
+    workspaceFileIconTheme: UiWorkspaceFileIconTheme;
     assistantFinalMessageFormat: AssistantFinalMessageFormat;
     assistantPlanMessageFormat: AssistantPlanMessageFormat;
     threadWorkspaceGroupsCollapsed: LocalThreadWorkspaceGroupsCollapsedState;
     globalConfigAdvancedOpen: boolean;
-    guideVersionSeen: string | null;
   };
   notification: {
     selectedSoundId: string | null;
@@ -75,11 +76,11 @@ export type UserLocalSettingsPatch = {
     centerEditorWidthPx: number | null;
     fontFamilyPreset: UiFontFamilyPreset | null;
     fontSizePreset: UiFontSizePreset | null;
+    workspaceFileIconTheme: UiWorkspaceFileIconTheme | null;
     assistantFinalMessageFormat: AssistantFinalMessageFormat | null;
     assistantPlanMessageFormat: AssistantPlanMessageFormat | null;
     threadWorkspaceGroupsCollapsed: Record<string, boolean> | null;
     globalConfigAdvancedOpen: boolean;
-    guideVersionSeen: string | null;
   }>;
   notification?: Partial<{
     selectedSoundId: string | null;
@@ -120,6 +121,7 @@ export const MIN_REMOTE_SYNC_HEARTBEAT_INTERVAL_SEC = 5;
 export const MAX_REMOTE_SYNC_HEARTBEAT_INTERVAL_SEC = 120;
 export const DEFAULT_UI_FONT_FAMILY_PRESET: UiFontFamilyPreset = "alibaba-puhuiti";
 export const DEFAULT_UI_FONT_SIZE_PRESET: UiFontSizePreset = "medium";
+export const DEFAULT_UI_WORKSPACE_FILE_ICON_THEME: UiWorkspaceFileIconTheme = "lucide";
 const UI_FONT_SIZE_ZOOM_FACTORS: Record<UiFontSizePreset, number> = {
   small: 0.92,
   medium: 1,
@@ -142,6 +144,12 @@ function normalizeUiFontSizePreset(value: unknown): UiFontSizePreset {
   if (raw === "small") return "small";
   if (raw === "large") return "large";
   return DEFAULT_UI_FONT_SIZE_PRESET;
+}
+
+export function normalizeUiWorkspaceFileIconTheme(value: unknown): UiWorkspaceFileIconTheme {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (raw === "vscode-icons") return "vscode-icons";
+  return DEFAULT_UI_WORKSPACE_FILE_ICON_THEME;
 }
 
 function normalizeAssistantFinalMessageFormat(value: unknown): AssistantFinalMessageFormat {
@@ -169,11 +177,11 @@ export const DEFAULT_USER_LOCAL_SETTINGS: UserLocalSettings = {
     centerEditorWidthPx: 460,
     fontFamilyPreset: DEFAULT_UI_FONT_FAMILY_PRESET,
     fontSizePreset: DEFAULT_UI_FONT_SIZE_PRESET,
+    workspaceFileIconTheme: DEFAULT_UI_WORKSPACE_FILE_ICON_THEME,
     assistantFinalMessageFormat: "markdown",
     assistantPlanMessageFormat: "markdown",
     threadWorkspaceGroupsCollapsed: {},
     globalConfigAdvancedOpen: false,
-    guideVersionSeen: null,
   },
   notification: {
     selectedSoundId: null,
@@ -344,6 +352,7 @@ export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
       ),
       fontFamilyPreset: normalizeUiFontFamilyPreset(ui?.fontFamilyPreset),
       fontSizePreset: normalizeUiFontSizePreset(ui?.fontSizePreset),
+      workspaceFileIconTheme: normalizeUiWorkspaceFileIconTheme(ui?.workspaceFileIconTheme),
       assistantFinalMessageFormat: normalizeAssistantFinalMessageFormat(ui?.assistantFinalMessageFormat),
       assistantPlanMessageFormat: normalizeAssistantPlanMessageFormat(ui?.assistantPlanMessageFormat),
       threadWorkspaceGroupsCollapsed: normalizeThreadWorkspaceGroupsCollapsedState(ui?.threadWorkspaceGroupsCollapsed),
@@ -351,7 +360,6 @@ export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
         ui?.globalConfigAdvancedOpen,
         DEFAULT_USER_LOCAL_SETTINGS.ui.globalConfigAdvancedOpen
       ),
-      guideVersionSeen: toNullableString(ui?.guideVersionSeen, DEFAULT_USER_LOCAL_SETTINGS.ui.guideVersionSeen),
     },
     notification: {
       selectedSoundId: toNullableString(
@@ -412,6 +420,10 @@ export function mergeUserLocalSettings(
       fontFamilyPreset:
         patchUi && "fontFamilyPreset" in patchUi ? patchUi.fontFamilyPreset : current.ui.fontFamilyPreset,
       fontSizePreset: patchUi && "fontSizePreset" in patchUi ? patchUi.fontSizePreset : current.ui.fontSizePreset,
+      workspaceFileIconTheme:
+        patchUi && "workspaceFileIconTheme" in patchUi
+          ? patchUi.workspaceFileIconTheme
+          : current.ui.workspaceFileIconTheme,
       assistantFinalMessageFormat:
         patchUi && "assistantFinalMessageFormat" in patchUi
           ? patchUi.assistantFinalMessageFormat
@@ -428,8 +440,6 @@ export function mergeUserLocalSettings(
         patchUi && "globalConfigAdvancedOpen" in patchUi
           ? patchUi.globalConfigAdvancedOpen
           : current.ui.globalConfigAdvancedOpen,
-      guideVersionSeen:
-        patchUi && "guideVersionSeen" in patchUi ? patchUi.guideVersionSeen : current.ui.guideVersionSeen,
     },
     notification: {
       selectedSoundId:
