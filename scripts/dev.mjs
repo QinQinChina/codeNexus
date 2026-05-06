@@ -1,5 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { access } from "node:fs/promises";
+import net from "node:net";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
@@ -11,8 +12,7 @@ const nodeExec = process.execPath;
 const npmExecPath = process.env.npm_execpath ? String(process.env.npm_execpath).trim() : "";
 
 const viteHost = "127.0.0.1";
-const vitePort = "5173";
-const viteUrl = `http://${viteHost}:${vitePort}`;
+const defaultVitePort = 5173;
 const smokeMode = process.argv.includes("--smoke");
 
 const children = [];
@@ -119,7 +119,27 @@ async function waitForHttpReady(url, timeoutMs) {
   throw new Error(`timed out waiting for dev server: ${url}`);
 }
 
-async function waitForBootstrap() {
+function canListenOnPort(host, port) {
+  return new Promise((resolvePort) => {
+    const server = net.createServer();
+    server.once("error", () => resolvePort(false));
+    server.once("listening", () => {
+      server.close(() => resolvePort(true));
+    });
+    server.listen({ host, port });
+  });
+}
+
+async function findAvailablePort(host, preferredPort) {
+  const basePort = Number.parseInt(String(process.env.VITE_DEV_SERVER_PORT ?? preferredPort), 10);
+  const startPort = Number.isFinite(basePort) && basePort > 0 ? basePort : preferredPort;
+  for (let port = startPort; port < startPort + 100; port += 1) {
+    if (await canListenOnPort(host, port)) return String(port);
+  }
+  throw new Error(`no available dev server port found from ${startPort} to ${startPort + 99}`);
+}
+
+async function waitForBootstrap(viteUrl) {
   await Promise.all([
     waitForFile(resolve(projectRoot, "dist/main.cjs"), 30_000),
     waitForFile(resolve(projectRoot, "dist/preload.cjs"), 30_000),
@@ -166,7 +186,9 @@ function bindShutdownSignals() {
 
 async function start() {
   bindShutdownSignals();
-  console.info(`[dev] starting vite + esbuild watchers${smokeMode ? " (smoke)" : ""}...`);
+  const vitePort = await findAvailablePort(viteHost, defaultVitePort);
+  const viteUrl = `http://${viteHost}:${vitePort}`;
+  console.info(`[dev] starting vite + esbuild watchers${smokeMode ? " (smoke)" : ""} on ${viteUrl}...`);
 
   spawnPnpm(["exec", "vite", "--host", viteHost, "--port", vitePort, "--strictPort"], { name: "vite" });
 
@@ -204,7 +226,7 @@ async function start() {
     { name: "preload-esbuild" }
   );
 
-  await waitForBootstrap();
+  await waitForBootstrap(viteUrl);
   console.info(`[dev] bootstrap ready: ${viteUrl}`);
 
   if (smokeMode) {
