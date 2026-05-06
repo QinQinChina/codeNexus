@@ -64,6 +64,7 @@
 import { computed, onBeforeUnmount, ref } from "vue";
 import { showToast } from "../../ui/toast";
 import { renderMarkdownToSafeHtml } from "../../features/timeline/markdownRenderer";
+import { useMarkdownRendererRefresh } from "../../features/timeline/useMarkdownRendererRefresh";
 import AgentMarkdownContent from "./AgentMarkdownContent.vue";
 import {
   structuredFinalAnswerToMarkdownV1,
@@ -80,6 +81,7 @@ const props = defineProps<{
 }>();
 
 const parsed = computed(() => tryParseStructuredFinalAnswerV1(props.rawText));
+const { markdownRendererTick, refreshWhenReady } = useMarkdownRendererRefresh();
 
 const answer = computed((): StructuredFinalAnswerV1 => {
   // 该组件应仅在上层确认 parse 成功后渲染；这里做兜底避免崩溃。
@@ -108,9 +110,16 @@ const commands = computed(() => {
     .filter(Boolean);
 });
 
-const summaryHtml = computed(() => renderMarkdownToSafeHtml(String(answer.value.summary ?? "").trim() || "（无）"));
-const changesHtml = computed(() => renderMarkdownToSafeHtml(toMarkdownList(answer.value.changes)));
-const nextStepsHtml = computed(() => renderMarkdownToSafeHtml(toMarkdownList(answer.value.next_steps)));
+function renderMarkdownHtml(text: string) {
+  void markdownRendererTick.value;
+  const html = renderMarkdownToSafeHtml(text);
+  refreshWhenReady();
+  return html;
+}
+
+const summaryHtml = computed(() => renderMarkdownHtml(String(answer.value.summary ?? "").trim() || "（无）"));
+const changesHtml = computed(() => renderMarkdownHtml(toMarkdownList(answer.value.changes)));
+const nextStepsHtml = computed(() => renderMarkdownHtml(toMarkdownList(answer.value.next_steps)));
 
 async function copyTextToClipboard(text: string) {
   const source = String(text ?? "");
@@ -219,4 +228,3 @@ onBeforeUnmount(() => {
   clearCopyResetTimer();
 });
 </script>
-

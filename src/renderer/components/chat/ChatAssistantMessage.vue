@@ -70,9 +70,8 @@
 </template>
 
 <script setup lang="ts">
+import { defineAsyncComponent, defineComponent, h } from "vue";
 import AgentMarkdownContent from "../ui/AgentMarkdownContent.vue";
-import PlanOutputCard from "../ui/PlanOutputCard.vue";
-import StructuredFinalAnswerCard from "../ui/StructuredFinalAnswerCard.vue";
 import SelectDropdown from "../ui/SelectDropdown.vue";
 import type { TimelineEventItem, TurnPlanState } from "../../domain/types";
 import type { PlanDeltaExecUiState } from "../layout/chat.types";
@@ -85,6 +84,28 @@ type OptionInput =
       label: string;
       disabled?: boolean;
     };
+
+const AssistantCardLoading = defineComponent({
+  name: "AssistantCardLoading",
+  setup() {
+    return () =>
+      h("div", { class: "assistant-card-loading", "aria-hidden": "true" }, [
+        h("div", { class: "assistant-card-loading__line assistant-card-loading__line--wide" }),
+        h("div", { class: "assistant-card-loading__line assistant-card-loading__line--short" }),
+      ]);
+  },
+});
+
+const PlanOutputCard = defineAsyncComponent({
+  loader: () => import("../ui/PlanOutputCard.vue"),
+  loadingComponent: AssistantCardLoading,
+  delay: 120,
+});
+const StructuredFinalAnswerCard = defineAsyncComponent({
+  loader: () => import("../ui/StructuredFinalAnswerCard.vue"),
+  loadingComponent: AssistantCardLoading,
+  delay: 120,
+});
 
 defineProps<{
   event: TimelineEventItem;
@@ -107,3 +128,29 @@ defineEmits<{
   (e: "update:sandbox-mode", value: SandboxMode): void;
 }>();
 </script>
+
+<style scoped>
+.assistant-card-loading {
+  display: grid;
+  min-height: 64px;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--ui-well-border) 76%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ui-well-bg) 82%, transparent);
+  padding: 12px;
+}
+
+.assistant-card-loading__line {
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 18%, transparent);
+}
+
+.assistant-card-loading__line--wide {
+  width: min(300px, 76%);
+}
+
+.assistant-card-loading__line--short {
+  width: min(190px, 48%);
+}
+</style>

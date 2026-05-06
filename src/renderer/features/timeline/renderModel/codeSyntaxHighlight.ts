@@ -1,4 +1,4 @@
-import { createHighlighter, type BundledLanguage, type BundledTheme, type Highlighter, type ThemedToken } from "shiki";
+import type { BundledLanguage, BundledTheme, Highlighter, ThemedToken } from "shiki";
 
 export type SyntaxHighlightTone = "light" | "dark";
 
@@ -117,11 +117,13 @@ export const inferLanguageFromPath = (value: string): BundledLanguage | "text" =
 
 const getHighlighter = async () => {
   if (!highlighterPromise) {
-    highlighterPromise = createHighlighter({
-      themes: [SHIKI_THEMES.dark, SHIKI_THEMES.light],
-      langs: [...SUPPORTED_LANGUAGES],
-      warnings: false,
-    });
+    highlighterPromise = import("shiki").then(({ createHighlighter }) =>
+      createHighlighter({
+        themes: [SHIKI_THEMES.dark, SHIKI_THEMES.light],
+        langs: [...SUPPORTED_LANGUAGES],
+        warnings: false,
+      })
+    );
   }
   return highlighterPromise;
 };

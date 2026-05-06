@@ -1,10 +1,10 @@
-import DOMPurify from "dompurify";
-
 export type MermaidTone = "light" | "dark";
 
 type MermaidModule = typeof import("mermaid");
+type DomPurify = typeof import("dompurify").default;
 
 let mermaidModulePromise: Promise<MermaidModule["default"]> | null = null;
+let domPurifyPromise: Promise<DomPurify> | null = null;
 let mermaidRenderQueue: Promise<void> = Promise.resolve();
 let mermaidInitializedTone: MermaidTone | null = null;
 
@@ -15,7 +15,14 @@ function loadMermaid() {
   return mermaidModulePromise;
 }
 
-export function sanitizeDiagramSvg(svg: string) {
+function loadDOMPurify() {
+  if (!domPurifyPromise) {
+    domPurifyPromise = import("dompurify").then((mod) => mod.default);
+  }
+  return domPurifyPromise;
+}
+
+export async function sanitizeDiagramSvg(svg: string) {
   if (typeof DOMParser === "undefined" || typeof XMLSerializer === "undefined") return svg;
 
   const parser = new DOMParser();
@@ -41,28 +48,32 @@ export function sanitizeDiagramSvg(svg: string) {
     });
   });
 
-  svgDocument.querySelectorAll("foreignObject").forEach((element) => {
-    const sanitizedHtml = String(
-      DOMPurify.sanitize(element.innerHTML, {
-        USE_PROFILES: { html: true },
-        FORBID_TAGS: ["style", "script", "iframe", "object", "embed", "form", "input", "button", "textarea", "select"],
-        FORBID_ATTR: [
-          "onerror",
-          "onload",
-          "onclick",
-          "onmouseover",
-          "onfocus",
-          "onmouseenter",
-          "onmouseleave",
-          "style",
-          "formaction",
-          "xlink:href",
-        ],
-        ALLOW_DATA_ATTR: false,
-      })
-    );
-    element.innerHTML = sanitizedHtml;
-  });
+  const foreignObjects = [...svgDocument.querySelectorAll("foreignObject")];
+  if (foreignObjects.length > 0) {
+    const DOMPurify = await loadDOMPurify();
+    foreignObjects.forEach((element) => {
+      const sanitizedHtml = String(
+        DOMPurify.sanitize(element.innerHTML, {
+          USE_PROFILES: { html: true },
+          FORBID_TAGS: ["style", "script", "iframe", "object", "embed", "form", "input", "button", "textarea", "select"],
+          FORBID_ATTR: [
+            "onerror",
+            "onload",
+            "onclick",
+            "onmouseover",
+            "onfocus",
+            "onmouseenter",
+            "onmouseleave",
+            "style",
+            "formaction",
+            "xlink:href",
+          ],
+          ALLOW_DATA_ATTR: false,
+        })
+      );
+      element.innerHTML = sanitizedHtml;
+    });
+  }
 
   return new XMLSerializer().serializeToString(svgDocument.documentElement);
 }
@@ -109,7 +120,7 @@ export async function renderMermaidDiagram(args: { id: string; source: string; t
       mermaidInitializedTone = tone;
     }
     const result = await mermaid.render(id, source);
-    const sanitized = sanitizeDiagramSvg(result.svg);
+    const sanitized = await sanitizeDiagramSvg(result.svg);
     if (!sanitized.trim()) {
       throw new Error("Mermaid SVG 为空");
     }

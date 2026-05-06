@@ -85,6 +85,7 @@
 import { CheckCircle2, ChevronDown, CircleDashed } from "lucide-vue-next";
 import { computed, onBeforeUnmount, ref } from "vue";
 import { renderMarkdownToSafeHtml } from "../../features/timeline/markdownRenderer";
+import { useMarkdownRendererRefresh } from "../../features/timeline/useMarkdownRendererRefresh";
 import type { PlanStepState, TurnPlanState } from "../../domain/types";
 import {
   parsePathToken,
@@ -107,6 +108,7 @@ const props = defineProps<{
 }>();
 
 const explanationText = computed(() => String(props.turnPlan?.explanation ?? "").trim());
+const { markdownRendererTick, refreshWhenReady } = useMarkdownRendererRefresh();
 const steps = computed<PlanStepState[]>(() => (Array.isArray(props.turnPlan?.plan) ? props.turnPlan?.plan : []) ?? []);
 type TokenizedPlanStep = PlanStepState & { tokens: PathHighlightToken[] };
 const stepsWithTokens = computed<TokenizedPlanStep[]>(() => {
@@ -156,8 +158,15 @@ function fullForPath(full: string): string {
   return parsedByFull.value.get(full)?.full ?? full;
 }
 
-const explanationHtml = computed(() => renderMarkdownToSafeHtml(explanationText.value || "（无）"));
-const rawHtml = computed(() => renderMarkdownToSafeHtml(String(props.rawText ?? "").trim() || "（无）"));
+function renderMarkdownHtml(text: string) {
+  void markdownRendererTick.value;
+  const html = renderMarkdownToSafeHtml(text);
+  refreshWhenReady();
+  return html;
+}
+
+const explanationHtml = computed(() => renderMarkdownHtml(explanationText.value || "（无）"));
+const rawHtml = computed(() => renderMarkdownHtml(String(props.rawText ?? "").trim() || "（无）"));
 
 const rawOpen = ref(false);
 
