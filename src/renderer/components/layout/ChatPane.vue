@@ -12,7 +12,7 @@
       </div>
     </div>
 
-    <ChatTimelineViewport :rows="chatRenderedRows" #default="{ row: renderedRow }">
+    <ChatTimelineViewport :rows="chatRenderedRows" :onLayoutChange="onLayoutChange" #default="{ row: renderedRow }">
       <ChatRowRenderer
         :renderedRow="renderedRow"
         :workspaceRoot="workspaceRoot"
@@ -53,7 +53,7 @@
       />
     </ChatTimelineViewport>
 
-    <div v-if="trailingContextCompactionEvent" class="chat-row chat-row--context-compaction flex min-w-0 m-0 mt-[3px]">
+    <div v-if="trailingContextCompactionEvent" class="chat-row chat-row--tail chat-row--context-compaction flex min-w-0 m-0">
       <div
         class="chat-context-compaction-line flex w-full max-w-full items-center justify-center px-2.5 py-0.5 text-center"
       >
@@ -72,7 +72,7 @@
 
     <div
       v-if="showTrailingThinkingEvent && trailingThinkingEvent"
-      class="chat-row chat-row--thinking flex min-w-0 m-0 mt-[3px]"
+      class="chat-row chat-row--tail chat-row--thinking flex min-w-0 m-0"
     >
       <div class="chat-thinking-line flex w-full max-w-full items-center justify-start pr-2.5">
         <WaveText class="mono dim" :text="trailingThinkingEvent.paramsText" />
@@ -280,16 +280,15 @@ const modelOptions = computed(() =>
 
 <style scoped>
 .chat-pane {
-  --chat-row-gap-base: 8px;
-  --chat-row-gap-tight: 4px;
+  --chat-row-gap-body: 4px;
+  --chat-row-gap-command: 2px;
+  --chat-row-gap-activity: 2px;
+  --chat-row-gap-mixed: 4px;
+  --chat-row-gap-tail: 1.5px;
 }
 
-.chat-pane :deep(.chat-timeline-row + .chat-timeline-row) {
-  margin-top: var(--chat-row-gap-base);
-}
-
-.chat-pane :deep(.chat-timeline-row[data-row-kind="activity"] + .chat-timeline-row[data-row-kind="activity"]) {
-  margin-top: var(--chat-row-gap-tight);
+.chat-row--tail {
+  margin-top: var(--chat-row-gap-tail);
 }
 
 .chat-pane :deep(.chat-activity-dot.is-ok) {

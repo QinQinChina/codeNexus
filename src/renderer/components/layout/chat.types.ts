@@ -50,6 +50,13 @@ export type ChatWebSearchItem = {
   status: WebSearchStatus;
   title: string;
   summaryText: string;
+  actionLabel: string;
+  primaryText: string;
+  secondaryText: string;
+  queries: string[];
+  url: string;
+  pattern: string;
+  host: string;
 };
 
 export type ChatRowBase = {

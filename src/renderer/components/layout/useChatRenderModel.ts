@@ -16,7 +16,6 @@ import {
 import type { ChatRow, ChatRenderedRow, ChatWebSearchItem } from "./chat.types";
 
 const STREAM_NOTIFICATION_ACTIVITY_METHODS = new Set([
-  "item/fileChange/outputDelta",
   "command/exec/outputDelta",
   "item/commandExecution/terminalInteraction",
 ]);
@@ -54,10 +53,6 @@ function decodeBase64Utf8(value: unknown): string {
 
 function streamNotificationActivityText(event: TimelineEventItem): string {
   const params = toEventParamsObject(event);
-  if (event.method === "item/fileChange/outputDelta") {
-    const delta = String(params.delta ?? event.paramsText ?? "").trim();
-    return `文件变更输出：${shortenActivityText(delta || "正在输出文件变更")}`;
-  }
   if (event.method === "command/exec/outputDelta") {
     const stream = String(params.stream ?? "").trim();
     const text = decodeBase64Utf8(params.deltaBase64);
@@ -68,6 +63,30 @@ function streamNotificationActivityText(event: TimelineEventItem): string {
     const stdin = String(params.stdin ?? event.paramsText ?? "").trim();
     return `终端输入：${shortenActivityText(stdin || "空输入")}`;
   }
+  return "";
+}
+
+function uniqueNonEmptyStrings(values: unknown[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    const text = String(value ?? "").trim();
+    if (!text || seen.has(text)) continue;
+    seen.add(text);
+    result.push(text);
+  }
+  return result;
+}
+
+function extractUrlHost(value: string): string {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  try {
+    return new URL(text).host;
+  } catch {}
+  try {
+    return new URL(`https://${text}`).host;
+  } catch {}
   return "";
 }
 
@@ -84,32 +103,56 @@ export function useChatRenderModel(
     if (!normalized) return null;
     const actionType = normalized.action.type;
     let title = "网页搜索";
-    let summaryText = normalized.query || "搜索网页";
+    let actionLabel = "其他";
+    let primaryText = normalized.query || "网页操作";
+    let secondaryText = "";
+    let summaryText = normalized.query || "网页操作";
+    let queries: string[] = [];
+    let url = "";
+    let pattern = "";
+    let host = "";
     if (actionType === "search") {
-      const seen = new Set<string>();
-      const result: string[] = [];
-      const push = (v: unknown) => {
-        const t = String(v ?? "").trim();
-        if (t && !seen.has(t)) {
-          seen.add(t);
-          result.push(t);
-        }
-      };
-      push(normalized.action.query);
-      (normalized.action.queries || []).forEach(push);
-      summaryText = result.join(" ｜ ") || normalized.query || "搜索网页";
+      actionLabel = "搜索";
+      queries = uniqueNonEmptyStrings([normalized.action.query, ...(normalized.action.queries || [])]);
+      primaryText = queries[0] || normalized.query || "搜索网页";
+      secondaryText = queries.length > 1 ? `共 ${queries.length} 个查询` : "";
+      summaryText = queries.join(" ｜ ") || primaryText;
     } else if (actionType === "openPage") {
       title = "打开页面";
-      summaryText = normalized.action.url || normalized.query || "打开搜索结果页面";
+      actionLabel = "打开";
+      url = normalized.action.url || normalized.query || "";
+      host = extractUrlHost(url);
+      primaryText = host || url || "打开搜索结果页面";
+      secondaryText = host && url ? url : "";
+      summaryText = url || primaryText;
     } else if (actionType === "findInPage") {
       title = "页内查找";
-      summaryText = normalized.action.pattern
-        ? normalized.action.url
-          ? `关键词：${normalized.action.pattern} ｜ 页面：${normalized.action.url}`
-          : `关键词：${normalized.action.pattern}`
-        : normalized.action.url || normalized.query || "页内查找";
+      actionLabel = "查找";
+      url = normalized.action.url || "";
+      pattern = normalized.action.pattern || "";
+      host = extractUrlHost(url);
+      primaryText = pattern || "页内查找";
+      secondaryText = url ? `${host || "页面"}${pattern ? ` ｜ ${url}` : ""}` : "";
+      summaryText = pattern
+        ? url
+          ? `关键词：${pattern} ｜ 页面：${url}`
+          : `关键词：${pattern}`
+        : url || normalized.query || "页内查找";
     }
-    return { itemId: normalized.itemId, actionType, status: normalized.status, title, summaryText };
+    return {
+      itemId: normalized.itemId,
+      actionType,
+      status: normalized.status,
+      title,
+      summaryText,
+      actionLabel,
+      primaryText,
+      secondaryText,
+      queries,
+      url,
+      pattern,
+      host,
+    };
   };
 
   const buildChatRowsFromNodes = (nodes: TimelineRenderNode[], threadKeyFallback: string) => {

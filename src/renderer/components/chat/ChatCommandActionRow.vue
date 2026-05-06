@@ -22,18 +22,17 @@
           aria-hidden="true"
         />
       </span>
-      <span class="chat-terminal-action-text min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{{
-        commandGroupItemActionText(item.item)
-      }}</span>
-      <span
-        class="chat-terminal-action-status inline-flex flex-none items-center rounded-[4px] border px-1.5 py-0.5 mono text-[10px] font-semibold leading-none"
-        :class="commandStatusClass(item.item.status)"
-      >
-        {{ commandGroupItemStatusText(item.item) }}
-      </span>
-      <span v-if="commandGroupItemActionDetailText(item.item)" class="mono dim">{{
-        commandGroupItemActionDetailText(item.item)
-      }}</span>
+      <WaveText
+        class="chat-terminal-action-text"
+        :text="actionText"
+        :enabled="item.item.status === 'running'"
+        color="var(--chat-terminal-action-wave-color)"
+        :char-delay-sec="0.045"
+        :char-anim-duration-sec="0.78"
+        :pause-sec="0.5"
+        :min-opacity="item.item.status === 'running' ? 0.34 : 0.78"
+        :max-opacity="1"
+      />
       <button
         v-if="item.item.filesCount > 0"
         class="chat-terminal-action-toggle !ml-auto !inline-flex !h-[22px] !w-[22px] !items-center !justify-center !rounded-[4px] !border !border-[var(--ui-well-border)] !bg-[var(--ui-well-bg)] !p-0 !text-inherit !shadow-none opacity-80 transition-[opacity,border-color,background] duration-150 hover:opacity-100 hover:!border-[var(--ui-well-border-hover)] hover:!bg-[var(--ui-well-bg-strong)] focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-[var(--ui-well-focus-outline)] active:!translate-y-0"
@@ -73,16 +72,17 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
 import { CheckCircle2, AlertTriangle, CircleDashed, ChevronDown } from "lucide-vue-next";
-import type { CommandActionNode, CommandGroupItem } from "../../features/timeline/renderModel/buildTimelineNodes";
+import type { CommandActionNode } from "../../features/timeline/renderModel/buildTimelineNodes";
 import {
   commandActionNodeTitle,
   commandGroupItemActionText,
-  commandGroupItemStatusText,
   commandGroupItemActionDetailText,
 } from "../../features/timeline/renderModel/formatters";
+import WaveText from "../ui/WaveText.vue";
 
-defineProps<{
+const props = defineProps<{
   item: CommandActionNode;
   isFilesOpen: boolean;
   renderLimit: number;
@@ -92,16 +92,16 @@ defineEmits<{
   (e: "toggle-files"): void;
 }>();
 
-const commandStatusClass = (status: CommandGroupItem["status"]) => {
-  if (status === "completed") return "chat-terminal-action-status--success";
-  if (status === "failed") return "chat-terminal-action-status--danger";
-  if (status === "running") return "chat-terminal-action-status--running";
-  return "chat-terminal-action-status--muted";
-};
+const actionText = computed(() => {
+  const main = commandGroupItemActionText(props.item.item);
+  const detail = commandGroupItemActionDetailText(props.item.item);
+  return detail ? `${main} · ${detail}` : main;
+});
 </script>
 
 <style scoped>
 .chat-terminal-action-wrap {
+  --chat-terminal-action-wave-color: color-mix(in srgb, var(--text-muted) 78%, var(--text) 22%);
   --chat-tool-success-fg: color-mix(in srgb, var(--success, var(--fg-success)) 64%, var(--text-muted, var(--text)) 36%);
   --chat-tool-success-bg: color-mix(in srgb, var(--success, var(--fg-success)) 10%, transparent);
   --chat-tool-success-border: color-mix(in srgb, var(--success, var(--fg-success)) 34%, var(--border) 66%);
@@ -114,7 +114,16 @@ const commandStatusClass = (status: CommandGroupItem["status"]) => {
 }
 
 .chat-terminal-action-line {
+  display: flex !important;
+  width: 100%;
+  min-height: 20px;
+  align-items: center;
+  gap: 5px;
   color: color-mix(in srgb, var(--text) 94%, white 6%);
+}
+
+.chat-terminal-action-line:has(.running-indicator) {
+  --chat-terminal-action-wave-color: color-mix(in srgb, var(--fg-accent) 80%, var(--text) 20%);
 }
 
 .chat-terminal-action-icon--success {
@@ -129,27 +138,15 @@ const commandStatusClass = (status: CommandGroupItem["status"]) => {
   color: color-mix(in srgb, var(--text-muted) 88%, var(--text) 12%);
 }
 
-.chat-terminal-action-status--success {
-  border-color: var(--chat-tool-success-border);
-  background: var(--chat-tool-success-bg);
-  color: var(--chat-tool-success-fg);
-}
-
-.chat-terminal-action-status--danger {
-  border-color: var(--chat-tool-danger-border);
-  background: var(--chat-tool-danger-bg);
-  color: var(--chat-tool-danger-fg);
-}
-
-.chat-terminal-action-status--running {
-  border-color: var(--chat-tool-running-border);
-  background: var(--chat-tool-running-bg);
-  color: var(--chat-tool-running-fg);
-}
-
-.chat-terminal-action-status--muted {
-  border-color: var(--ui-well-border);
-  background: var(--ui-well-bg);
-  color: color-mix(in srgb, var(--text-muted) 90%, var(--text) 10%);
+.chat-terminal-action-text {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: normal !important;
+  text-overflow: ellipsis;
+  white-space: nowrap !important;
+  word-break: normal !important;
 }
 </style>

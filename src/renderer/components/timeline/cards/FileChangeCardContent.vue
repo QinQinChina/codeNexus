@@ -22,6 +22,16 @@
         </div>
       </div>
       <span class="file-change-card-actions inline-flex flex-none items-center gap-1.5">
+        <button
+          v-if="hasDiff"
+          type="button"
+          class="file-change-toggle mono inline-flex h-[20px] flex-none items-center justify-center rounded-[4px] border px-1.5 text-[10px] leading-none"
+          :title="isDiffExpanded ? '收起 diff' : '展开 diff'"
+          :aria-expanded="isDiffExpanded ? 'true' : 'false'"
+          @click="isDiffExpanded = !isDiffExpanded"
+        >
+          {{ isDiffExpanded ? "收起" : "展开" }}
+        </button>
         <span
           v-if="file"
           class="inline-flex flex-none items-center rounded-[4px] border px-1.5 py-0.5 text-[10px]"
@@ -55,6 +65,7 @@
         :diffKey="file.pathAbs"
         :filePathHint="file.pathRelTo || file.pathRel || file.pathAbsTo || file.pathAbs"
         :fileKind="file.kind"
+        :maxHeightClass="diffMaxHeightClass"
         :wrapLines="wrapDiffLines"
         ariaLabel="diff-view"
       />
@@ -70,7 +81,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { FileDiff } from "lucide-vue-next";
 import UnifiedDiffViewer from "./UnifiedDiffViewer.vue";
 import WaveText from "../../ui/WaveText.vue";
@@ -149,6 +160,12 @@ const diffMeta = computed<DiffMeta>(() => {
   return { kind: "text", text: props.fileChangeDiffMetaText(props.file.diffText) };
 });
 
+const isDiffExpanded = ref(false);
+
+const hasDiff = computed(() => Boolean(props.file?.diffText?.trim()));
+
+const diffMaxHeightClass = computed(() => (isDiffExpanded.value ? "max-h-[340px]" : "max-h-[150px]"));
+
 const statusLabel = computed(() => {
   const status = String(props.statusText ?? "").trim();
   if (props.isRunning) return props.streamUpdateCount > 0 ? "生成中" : "等待中";
@@ -199,6 +216,13 @@ const streamCountText = computed(() => {
   if (props.streamUpdateCount <= 0) return "live";
   return `${props.streamUpdateCount} updates`;
 });
+
+watch(
+  () => [props.file?.pathAbs ?? "", props.file?.pathAbsTo ?? ""],
+  () => {
+    isDiffExpanded.value = false;
+  }
+);
 
 </script>
 
@@ -288,6 +312,22 @@ const streamCountText = computed(() => {
 .file-change-status-pill--declined {
   color: var(--warning, var(--fg-warning));
   border-color: color-mix(in srgb, var(--warning, var(--fg-warning)) 34%, transparent);
+}
+
+.file-change-toggle {
+  color: var(--text-muted);
+  border-color: color-mix(in srgb, var(--text-muted) 22%, transparent);
+  background: color-mix(in srgb, var(--ui-well-bg) 72%, transparent);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.file-change-toggle:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+  background: color-mix(in srgb, var(--accent) 9%, var(--ui-well-bg));
 }
 
 .file-change-status-dot,

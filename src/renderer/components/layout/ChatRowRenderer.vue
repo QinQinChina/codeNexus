@@ -34,13 +34,7 @@
     @update:sandbox-mode="(value) => updatePlanExecSandboxMode(renderedRow.event.id, value)"
   />
 
-  <div v-else-if="renderedRow.kind === 'system'" class="chat-row chat-row--system flex min-w-0 m-0">
-    <div
-      class="chat-system-line w-full max-w-full rounded-full border border-[var(--ui-well-border)] bg-[var(--ui-well-bg-strong)] px-3 py-1.5 mono dim"
-    >
-      {{ renderedRow.text }}
-    </div>
-  </div>
+  <ChatSystemRow v-else-if="renderedRow.kind === 'system'" :text="renderedRow.text" />
 
   <ChatActivityRow
     v-else-if="renderedRow.kind === 'activity'"
@@ -63,8 +57,6 @@
   <ChatWebSearchCard
     v-else-if="renderedRow.kind === 'webSearch'"
     :item="(renderedRow as any).item"
-    :showTimestamps="viewPrefs.showTimestamps"
-    :formattedTime="formatTime((renderedRow as any).createdAt)"
     class="chat-row chat-row--tool flex min-w-0 m-0"
   />
 
@@ -99,31 +91,15 @@
   />
 
   <div v-else-if="renderedRow.kind === 'commandRead'" class="chat-row chat-row--tool flex min-w-0 m-0">
-    <ChatReadFileCard :item="(renderedRow as any).item" />
+    <CommandReadActivityRow :item="(renderedRow as any).item" />
   </div>
 
   <div v-else-if="renderedRow.kind === 'commandList'" class="chat-row chat-row--tool flex min-w-0 m-0">
-    <div class="chat-tool-wrap w-full max-w-full min-w-0">
-      <CommandVisualCardContent
-        kind="list"
-        :item="(renderedRow as any).item"
-        :open="isCommandFilesOpen((renderedRow as any).item.id)"
-        :renderLimit="COMMAND_FILES_RENDER_LIMIT"
-        @update:open="toggleCommandFilesOpen((renderedRow as any).item.id)"
-      />
-    </div>
+    <CommandListActivityRow :item="(renderedRow as any).item" />
   </div>
 
   <div v-else-if="renderedRow.kind === 'commandSearch'" class="chat-row chat-row--tool flex min-w-0 m-0">
-    <div class="chat-tool-wrap w-full max-w-full min-w-0">
-      <CommandVisualCardContent
-        kind="search"
-        :item="(renderedRow as any).item"
-        :open="isCommandFilesOpen((renderedRow as any).item.id)"
-        :renderLimit="COMMAND_FILES_RENDER_LIMIT"
-        @update:open="toggleCommandFilesOpen((renderedRow as any).item.id)"
-      />
-    </div>
+    <CommandSearchActivityRow :item="(renderedRow as any).item" />
   </div>
 
   <div v-else-if="renderedRow.kind === 'mcpResourceRead'" class="chat-row chat-row--tool flex min-w-0 m-0">
@@ -138,7 +114,11 @@
   </div>
 
   <div v-else-if="renderedRow.kind === 'mcpToolGroup'" class="chat-row chat-row--tool flex min-w-0 m-0">
-    <div class="chat-tool-wrap w-full max-w-full min-w-0">
+    <ChatSshToolActivity
+      v-if="isSshMcpToolGroup((renderedRow as any).group)"
+      :group="(renderedRow as any).group"
+    />
+    <div v-else class="chat-tool-wrap w-full max-w-full min-w-0">
       <McpToolCardContent
         :open="isMcpToolGroupOpen((renderedRow as any).group.id)"
         :tagText="mcpToolGroupTagText((renderedRow as any).group)"
@@ -161,23 +141,22 @@
 </template>
 
 <script setup lang="ts">
+import { defineAsyncComponent, defineComponent, h } from "vue";
 import ChatUserMessage from "../chat/ChatUserMessage.vue";
 import ChatAssistantMessage from "../chat/ChatAssistantMessage.vue";
 import ChatActivityRow from "../chat/ChatActivityRow.vue";
 import ChatReasoningBlock from "../chat/ChatReasoningBlock.vue";
-import ChatImageToolCard from "../chat/ChatImageToolCard.vue";
-import ChatWebSearchCard from "../chat/ChatWebSearchCard.vue";
-import ChatCommandActionRow from "../chat/ChatCommandActionRow.vue";
-import ChatFileChangeCard from "../chat/ChatFileChangeCard.vue";
-import ChatReadFileCard from "../chat/ChatReadFileCard.vue";
-import CommandVisualCardContent from "../timeline/cards/CommandVisualCardContent.vue";
-import McpResourceReadCardContent from "../timeline/cards/McpResourceReadCardContent.vue";
-import McpToolCardContent from "../timeline/cards/McpToolCardContent.vue";
+import ChatSystemRow from "../chat/ChatSystemRow.vue";
 
 import type { TimelineEventItem, TurnPlanState } from "../../domain/types";
 import { tryParseStructuredFinalAnswerV1 } from "../../domain/structuredFinalAnswer";
 import { renderMarkdownToSafeHtml } from "../../features/timeline/markdownRenderer";
-import type { FileChangeNode, McpResourceReadNode } from "../../features/timeline/renderModel/buildTimelineNodes";
+import { useMarkdownRendererRefresh } from "../../features/timeline/useMarkdownRendererRefresh";
+import type {
+  FileChangeNode,
+  McpResourceReadNode,
+  McpToolGroupNode,
+} from "../../features/timeline/renderModel/buildTimelineNodes";
 import {
   fileChangeDiffMetaText,
   fileChangeEventClass,
@@ -210,6 +189,76 @@ type OptionInput = string | { value: string; label: string; disabled?: boolean }
 type AnyFn = (...args: any[]) => any;
 
 const COMMAND_FILES_RENDER_LIMIT = 1000;
+const { markdownRendererTick, refreshWhenReady } = useMarkdownRendererRefresh();
+
+const AsyncTimelineCardLoading = defineComponent({
+  name: "AsyncTimelineCardLoading",
+  setup() {
+    return () =>
+      h("div", { class: "chat-async-card-loading", "aria-hidden": "true" }, [
+        h("div", { class: "chat-async-card-loading__line chat-async-card-loading__line--wide" }),
+        h("div", { class: "chat-async-card-loading__line chat-async-card-loading__line--short" }),
+      ]);
+  },
+});
+
+const ChatImageToolCard = defineAsyncComponent({
+  loader: () => import("../chat/ChatImageToolCard.vue"),
+  loadingComponent: AsyncTimelineCardLoading,
+  delay: 120,
+});
+const ChatWebSearchCard = defineAsyncComponent({
+  loader: () => import("../chat/ChatWebSearchCard.vue"),
+  loadingComponent: AsyncTimelineCardLoading,
+  delay: 120,
+});
+const ChatSshToolActivity = defineAsyncComponent({
+  loader: () => import("../chat/ChatSshToolActivity.vue"),
+  loadingComponent: AsyncTimelineCardLoading,
+  delay: 120,
+});
+const ChatFileChangeCard = defineAsyncComponent({
+  loader: () => import("../chat/ChatFileChangeCard.vue"),
+  loadingComponent: AsyncTimelineCardLoading,
+  delay: 120,
+});
+const ChatCommandActionRow = defineAsyncComponent({
+  loader: () => import("../chat/ChatCommandActionRow.vue"),
+  loadingComponent: AsyncTimelineCardLoading,
+  delay: 120,
+});
+const CommandReadActivityRow = defineAsyncComponent({
+  loader: () => import("../timeline/activities/CommandReadActivityRow.vue"),
+  loadingComponent: AsyncTimelineCardLoading,
+  delay: 120,
+});
+const CommandListActivityRow = defineAsyncComponent({
+  loader: () => import("../timeline/activities/CommandListActivityRow.vue"),
+  loadingComponent: AsyncTimelineCardLoading,
+  delay: 120,
+});
+const CommandSearchActivityRow = defineAsyncComponent({
+  loader: () => import("../timeline/activities/CommandSearchActivityRow.vue"),
+  loadingComponent: AsyncTimelineCardLoading,
+  delay: 120,
+});
+const McpResourceReadCardContent = defineAsyncComponent({
+  loader: () => import("../timeline/cards/McpResourceReadCardContent.vue"),
+  loadingComponent: AsyncTimelineCardLoading,
+  delay: 120,
+});
+const McpToolCardContent = defineAsyncComponent({
+  loader: () => import("../timeline/cards/McpToolCardContent.vue"),
+  loadingComponent: AsyncTimelineCardLoading,
+  delay: 120,
+});
+
+const isSshMcpToolGroup = (group: McpToolGroupNode | null | undefined): boolean => {
+  return (group?.items ?? []).some((item) => {
+    const server = String(item?.server ?? "").trim().toLowerCase();
+    return server.includes("ssh");
+  });
+};
 
 defineProps<{
   renderedRow: ChatRenderedRow;
@@ -260,7 +309,11 @@ const reasoningDurationText = (durationMs: number | null | undefined) => {
 
 const toReasoningHtml = (text: string) => {
   const source = String(text ?? "").trim();
-  return source ? renderMarkdownToSafeHtml(source) : "<p>（空）</p>";
+  if (!source) return "<p>（空）</p>";
+  void markdownRendererTick.value;
+  const html = renderMarkdownToSafeHtml(source);
+  refreshWhenReady();
+  return html;
 };
 
 const activityDotClass = (tone?: string) => {
@@ -276,3 +329,30 @@ const sandboxSelectClass = (mode: string) => {
   return "border-[var(--border-danger)] bg-[var(--bg-danger-soft)]";
 };
 </script>
+
+<style scoped>
+.chat-async-card-loading {
+  display: grid;
+  min-height: 44px;
+  width: 100%;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 68%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-1) 72%, transparent);
+  padding: 10px;
+}
+
+.chat-async-card-loading__line {
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 18%, transparent);
+}
+
+.chat-async-card-loading__line--wide {
+  width: min(260px, 72%);
+}
+
+.chat-async-card-loading__line--short {
+  width: min(160px, 46%);
+}
+</style>
