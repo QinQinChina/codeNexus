@@ -177,6 +177,17 @@
   --composer-option-bg-accent-mix: 16%;
   --composer-option-border-base-mix: 62%;
   --composer-option-border-accent-mix: 38%;
+
+  --ui-empty-hero-bg: linear-gradient(
+    135deg,
+    var(--accent) 0%,
+    color-mix(in srgb, var(--accent) 62%, var(--warning) 38%) 100%
+  );
+  --ui-empty-hero-text: var(--theme-seed-accent-contrast);
+  --ui-empty-primary-bg: var(--accent);
+  --ui-empty-primary-text: var(--theme-seed-accent-contrast);
+  --ui-empty-primary-shadow: rgb(from var(--accent) r g b / 0.25);
+  --ui-empty-primary-shadow-hover: rgb(from var(--accent) r g b / 0.4);
 }
 
 :root[data-theme="light"] {
@@ -185,6 +196,38 @@
 }
 
 :root[data-theme="dark"] {
+  --theme-page-bg-image: linear-gradient(180deg, var(--bg) 0%, var(--bg) 100%);
+  --topbar-dropdown-bg: var(--surface-elevated);
+  --topbar-dropdown-bg-solid: var(--surface-elevated);
+  --topbar-bg: var(--surface-1);
+  --topbar-hover-bg: rgb(from var(--accent) r g b / 0.12);
+  --topbar-active-bg: rgb(from var(--accent) r g b / 0.18);
+  --topbar-btn-active-bg: rgb(from var(--accent) r g b / 0.2);
+  --topbar-control-bg: var(--surface-2);
+  --sidebar-bg: var(--surface-1);
+  --center-bg: var(--bg);
+  --bubble-assistant-bg: var(--surface-2);
+  --bubble-assistant-tint: transparent;
+  --button-bg: var(--surface-2);
+  --button-bg-hover: color-mix(in srgb, var(--surface-3) 88%, var(--accent) 12%);
+  --input-bg: var(--surface-2);
+  --input-bg-strong: var(--surface-elevated);
+  --panel-bg: var(--surface-1);
+  --panel-hover-bg: rgb(from var(--accent) r g b / 0.1);
+  --panel-active-bg: rgb(from var(--accent) r g b / 0.16);
+  --panel-backdrop-filter: none;
+  --card-bg: var(--surface-2);
+  --chat-pane-bg: var(--bg);
+  --timeline-item-bg: var(--surface-2);
+  --composer-bg: var(--surface-2);
+  --composer-shell-bg: var(--composer-bg);
+  --composer-shell-border: var(--border);
+  --composer-shell-focus-border: var(--border-accent-hover);
+  --composer-agent-bg: var(--surface-2);
+  --composer-plan-bg: var(--surface-2);
+  --composer-shell-plan-bg: var(--composer-plan-bg);
+  --ui-timeline-card-bg: var(--surface-2);
+  --ui-empty-hero-bg: var(--accent);
   --diff-add-bg: color-mix(in srgb, var(--success) 24%, var(--bg) 76%);
   --diff-del-bg: color-mix(in srgb, var(--danger) 24%, var(--bg) 76%);
 }

@@ -75,9 +75,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, defineAsyncComponent, ref } from "vue";
 import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Settings } from "lucide-vue-next";
-import TopBarApprovalMenu from "./topbar/TopBarApprovalMenu.vue";
 import TopBarWorkspaceButton from "./topbar/TopBarWorkspaceButton.vue";
 import TopBarThemeSwitch from "./topbar/TopBarThemeSwitch.vue";
 import TopBarWindowControls from "./topbar/TopBarWindowControls.vue";
@@ -85,6 +84,8 @@ import { useAppShellStore } from "../../stores/appShell.store";
 import { useRuntimeStore } from "../../stores/runtime.store";
 import { useWorkspaceFilesStore } from "../../stores/workspaceFiles.store";
 import "./topbar/topbar.css";
+
+const TopBarApprovalMenu = defineAsyncComponent(() => import("./topbar/TopBarApprovalMenu.vue"));
 
 const appShellStore = useAppShellStore();
 const runtimeStore = useRuntimeStore();

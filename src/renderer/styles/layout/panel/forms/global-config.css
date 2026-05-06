@@ -231,7 +231,7 @@
 .global-config-status.is-warning {
   border-color: color-mix(in srgb, var(--warning) 30%, transparent);
   background: color-mix(in srgb, var(--warning) 15%, transparent);
-  color: color-mix(in srgb, var(--warning) 90%, white);
+  color: var(--fg-warning);
 }
 .global-config-status.is-error {
   border-color: color-mix(in srgb, var(--danger) 30%, transparent);

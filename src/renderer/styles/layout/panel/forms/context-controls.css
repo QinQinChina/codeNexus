@@ -62,11 +62,11 @@
 }
 
 .meter-fill.warn {
-  background: linear-gradient(90deg, rgb(from var(--warning) r g b / 0.82), rgb(from var(--warning) r g b / 0.88));
+  background: linear-gradient(90deg, rgb(from var(--warning) r g b / 0.7), rgb(from var(--warning) r g b / 0.78));
 }
 
 .meter-fill.high {
-  background: linear-gradient(90deg, rgb(from var(--warning) r g b / 0.85), rgb(from var(--danger) r g b / 0.88));
+  background: linear-gradient(90deg, rgb(from var(--warning) r g b / 0.76), rgb(from var(--danger) r g b / 0.84));
 }
 
 .meter-fill.critical {

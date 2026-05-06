@@ -17,25 +17,19 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { Moon, Sun } from "lucide-vue-next";
-import type { AppThemeName } from "../../../stores/theme.store";
-import { useThemeStore } from "../../../stores/theme.store";
+import { APP_THEME_ORDER, themeLabelFor, useThemeStore } from "../../../stores/theme.store";
 
 const themeStore = useThemeStore();
-const themeOrder: AppThemeName[] = ["light", "dark"];
 
-function themeLabelFor(value: AppThemeName): string {
-  if (value === "light") return "浅色";
-  return "深色";
-}
-
-function nextThemeLabelFor(value: AppThemeName): string {
-  const currentIndex = themeOrder.indexOf(value);
-  const nextTheme = currentIndex >= 0 ? themeOrder[(currentIndex + 1) % themeOrder.length] : themeOrder[0];
+function nextThemeLabelFor() {
+  const currentIndex = APP_THEME_ORDER.indexOf(themeStore.theme);
+  const nextTheme =
+    currentIndex >= 0 ? APP_THEME_ORDER[(currentIndex + 1) % APP_THEME_ORDER.length] : APP_THEME_ORDER[0];
   return themeLabelFor(nextTheme);
 }
 
 const themeLabel = computed(() => themeLabelFor(themeStore.theme));
-const nextThemeLabel = computed(() => nextThemeLabelFor(themeStore.theme));
+const nextThemeLabel = computed(() => nextThemeLabelFor());
 const themeAriaLabel = computed(() => `切换主题，当前${themeLabel.value}，下一个${nextThemeLabel.value}`);
 const themeIcon = computed(() => {
   if (themeStore.theme === "light") return Sun;
@@ -46,7 +40,7 @@ function onToggleTheme(event: MouseEvent) {
   const target = event.currentTarget as HTMLElement | null;
   const rect = target?.getBoundingClientRect();
   themeStore.cycleTheme(
-    themeOrder,
+    APP_THEME_ORDER,
     rect
       ? {
           transitionOrigin: {

@@ -8,8 +8,8 @@ import {
 } from "../../shared/localSettings";
 
 export const UI_FONT_FAMILY_PRESET_OPTIONS: Array<{ value: UiFontFamilyPreset; label: string }> = [
-  { value: "alibaba-puhuiti", label: "阿里巴巴普惠体" },
-  { value: "source-han-sans-sc", label: "思源黑体" },
+  { value: "alibaba-puhuiti", label: "系统界面字体" },
+  { value: "source-han-sans-sc", label: "系统中文字体" },
 ];
 
 export const UI_FONT_SIZE_PRESET_OPTIONS: Array<{ value: UiFontSizePreset; label: string }> = [

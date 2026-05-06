@@ -12,7 +12,6 @@ import {
 import { normalizeAbsoluteFsPath } from "../domain/workspacePath";
 import { useRuntimeStore } from "./runtime.store";
 import { useTimelineStore } from "./timeline.store";
-import { confirmModal } from "../ui/modal";
 import { showToast } from "../ui/toast";
 import type { AppTextEncoding, AppTextLineEnding } from "../../shared/ipc/contracts";
 
@@ -25,6 +24,11 @@ type ConfirmDiscardOptions = {
   detail?: string;
   discardOnConfirm?: boolean;
 };
+
+async function confirmModalLazy(options: Parameters<typeof import("../ui/modal")["confirmModal"]>[0]) {
+  const { confirmModal } = await import("../ui/modal");
+  return confirmModal(options);
+}
 
 export type WorkspaceEditorTabState = {
   path: string;
@@ -406,7 +410,7 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
       const tab = target ? this.editorTabsByPath[target] : null;
       if (!isTabDirty(tab)) return true;
       const detail = options?.detail ?? tab?.path ?? "";
-      const confirmed = await confirmModal({
+      const confirmed = await confirmModalLazy({
         title: options?.title ?? "放弃未保存修改？",
         message: options?.message ?? "当前文件有未保存修改，继续操作将丢失这些内容。",
         detail,
@@ -446,7 +450,7 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
     async confirmResetDirtyTabsForWorkspaceChange(nextWorkspace?: string): Promise<boolean> {
       const dirtyTabs = this.openTabs.filter((tab) => isTabDirty(tab));
       if (dirtyTabs.length === 0) return true;
-      const confirmed = await confirmModal({
+      const confirmed = await confirmModalLazy({
         title: "切换工作区前放弃未保存修改？",
         message: nextWorkspace
           ? `切换到新的工作区前，当前打开标签中的未保存内容将被丢弃。`

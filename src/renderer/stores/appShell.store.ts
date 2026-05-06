@@ -2,10 +2,13 @@
 import { defineStore } from "pinia";
 import type { ServerConnState } from "../domain/types";
 import { getCachedUserLocalSettings, patchUserLocalSettings } from "../domain/localSettings";
-import type {
-  AssistantFinalMessageFormat,
-  AssistantPlanMessageFormat,
-  MainView,
+import {
+  DEFAULT_UI_WORKSPACE_FILE_ICON_THEME,
+  normalizeUiWorkspaceFileIconTheme,
+  type AssistantFinalMessageFormat,
+  type AssistantPlanMessageFormat,
+  type UiWorkspaceFileIconTheme,
+  type MainView,
 } from "../../shared/localSettings";
 
 export type IntegrationsDrawerTab = "skills" | "mcp";
@@ -17,8 +20,6 @@ const DEFAULT_FILES_SIDEBAR_WIDTH_PX = 300;
 const DEFAULT_CENTER_EDITOR_WIDTH_PX = 460;
 export const MIN_SIDEBAR_WIDTH_PX = 240;
 export const MIN_CENTER_EDITOR_WIDTH_PX = 320;
-const GUIDE_VERSION = "tour-v1";
-const TOUR_STEP_COUNT = 6;
 const DEFAULT_MAIN_VIEW: MainView = "chat";
 const DEFAULT_ASSISTANT_FINAL_MESSAGE_FORMAT: AssistantFinalMessageFormat = "markdown";
 const DEFAULT_ASSISTANT_PLAN_MESSAGE_FORMAT: AssistantPlanMessageFormat = "markdown";
@@ -33,12 +34,6 @@ function clampCenterEditorWidthPx(value: unknown, fallback: number): number {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(MIN_CENTER_EDITOR_WIDTH_PX, Math.round(n));
-}
-
-function clampTourStepIndex(value: unknown): number {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return 0;
-  return Math.max(0, Math.min(TOUR_STEP_COUNT - 1, Math.round(n)));
 }
 
 function normalizeThreadWorkspaceGroupKey(value: unknown): string {
@@ -75,16 +70,11 @@ export const useAppShellStore = defineStore("appShell", {
     filesSidebarVisible: true,
     filesSidebarWidthPx: DEFAULT_FILES_SIDEBAR_WIDTH_PX,
     centerEditorWidthPx: DEFAULT_CENTER_EDITOR_WIDTH_PX,
+    workspaceFileIconTheme: DEFAULT_UI_WORKSPACE_FILE_ICON_THEME as UiWorkspaceFileIconTheme,
     assistantFinalMessageFormat: DEFAULT_ASSISTANT_FINAL_MESSAGE_FORMAT as AssistantFinalMessageFormat,
     assistantPlanMessageFormat: DEFAULT_ASSISTANT_PLAN_MESSAGE_FORMAT as AssistantPlanMessageFormat,
     threadWorkspaceGroupsCollapsed: {} as Record<string, boolean>,
-    onboardingTourOpen: false,
-    onboardingTourCurrent: 0,
-    guideVersionSeen: null as string | null,
   }),
-  getters: {
-    shouldAutoOpenGuide: (state) => state.guideVersionSeen !== GUIDE_VERSION,
-  },
   actions: {
     // 统一维护服务连接状态与错误文案。
     setServerConnState(next: ServerConnState, error = "") {
@@ -97,6 +87,7 @@ export const useAppShellStore = defineStore("appShell", {
       this.mainView = cached.settings.ui.mainView;
       this.assistantFinalMessageFormat = cached.settings.ui.assistantFinalMessageFormat;
       this.assistantPlanMessageFormat = cached.settings.ui.assistantPlanMessageFormat;
+      this.workspaceFileIconTheme = normalizeUiWorkspaceFileIconTheme(cached.settings.ui.workspaceFileIconTheme);
       this.leftSidebarVisible = cached.settings.ui.leftSidebarVisible;
       this.leftSidebarWidthPx = clampSidebarWidthPx(
         cached.settings.ui.leftSidebarWidthPx,
@@ -114,7 +105,6 @@ export const useAppShellStore = defineStore("appShell", {
       this.threadWorkspaceGroupsCollapsed = cloneThreadWorkspaceGroupsCollapsedState(
         cached.settings.ui.threadWorkspaceGroupsCollapsed
       );
-      this.guideVersionSeen = cached.settings.ui.guideVersionSeen ?? null;
       if (!cached.exists) {
         void patchUserLocalSettings({
           ui: {
@@ -124,19 +114,13 @@ export const useAppShellStore = defineStore("appShell", {
             filesSidebarVisible: this.filesSidebarVisible,
             filesSidebarWidthPx: this.filesSidebarWidthPx,
             centerEditorWidthPx: this.centerEditorWidthPx,
+            workspaceFileIconTheme: this.workspaceFileIconTheme,
             assistantFinalMessageFormat: this.assistantFinalMessageFormat,
             assistantPlanMessageFormat: this.assistantPlanMessageFormat,
             threadWorkspaceGroupsCollapsed: { ...this.threadWorkspaceGroupsCollapsed },
-            guideVersionSeen: this.guideVersionSeen,
           },
         });
       }
-    },
-    setOnboardingTourOpen(next: boolean) {
-      this.onboardingTourOpen = Boolean(next);
-    },
-    setOnboardingTourCurrent(next: number) {
-      this.onboardingTourCurrent = clampTourStepIndex(next);
     },
     setMainView(next: MainView, opts?: { save?: boolean }) {
       const shouldSave = opts?.save ?? true;
@@ -159,24 +143,12 @@ export const useAppShellStore = defineStore("appShell", {
       if (!shouldSave) return;
       void patchUserLocalSettings({ ui: { assistantPlanMessageFormat: normalized } });
     },
-    openOnboardingTour(opts?: { reset?: boolean; step?: number }) {
-      this.onboardingTourOpen = true;
-      if (opts?.reset) {
-        this.onboardingTourCurrent = clampTourStepIndex(opts?.step ?? 0);
-        return;
-      }
-      if (typeof opts?.step === "number") {
-        this.onboardingTourCurrent = clampTourStepIndex(opts.step);
-      }
-    },
-    closeOnboardingTour(opts?: { markSeen?: boolean }) {
-      this.onboardingTourOpen = false;
-      if (opts?.markSeen) this.markGuideVersionSeen();
-    },
-    markGuideVersionSeen(version: string = GUIDE_VERSION) {
-      const next = String(version || GUIDE_VERSION).trim() || GUIDE_VERSION;
-      this.guideVersionSeen = next;
-      void patchUserLocalSettings({ ui: { guideVersionSeen: next } });
+    setWorkspaceFileIconTheme(next: unknown, opts?: { save?: boolean }) {
+      const shouldSave = opts?.save ?? true;
+      const normalized = normalizeUiWorkspaceFileIconTheme(next);
+      this.workspaceFileIconTheme = normalized;
+      if (!shouldSave) return;
+      void patchUserLocalSettings({ ui: { workspaceFileIconTheme: normalized } });
     },
     setGlobalConfigDrawerOpen(next: boolean) {
       this.globalConfigDrawerOpen = Boolean(next);

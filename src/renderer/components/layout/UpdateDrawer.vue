@@ -121,6 +121,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { ChevronDown } from "lucide-vue-next";
 import Collapsible from "../ui/Collapsible.vue";
 import { renderMarkdownToSafeHtml } from "../../features/timeline/markdownRenderer";
+import { useMarkdownRendererRefresh } from "../../features/timeline/useMarkdownRendererRefresh";
 import { useAppShellStore } from "../../stores/appShell.store";
 import { useUpdateStore } from "../../stores/update.store";
 import { showToast } from "../../ui/toast";
@@ -135,6 +136,7 @@ const state = computed(() => updateStore.state);
 const closeBtnRef = ref<HTMLButtonElement | null>(null);
 const restartPending = ref(false);
 const notesExpanded = ref(true);
+const { markdownRendererTick, refreshWhenReady } = useMarkdownRendererRefresh();
 
 const phaseLabel = computed(() => {
   if (state.value.phase === "disabled") return "不可用";
@@ -208,9 +210,13 @@ const speedText = computed(() => (state.value.bytesPerSecond > 0 ? formatBytes(s
 const progressText = computed(() => `${progressPercent.value.toFixed(progressPercent.value >= 100 ? 0 : 1)}%`);
 const releaseNotesText = computed(() => String(state.value.releaseNotes ?? "").trim());
 const hasReleaseNotes = computed(() => releaseNotesText.value.length > 0);
-const releaseNotesHtml = computed(() =>
-  hasReleaseNotes.value ? renderMarkdownToSafeHtml(releaseNotesText.value) : ""
-);
+const releaseNotesHtml = computed(() => {
+  if (!hasReleaseNotes.value) return "";
+  void markdownRendererTick.value;
+  const html = renderMarkdownToSafeHtml(releaseNotesText.value);
+  refreshWhenReady();
+  return html;
+});
 
 function close() {
   if (isSettings.value) return;

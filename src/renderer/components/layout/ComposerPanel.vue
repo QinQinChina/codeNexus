@@ -16,7 +16,7 @@
         @dragleave="onComposerDragLeave"
         @drop="onComposerDrop"
       >
-        <UserInputDock />
+        <UserInputDock v-if="hasPendingComposerUserInput" />
         <div
           v-if="isWorkspaceFileDragOver"
           class="pointer-events-none absolute inset-2 z-10 grid place-items-center rounded-[10px] border border-dashed border-[color:var(--border-accent)] bg-[color:var(--bg-accent-soft)]/80 px-4 text-center text-[12px] font-medium text-[color:var(--fg-accent)] backdrop-blur-[6px]"
@@ -257,7 +257,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, defineAsyncComponent, nextTick, ref, watch } from "vue";
 import { Bot, ImagePlus, ListTodo, SendHorizontal, ShieldAlert, Square } from "lucide-vue-next";
 import type { CollaborationModeKind, ComposeImageAttachment, ComposeWorkspaceFileMention } from "../../domain/types";
 import {
@@ -268,11 +268,13 @@ import {
 } from "../../domain/composeFileMentions";
 import { basenameFromPath } from "../../domain/workspaceFiles";
 import { hasWorkspaceFileDragData, readWorkspaceFileDragData } from "../../domain/workspaceFileDrag";
-import type { SandboxMode } from "../../stores/runtime.store";
-import UserInputDock from "../userInput/UserInputDock.vue";
+import { useRuntimeStore, type SandboxMode } from "../../stores/runtime.store";
+import { useUserInputStore } from "../../stores/userInput.store";
 import SelectDropdown from "../ui/SelectDropdown.vue";
 import WaterBallProgress from "../ui/WaterBallProgress.vue";
 import WaveText from "../ui/WaveText.vue";
+
+const UserInputDock = defineAsyncComponent(() => import("../userInput/UserInputDock.vue"));
 
 type SelectOption = {
   value: string;
@@ -342,6 +344,8 @@ const emit = defineEmits<{
 }>();
 
 const internalComposerInputRef = ref<HTMLDivElement | null>(null);
+const runtimeStore = useRuntimeStore();
+const userInputStore = useUserInputStore();
 const isInputFocused = ref(false);
 const workspaceFileDragDepth = ref(0);
 const isWorkspaceFileDragOver = ref(false);
@@ -388,6 +392,11 @@ function normalizeToneKey(value: unknown): string {
 const modelToneClass = computed(() => "is-" + normalizeToneKey(props.model));
 const reasoningToneClass = computed(() => "is-" + normalizeToneKey(props.reasoningEffort));
 const sandboxToneClass = computed(() => "is-" + normalizeToneKey(props.sandboxMode));
+
+const hasPendingComposerUserInput = computed(() => {
+  const threadId = String(runtimeStore.currentThreadId ?? "").trim();
+  return Boolean(threadId && userInputStore.queueSizeForThread(threadId) > 0);
+});
 
 const mentionSignature = computed(() => {
   return props.composeFileMentions.map((mention) => `${mention.id}\u0001${mention.path}`).join("\u0002");

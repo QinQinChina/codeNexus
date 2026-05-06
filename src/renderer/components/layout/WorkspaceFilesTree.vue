@@ -42,18 +42,14 @@
                     class="workspace-file-tree-row__chevron workspace-file-tree-row__chevron--spacer"
                     aria-hidden="true"
                   ></span>
-                  <Folder
-                    v-if="row.isDirectory"
-                    class="workspace-file-tree-row__icon workspace-file-tree-row__icon--folder"
-                    aria-hidden="true"
-                  />
-                  <FileText
-                    v-else
-                    class="workspace-file-tree-row__icon workspace-file-tree-row__icon--file"
-                    aria-hidden="true"
+                  <WorkspaceTreeEntryIcon
+                    :path="row.path"
+                    :isDirectory="row.isDirectory"
+                    :isExpanded="row.isExpanded"
+                    :theme="appShellStore.workspaceFileIconTheme"
                   />
                   <span
-                    v-if="!row.isDirectory"
+                    v-if="!row.isDirectory && appShellStore.workspaceFileIconTheme === 'lucide'"
                     class="workspace-file-tree-row__filetype mono"
                     :class="`is-${row.fileTypeTone}`"
                     aria-hidden="true"
@@ -86,7 +82,9 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from "vue";
-import { ChevronRight, FileText, Folder } from "lucide-vue-next";
+import { ChevronRight } from "lucide-vue-next";
+import WorkspaceTreeEntryIcon from "./WorkspaceTreeEntryIcon.vue";
+import { useAppShellStore } from "../../stores/appShell.store";
 import { useWorkspaceFilesStore } from "../../stores/workspaceFiles.store";
 import { basenameFromPath } from "../../domain/workspaceFiles";
 import { normalizeAbsoluteFsPath } from "../../domain/workspacePath";
@@ -101,6 +99,7 @@ const props = withDefaults(
   }
 );
 
+const appShellStore = useAppShellStore();
 const workspaceFilesStore = useWorkspaceFilesStore();
 const treeSurfaceRef = ref<HTMLElement | null>(null);
 type FileTypeTone = "folder" | "vue" | "ts" | "py" | "js" | "json" | "md" | "text" | "other";

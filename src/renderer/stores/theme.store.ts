@@ -3,12 +3,25 @@ import { getCachedUserLocalSettings, patchUserLocalSettings } from "../domain/lo
 
 export type AppThemeName = "light" | "dark";
 export type AppThemeTone = "light" | "dark";
+export type AppThemeDefinition = {
+  id: AppThemeName;
+  label: string;
+  tone: AppThemeTone;
+};
 type ThemeTransitionOrigin = {
   x: number;
   y: number;
 };
 
 const DEFAULT_THEME: AppThemeName = "light";
+export const APP_THEME_DEFINITIONS: readonly AppThemeDefinition[] = [
+  { id: "light", label: "浅色", tone: "light" },
+  { id: "dark", label: "深色", tone: "dark" },
+] as const;
+export const APP_THEME_ORDER: readonly AppThemeName[] = APP_THEME_DEFINITIONS.map((theme) => theme.id);
+const APP_THEME_BY_ID = new Map<AppThemeName, AppThemeDefinition>(
+  APP_THEME_DEFINITIONS.map((theme) => [theme.id, theme])
+);
 const DEFAULT_BACKGROUND_OPACITY_PERCENT = 100;
 const MIN_BACKGROUND_OPACITY_PERCENT = 10;
 const MAX_BACKGROUND_OPACITY_PERCENT = 100;
@@ -17,15 +30,17 @@ function normalizeTheme(value: unknown): AppThemeName | null {
   const raw = String(value ?? "")
     .trim()
     .toLowerCase();
-  if (raw === "light") return "light";
-  if (raw === "dark") return "dark";
+  if (APP_THEME_BY_ID.has(raw as AppThemeName)) return raw as AppThemeName;
   if (raw === "windsurf" || raw === "aurora" || raw === "moss") return "dark";
   return null;
 }
 
 function themeTone(theme: AppThemeName): AppThemeTone {
-  if (theme === "light") return "light";
-  return "dark";
+  return APP_THEME_BY_ID.get(theme)?.tone ?? "dark";
+}
+
+export function themeLabelFor(theme: AppThemeName): string {
+  return APP_THEME_BY_ID.get(theme)?.label ?? theme;
 }
 
 function normalizeBackgroundOpacityPercent(value: unknown): number {
@@ -47,8 +62,8 @@ function applyThemeToDocument(theme: AppThemeName): void {
 
 function applyBackgroundOpacityToDocument(percent: number): void {
   try {
-    void percent;
-    document.documentElement.style.setProperty("--page-bg-opacity", "1");
+    document.documentElement.style.setProperty("--page-bg-opacity", `${percent / 100}`);
+    document.documentElement.style.setProperty("--page-shell-opacity-factor", `${percent / 100}`);
   } catch {}
 }
 
@@ -161,10 +176,10 @@ export const useThemeStore = defineStore("theme", {
       void patchUserLocalSettings({ ui: { backgroundOpacityPercent: this.backgroundOpacityPercent } });
     },
     cycleTheme(
-      order: AppThemeName[] = ["light", "dark"],
+      order: readonly AppThemeName[] = APP_THEME_ORDER,
       opts?: { transitionOrigin?: ThemeTransitionOrigin }
     ) {
-      const fallback: AppThemeName[] = ["light", "dark"];
+      const fallback = APP_THEME_ORDER;
       const list = Array.isArray(order) && order.length > 0 ? order : fallback;
       const idx = list.indexOf(this.theme);
       const next = idx >= 0 ? list[(idx + 1) % list.length] : list[0];

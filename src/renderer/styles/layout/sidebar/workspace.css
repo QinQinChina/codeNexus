@@ -674,7 +674,7 @@ html[data-tone="light"] .workspace-files-editor-footer__error {
 }
 
 .workspace-editor-tab.is-active .workspace-editor-tab__dirty {
-  color: color-mix(in srgb, var(--warning) 88%, white 12%);
+  color: color-mix(in srgb, var(--warning) 88%, var(--text) 12%);
 }
 
 .workspace-editor-tab__dirty::selection {

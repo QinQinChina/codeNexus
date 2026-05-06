@@ -161,15 +161,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, defineAsyncComponent } from "vue";
 import { ShieldCheck } from "lucide-vue-next";
 import type { FileChange } from "../../../../generated/codex-app-server";
 import type { CommandExecutionApprovalDecision } from "../../../../generated/codex-app-server/v2/CommandExecutionApprovalDecision";
-import GuardianReviewDiagnostics from "../../guardian/GuardianReviewDiagnostics.vue";
-import DetailDisclosure from "../../ui/DetailDisclosure.vue";
 import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
 import { useRuntimeStore } from "../../../stores/runtime.store";
 import { useApprovalStore, type ApprovalPrompt } from "../../../stores/approval.store";
+
+const DetailDisclosure = defineAsyncComponent(() => import("../../ui/DetailDisclosure.vue"));
+const GuardianReviewDiagnostics = defineAsyncComponent(() => import("../../guardian/GuardianReviewDiagnostics.vue"));
 
 const props = defineProps<{
   open: boolean;

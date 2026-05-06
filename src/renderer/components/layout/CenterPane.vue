@@ -185,13 +185,15 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import ChatPane from "./ChatPane.vue";
-import SkillsManagerOverlay from "./SkillsManagerOverlay.vue";
 import ComposerPanel from "./ComposerPanel.vue";
-import ComposerQueueList from "./ComposerQueueList.vue";
-import ComposerSlashCommandList from "./ComposerSlashCommandList.vue";
-import PlanSummaryPanel from "./PlanSummaryPanel.vue";
 import CenterPaneEmptyState from "./CenterPaneEmptyState.vue";
+import {
+  ChatPane,
+  ComposerQueueList,
+  ComposerSlashCommandList,
+  PlanSummaryPanel,
+  SkillsManagerOverlay,
+} from "../asyncViews";
 import { useTimelineScrollController } from "./useTimelineScrollController";
 import { hasMeaningfulComposeText, stripComposeFileTokenChars } from "../../domain/composeFileMentions";
 import { getRuntimeOrchestrator } from "../../domain/runtimeOrchestrator";
@@ -202,7 +204,7 @@ import type {
   ThreadHistoryItem,
   TimelineEventItem,
 } from "../../domain/types";
-import { isLocalThinkingEvent } from "../../features/timeline/renderModel/formatters";
+import { isLocalThinkingEvent } from "../../features/timeline/eventKinds";
 import { isPendingThreadId } from "../../shared/threadCreateDebug";
 import { useAppShellStore } from "../../stores/appShell.store";
 import { useConfigStore } from "../../stores/config.store";
@@ -1424,9 +1426,8 @@ watch(composeLightboxAttachment, (value) => {
   else window.removeEventListener("keydown", onComposeLightboxWindowKeydown, true);
 });
 
-watch(currentThreadId, (nextThreadId) => {
-  const nextId = String(nextThreadId ?? "").trim();
-  emptyThreadComposerUnlocked.value = Boolean(appShellStore.onboardingTourOpen && nextId);
+watch(currentThreadId, () => {
+  emptyThreadComposerUnlocked.value = false;
   if (queuePopoverVisible.value) closeQueuePopover();
 });
 
@@ -1443,17 +1444,6 @@ watch(
       bumpTimelineLayoutRevision();
       scheduleTimelineViewportStateUpdate();
     });
-  },
-  { flush: "post" }
-);
-
-watch(
-  () => [appShellStore.onboardingTourOpen, emptyStateMode.value, currentThreadId.value] as const,
-  ([tourOpen, mode, threadId]) => {
-    if (!tourOpen) return;
-    if (mode !== "emptyThread") return;
-    if (!String(threadId ?? "").trim()) return;
-    emptyThreadComposerUnlocked.value = true;
   },
   { flush: "post" }
 );

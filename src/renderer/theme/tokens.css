@@ -25,9 +25,9 @@
   --border-success: rgb(from var(--success) r g b / 0.3);
   --border-success-hover: rgb(from var(--success) r g b / 0.44);
   --fg-warning: color-mix(in srgb, var(--warning) 78%, var(--text) 22%);
-  --bg-warning-soft: rgb(from var(--warning) r g b / 0.1);
-  --border-warning: rgb(from var(--warning) r g b / 0.3);
-  --border-warning-hover: rgb(from var(--warning) r g b / 0.44);
+  --bg-warning-soft: rgb(from var(--warning) r g b / 0.08);
+  --border-warning: rgb(from var(--warning) r g b / 0.26);
+  --border-warning-hover: rgb(from var(--warning) r g b / 0.38);
   --fg-danger: color-mix(in srgb, var(--danger) 78%, var(--text) 22%);
   --bg-danger-soft: rgb(from var(--danger) r g b / 0.1);
   --border-danger: rgb(from var(--danger) r g b / 0.3);
@@ -173,7 +173,7 @@
   );
 
   --ui-editor-blue: color-mix(in srgb, var(--accent) 84%, white 16%);
-  --ui-editor-yellow: color-mix(in srgb, var(--warning) 82%, white 18%);
+  --ui-editor-yellow: color-mix(in srgb, var(--warning) 86%, var(--text) 14%);
   --ui-editor-green: color-mix(in srgb, var(--success) 82%, white 18%);
   --ui-editor-purple: color-mix(in srgb, var(--accent) 58%, var(--danger) 42%);
   --ui-editor-red: color-mix(in srgb, var(--danger) 88%, white 12%);

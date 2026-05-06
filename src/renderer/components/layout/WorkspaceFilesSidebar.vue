@@ -42,15 +42,11 @@
                     class="workspace-file-tree-row__chevron workspace-file-tree-row__chevron--spacer"
                     aria-hidden="true"
                   ></span>
-                  <Folder
-                    v-if="row.isDirectory"
-                    class="workspace-file-tree-row__icon workspace-file-tree-row__icon--folder"
-                    aria-hidden="true"
-                  />
-                  <FileText
-                    v-else
-                    class="workspace-file-tree-row__icon workspace-file-tree-row__icon--file"
-                    aria-hidden="true"
+                  <WorkspaceTreeEntryIcon
+                    :path="row.path"
+                    :isDirectory="row.isDirectory"
+                    :isExpanded="row.isExpanded"
+                    :theme="appShellStore.workspaceFileIconTheme"
                   />
                   <span class="workspace-file-tree-row__label">{{ row.label }}</span>
                   <span v-if="row.isLoading" class="workspace-file-tree-row__meta">加载中</span>
@@ -78,12 +74,15 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from "vue";
-import { ChevronRight, FileText, Folder } from "lucide-vue-next";
+import { ChevronRight } from "lucide-vue-next";
+import WorkspaceTreeEntryIcon from "./WorkspaceTreeEntryIcon.vue";
+import { useAppShellStore } from "../../stores/appShell.store";
 import { useWorkspaceFilesStore } from "../../stores/workspaceFiles.store";
 import { basenameFromPath } from "../../domain/workspaceFiles";
 import { normalizeAbsoluteFsPath } from "../../domain/workspacePath";
 import { writeWorkspaceFileDragData } from "../../domain/workspaceFileDrag";
 
+const appShellStore = useAppShellStore();
 const workspaceFilesStore = useWorkspaceFilesStore();
 const treeSurfaceRef = ref<HTMLElement | null>(null);
 

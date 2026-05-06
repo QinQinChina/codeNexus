@@ -21,6 +21,29 @@ Theme colors are centralized in layered CSS variable files. Edit the earliest la
    - Thin mount layer for applying token values to global regions.
    - Avoid adding new color definitions here unless they are theme mounting rules.
 
+## Theme Registry
+
+Renderer theme ids, labels, tone metadata, and cycling order live in `src/renderer/stores/theme.store.ts`:
+
+- Add a new theme id to `AppThemeName`.
+- Add a matching entry to `APP_THEME_DEFINITIONS`.
+- Add seed values in `theme-seeds.css` under `:root[data-theme="<id>"]`.
+- Prefer `tone: "light" | "dark"` for broad component behavior instead of writing one-off selectors for every theme.
+
+Older stored names such as `windsurf`, `aurora`, and `moss` currently normalize to `dark` for compatibility.
+
+## Token Contract
+
+- Seed tokens define raw palette values only.
+- Global semantic tokens define meaning shared across the product, such as `--accent`, `--surface-1`, `--fg-danger`.
+- Component tokens define decisions for a UI region, such as `--composer-bg`, `--topbar-bg`, `--ui-empty-primary-bg`.
+- Vue files should use semantic or component tokens, not raw color utilities such as hard-coded purple/white values.
+
+## Background Opacity
+
+`theme.store.ts` applies `backgroundOpacityPercent` to `--page-bg-opacity` and `--page-shell-opacity-factor`.
+Keep image/background opacity behavior behind those variables so the setting remains theme-agnostic.
+
 ## Tailwind
 
 Use semantic Tailwind aliases from `tailwind.config.cjs` when utility classes need theme colors:
@@ -39,4 +62,4 @@ Use semantic Tailwind aliases from `tailwind.config.cjs` when utility classes ne
 
 Avoid raw `#hex`, `rgb(...)`, and `rgba(...)` values outside seed files. Use CSS variables, `color-mix(...)`, or `rgb(from var(...) ...)` instead.
 
-Documented exceptions should be algorithmic, third-party-like, or test-only code. The current automated guard is `src/renderer/theme/color-system.test.ts`.
+Documented exceptions should be algorithmic, third-party-like, or test-only code. Add an automated guard before relying on this rule for CI enforcement.

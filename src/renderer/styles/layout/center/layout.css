@@ -243,6 +243,15 @@
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 5%, transparent);
 }
 
+.timeline-pane--chat .chat-system-line.chat-system-line--error {
+  border-color: color-mix(in srgb, var(--border-danger) 90%, var(--border) 10%);
+  background: color-mix(in srgb, var(--bg-danger-soft) 82%, var(--surface-1) 18%);
+  color: color-mix(in srgb, var(--fg-danger) 86%, var(--text) 14%);
+  box-shadow:
+    inset 3px 0 0 color-mix(in srgb, var(--danger) 72%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--text) 5%, transparent);
+}
+
 .timeline-pane--chat .plan-summary {
   width: min(100%, var(--chat-content-max-w));
   margin-left: auto;
@@ -294,6 +303,15 @@
     color-mix(in srgb, var(--light-panel-bg) 94%, transparent)
   );
   box-shadow: inset 0 1px 0 rgb(from var(--light-elevated-bg) r g b / 0.82);
+}
+
+:root[data-theme="light"] .timeline-pane--chat .chat-system-line.chat-system-line--error {
+  border-color: color-mix(in srgb, var(--border-danger) 84%, var(--light-border) 16%);
+  background: color-mix(in srgb, var(--bg-danger-soft) 72%, var(--light-elevated-bg) 28%);
+  color: color-mix(in srgb, var(--fg-danger) 88%, var(--light-text) 12%);
+  box-shadow:
+    inset 3px 0 0 color-mix(in srgb, var(--danger) 68%, transparent),
+    inset 0 1px 0 rgb(from var(--light-elevated-bg) r g b / 0.82);
 }
 
 :root[data-theme="light"] .timeline-pane--chat .plan-summary {

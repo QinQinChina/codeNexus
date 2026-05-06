@@ -50,21 +50,6 @@
               <div class="global-config-dirty-badge mono">已修改 {{ globalConfigDirtyCount }} 项</div>
             </div>
 
-            <section class="global-config-guide-entry">
-              <div class="guide-entry-text">
-                <div class="guide-entry-title">新手指导</div>
-                <div class="guide-entry-desc">6 步快速上手，了解工作区、环境检查与对话流程。</div>
-              </div>
-              <button
-                class="btn-mini"
-                type="button"
-                :disabled="globalConfigActionPending || configStore.saving"
-                @click="openOnboardingTour"
-              >
-                打开
-              </button>
-            </section>
-
             <section class="global-config-guide-entry global-config-local-entry">
               <div class="guide-entry-text global-appearance-copy">
                 <div class="guide-entry-title">全局背景外观</div>
@@ -156,6 +141,25 @@
                     :modelValue="typographyStore.fontSizePreset"
                     :options="uiFontSizePresetOptions"
                     @update:modelValue="onUiFontSizePresetChanged"
+                  />
+                </label>
+              </div>
+            </section>
+
+            <section class="global-config-guide-entry global-config-local-entry">
+              <div class="guide-entry-text">
+                <div class="guide-entry-title">文件树图标</div>
+                <div class="guide-entry-desc">选择工作区文件树图标主题，立即生效。</div>
+              </div>
+              <div class="typography-controls">
+                <label class="typography-row">
+                  <span class="typography-label dim">主题</span>
+                  <SelectDropdown
+                    id="sel-workspace-file-icon-theme"
+                    class="context-input mono"
+                    :modelValue="appShellStore.workspaceFileIconTheme"
+                    :options="workspaceFileIconThemeOptions"
+                    @update:modelValue="onWorkspaceFileIconThemeChanged"
                   />
                 </label>
               </div>
@@ -598,6 +602,7 @@ import {
   type AssistantFinalMessageFormat,
   type AssistantPlanMessageFormat,
   type GlobalBackgroundFitMode,
+  type UiWorkspaceFileIconTheme,
 } from "../../../shared/localSettings";
 import { buildModelPickerOptions, normalizeModelId } from "../../../shared/modelCatalog";
 import { CN_MODEL_PRESETS } from "../../../shared/modelPresets";
@@ -619,6 +624,10 @@ const currentGlobalAppearance = computed(() => globalAppearanceStore.appearance)
 const globalBackgroundFitModeOptions = GLOBAL_BACKGROUND_FIT_MODE_OPTIONS;
 const uiFontFamilyPresetOptions = UI_FONT_FAMILY_PRESET_OPTIONS;
 const uiFontSizePresetOptions = UI_FONT_SIZE_PRESET_OPTIONS;
+const workspaceFileIconThemeOptions: Array<{ value: UiWorkspaceFileIconTheme; label: string }> = [
+  { value: "lucide", label: "Lucide（内置）" },
+  { value: "vscode-icons", label: "VSCode Icons" },
+];
 const globalAppearanceDescription = computed(() => {
   if (currentGlobalAppearance.value.backgroundImageRelativePath) {
     return "当前应用已设置全局背景图，图片保存在本机应用数据目录。";
@@ -659,11 +668,6 @@ const onOverlayClick = () => {
   void onRequestClose();
 };
 
-const openOnboardingTourPanel = () => {
-  closeDrawer();
-  appShellStore.openOnboardingTour({ reset: true });
-};
-
 const onAssistantFinalMessageFormatChanged = (value: unknown) => {
   const normalized: AssistantFinalMessageFormat = value === "structured-json-v1" ? "structured-json-v1" : "markdown";
   appShellStore.setAssistantFinalMessageFormat(normalized);
@@ -688,13 +692,6 @@ const GLOBAL_CONFIG_PENDING_ACTION_COPY = {
     saveLabel: "保存并刷新",
     discardLabel: "放弃并刷新",
     unsavableMessage: "刷新会覆盖当前主配置草稿。",
-  },
-  onboarding: {
-    title: "打开新手指导前保存修改？",
-    message: "进入新手指导前，当前主配置还有未保存修改。",
-    saveLabel: "保存并打开",
-    discardLabel: "放弃并打开",
-    unsavableMessage: "打开新手指导会丢失当前主配置修改。",
   },
 } as const;
 
@@ -779,12 +776,6 @@ const onRequestClose = () => {
   void requestClose();
 };
 
-const openOnboardingTour = () => {
-  void runWithGlobalConfigDirtyGuard("onboarding", () => {
-    openOnboardingTourPanel();
-  });
-};
-
 const onGlobalSurfaceOpacityInput = (event: Event) => {
   const target = event.target as HTMLInputElement | null;
   const next = Number.parseInt(String(target?.value ?? ""), 10);
@@ -801,6 +792,10 @@ const onUiFontFamilyPresetChanged = (next: string) => {
 
 const onUiFontSizePresetChanged = (next: string) => {
   typographyStore.setFontSizePreset(next);
+};
+
+const onWorkspaceFileIconThemeChanged = (next: string) => {
+  appShellStore.setWorkspaceFileIconTheme(next);
 };
 
 const onImportGlobalBackground = async () => {

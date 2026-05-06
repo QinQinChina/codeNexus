@@ -286,31 +286,19 @@
       @update:open="onMcpResourceToggle(node.item.id, $event)"
     />
 
-    <CommandVisualCardContent
+    <CommandReadActivityRow
       v-else-if="node.kind === 'commandRead'"
-      kind="read"
       :item="node.item"
-      :open="isCommandFilesOpen(node.item.id)"
-      :renderLimit="COMMAND_FILES_RENDER_LIMIT"
-      @update:open="toggleCommandFilesOpen(node.item.id)"
     />
 
-    <CommandVisualCardContent
+    <CommandListActivityRow
       v-else-if="node.kind === 'commandList'"
-      kind="list"
       :item="node.item"
-      :open="isCommandFilesOpen(node.item.id)"
-      :renderLimit="COMMAND_FILES_RENDER_LIMIT"
-      @update:open="toggleCommandFilesOpen(node.item.id)"
     />
 
-    <CommandVisualCardContent
+    <CommandSearchActivityRow
       v-else-if="node.kind === 'commandSearch'"
-      kind="search"
       :item="node.item"
-      :open="isCommandFilesOpen(node.item.id)"
-      :renderLimit="COMMAND_FILES_RENDER_LIMIT"
-      @update:open="toggleCommandFilesOpen(node.item.id)"
     />
 
     <McpToolCardContent
@@ -337,7 +325,9 @@
 <script setup lang="ts">
 // 时间线视图：承载时间线卡片渲染与交互，包括 diff、markdown、工具输出等。
 import { computed, ref, watch } from "vue";
-import CommandVisualCardContent from "../timeline/cards/CommandVisualCardContent.vue";
+import CommandListActivityRow from "../timeline/activities/CommandListActivityRow.vue";
+import CommandReadActivityRow from "../timeline/activities/CommandReadActivityRow.vue";
+import CommandSearchActivityRow from "../timeline/activities/CommandSearchActivityRow.vue";
 import FileChangeCardContent from "../timeline/cards/FileChangeCardContent.vue";
 import McpResourceReadCardContent from "../timeline/cards/McpResourceReadCardContent.vue";
 import McpToolCardContent from "../timeline/cards/McpToolCardContent.vue";
@@ -362,6 +352,7 @@ import { tryParseStructuredFinalAnswerV1 } from "../../domain/structuredFinalAns
 import { getWorkspaceFileSaveTimelineItemFromEvent } from "../../domain/workspaceFiles";
 import { useAgentMarkdownRenderer } from "../../features/timeline/useAgentMarkdownRenderer";
 import { renderMarkdownToSafeHtml } from "../../features/timeline/markdownRenderer";
+import { useMarkdownRendererRefresh } from "../../features/timeline/useMarkdownRendererRefresh";
 import { isGuardianApprovalReviewMethod } from "../../features/guardian/guardianApprovalReview";
 import {
   buildMcpToolDefinitionIndex,
@@ -411,6 +402,7 @@ const runtimeStore = useRuntimeStore();
 const threadStore = useThreadStore();
 const viewPrefs = useViewPrefsStore();
 const { getMarkdownEventHtml } = useAgentMarkdownRenderer({ key: () => runtimeStore.timelineKey });
+const { markdownRendererTick, refreshWhenReady } = useMarkdownRendererRefresh();
 const mcpToolDefinitions = computed(() => buildMcpToolDefinitionIndex(mcpStore.servers));
 
 const turnPlanForPlanDeltaEvent = (event: TimelineEventItem): TurnPlanState | null => {
@@ -917,6 +909,10 @@ const reasoningDurationText = (durationMs: number | null | undefined) => {
 
 const toReasoningHtml = (text: string) => {
   const source = String(text ?? "");
-  return source.trim() ? renderMarkdownToSafeHtml(source) : "<p>（空）</p>";
+  if (!source.trim()) return "<p>（空）</p>";
+  void markdownRendererTick.value;
+  const html = renderMarkdownToSafeHtml(source);
+  refreshWhenReady();
+  return html;
 };
 </script>

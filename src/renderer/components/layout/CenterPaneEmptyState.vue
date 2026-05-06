@@ -3,7 +3,7 @@
     
     <!-- 欢迎头部区域 -->
     <div v-if="mode === 'default' && !loading" class="flex flex-col items-center text-center mb-12 animate-enter-slide-up">
-      <div class="w-16 h-16 mb-5 rounded-2xl bg-gradient-to-tr from-[color:var(--accent)] to-purple-500 shadow-lg shadow-[color:var(--accent)]/20 flex items-center justify-center text-white">
+      <div class="w-16 h-16 mb-5 rounded-2xl bg-[image:var(--ui-empty-hero-bg)] shadow-lg shadow-[color:var(--ui-empty-primary-shadow)] flex items-center justify-center text-[color:var(--ui-empty-hero-text)]">
         <Sparkles class="w-8 h-8" aria-hidden="true" />
       </div>
       <h1 class="text-[28px] max-[1500px]:text-[24px] font-bold text-[var(--text)] tracking-tight mb-2">有什么我可以帮你的？</h1>
@@ -12,7 +12,7 @@
       <button
         id="btn-center-empty-create-thread"
         type="button"
-        class="flex items-center gap-2 h-12 max-[1500px]:h-11 px-8 max-[1500px]:px-6 rounded-full bg-[var(--accent)] text-white text-[15px] max-[1500px]:text-[14px] font-medium shadow-md shadow-[color:var(--accent)]/25 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[color:var(--accent)]/40 hover:brightness-110 active:scale-[0.97] active:translate-y-0 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--accent)]/30"
+        class="flex items-center gap-2 h-12 max-[1500px]:h-11 px-8 max-[1500px]:px-6 rounded-full bg-[var(--ui-empty-primary-bg)] text-[color:var(--ui-empty-primary-text)] text-[15px] max-[1500px]:text-[14px] font-medium shadow-md shadow-[color:var(--ui-empty-primary-shadow)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[color:var(--ui-empty-primary-shadow-hover)] hover:brightness-110 active:scale-[0.97] active:translate-y-0 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--accent)]/30"
         @click="$emit('create-thread')"
       >
         <MessageSquarePlus class="w-5 h-5 max-[1500px]:w-4 max-[1500px]:h-4" />

@@ -41,8 +41,7 @@
     </main>
     <BottomBar />
     <div class="app-overlays">
-      <AppTour />
-      <AppClosingOverlay />
+      <AppClosingOverlay v-if="showAppClosingOverlay" />
     </div>
   </div>
 </template>
@@ -50,15 +49,16 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import TopBar from "./components/layout/TopBar.vue";
-import LeftSidebar from "./components/layout/LeftSidebar.vue";
 import CenterPane from "./components/layout/CenterPane.vue";
-import DebugTimelineSidebar from "./components/layout/DebugTimelineSidebar.vue";
-import SettingsPage from "./components/layout/SettingsPage.vue";
-import WorkspaceEditorPane from "./components/layout/WorkspaceEditorPane.vue";
-import WorkspaceFilesSidebar from "./components/layout/WorkspaceFilesSidebar.vue";
 import BottomBar from "./components/layout/BottomBar.vue";
-import AppTour from "./components/layout/AppTour.vue";
-import AppClosingOverlay from "./components/layout/AppClosingOverlay.vue";
+import {
+  AppClosingOverlay,
+  DebugTimelineSidebar,
+  LeftSidebar,
+  SettingsPage,
+  WorkspaceEditorPane,
+  WorkspaceFilesSidebar,
+} from "./components/asyncViews";
 import { codexDesktop } from "./api/codexDesktopClient";
 import { useAppClosingStore } from "./stores/appClosing.store";
 import { useAppShellStore } from "./stores/appShell.store";
@@ -101,11 +101,9 @@ void notificationSoundStore.refreshAvailable();
 void globalAppearanceStore.applyGlobalAppearance();
 void remoteSyncStore.initBridge();
 void updateStore.initBridge();
-if (appShellStore.shouldAutoOpenGuide) {
-  appShellStore.openOnboardingTour({ reset: true });
-}
 
 const settingsOpen = computed(() => appShellStore.settingsOpen);
+const showAppClosingOverlay = computed(() => appClosingStore.visible);
 const mainView = computed(() => appShellStore.mainView);
 const showLeftSidebar = computed(
   () => !settingsOpen.value && mainView.value === "chat" && appShellStore.leftSidebarVisible
