@@ -33,16 +33,18 @@
         >
           <div class="flex items-center justify-between gap-2">
             <span class="mcp-tool-item-status inline-flex min-w-0 items-center gap-1.5 text-[11px]">
-              <span v-if="item.status === 'running'" class="running-indicator is-muted" aria-hidden="true"></span>
-              <CheckCircle2
-                v-else-if="item.status === 'completed'"
-                class="h-3 w-3 flex-none text-inherit [stroke-width:2.2]"
-              />
-              <AlertTriangle
-                v-else-if="item.status === 'failed'"
-                class="h-3 w-3 flex-none text-inherit [stroke-width:2.2]"
-              />
-              <CircleDashed v-else class="h-3 w-3 flex-none text-inherit [stroke-width:2.2]" />
+              <span class="ui-leading-icon-slot" aria-hidden="true">
+                <span v-if="item.status === 'running'" class="running-indicator is-muted"></span>
+                <CheckCircle2
+                  v-else-if="item.status === 'completed'"
+                  class="h-3 w-3 flex-none text-inherit [stroke-width:2.2]"
+                />
+                <AlertTriangle
+                  v-else-if="item.status === 'failed'"
+                  class="h-3 w-3 flex-none text-inherit [stroke-width:2.2]"
+                />
+                <CircleDashed v-else class="h-3 w-3 flex-none text-inherit [stroke-width:2.2]" />
+              </span>
               <span class="mono">{{ itemStatusText(item) }}</span>
             </span>
             <span class="mono dim flex-none whitespace-nowrap text-[10px]">{{ itemMetricsText(item) }}</span>

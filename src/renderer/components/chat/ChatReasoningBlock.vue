@@ -8,7 +8,9 @@
             v-bind="triggerProps"
           >
             <span class="inline-flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
-              <Brain class="h-3 w-3 flex-none text-[var(--fg-warning)] [stroke-width:2.2]" aria-hidden="true" />
+              <span class="ui-leading-icon-slot" aria-hidden="true">
+                <Brain class="h-3 w-3 flex-none text-[var(--fg-warning)] [stroke-width:2.2]" />
+              </span>
               <span class="min-w-0 truncate" :title="title">{{ title || "思考" }}</span>
               <span v-if="durationText" class="mono dim whitespace-nowrap">{{ durationText }}</span>
             </span>

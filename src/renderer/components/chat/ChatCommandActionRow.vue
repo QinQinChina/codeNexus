@@ -5,24 +5,19 @@
       :class="{ 'is-running': item.item.status === 'running' }"
       :title="commandActionNodeTitle(item)"
     >
-      <span
-        v-if="item.item.status !== 'running'"
-        class="chat-terminal-action-left inline-flex flex-none items-center gap-1"
-      >
+      <span class="ui-leading-icon-slot" aria-hidden="true">
+        <span v-if="item.item.status === 'running'" class="running-indicator is-muted"></span>
         <CheckCircle2
-          v-if="item.item.status === 'completed'"
+          v-else-if="item.item.status === 'completed'"
           class="chat-terminal-action-icon chat-terminal-action-icon--success h-[14px] w-[14px] flex-none [stroke-width:2.8]"
-          aria-hidden="true"
         />
         <AlertTriangle
           v-else-if="item.item.status === 'failed'"
           class="chat-terminal-action-icon chat-terminal-action-icon--danger h-[14px] w-[14px] flex-none [stroke-width:2.8]"
-          aria-hidden="true"
         />
         <CircleDashed
           v-else
           class="chat-terminal-action-icon chat-terminal-action-icon--muted h-[14px] w-[14px] flex-none [stroke-width:2.4]"
-          aria-hidden="true"
         />
       </span>
       <WaveText

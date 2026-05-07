@@ -165,7 +165,9 @@
           v-bind="triggerProps"
         >
           <span class="inline-flex min-w-0 items-center gap-1.5">
-            <Brain class="h-3 w-3 flex-none text-[var(--fg-warning)] [stroke-width:2.2]" aria-hidden="true" />
+            <span class="ui-leading-icon-slot" aria-hidden="true">
+              <Brain class="h-3 w-3 flex-none text-[var(--fg-warning)] [stroke-width:2.2]" />
+            </span>
             <span class="min-w-0 truncate" :title="node.item.title ?? ''">{{ node.item.title ?? "思考" }}</span>
             <span v-if="reasoningDurationText(node.item.durationMs)" class="mono dim whitespace-nowrap">{{
               reasoningDurationText(node.item.durationMs)
