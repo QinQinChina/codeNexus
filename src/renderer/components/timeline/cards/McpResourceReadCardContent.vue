@@ -2,8 +2,8 @@
   <TimelineCardShell
     class="w-full"
     tagText="MCP 资源"
-    :statusText="statusText"
-    :statusKind="statusKind"
+    :statusText="''"
+    :statusKind="''"
     :open="open"
     :keepMounted="true"
     @update:open="emit('update:open', $event)"
@@ -17,12 +17,8 @@
       </div>
     </template>
     <div class="grid gap-2 px-2.5 pb-2.5">
-      <div
-        v-if="isRunning"
-        class="mono dim inline-flex items-center gap-2 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px]"
-      >
-        <span class="running-indicator is-muted" aria-hidden="true"></span>
-        <span>正在读取资源...</span>
+      <div v-if="isRunning" class="mono dim inline-flex items-center gap-2 is-loading-shimmer text-[11px]">
+        <span>读取资源</span>
       </div>
       <div class="grid gap-1">
         <div class="text-[12px] font-medium text-[color:var(--text-muted)]">资源名</div>
@@ -63,9 +59,9 @@
       </div>
       <div
         v-if="item.errorText"
-        class="mono whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px] leading-[1.4] text-[var(--fg-danger)]"
+        class="mono whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px] leading-[1.4] text-[var(--text)]"
       >
-        读取失败：{{ item.errorText }}
+        {{ item.errorText }}
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <button type="button" class="btn-mini" @click.stop="props.onOpenInPanel(item)">在 MCP 页打开</button>
@@ -91,16 +87,7 @@ const emit = defineEmits<{
 }>();
 
 const isRunning = computed(() => props.item.status === "running");
-const statusKind = computed(() => {
-  if (props.item.status === "running") return "running";
-  if (props.item.status === "failed") return "failed";
-  return "completed";
-});
-const statusText = computed(() => {
-  if (props.item.status === "running") return "读取中";
-  if (props.item.status === "failed") return "失败";
-  return "已读取";
-});
+// 工具事件两态化：不暴露成功/失败/状态文字，只在进行中显示扫光提示。
 
 const displayResourceLabel = computed(() => props.item.resourceLabel || props.item.uri || "未命名资源");
 const displayToolNames = computed(() => props.item.toolNames ?? []);

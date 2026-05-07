@@ -6,12 +6,6 @@
       </span>
       <span
         class="inline-flex h-[22px] items-center rounded-[4px] border px-[9px] text-[11px] mono"
-        :class="statusBadgeClass"
-      >
-        {{ statusText }}
-      </span>
-      <span
-        class="inline-flex h-[22px] items-center rounded-[4px] border px-[9px] text-[11px] mono"
         :class="sourceBadgeClass"
       >
         {{ sourceText }}
@@ -28,7 +22,7 @@
 
     <div
       v-if="item.errorText"
-      class="mono whitespace-pre-wrap [overflow-wrap:anywhere] break-words text-[11px] text-[var(--fg-danger)]"
+      class="mono whitespace-pre-wrap [overflow-wrap:anywhere] break-words text-[11px] text-[var(--text)]"
     >
       {{ item.errorText }}
     </div>
@@ -44,16 +38,9 @@ const props = defineProps<{
 }>();
 
 const titleText = computed(() => "文件面板保存");
-const statusText = computed(() => (props.item.status === "success" ? "已保存" : "保存失败"));
+// 工具事件两态化：不展示成功/失败状态徽标。
 const sourceText = computed(() => workspaceFileSourceText(props.item.source));
 const metaText = computed(() => `字符数：${props.item.chars.toLocaleString()}`);
-
-const statusBadgeClass = computed(() => {
-  if (props.item.status === "success") {
-    return "border-[var(--border-success)] bg-[var(--bg-success-soft)] text-[var(--fg-success)]";
-  }
-  return "border-[var(--border-danger)] bg-[var(--bg-danger-soft)] text-[var(--fg-danger)]";
-});
 
 const sourceBadgeClass = computed(() => {
   return "border-[var(--border-warning)] bg-[var(--bg-warning-soft)] text-[var(--fg-warning)]";

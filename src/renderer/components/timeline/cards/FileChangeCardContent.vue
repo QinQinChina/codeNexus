@@ -40,23 +40,14 @@
           :class="fileChangeKindClass(file.kind)"
           >{{ fileChangeKindText(file.kind) }}</span
         >
-        <span
-          class="file-change-status-pill mono inline-flex flex-none items-center rounded-[4px] border px-1.5 py-0.5 text-[10px]"
-          :class="statusPillClass"
-        >
-          <span v-if="isRunning" class="file-change-status-dot" aria-hidden="true"></span>
-          {{ statusLabel }}
-        </span>
       </span>
     </div>
 
     <div
-      v-if="isRunning || (streamUpdateCount > 0 && statusText !== '已完成')"
-      class="file-change-stream-strip mono mx-1.5 mb-1.5 flex min-w-0 items-center gap-2 rounded-[4px] border px-2 py-1 text-[10.5px]"
+      v-if="isRunning"
+      class="file-change-stream-strip mono mx-1.5 mb-1.5 flex min-w-0 items-center gap-2 rounded-[4px] border px-2 py-1 text-[10.5px] is-loading-shimmer"
     >
-      <span v-if="isRunning" class="file-change-stream-pulse" aria-hidden="true"></span>
-      <WaveText v-if="isRunning" class="min-w-0 flex-1 truncate" :text="streamStripText" />
-      <span v-else class="min-w-0 flex-1 truncate">{{ streamStripText }}</span>
+      <span class="min-w-0 flex-1 truncate">{{ streamStripText }}</span>
       <span class="flex-none text-[var(--text-muted)]">{{ streamCountText }}</span>
     </div>
 
@@ -75,7 +66,7 @@
         v-else
         class="mono rounded-[4px] border border-[var(--ui-code-border)] bg-[var(--ui-code-bg)] p-1.5 text-[11px] text-[var(--ui-code-text-muted)]"
       >
-        <WaveText v-if="isRunning" class="mono dim" text="正在修改文件…" />
+        <span v-if="isRunning" class="mono dim is-loading-shimmer">正在修改文件…</span>
         <template v-else>{{ emptyText }}</template>
       </div>
     </div>
@@ -86,7 +77,6 @@
 import { computed, ref, watch } from "vue";
 import { FileDiff } from "lucide-vue-next";
 import UnifiedDiffViewer from "./UnifiedDiffViewer.vue";
-import WaveText from "../../ui/WaveText.vue";
 import { getParsedDiffCached } from "../../../features/timeline/renderModel/diff";
 
 export type FileChangeFile = {
@@ -168,15 +158,6 @@ const hasDiff = computed(() => Boolean(props.file?.diffText?.trim()));
 
 const diffMaxHeightClass = computed(() => (isDiffExpanded.value ? "max-h-[340px]" : "max-h-[150px]"));
 
-const statusLabel = computed(() => {
-  const status = String(props.statusText ?? "").trim();
-  if (props.isRunning) return props.streamUpdateCount > 0 ? "生成中" : "等待中";
-  if (status === "已完成") return "已应用";
-  if (status === "失败") return "应用失败";
-  if (status === "已拒绝") return "未应用";
-  return status || "未知";
-});
-
 const streamMetaText = computed(() => {
   if (props.isRunning) {
     if (props.streamUpdateCount > 0) return `更新 ${props.streamUpdateCount} 次`;
@@ -195,22 +176,11 @@ const isRunning = computed(() => Boolean(props.isRunning));
 
 const modeClass = computed(() => (props.mode === "chat" ? "file-change-card--chat" : "file-change-card--timeline"));
 
-const statusPillClass = computed(() => {
-  if (props.isRunning) return "file-change-status-pill--running";
-  if (props.statusText === "已完成") return "file-change-status-pill--completed";
-  if (props.statusText === "失败") return "file-change-status-pill--failed";
-  if (props.statusText === "已拒绝") return "file-change-status-pill--declined";
-  return "file-change-status-pill--unknown";
-});
-
 const streamStripText = computed(() => {
   if (props.isRunning) {
     if (!props.file) return "正在解析补丁…";
     return props.streamUpdateCount > 0 ? "正在生成变更…" : "等待结构化 diff…";
   }
-  if (props.statusText === "已完成") return "补丁已应用";
-  if (props.statusText === "失败") return "补丁应用失败";
-  if (props.statusText === "已拒绝") return "补丁未应用";
   return "补丁状态已更新";
 });
 

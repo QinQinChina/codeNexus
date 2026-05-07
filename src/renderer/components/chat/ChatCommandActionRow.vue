@@ -6,31 +6,11 @@
       :title="commandActionNodeTitle(item)"
     >
       <span class="ui-leading-icon-slot" aria-hidden="true">
-        <span v-if="item.item.status === 'running'" class="running-indicator is-muted"></span>
-        <CheckCircle2
-          v-else-if="item.item.status === 'completed'"
-          class="chat-terminal-action-icon chat-terminal-action-icon--success h-[14px] w-[14px] flex-none [stroke-width:2.8]"
-        />
-        <AlertTriangle
-          v-else-if="item.item.status === 'failed'"
-          class="chat-terminal-action-icon chat-terminal-action-icon--danger h-[14px] w-[14px] flex-none [stroke-width:2.8]"
-        />
-        <CircleDashed
-          v-else
-          class="chat-terminal-action-icon chat-terminal-action-icon--muted h-[14px] w-[14px] flex-none [stroke-width:2.4]"
-        />
+        <TerminalSquare class="chat-terminal-action-icon h-[14px] w-[14px] flex-none [stroke-width:2.4]" />
       </span>
-      <WaveText
-        class="chat-terminal-action-text"
-        :text="actionText"
-        :enabled="item.item.status === 'running'"
-        color="var(--chat-terminal-action-wave-color)"
-        :char-delay-sec="0.045"
-        :char-anim-duration-sec="0.78"
-        :pause-sec="0.5"
-        :min-opacity="item.item.status === 'running' ? 0.34 : 0.78"
-        :max-opacity="1"
-      />
+      <span class="chat-terminal-action-text" :class="{ 'is-loading-shimmer': item.item.status === 'running' }">{{
+        actionText
+      }}</span>
       <button
         v-if="item.item.filesCount > 0"
         class="chat-terminal-action-toggle !ml-auto !inline-flex !h-[22px] !w-[22px] !items-center !justify-center !rounded-[4px] !border !border-[var(--ui-well-border)] !bg-[var(--ui-well-bg)] !p-0 !text-inherit !shadow-none opacity-80 transition-[opacity,border-color,background] duration-150 hover:opacity-100 hover:!border-[var(--ui-well-border-hover)] hover:!bg-[var(--ui-well-bg-strong)] focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-[var(--ui-well-focus-outline)] active:!translate-y-0"
@@ -71,14 +51,13 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { CheckCircle2, AlertTriangle, CircleDashed, ChevronDown } from "lucide-vue-next";
+import { ChevronDown, TerminalSquare } from "lucide-vue-next";
 import type { CommandActionNode } from "../../features/timeline/renderModel/buildTimelineNodes";
 import {
   commandActionNodeTitle,
   commandGroupItemActionText,
   commandGroupItemActionDetailText,
 } from "../../features/timeline/renderModel/formatters";
-import WaveText from "../ui/WaveText.vue";
 
 const props = defineProps<{
   item: CommandActionNode;
@@ -99,16 +78,7 @@ const actionText = computed(() => {
 
 <style scoped>
 .chat-terminal-action-wrap {
-  --chat-terminal-action-wave-color: color-mix(in srgb, var(--text-muted) 78%, var(--text) 22%);
-  --chat-tool-success-fg: color-mix(in srgb, var(--success, var(--fg-success)) 64%, var(--text-muted, var(--text)) 36%);
-  --chat-tool-success-bg: color-mix(in srgb, var(--success, var(--fg-success)) 10%, transparent);
-  --chat-tool-success-border: color-mix(in srgb, var(--success, var(--fg-success)) 34%, var(--border) 66%);
-  --chat-tool-danger-fg: color-mix(in srgb, var(--danger, var(--fg-danger)) 64%, var(--text-muted, var(--text)) 36%);
-  --chat-tool-danger-bg: color-mix(in srgb, var(--danger, var(--fg-danger)) 10%, transparent);
-  --chat-tool-danger-border: color-mix(in srgb, var(--danger, var(--fg-danger)) 34%, var(--border) 66%);
-  --chat-tool-running-fg: color-mix(in srgb, var(--accent) 64%, var(--text-muted, var(--text)) 36%);
-  --chat-tool-running-bg: color-mix(in srgb, var(--accent) 10%, transparent);
-  --chat-tool-running-border: color-mix(in srgb, var(--accent) 34%, var(--border) 66%);
+  /* 状态只做“进行中扫光”提示，不做成功/失败配色。 */
 }
 
 .chat-terminal-action-line {
@@ -118,22 +88,6 @@ const actionText = computed(() => {
   align-items: center;
   gap: 5px;
   color: color-mix(in srgb, var(--text) 94%, white 6%);
-}
-
-.chat-terminal-action-line.is-running {
-  --chat-terminal-action-wave-color: color-mix(in srgb, var(--fg-accent) 80%, var(--text) 20%);
-}
-
-.chat-terminal-action-icon--success {
-  color: var(--chat-tool-success-fg);
-}
-
-.chat-terminal-action-icon--danger {
-  color: var(--chat-tool-danger-fg);
-}
-
-.chat-terminal-action-icon--muted {
-  color: color-mix(in srgb, var(--text-muted) 88%, var(--text) 12%);
 }
 
 .chat-terminal-action-text {

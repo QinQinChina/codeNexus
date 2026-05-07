@@ -210,33 +210,14 @@
       <div
         class="terminal-action-line inline-flex w-full min-w-0 items-center gap-1.5 p-0 m-0 box-border border-0 bg-transparent text-xs dim"
         :title="commandActionNodeTitle(node.item)"
+        :class="{ 'is-loading-shimmer': node.item.item.status === 'running' }"
       >
-        <span class="terminal-action-left inline-flex flex-none items-center gap-1.5">
-          <span v-if="node.item.item.status === 'running'" class="running-indicator is-muted" aria-hidden="true"></span>
-          <CheckCircle2
-            v-else-if="node.item.item.status === 'completed'"
-            class="terminal-action-icon h-3 w-3 flex-none text-[var(--fg-success)] [stroke-width:2.2]"
-            aria-hidden="true"
-          />
-          <AlertTriangle
-            v-else-if="node.item.item.status === 'failed'"
-            class="terminal-action-icon h-3 w-3 flex-none text-[var(--fg-danger)] [stroke-width:2.2]"
-            aria-hidden="true"
-          />
-          <CircleDashed
-            v-else
-            class="terminal-action-icon h-3 w-3 flex-none text-[var(--text-muted)] [stroke-width:2.2]"
-            aria-hidden="true"
-          />
+        <span class="ui-leading-icon-slot" aria-hidden="true">
+          <TerminalSquare class="terminal-action-icon h-3 w-3 flex-none text-[var(--text-muted)] [stroke-width:2.2]" />
         </span>
         <span class="terminal-action-text min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{{
           commandGroupItemActionText(node.item.item)
         }}</span>
-        <span
-          class="terminal-action-status inline-flex flex-none items-center rounded-[4px] border border-[var(--ui-well-border)] bg-[var(--ui-well-bg)] px-1.5 py-0.5 mono text-[10px] leading-none text-[var(--text)] opacity-85"
-        >
-          {{ commandGroupItemStatusText(node.item.item) }}
-        </span>
         <span v-if="commandGroupItemActionDetailText(node.item.item)" class="mono dim">{{
           commandGroupItemActionDetailText(node.item.item)
         }}</span>
@@ -332,7 +313,7 @@ import StructuredFinalAnswerCard from "../ui/StructuredFinalAnswerCard.vue";
 import UnifiedDiffViewer from "../timeline/cards/UnifiedDiffViewer.vue";
 import Collapsible from "../ui/Collapsible.vue";
 import WaveText from "../ui/WaveText.vue";
-import { AlertTriangle, Brain, CheckCircle2, ChevronDown, CircleDashed } from "lucide-vue-next";
+import { Brain, ChevronDown, TerminalSquare } from "lucide-vue-next";
 import { useAppShellStore } from "../../stores/appShell.store";
 import { useMcpResourceStore } from "../../stores/mcpResource.store";
 import { useMcpStore } from "../../stores/mcp.store";
@@ -359,7 +340,6 @@ import {
 import {
   commandGroupItemActionText,
   commandGroupItemActionDetailText,
-  commandGroupItemStatusText,
   commandActionNodeTitle,
   fileChangeDiffMetaText,
   fileChangeEventClass,

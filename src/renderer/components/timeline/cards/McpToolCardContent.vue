@@ -29,31 +29,19 @@
           v-for="item in items"
           :key="item.id"
           class="grid gap-1 rounded-[4px] border border-[var(--ui-well-border)] bg-[var(--ui-well-bg)] px-2 py-1.5"
-          :class="itemClass(item)"
+          :class="[itemClass(item), { 'is-loading-shimmer': item.status === 'running' }]"
         >
           <div class="flex items-center justify-between gap-2">
             <span class="mcp-tool-item-status inline-flex min-w-0 items-center gap-1.5 text-[11px]">
-              <span class="ui-leading-icon-slot" aria-hidden="true">
-                <span v-if="item.status === 'running'" class="running-indicator is-muted"></span>
-                <CheckCircle2
-                  v-else-if="item.status === 'completed'"
-                  class="h-3 w-3 flex-none text-inherit [stroke-width:2.2]"
-                />
-                <AlertTriangle
-                  v-else-if="item.status === 'failed'"
-                  class="h-3 w-3 flex-none text-inherit [stroke-width:2.2]"
-                />
-                <CircleDashed v-else class="h-3 w-3 flex-none text-inherit [stroke-width:2.2]" />
-              </span>
-              <span class="mono">{{ itemStatusText(item) }}</span>
+              <span class="mono">{{ item.tool }}</span>
             </span>
             <span class="mono dim flex-none whitespace-nowrap text-[10px]">{{ itemMetricsText(item) }}</span>
           </div>
           <div
-            class="mono whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px] text-[var(--text)]"
+            class="mono dim whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[10px]"
             :title="itemTitle(item)"
           >
-            {{ item.tool }}
+            {{ itemTitle(item) }}
           </div>
           <div class="mono dim whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[10px]">
             {{ itemMetaText(item) }}
@@ -83,7 +71,7 @@
           </div>
           <div
             v-if="item.errorText"
-            class="mono whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px] leading-[1.4] text-[var(--fg-danger)]"
+            class="mono whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px] leading-[1.4] text-[var(--text)]"
           >
             {{ item.errorText }}
           </div>
@@ -165,7 +153,7 @@
 
 <script setup lang="ts">
 // MCP 工具卡片内容：展示工具调用的输入/输出摘要与可展开的详情信息。
-import { AlertTriangle, CheckCircle2, CircleDashed, Terminal } from "lucide-vue-next";
+import { Terminal } from "lucide-vue-next";
 import Collapsible from "../../ui/Collapsible.vue";
 import DetailDisclosure from "../../ui/DetailDisclosure.vue";
 

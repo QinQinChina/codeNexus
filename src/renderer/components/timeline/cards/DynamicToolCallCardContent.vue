@@ -1,14 +1,8 @@
 <template>
-  <div class="grid gap-2">
+  <div class="grid gap-2" :class="{ 'is-loading-shimmer': item.status === 'running' }">
     <div class="flex min-w-0 flex-wrap items-center gap-2">
       <span class="text-[13px] font-semibold text-[var(--text)]">
         {{ item.label }}
-      </span>
-      <span
-        class="inline-flex h-[22px] items-center rounded-[4px] border px-[9px] text-[11px] mono"
-        :class="statusBadgeClass"
-      >
-        {{ statusText }}
       </span>
       <span
         v-if="item.approvalRequired"
@@ -29,7 +23,7 @@
     </div>
     <div
       v-if="item.errorText"
-      class="mono whitespace-pre-wrap [overflow-wrap:anywhere] break-words text-[11px] text-[var(--fg-danger)]"
+      class="mono whitespace-pre-wrap [overflow-wrap:anywhere] break-words text-[11px] text-[var(--text)]"
     >
       {{ item.errorText }}
     </div>
@@ -77,7 +71,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import DetailDisclosure from "../../ui/DetailDisclosure.vue";
-import { dynamicToolStatusText, type DynamicToolTimelineItem } from "../../../domain/dynamicTools";
+import type { DynamicToolTimelineItem } from "../../../domain/dynamicTools";
 
 const props = defineProps<{
   item: DynamicToolTimelineItem;
@@ -86,7 +80,6 @@ const props = defineProps<{
 const argsOpen = ref(false);
 const resultOpen = ref(false);
 
-const statusText = computed(() => dynamicToolStatusText(props.item.status));
 const imageItems = computed(() => props.item.contentItems.filter((item) => item.type === "inputImage"));
 const textItems = computed(() =>
   props.item.contentItems.filter((item) => item.type === "inputText").map((item) => item.text)
@@ -95,16 +88,5 @@ const resultRawText = computed(() => {
   const imageLines = imageItems.value.map((item, index) => `image[${index + 1}]: ${item.imageUrl}`);
   return [...textItems.value, ...imageLines].filter(Boolean).join("\n\n");
 });
-const statusBadgeClass = computed(() => {
-  if (props.item.status === "succeeded") {
-    return "border-[var(--border-success)] bg-[var(--bg-success-soft)] text-[var(--fg-success)]";
-  }
-  if (props.item.status === "failed" || props.item.status === "rejected" || props.item.status === "cancelled") {
-    return "border-[var(--border-danger)] bg-[var(--bg-danger-soft)] text-[var(--fg-danger)]";
-  }
-  if (props.item.status === "awaitingApproval") {
-    return "border-[var(--border-warning)] bg-[var(--bg-warning-soft)] text-[var(--fg-warning)]";
-  }
-  return "border-[var(--border-accent)] bg-[var(--bg-accent-soft)] text-[var(--fg-accent)]";
-});
+// 工具事件两态化：不展示状态徽标，不做成功/失败配色。
 </script>

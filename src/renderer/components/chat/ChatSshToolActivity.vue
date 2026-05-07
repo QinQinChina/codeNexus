@@ -9,17 +9,7 @@
           <TerminalSquare v-else class="ssh-tool-icon" />
         </span>
 
-        <WaveText
-          class="ssh-tool-wave"
-          :text="activityText"
-          :enabled="isRunning"
-          color="var(--ssh-tool-wave-color)"
-          :char-delay-sec="0.045"
-          :char-anim-duration-sec="0.78"
-          :pause-sec="0.5"
-          :min-opacity="isRunning ? 0.34 : 0.72"
-          :max-opacity="1"
-        />
+        <span class="ssh-tool-text" :class="{ 'is-loading-shimmer': isRunning }">{{ activityText }}</span>
       </div>
     </article>
   </div>
@@ -29,14 +19,13 @@
 import { computed } from "vue";
 import { Download, Server, TerminalSquare, Upload } from "lucide-vue-next";
 import type { McpToolCallItem, McpToolGroupNode } from "../../features/timeline/renderModel/buildTimelineNodes";
-import WaveText from "../ui/WaveText.vue";
 
 const props = defineProps<{
   group: McpToolGroupNode;
 }>();
 
 type SshToolKind = "command" | "download" | "upload" | "servers" | "other";
-type SshStatus = "running" | "completed" | "failed" | "unknown";
+type SshStatus = "running" | "completed";
 
 const normalizeToolName = (value: unknown) => String(value ?? "").trim();
 const normalizeLower = (value: unknown) => normalizeToolName(value).toLowerCase();
@@ -47,9 +36,7 @@ const primaryItem = computed(() => items.value[0] ?? emptyItem);
 const primaryToolKind = computed<SshToolKind>(() => sshToolKind(primaryItem.value.tool));
 const aggregateStatus = computed<SshStatus>(() => {
   if (props.group.stats.running > 0) return "running";
-  if (props.group.stats.failed > 0) return "failed";
-  if (props.group.stats.completed > 0 && props.group.stats.completed >= props.group.stats.total) return "completed";
-  return "unknown";
+  return "completed";
 });
 const isRunning = computed(() => aggregateStatus.value === "running");
 
@@ -64,9 +51,7 @@ const actionNoun = computed(() => {
 
 const activityText = computed(() => {
   const target = targetText.value && items.value.length === 1 ? `：${targetText.value}` : "";
-  if (aggregateStatus.value === "running") return `正在处理 ${actionNoun.value}${target}`;
-  if (aggregateStatus.value === "failed") return `${actionNoun.value} 失败${target}`;
-  return `已完成 ${actionNoun.value}${target}`;
+  return `${actionNoun.value}${target}`;
 });
 
 const argumentRecord = computed(() => parseJsonRecord(primaryItem.value.argumentsRaw));
@@ -74,7 +59,6 @@ const targetText = computed(() => targetTextForItem(primaryItem.value));
 
 const sshActivityClass = computed(() => ({
   "is-running": aggregateStatus.value === "running",
-  "is-failed": aggregateStatus.value === "failed",
   "is-completed": aggregateStatus.value === "completed",
 }));
 
@@ -157,7 +141,6 @@ const emptyItem: McpToolCallItem = {
 }
 
 .ssh-tool-activity {
-  --ssh-tool-wave-color: color-mix(in srgb, var(--text-muted) 78%, var(--text) 22%);
   position: relative;
   z-index: 1;
   display: inline-grid;
@@ -170,11 +153,7 @@ const emptyItem: McpToolCallItem = {
 }
 
 .ssh-tool-activity.is-running {
-  --ssh-tool-wave-color: color-mix(in srgb, var(--fg-accent) 80%, var(--text) 20%);
-}
-
-.ssh-tool-activity.is-failed {
-  --ssh-tool-wave-color: color-mix(in srgb, var(--fg-danger) 72%, var(--text) 28%);
+  /* running 仅用于触发 shimmer，不做变色提示 */
 }
 
 .ssh-tool-line {
@@ -207,11 +186,7 @@ const emptyItem: McpToolCallItem = {
 }
 
 .ssh-tool-activity.is-running .ssh-tool-icon-wrap {
-  color: var(--fg-accent);
-}
-
-.ssh-tool-activity.is-failed .ssh-tool-icon-wrap {
-  color: var(--fg-danger);
+  color: color-mix(in srgb, var(--text) 78%, var(--text-muted) 22%);
 }
 
 .ssh-tool-icon {
@@ -220,7 +195,7 @@ const emptyItem: McpToolCallItem = {
   stroke-width: 2.1;
 }
 
-.ssh-tool-wave {
+.ssh-tool-text {
   display: block;
   flex: 1 1 auto;
   min-width: 0;
@@ -242,7 +217,7 @@ const emptyItem: McpToolCallItem = {
     gap: 6px;
   }
 
-  .ssh-tool-wave {
+  .ssh-tool-text {
     max-width: calc(100cqw - 56px);
   }
 
