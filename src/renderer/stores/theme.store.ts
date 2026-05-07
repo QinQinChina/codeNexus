@@ -175,10 +175,7 @@ export const useThemeStore = defineStore("theme", {
       if (!shouldSave) return;
       void patchUserLocalSettings({ ui: { backgroundOpacityPercent: this.backgroundOpacityPercent } });
     },
-    cycleTheme(
-      order: readonly AppThemeName[] = APP_THEME_ORDER,
-      opts?: { transitionOrigin?: ThemeTransitionOrigin }
-    ) {
+    cycleTheme(order: readonly AppThemeName[] = APP_THEME_ORDER, opts?: { transitionOrigin?: ThemeTransitionOrigin }) {
       const fallback = APP_THEME_ORDER;
       const list = Array.isArray(order) && order.length > 0 ? order : fallback;
       const idx = list.indexOf(this.theme);

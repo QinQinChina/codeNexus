@@ -11,9 +11,7 @@
         >
           {{ imageToolStatusText(item.status) }}
         </span>
-        <span v-if="showTimestamps" class="ml-auto mono dim text-[11px] whitespace-nowrap">{{
-          formattedTime
-        }}</span>
+        <span v-if="showTimestamps" class="ml-auto mono dim text-[11px] whitespace-nowrap">{{ formattedTime }}</span>
       </div>
 
       <div

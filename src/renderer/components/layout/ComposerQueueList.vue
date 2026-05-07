@@ -25,7 +25,10 @@
           }}</span>
         </span>
         <div class="composer-queue-primary-tag-wrapper">
-          <span class="composer-queue-primary-tag group-hover:bg-[var(--accent)] group-hover:text-[var(--surface-1)] transition-colors duration-200">编辑</span>
+          <span
+            class="composer-queue-primary-tag group-hover:bg-[var(--accent)] group-hover:text-[var(--surface-1)] transition-colors duration-200"
+            >编辑</span
+          >
         </div>
       </button>
 

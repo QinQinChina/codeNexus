@@ -6,11 +6,11 @@
 
 ## 当前内容
 
-| 文件 | 说明 |
-| --- | --- |
-| `channels.ts` | preload 侧频道常量 |
-| `types.ts` | 暴露给 renderer 的 API 类型 |
-| `client.ts` | 基于 `ipcRenderer` 的实现 |
+| 文件          | 说明                        |
+| ------------- | --------------------------- |
+| `channels.ts` | preload 侧频道常量          |
+| `types.ts`    | 暴露给 renderer 的 API 类型 |
+| `client.ts`   | 基于 `ipcRenderer` 的实现   |
 
 ## 维护边界
 

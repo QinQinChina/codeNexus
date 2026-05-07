@@ -11,15 +11,10 @@
         <div v-if="line.kind === 'hunk'" aria-hidden="true">
           <div :class="compact ? 'h-[6px]' : 'h-[8px]'"></div>
         </div>
-        <div
-          v-else
-          class="grid items-start py-[1px]"
-          :class="[gridLayoutClass, diffLineClass(displayLineKind(line))]"
-        >
-          <span
-            class="mono select-none pt-[1px] text-right text-[var(--ui-code-text-muted)] opacity-60"
-            >{{ visibleNewNo(line) }}</span
-          >
+        <div v-else class="grid items-start py-[1px]" :class="[gridLayoutClass, diffLineClass(displayLineKind(line))]">
+          <span class="mono select-none pt-[1px] text-right text-[var(--ui-code-text-muted)] opacity-60">{{
+            visibleNewNo(line)
+          }}</span>
           <span v-if="line.kind === 'meta'" :class="metaLineClass">{{ line.text }}</span>
           <span
             v-else

@@ -147,12 +147,7 @@ type ScanDiskDiagStats = {
   slowFiles: SlowFileStat[];
 };
 
-type HistoryThreadMetadataKeys =
-  | "threadSourceKind"
-  | "forkedFromId"
-  | "agentNickname"
-  | "agentRole"
-  | "agentPath";
+type HistoryThreadMetadataKeys = "threadSourceKind" | "forkedFromId" | "agentNickname" | "agentRole" | "agentPath";
 
 type HistoryThreadMetadata = Pick<HistoryThread, HistoryThreadMetadataKeys>;
 

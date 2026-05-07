@@ -4,4 +4,7 @@
 import type { PermissionProfileFileSystemPermissions } from "./PermissionProfileFileSystemPermissions";
 import type { PermissionProfileNetworkPermissions } from "./PermissionProfileNetworkPermissions";
 
-export type PermissionProfile = { network: PermissionProfileNetworkPermissions | null, fileSystem: PermissionProfileFileSystemPermissions | null, };
+export type PermissionProfile = {
+  network: PermissionProfileNetworkPermissions | null;
+  fileSystem: PermissionProfileFileSystemPermissions | null;
+};

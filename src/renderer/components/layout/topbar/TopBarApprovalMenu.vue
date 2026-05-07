@@ -258,7 +258,10 @@ const approvalInfoRows = (prompt: ApprovalPrompt): ApprovalInfoRow[] => {
   const grantRoot = toText(params.grantRoot);
   const cwd = toText(params.cwd);
   const command = Array.isArray(params.command)
-    ? params.command.map((part) => toText(part)).filter(Boolean).join(" ")
+    ? params.command
+        .map((part) => toText(part))
+        .filter(Boolean)
+        .join(" ")
     : toText(params.command);
 
   if (reason) rows.push({ label: "申请原因", value: reason });
@@ -361,11 +364,7 @@ const applyPatchChangeBadgeText = (kind: FileChange["type"] | "unknown") => {
   return "未知";
 };
 
-const applyPatchFileSummary = (file: {
-  path: string;
-  kind: FileChange["type"] | "unknown";
-  movePath: string;
-}) => {
+const applyPatchFileSummary = (file: { path: string; kind: FileChange["type"] | "unknown"; movePath: string }) => {
   const change = applyPatchChangeBadgeText(file.kind);
   const path = toText(file.path) || "(unknown)";
   const movePath = toText(file.movePath);

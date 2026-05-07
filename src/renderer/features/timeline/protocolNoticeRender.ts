@@ -58,5 +58,10 @@ export function buildProtocolNoticeToast(input: ProtocolNoticeInput): ToastOptio
       timeoutMs: 9000,
     };
   }
-  return { kind: "info", title: MODEL_VERIFICATION_TITLE, message: summarizeModelVerifications(params.verifications), timeoutMs: 5000 };
+  return {
+    kind: "info",
+    title: MODEL_VERIFICATION_TITLE,
+    message: summarizeModelVerifications(params.verifications),
+    timeoutMs: 5000,
+  };
 }

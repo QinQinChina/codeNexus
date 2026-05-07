@@ -1,22 +1,8 @@
-export type PathHighlightToken =
-  | { kind: "text"; value: string }
-  | { kind: "path"; value: string };
+export type PathHighlightToken = { kind: "text"; value: string } | { kind: "path"; value: string };
 
 const CANDIDATE_REGEX = /[^\s]+[\\/][^\s]+/g;
 
-const TRIM_LEFT_CHARS = new Set([
-  "(",
-  "[",
-  "{",
-  "<",
-  '"',
-  "'",
-  "“",
-  "‘",
-  "（",
-  "【",
-  "《",
-]);
+const TRIM_LEFT_CHARS = new Set(["(", "[", "{", "<", '"', "'", "“", "‘", "（", "【", "《"]);
 const TRIM_RIGHT_CHARS = new Set([
   ")",
   "]",
@@ -47,8 +33,7 @@ const WINDOWS_ABSOLUTE_REGEX = /^[A-Za-z]:[\\/]/;
 const UNC_ABSOLUTE_REGEX = /^(\\\\|\/\/)[^\s]+/;
 const UNIX_ABSOLUTE_REGEX = /^\//;
 const URL_LIKE_REGEX = /:\/\//;
-const KNOWN_EXTENSION_REGEX =
-  /\.(ts|tsx|js|jsx|vue|json|md|yml|yaml|toml|cjs|mjs|css|html|sh)(?=($|[:#][A-Za-z0-9]))/i;
+const KNOWN_EXTENSION_REGEX = /\.(ts|tsx|js|jsx|vue|json|md|yml|yaml|toml|cjs|mjs|css|html|sh)(?=($|[:#][A-Za-z0-9]))/i;
 
 export type ParsedPathToken = {
   full: string;
@@ -133,7 +118,7 @@ function splitSegments(core: string): string[] {
 }
 
 function basenameFromSegments(segments: string[]): string {
-  return segments.length > 0 ? segments[segments.length - 1] ?? "" : "";
+  return segments.length > 0 ? (segments[segments.length - 1] ?? "") : "";
 }
 
 export function parsePathToken(value: string): ParsedPathToken | null {

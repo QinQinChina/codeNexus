@@ -147,7 +147,12 @@
 
   --ui-orbit-border: rgb(from var(--accent) r g b / 0.24);
   --ui-orbit-border-strong: color-mix(in srgb, var(--accent) 78%, white 22%);
-  --ui-orbit-dot-bg: radial-gradient(circle at 35% 35%, white 0%, color-mix(in srgb, var(--accent) 50%, white 50%) 56%, var(--accent) 100%);
+  --ui-orbit-dot-bg: radial-gradient(
+    circle at 35% 35%,
+    white 0%,
+    color-mix(in srgb, var(--accent) 50%, white 50%) 56%,
+    var(--accent) 100%
+  );
   --ui-orbit-dot-shadow: 0 0 0 1px rgb(from var(--bg) r g b / 0.72), 0 0 8px rgb(from var(--accent) r g b / 0.7);
 
   --ui-spinner-track: rgb(from var(--border) r g b / 0.45);

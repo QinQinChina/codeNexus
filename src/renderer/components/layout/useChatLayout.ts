@@ -11,8 +11,11 @@ export function useChatLayout() {
 
   const normalizeThreadId = (value: unknown): string => String(value ?? "").trim();
 
-  const threadHistoryById = computed(() =>
-    new Map(threadStore.threadHistory.map((item) => [normalizeThreadId(item?.id), item] as const).filter(([id]) => !!id))
+  const threadHistoryById = computed(
+    () =>
+      new Map(
+        threadStore.threadHistory.map((item) => [normalizeThreadId(item?.id), item] as const).filter(([id]) => !!id)
+      )
   );
 
   const resolveThreadLabelForDiagnostics = (threadIdValue: unknown): string => {
@@ -40,7 +43,10 @@ export function useChatLayout() {
     if (!parentThreadId) return null;
 
     if (threadStore.handoffDiagnosticsLoadingThreadIds.has(threadId) && !currentThreadHandoffDiagnostics.value) {
-      return { text: `正在读取 ${resolveThreadLabelForDiagnostics(parentThreadId)} 的 handoff transcript 摘要...`, tone: "running" };
+      return {
+        text: `正在读取 ${resolveThreadLabelForDiagnostics(parentThreadId)} 的 handoff transcript 摘要...`,
+        tone: "running",
+      };
     }
 
     const d = currentThreadHandoffDiagnostics.value;
@@ -54,10 +60,11 @@ export function useChatLayout() {
 
     if (parentTurns != null) details.push(`父线程「${parentLabel}」${parentTurns} 轮`);
     else details.push(`父线程「${parentLabel}」摘要暂不可用`);
-    
+
     details.push(`当前 ${currentTurns} 轮`);
-    if (postHandoffTurns != null) details.push(postHandoffTurns > 0 ? `handoff 后 +${postHandoffTurns}` : "当前仍停留在继承 transcript 阶段");
-    
+    if (postHandoffTurns != null)
+      details.push(postHandoffTurns > 0 ? `handoff 后 +${postHandoffTurns}` : "当前仍停留在继承 transcript 阶段");
+
     const latestDurationText = (() => {
       const ms = typeof d.current.lastTurnDurationMs === "number" ? d.current.lastTurnDurationMs : NaN;
       if (!Number.isFinite(ms) || ms <= 0) return "";
@@ -70,12 +77,15 @@ export function useChatLayout() {
     })();
     if (latestDurationText) details.push(`最近回合 ${latestDurationText}`);
 
-    return { text: details.join("｜"), tone: postHandoffTurns == null ? "warn" : (postHandoffTurns > 0 ? "ok" : "warn") };
+    return { text: details.join("｜"), tone: postHandoffTurns == null ? "warn" : postHandoffTurns > 0 ? "ok" : "warn" };
   });
 
-  watch(() => runtimeStore.timelineKey, () => {
-    hiddenImageIds.value = new Set();
-  });
+  watch(
+    () => runtimeStore.timelineKey,
+    () => {
+      hiddenImageIds.value = new Set();
+    }
+  );
 
   return {
     hiddenImageIds,

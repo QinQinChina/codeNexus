@@ -30,9 +30,30 @@
             撤回最近 N 轮
           </button>
           <div class="topbar-menu-note">撤回功能开发中，暂不可用。</div>
-          <button id="btn-topbar-memory-enable" class="btn-mini !justify-start" type="button" @click="runtime.setCurrentThreadMemoryMode('enabled')">{{ enableThreadMemoryLabel }}</button>
-          <button id="btn-topbar-memory-disable" class="btn-mini !justify-start" type="button" @click="runtime.setCurrentThreadMemoryMode('disabled')">{{ disableThreadMemoryLabel }}</button>
-          <button id="btn-topbar-memory-reset" class="btn-mini !justify-start danger" type="button" @click="runtime.resetCodexMemory()">{{ resetCodexMemoryLabel }}</button>
+          <button
+            id="btn-topbar-memory-enable"
+            class="btn-mini !justify-start"
+            type="button"
+            @click="runtime.setCurrentThreadMemoryMode('enabled')"
+          >
+            {{ enableThreadMemoryLabel }}
+          </button>
+          <button
+            id="btn-topbar-memory-disable"
+            class="btn-mini !justify-start"
+            type="button"
+            @click="runtime.setCurrentThreadMemoryMode('disabled')"
+          >
+            {{ disableThreadMemoryLabel }}
+          </button>
+          <button
+            id="btn-topbar-memory-reset"
+            class="btn-mini !justify-start danger"
+            type="button"
+            @click="runtime.resetCodexMemory()"
+          >
+            {{ resetCodexMemoryLabel }}
+          </button>
         </div>
       </div>
     </div>

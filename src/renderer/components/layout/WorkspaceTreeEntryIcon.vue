@@ -80,7 +80,7 @@ const FILE_NAME_ICONS: Record<string, IconifyIcon> = {
   ".eslintrc": fileTypeEslintIcon,
   ".gitignore": fileTypeGitIcon,
   ".prettierrc": fileTypePrettierIcon,
-  "dockerfile": fileTypeDockerIcon,
+  dockerfile: fileTypeDockerIcon,
   "eslint.config.js": fileTypeEslintIcon,
   "eslint.config.mjs": fileTypeEslintIcon,
   license: fileTypeLicenseIcon,
@@ -151,7 +151,7 @@ function resolveVscodeFileIcon(pathValue: string): IconifyIcon {
   const byName = FILE_NAME_ICONS[fileName];
   if (byName) return byName;
   if (fileName.endsWith(".d.ts")) return fileTypeTypescriptDefIcon;
-  const extension = fileName.includes(".") ? fileName.split(".").pop() ?? "" : "";
+  const extension = fileName.includes(".") ? (fileName.split(".").pop() ?? "") : "";
   return EXTENSION_ICONS[extension] ?? defaultFileIcon;
 }
 

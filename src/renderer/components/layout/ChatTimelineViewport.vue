@@ -3,7 +3,6 @@
     <div
       v-for="(row, index) in rows"
       :key="row.id"
-      ref="rowElements"
       class="chat-timeline-row"
       :data-row-id="row.id"
       :data-row-kind="row.kind"
@@ -16,7 +15,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, watch } from "vue";
 
 type TimelineViewportRow = {
   id: string;
@@ -34,10 +33,11 @@ defineSlots<{
   default(props: { row: TimelineViewportRow }): unknown;
 }>();
 
-const rowElements = ref<HTMLElement[]>([]);
-
-let rowResizeObserver: ResizeObserver | null = null;
 let pendingLayoutNotifyRafId: number | null = null;
+
+const rowStructureSignature = computed(() =>
+  props.rows.map((row) => `${String(row.id ?? "")}:${String(row.kind ?? "")}`).join("\n")
+);
 
 function rowGroup(kind?: string): TimelineRowGroup {
   switch (kind) {
@@ -62,42 +62,15 @@ function scheduleLayoutChangeNotify() {
   });
 }
 
-function observeRows() {
-  if (typeof ResizeObserver === "undefined") return;
-  if (!rowResizeObserver) {
-    rowResizeObserver = new ResizeObserver(() => {
-      scheduleLayoutChangeNotify();
-    });
-  }
-  rowResizeObserver.disconnect();
-  for (const el of rowElements.value) {
-    if (el instanceof HTMLElement) rowResizeObserver.observe(el);
-  }
-}
-
-watch(
-  () => props.rows,
-  () => {
-    void nextTick(() => {
-      observeRows();
-      scheduleLayoutChangeNotify();
-    });
-  },
-  { flush: "post" }
-);
+watch(rowStructureSignature, () => scheduleLayoutChangeNotify(), { flush: "post" });
 
 onMounted(() => {
-  void nextTick(() => {
-    observeRows();
-    scheduleLayoutChangeNotify();
-  });
+  scheduleLayoutChangeNotify();
 });
 
 onBeforeUnmount(() => {
   if (pendingLayoutNotifyRafId != null) cancelAnimationFrame(pendingLayoutNotifyRafId);
   pendingLayoutNotifyRafId = null;
-  rowResizeObserver?.disconnect();
-  rowResizeObserver = null;
 });
 </script>
 

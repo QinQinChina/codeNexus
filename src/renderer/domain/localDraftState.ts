@@ -96,7 +96,8 @@ export async function clearSavedLocalDraftThreadState(threadId: string): Promise
 }
 
 export function getLocalDraftMemoryCacheStats(): { items: number; bytes: number; updatedAt: number } {
-  const threads = cachedDraftState?.threads && typeof cachedDraftState.threads === "object" ? cachedDraftState.threads : {};
+  const threads =
+    cachedDraftState?.threads && typeof cachedDraftState.threads === "object" ? cachedDraftState.threads : {};
   return {
     items: Object.keys(threads).length,
     bytes: JSON.stringify(cachedDraftState).length,

@@ -12,7 +12,9 @@
         <div class="mono min-w-0 flex-1 truncate text-[12.5px] text-[var(--text)]" :title="pathTitle">
           {{ pathText }}
         </div>
-        <div class="file-change-card-meta mono flex-none whitespace-nowrap pt-[1px] text-[10.5px] text-[var(--text-muted)]">
+        <div
+          class="file-change-card-meta mono flex-none whitespace-nowrap pt-[1px] text-[10.5px] text-[var(--text-muted)]"
+        >
           <span v-if="diffMeta.kind === 'lines'" class="file-change-line-stats">
             <span class="file-change-line-add">+{{ diffMeta.add }}</span>
             <span class="file-change-line-del">-{{ diffMeta.del }}</span>
@@ -223,7 +225,6 @@ watch(
     isDiffExpanded.value = false;
   }
 );
-
 </script>
 
 <style scoped>

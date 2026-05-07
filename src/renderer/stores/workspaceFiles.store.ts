@@ -25,7 +25,7 @@ type ConfirmDiscardOptions = {
   discardOnConfirm?: boolean;
 };
 
-async function confirmModalLazy(options: Parameters<typeof import("../ui/modal")["confirmModal"]>[0]) {
+async function confirmModalLazy(options: Parameters<(typeof import("../ui/modal"))["confirmModal"]>[0]) {
   const { confirmModal } = await import("../ui/modal");
   return confirmModal(options);
 }

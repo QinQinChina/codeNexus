@@ -91,11 +91,7 @@ export function useAgentMarkdownRenderer(params: { key: () => string }) {
       pruneCache();
     }
 
-    if (
-      text === entry.renderedText &&
-      entry.pendingText == null &&
-      entry.rendererVersion === currentRendererVersion
-    ) {
+    if (text === entry.renderedText && entry.pendingText == null && entry.rendererVersion === currentRendererVersion) {
       return entry.renderedHtml;
     }
 

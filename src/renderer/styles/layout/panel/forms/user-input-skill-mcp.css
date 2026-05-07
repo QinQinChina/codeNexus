@@ -122,11 +122,7 @@ button.danger:hover:not(:disabled),
   border-radius: 4px;
   border: 1px solid var(--card-border, var(--border));
   background:
-    radial-gradient(
-      circle at top right,
-      color-mix(in srgb, var(--bg-accent-soft) 92%, transparent),
-      transparent 38%
-    ),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--bg-accent-soft) 92%, transparent), transparent 38%),
     var(--card-bg);
   overflow: hidden;
   max-width: 100%;
@@ -163,11 +159,7 @@ button.danger:hover:not(:disabled),
   padding: 16px;
   border-radius: 6px;
   background:
-    radial-gradient(
-      circle at top right,
-      color-mix(in srgb, var(--bg-accent-soft) 100%, transparent),
-      transparent 28%
-    ),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--bg-accent-soft) 100%, transparent), transparent 28%),
     var(--panel-bg, var(--card-bg, var(--surface-1)));
 }
 
@@ -295,11 +287,7 @@ button.danger:hover:not(:disabled),
   padding: 10px 12px;
   border-radius: 4px;
   border: 1px solid color-mix(in srgb, var(--border-accent, var(--border)) 52%, transparent);
-  background: color-mix(
-    in srgb,
-    var(--card-bg, var(--surface-1)) 84%,
-    var(--bg-accent-soft) 16%
-  );
+  background: color-mix(in srgb, var(--card-bg, var(--surface-1)) 84%, var(--bg-accent-soft) 16%);
 }
 
 .skill-info-label {
@@ -638,5 +626,3 @@ button.danger:hover:not(:disabled),
   border-color: var(--border-danger-hover);
   background-color: var(--bg-danger-soft-hover);
 }
-
-

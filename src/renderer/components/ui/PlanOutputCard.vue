@@ -35,8 +35,15 @@
               class="status inline-flex min-w-[92px] items-center gap-1.5 text-[11px] tracking-[0.1px]"
               :class="planStepStatusTextClass(step.status)"
             >
-              <CircleDashed v-if="step.status === 'pending'" class="plan-step-status-icon h-3 w-3 flex-none [stroke-width:2.2]" />
-              <span v-else-if="step.status === 'inProgress'" class="running-indicator is-accent flex-none" aria-hidden="true"></span>
+              <CircleDashed
+                v-if="step.status === 'pending'"
+                class="plan-step-status-icon h-3 w-3 flex-none [stroke-width:2.2]"
+              />
+              <span
+                v-else-if="step.status === 'inProgress'"
+                class="running-indicator is-accent flex-none"
+                aria-hidden="true"
+              ></span>
               <CheckCircle2 v-else class="plan-step-status-icon h-3 w-3 flex-none [stroke-width:2.2]" />
               <span class="mono">{{ planStepLabelText(step.status) }}</span>
             </span>

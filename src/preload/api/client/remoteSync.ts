@@ -15,4 +15,3 @@ export function createRemoteSyncApi(ipcRenderer: IpcRenderer): CodexDesktopApi["
     },
   } satisfies CodexDesktopApi["remoteSync"];
 }
-

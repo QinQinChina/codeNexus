@@ -97,9 +97,7 @@ const answer = computed((): StructuredFinalAnswerV1 => {
 });
 
 function toMarkdownList(items: string[]): string {
-  const normalized = (Array.isArray(items) ? items : [])
-    .map((item) => String(item ?? "").trim())
-    .filter(Boolean);
+  const normalized = (Array.isArray(items) ? items : []).map((item) => String(item ?? "").trim()).filter(Boolean);
   if (normalized.length === 0) return "- （无）";
   return normalized.map((item) => `- ${item}`).join("\n");
 }

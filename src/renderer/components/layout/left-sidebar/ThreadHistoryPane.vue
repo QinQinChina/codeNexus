@@ -101,9 +101,12 @@
                     <span class="lsb-group-head-left">
                       <Folder class="lsb-group-icon" aria-hidden="true" />
                       <span class="lsb-group-title" :title="group.cwdFull">{{ group.title }}</span>
-                      <span v-if="threadFilterActive" class="lsb-head-badge mono" :title="`匹配 ${group.rows.length} 条`">{{
-                        group.rows.length
-                      }}</span>
+                      <span
+                        v-if="threadFilterActive"
+                        class="lsb-head-badge mono"
+                        :title="`匹配 ${group.rows.length} 条`"
+                        >{{ group.rows.length }}</span
+                      >
                     </span>
                     <ChevronDown class="lsb-chevron" :class="{ open }" aria-hidden="true" />
                   </button>
@@ -316,7 +319,13 @@ const visibleThreadGroups = computed<ThreadGroup[]>(() => {
   const qLower = q.toLowerCase();
   const out: ThreadGroup[] = [];
   for (const group of threadGroups.value) {
-    const groupHit = String(group.title ?? "").toLowerCase().includes(qLower) || String(group.cwdFull ?? "").toLowerCase().includes(qLower);
+    const groupHit =
+      String(group.title ?? "")
+        .toLowerCase()
+        .includes(qLower) ||
+      String(group.cwdFull ?? "")
+        .toLowerCase()
+        .includes(qLower);
     if (groupHit) {
       out.push(group);
       continue;
@@ -425,7 +434,8 @@ const threadItemHoverTitle = (row: ThreadRowModel) => {
     .filter(Boolean)
     .join("\n");
 };
-const threadAriaLabel = (row: ThreadRowModel) => `打开线程：${threadStore.displayThreadTitle(row.item.id, row.item.title)}`;
+const threadAriaLabel = (row: ThreadRowModel) =>
+  `打开线程：${threadStore.displayThreadTitle(row.item.id, row.item.title)}`;
 const shouldShowThreadAttention = (threadId: string) => {
   const tid = String(threadId ?? "").trim();
   return Boolean(tid && tid !== runtimeStore.currentThreadId && threadStore.attentionThreadIds.has(tid));

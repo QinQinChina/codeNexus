@@ -1,9 +1,5 @@
 import { codexDesktop } from "../../api/codexDesktopClient";
-import {
-  normalizeSkillsErrors,
-  normalizeSkillsListResult,
-  summarizeSkillsListResult,
-} from "../serverInterop";
+import { normalizeSkillsErrors, normalizeSkillsListResult, summarizeSkillsListResult } from "../serverInterop";
 import type { SkillState } from "../types";
 
 type SkillsRuntimeDeps = {

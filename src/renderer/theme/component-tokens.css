@@ -22,7 +22,9 @@
   --topbar-control-border: var(--border);
   --topbar-control-server-border: rgb(from var(--accent) r g b / 0.34);
 
-  --app-backdrop: rgb(from var(--theme-seed-shadow-source) r g b / calc(0.03 + 0.18 * var(--page-shell-opacity-factor)));
+  --app-backdrop: rgb(
+    from var(--theme-seed-shadow-source) r g b / calc(0.03 + 0.18 * var(--page-shell-opacity-factor))
+  );
   --sidebar-bg: linear-gradient(180deg, var(--surface-1) 0%, var(--surface-2) 100%);
   --center-bg: linear-gradient(180deg, var(--bg) 0%, var(--surface-1) 100%);
 

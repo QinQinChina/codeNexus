@@ -107,9 +107,7 @@ function normalizeThreadTitle(thread: HistoryThread): string {
 function parseAuthPair(value: unknown): RemoteAuthTokenPair {
   const record = toRecord(value);
   const accessToken =
-    toNullableString(record?.accessToken) ??
-    toNullableString(record?.access_token) ??
-    toNullableString(record?.token);
+    toNullableString(record?.accessToken) ?? toNullableString(record?.access_token) ?? toNullableString(record?.token);
   const refreshToken = toNullableString(record?.refreshToken) ?? toNullableString(record?.refresh_token);
   return { accessToken, refreshToken };
 }
@@ -418,10 +416,13 @@ export class RemoteStateSyncService {
   private scheduleFlushSoon(delayMs = 1200): void {
     if (!this.state.enabled) return;
     if (this.flushTimer) return;
-    this.flushTimer = setTimeout(() => {
-      this.flushTimer = null;
-      void this.flushOnce();
-    }, Math.max(300, Math.round(delayMs)));
+    this.flushTimer = setTimeout(
+      () => {
+        this.flushTimer = null;
+        void this.flushOnce();
+      },
+      Math.max(300, Math.round(delayMs))
+    );
   }
 
   private async flushOnce(): Promise<{ ok: boolean; error?: string }> {
@@ -603,9 +604,9 @@ export class RemoteStateSyncService {
   ): Promise<void> {
     const settings = await this.deps.localSettingsService.patch({
       remoteSync: {
-        accessToken: "accessToken" in patch ? patch.accessToken ?? null : undefined,
-        refreshToken: "refreshToken" in patch ? patch.refreshToken ?? null : undefined,
-        desktopId: "desktopId" in patch ? patch.desktopId ?? null : undefined,
+        accessToken: "accessToken" in patch ? (patch.accessToken ?? null) : undefined,
+        refreshToken: "refreshToken" in patch ? (patch.refreshToken ?? null) : undefined,
+        desktopId: "desktopId" in patch ? (patch.desktopId ?? null) : undefined,
       },
     });
     this.applySettings(settings);

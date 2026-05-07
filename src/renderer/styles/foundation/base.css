@@ -40,10 +40,12 @@
   --radius-2xl: 5px;
   --radius-pill: 999px;
   --mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
-  --system-ui-font: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC",
-    "Source Han Sans SC", sans-serif;
-  --system-cn-font: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC",
-    "Source Han Sans SC", "Segoe UI", sans-serif;
+  --system-ui-font:
+    "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Source Han Sans SC",
+    sans-serif;
+  --system-cn-font:
+    "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Source Han Sans SC", "Segoe UI",
+    sans-serif;
   --alibaba-puhuiti: var(--system-ui-font);
   --source-han-sans-sc: var(--system-cn-font);
   --sans: var(--system-ui-font);
@@ -172,5 +174,3 @@ body::before {
 .app-overlays > * {
   pointer-events: auto;
 }
-
-

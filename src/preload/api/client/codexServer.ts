@@ -24,4 +24,3 @@ export function createCodexServerApi(ipcRenderer: IpcRenderer): CodexDesktopApi[
     onEvent,
   } satisfies CodexDesktopApi["codexServer"];
 }
-

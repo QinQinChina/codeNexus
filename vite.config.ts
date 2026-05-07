@@ -22,7 +22,9 @@ const MANUAL_VENDOR_CHUNKS: Array<{ chunk: string; packages: string[] }> = [
 ];
 
 function isPackageModule(normalizedId: string, packageName: string) {
-  return normalizedId.includes(`/node_modules/${packageName}/`) || normalizedId.endsWith(`/node_modules/${packageName}`);
+  return (
+    normalizedId.includes(`/node_modules/${packageName}/`) || normalizedId.endsWith(`/node_modules/${packageName}`)
+  );
 }
 
 function manualChunks(id: string) {

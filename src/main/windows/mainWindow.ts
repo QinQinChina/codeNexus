@@ -32,7 +32,9 @@ export async function createMainWindow(opts: MainWindowOptions): Promise<Browser
 
   type DevToolsMode = "right" | "bottom" | "undocked" | "detach";
   const envMode = (process.env.CODENEXUS_DEVTOOLS_MODE || "").trim();
-  const devToolsMode: DevToolsMode = (["right", "bottom", "undocked", "detach"] as const).includes(envMode as DevToolsMode)
+  const devToolsMode: DevToolsMode = (["right", "bottom", "undocked", "detach"] as const).includes(
+    envMode as DevToolsMode
+  )
     ? (envMode as DevToolsMode)
     : "right";
 

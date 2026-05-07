@@ -26,9 +26,7 @@
       </div>
       <div class="grid gap-1">
         <div class="text-[12px] font-medium text-[color:var(--text-muted)]">资源名</div>
-        <div
-          class="mono whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px] text-[var(--text)]"
-        >
+        <div class="mono whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px] text-[var(--text)]">
           {{ displayResourceLabel }}
         </div>
       </div>
@@ -57,9 +55,7 @@
             <div class="mono dim whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px]">
               {{ entry.key }}
             </div>
-            <div
-              class="mono whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px] text-[var(--text)]"
-            >
+            <div class="mono whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px] text-[var(--text)]">
               {{ entry.value || "未填写" }}
             </div>
           </div>

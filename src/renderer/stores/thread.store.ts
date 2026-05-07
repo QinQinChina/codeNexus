@@ -205,7 +205,10 @@ export const useThreadStore = defineStore("thread", {
 
       moveMapEntry(this.tokenUsageByThread);
       moveMapEntry(this.activeTurnIdByThread);
-      moveMapEntry(this.turnStartedAtByThread, (fromValue, toValue) => new Map([...toValue.entries(), ...fromValue.entries()]));
+      moveMapEntry(
+        this.turnStartedAtByThread,
+        (fromValue, toValue) => new Map([...toValue.entries(), ...fromValue.entries()])
+      );
       moveMapEntry(
         this.turnDiffByThread,
         (fromValue, toValue) => new Map([...toValue.entries(), ...fromValue.entries()])

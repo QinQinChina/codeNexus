@@ -224,10 +224,7 @@ export class ThreadTaskService {
       raw = await readFile(this.filePath, "utf8");
     } catch (error: any) {
       if (error?.code === "ENOENT") return [];
-      throw new ThreadTaskServiceError(
-        "TASK_STORE_READ_FAILED",
-        `读取任务存储失败：${readErrorMessage(error)}`
-      );
+      throw new ThreadTaskServiceError("TASK_STORE_READ_FAILED", `读取任务存储失败：${readErrorMessage(error)}`);
     }
     if (!String(raw).trim()) {
       return [];
@@ -282,10 +279,7 @@ export class ThreadTaskService {
 
   private readTaskRecordText(value: unknown, index: number, fieldName: string): string {
     if (typeof value !== "string" || !value.trim()) {
-      throw new ThreadTaskServiceError(
-        "TASK_STORE_CORRUPTED",
-        `任务存储第 ${index + 1} 条 ${fieldName} 无效`
-      );
+      throw new ThreadTaskServiceError("TASK_STORE_CORRUPTED", `任务存储第 ${index + 1} 条 ${fieldName} 无效`);
     }
     return value.trim();
   }
@@ -300,10 +294,7 @@ export class ThreadTaskService {
   private readTaskRecordTimestamp(value: unknown, index: number, fieldName: "createdAt" | "updatedAt"): number {
     const num = Number(value);
     if (!Number.isFinite(num) || num < 0) {
-      throw new ThreadTaskServiceError(
-        "TASK_STORE_CORRUPTED",
-        `任务存储第 ${index + 1} 条 ${fieldName} 无效`
-      );
+      throw new ThreadTaskServiceError("TASK_STORE_CORRUPTED", `任务存储第 ${index + 1} 条 ${fieldName} 无效`);
     }
     return Math.round(num);
   }
@@ -317,10 +308,7 @@ export class ThreadTaskService {
       await mkdir(dirname(this.filePath), { recursive: true });
       await writeFile(this.filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
     } catch (error) {
-      throw new ThreadTaskServiceError(
-        "TASK_STORE_WRITE_FAILED",
-        `写入任务存储失败：${readErrorMessage(error)}`
-      );
+      throw new ThreadTaskServiceError("TASK_STORE_WRITE_FAILED", `写入任务存储失败：${readErrorMessage(error)}`);
     }
   }
 

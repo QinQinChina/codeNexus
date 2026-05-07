@@ -8,4 +8,3 @@ export const IPC_CODEX_CHANNELS = {
   codexNotify: "codex:notify",
   codexRespond: "codex:respond",
 } as const;
-

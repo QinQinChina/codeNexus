@@ -36,8 +36,15 @@ export function registerHistoryHandlers(deps: {
   decorateItems: (items: HistoryThread[]) => HistoryThread[];
   onThreadDeleted: (threadId: string) => void;
 }) {
-  const { historyService, threadTaskService, threadArtifactService, threadTitleOverrideService, onUpdated, decorateItems, onThreadDeleted } =
-    deps;
+  const {
+    historyService,
+    threadTaskService,
+    threadArtifactService,
+    threadTitleOverrideService,
+    onUpdated,
+    decorateItems,
+    onThreadDeleted,
+  } = deps;
 
   const readErrorMessage = (error: unknown): string => {
     if (error instanceof Error) return error.message || error.name;
@@ -152,16 +159,21 @@ export function registerHistoryHandlers(deps: {
     return { overrides };
   });
 
-  ipcMain.handle(IPC_HISTORY_CHANNELS.historySetThreadTitleOverride, async (_evt, args: { threadId: string; title: string }) => {
-    await threadTitleOverrideService.setOverride({
-      threadId: typeof args?.threadId === "string" ? args.threadId : "",
-      title: typeof args?.title === "string" ? args.title : "",
-    });
-    return { ok: true } as const;
-  });
+  ipcMain.handle(
+    IPC_HISTORY_CHANNELS.historySetThreadTitleOverride,
+    async (_evt, args: { threadId: string; title: string }) => {
+      await threadTitleOverrideService.setOverride({
+        threadId: typeof args?.threadId === "string" ? args.threadId : "",
+        title: typeof args?.title === "string" ? args.title : "",
+      });
+      return { ok: true } as const;
+    }
+  );
 
   ipcMain.handle(IPC_HISTORY_CHANNELS.historyClearThreadTitleOverride, async (_evt, args: { threadId: string }) => {
-    await threadTitleOverrideService.clearOverride({ threadId: typeof args?.threadId === "string" ? args.threadId : "" });
+    await threadTitleOverrideService.clearOverride({
+      threadId: typeof args?.threadId === "string" ? args.threadId : "",
+    });
     return { ok: true } as const;
   });
 
@@ -280,7 +292,11 @@ export function registerHistoryHandlers(deps: {
       } catch (error) {
         if (isThreadArtifactServiceError(error)) {
           const code = error.code;
-          if (code === "INVALID_THREAD_ID" || code === "ARTIFACT_STORE_CORRUPTED" || code === "ARTIFACT_STORE_READ_FAILED") {
+          if (
+            code === "INVALID_THREAD_ID" ||
+            code === "ARTIFACT_STORE_CORRUPTED" ||
+            code === "ARTIFACT_STORE_READ_FAILED"
+          ) {
             return listThreadArtifactFailure(code, error.message);
           }
         }
@@ -312,11 +328,14 @@ export function registerHistoryHandlers(deps: {
     }
   );
 
-  ipcMain.handle(IPC_HISTORY_CHANNELS.historyThreadMessages, async (_evt, args: { threadId: string; limit?: number }) => {
-    // 对话消息用于“线程内容预览”。
-    const messages = await historyService.threadMessages(args);
-    return { messages };
-  });
+  ipcMain.handle(
+    IPC_HISTORY_CHANNELS.historyThreadMessages,
+    async (_evt, args: { threadId: string; limit?: number }) => {
+      // 对话消息用于“线程内容预览”。
+      const messages = await historyService.threadMessages(args);
+      return { messages };
+    }
+  );
 
   ipcMain.handle(
     IPC_HISTORY_CHANNELS.historyThreadEvents,
@@ -342,5 +361,4 @@ export function registerHistoryHandlers(deps: {
       return await historyService.threadContent(args);
     }
   );
-
 }

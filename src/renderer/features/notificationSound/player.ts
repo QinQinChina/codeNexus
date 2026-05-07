@@ -6,14 +6,13 @@ import {
 
 const PLAY_COOLDOWN_MS = 700;
 const PLAN_QNA_SOUND_ID = "木琴铃声-手机来电通知音效_爱给网_aigei_com.mp3";
-const PLAN_QNA_CLIP_MS = 600;
 const PLAN_QNA_REPEAT_COUNT = 2;
-const PLAN_QNA_COOLDOWN_MS = 2000;
+const PLAN_QNA_ENDED_TIMEOUT_MS = 10_000;
 
 let sharedAudio: HTMLAudioElement | null = null;
 let planQnaAudio: HTMLAudioElement | null = null;
 let lastPlayAtMs = 0;
-let lastPlanQnaPlayAtMs = 0;
+let planQnaPlaying = false;
 const dataUrlCache = new Map<string, string>();
 
 function getAudio(): HTMLAudioElement {
@@ -30,10 +29,6 @@ function getPlanQnaAudio(): HTMLAudioElement {
   return planQnaAudio;
 }
 
-function waitMs(ms: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, Math.max(0, Math.round(ms))));
-}
-
 async function resolveSoundDataUrl(soundId: string): Promise<string> {
   const id = String(soundId ?? "").trim();
   if (!id) throw new Error("notificationSound requires id");
@@ -44,6 +39,27 @@ async function resolveSoundDataUrl(soundId: string): Promise<string> {
   if (!url) throw new Error("notificationSound empty dataUrl");
   dataUrlCache.set(id, url);
   return url;
+}
+
+function waitForAudioEnded(audio: HTMLAudioElement, timeoutMs = PLAN_QNA_ENDED_TIMEOUT_MS): Promise<void> {
+  return new Promise((resolve) => {
+    let timer: number | null = null;
+
+    const cleanup = () => {
+      audio.removeEventListener("ended", onSettled);
+      audio.removeEventListener("error", onSettled);
+      if (timer != null) window.clearTimeout(timer);
+      timer = null;
+    };
+    const onSettled = () => {
+      cleanup();
+      resolve();
+    };
+
+    audio.addEventListener("ended", onSettled, { once: true });
+    audio.addEventListener("error", onSettled, { once: true });
+    timer = window.setTimeout(onSettled, Math.max(0, Math.round(timeoutMs)));
+  });
 }
 
 export async function playNotificationSoundOnce(args: {
@@ -84,12 +100,12 @@ export async function playConfiguredNotificationSoundOnce(opts?: { force?: boole
 }
 
 export async function playPlanQnaNotificationSoundTwice(): Promise<void> {
-  const now = Date.now();
-  if (now - lastPlanQnaPlayAtMs < PLAN_QNA_COOLDOWN_MS) return;
-  lastPlanQnaPlayAtMs = now;
-
+  if (planQnaPlaying) return;
+  planQnaPlaying = true;
   try {
     const audio = getPlanQnaAudio();
+    if (!audio.paused) return;
+
     audio.volume = Math.max(0, Math.min(1, readConfiguredNotificationSoundVolumePercent() / 100));
     const dataUrl = await resolveSoundDataUrl(PLAN_QNA_SOUND_ID);
     if (audio.src !== dataUrl) audio.src = dataUrl;
@@ -99,8 +115,7 @@ export async function playPlanQnaNotificationSoundTwice(): Promise<void> {
         audio.currentTime = 0;
       } catch {}
       await audio.play();
-      await waitMs(PLAN_QNA_CLIP_MS);
-      audio.pause();
+      await waitForAudioEnded(audio);
     }
 
     try {
@@ -108,6 +123,8 @@ export async function playPlanQnaNotificationSoundTwice(): Promise<void> {
     } catch {}
   } catch (e) {
     console.warn("[notificationSound] plan qna play failed", e);
+  } finally {
+    planQnaPlaying = false;
   }
 }
 

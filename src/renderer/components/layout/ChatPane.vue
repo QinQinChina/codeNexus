@@ -53,7 +53,10 @@
       />
     </ChatTimelineViewport>
 
-    <div v-if="trailingContextCompactionEvent" class="chat-row chat-row--tail chat-row--context-compaction flex min-w-0 m-0">
+    <div
+      v-if="trailingContextCompactionEvent"
+      class="chat-row chat-row--tail chat-row--context-compaction flex min-w-0 m-0"
+    >
       <div
         class="chat-context-compaction-line flex w-full max-w-full items-center justify-center px-2.5 py-0.5 text-center"
       >

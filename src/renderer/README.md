@@ -6,17 +6,17 @@
 
 ## 当前结构
 
-| 目录 / 文件 | 说明 |
-| --- | --- |
-| `main.ts` | 渲染层启动、主题/字体初始化、本地状态 hydrate |
-| `App.vue` | 应用骨架，切换 chat / settings / sleep |
-| `components/` | 页面组件、布局组件与时间线卡片 |
-| `stores/` | Pinia 状态容器 |
-| `domain/` | 编排、互操作与本地状态 |
-| `features/` | 业务域能力 |
-| `processes/` | 事件流水线与请求响应流程 |
-| `api/` / `infra/` | IPC 与桌面 API 适配 |
-| `styles/` / `theme/` / `tailwind.css` | 全局样式与主题层 |
+| 目录 / 文件                           | 说明                                          |
+| ------------------------------------- | --------------------------------------------- |
+| `main.ts`                             | 渲染层启动、主题/字体初始化、本地状态 hydrate |
+| `App.vue`                             | 应用骨架，切换 chat / settings / sleep        |
+| `components/`                         | 页面组件、布局组件与时间线卡片                |
+| `stores/`                             | Pinia 状态容器                                |
+| `domain/`                             | 编排、互操作与本地状态                        |
+| `features/`                           | 业务域能力                                    |
+| `processes/`                          | 事件流水线与请求响应流程                      |
+| `api/` / `infra/`                     | IPC 与桌面 API 适配                           |
+| `styles/` / `theme/` / `tailwind.css` | 全局样式与主题层                              |
 
 ## 维护边界
 

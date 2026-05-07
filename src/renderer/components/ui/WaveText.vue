@@ -1,7 +1,6 @@
 <template>
   <component
     :is="as"
-    :key="runKey"
     class="break-words whitespace-pre-wrap text-[color:var(--wave-color)]"
     :style="rootStyle"
     :aria-label="text"
@@ -29,6 +28,7 @@ const props = withDefaults(
     charDelaySec?: number;
     charAnimDurationSec?: number;
     pauseSec?: number;
+    cycleMaxChars?: number;
     minOpacity?: number;
     maxOpacity?: number;
     as?: "span" | "div";
@@ -39,6 +39,7 @@ const props = withDefaults(
     charDelaySec: 0.12,
     charAnimDurationSec: 1,
     pauseSec: 0,
+    cycleMaxChars: 42,
     minOpacity: 0.25,
     maxOpacity: 1,
     as: "span",
@@ -46,7 +47,7 @@ const props = withDefaults(
 );
 
 const chars = computed(() => Array.from(String(props.text ?? "")));
-const runKey = ref(0);
+const animationPhase = ref(0);
 const timerId = ref<number | null>(null);
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
@@ -69,7 +70,7 @@ const charStyle = (index: number) => {
   if (!props.enabled) return { animation: "none" } as Record<string, string>;
   const delaySec = Math.max(0, Number(props.charDelaySec) || 0);
   return {
-    animationName: "wave-text-opacity",
+    animationName: animationPhase.value % 2 === 0 ? "wave-text-opacity-a" : "wave-text-opacity-b",
     animationDuration: "var(--wave-dur)",
     animationTimingFunction: "ease-in-out",
     animationIterationCount: "1",
@@ -95,17 +96,18 @@ function scheduleNextRound() {
   const delayMs = Math.max(0, Number(props.charDelaySec) || 0) * 1000;
   const animMs = Math.max(100, (Number(props.charAnimDurationSec) || 1) * 1000);
   const pauseMs = Math.max(0, Number(props.pauseSec) || 0) * 1000;
+  const cycleLen = Math.min(len, Math.max(1, Math.floor(Number(props.cycleMaxChars) || len)));
 
-  const totalMs = Math.max(0, (len - 1) * delayMs) + animMs;
+  const totalMs = Math.max(0, (cycleLen - 1) * delayMs) + animMs;
   timerId.value = window.setTimeout(() => {
-    runKey.value += 1;
+    animationPhase.value += 1;
     scheduleNextRound();
   }, totalMs + pauseMs);
 }
 
 function start() {
   clearTimer();
-  runKey.value += 1;
+  animationPhase.value += 1;
   scheduleNextRound();
 }
 
@@ -113,7 +115,7 @@ onMounted(() => start());
 onBeforeUnmount(() => clearTimer());
 
 watch(
-  () => [props.text, props.enabled, props.charDelaySec, props.charAnimDurationSec, props.pauseSec],
+  () => [props.text, props.enabled, props.charDelaySec, props.charAnimDurationSec, props.pauseSec, props.cycleMaxChars],
   () => start()
 );
 </script>

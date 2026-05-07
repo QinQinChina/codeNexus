@@ -90,10 +90,12 @@ export type AgentRuntimeNoticeEvent = AgentEventBase<"agent/runtimeWarning" | "a
   message: string;
 };
 
-export type AgentGenericEvent = AgentEventBase<Exclude<
-  AgentEventType,
-  AgentDeltaEvent["type"] | "agent/fileChangeSnapshot" | "agent/turnDiffUpdated" | AgentRuntimeNoticeEvent["type"]
->>;
+export type AgentGenericEvent = AgentEventBase<
+  Exclude<
+    AgentEventType,
+    AgentDeltaEvent["type"] | "agent/fileChangeSnapshot" | "agent/turnDiffUpdated" | AgentRuntimeNoticeEvent["type"]
+  >
+>;
 
 export type AgentEvent =
   | AgentDeltaEvent
@@ -198,7 +200,10 @@ export function isAgentEvent(value: unknown): value is AgentEvent {
   if (DELTA_EVENT_TYPE_SET.has(record.type) && typeof record.delta !== "string") return false;
   if (record.type === "agent/fileChangeSnapshot" && !Array.isArray(record.changes)) return false;
   if (record.type === "agent/turnDiffUpdated" && typeof record.diff !== "string") return false;
-  if ((record.type === "agent/runtimeWarning" || record.type === "agent/runtimeError") && !isNonEmptyString(record.message)) {
+  if (
+    (record.type === "agent/runtimeWarning" || record.type === "agent/runtimeError") &&
+    !isNonEmptyString(record.message)
+  ) {
     return false;
   }
   return true;

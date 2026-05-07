@@ -1,5 +1,10 @@
 import { basenameFromPath } from "../../domain/workspaceFiles";
-import type { ChatImageEntry, ChatImageToolItem, ImageToolStatus, LazyImageSourceKind } from "../../components/layout/chat.types";
+import type {
+  ChatImageEntry,
+  ChatImageToolItem,
+  ImageToolStatus,
+  LazyImageSourceKind,
+} from "../../components/layout/chat.types";
 
 type SupportedImageProtocolItem =
   | {
@@ -25,7 +30,9 @@ type SupportedImageProtocolItem =
 
 function toImageToolStatus(statusValue: unknown, eventMethod: string): ImageToolStatus {
   if (eventMethod === "item/started") return "running";
-  const status = String(statusValue ?? "").trim().toLowerCase();
+  const status = String(statusValue ?? "")
+    .trim()
+    .toLowerCase();
   if (!status) return "completed";
   if (status.includes("error") || status.includes("fail") || status.includes("cancel")) return "failed";
   if (status.includes("running") || status.includes("progress") || status.includes("pending")) return "running";
@@ -55,10 +62,7 @@ function buildImageEntry(id: string, sourceValue: unknown, titleValue?: unknown)
   return { id, sourceKind, source, title };
 }
 
-export function buildImageToolItemFromProtocolItem(
-  item: unknown,
-  eventMethod: string
-): ChatImageToolItem | null {
+export function buildImageToolItemFromProtocolItem(item: unknown, eventMethod: string): ChatImageToolItem | null {
   if (!item || typeof item !== "object" || Array.isArray(item)) return null;
   const protocolItem = item as SupportedImageProtocolItem;
   const type = String((protocolItem as { type?: unknown }).type ?? "").trim();
@@ -87,10 +91,12 @@ export function buildImageToolItemFromProtocolItem(
   const statusText = String(generationItem.status ?? "").trim();
   const status = toImageToolStatus(statusText, eventMethod);
   const revisedPrompt = String(
-    generationItem.type === "imageGeneration" ? generationItem.revisedPrompt ?? "" : generationItem.revised_prompt ?? ""
+    generationItem.type === "imageGeneration"
+      ? (generationItem.revisedPrompt ?? "")
+      : (generationItem.revised_prompt ?? "")
   ).trim();
   const result = String(generationItem.result ?? "").trim();
-  const savedPath = String(generationItem.type === "imageGeneration" ? generationItem.savedPath ?? "" : "").trim();
+  const savedPath = String(generationItem.type === "imageGeneration" ? (generationItem.savedPath ?? "") : "").trim();
   const resultSource = savedPath ? "" : normalizeImageGenerationResultSource(result);
 
   const seen = new Set<string>();
@@ -112,7 +118,11 @@ export function buildImageToolItemFromProtocolItem(
     detailText: [
       statusText ? `status=${statusText}` : "",
       savedPath ? `savedPath=${savedPath}` : "",
-      result ? (resultSource.startsWith("data:image/") ? "result=dataUrl" : `result=${result.length > 180 ? `${result.slice(0, 179)}…` : result}`) : "",
+      result
+        ? resultSource.startsWith("data:image/")
+          ? "result=dataUrl"
+          : `result=${result.length > 180 ? `${result.slice(0, 179)}…` : result}`
+        : "",
     ]
       .filter(Boolean)
       .join("\n"),

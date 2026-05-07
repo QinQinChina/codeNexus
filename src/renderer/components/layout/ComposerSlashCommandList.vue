@@ -25,12 +25,30 @@
           @mouseenter="$emit('hover', index)"
           @click="$emit('select', command.id)"
         >
-          <span class="composer-slash-code mono transition-colors duration-200" :class="index === activeIndex ? 'bg-[var(--accent)] text-[var(--surface-1)] border-transparent' : 'bg-[var(--bg-accent-soft)] text-[var(--text)] border-[var(--border-accent)]'">/{{ command.code }}</span>
-          <span class="composer-slash-title font-medium transition-colors duration-200" :class="index === activeIndex ? 'text-[var(--accent)]' : ''">{{ command.title }}</span>
-          <span v-if="command.disabled && command.disabledHint" class="composer-slash-hint mono dim text-[11px] opacity-60">{{
-            command.disabledHint
-          }}</span>
-          <span v-else-if="command.hint" class="composer-slash-hint mono dim text-[11px] opacity-60 transition-opacity duration-200 group-hover:opacity-100">{{ command.hint }}</span>
+          <span
+            class="composer-slash-code mono transition-colors duration-200"
+            :class="
+              index === activeIndex
+                ? 'bg-[var(--accent)] text-[var(--surface-1)] border-transparent'
+                : 'bg-[var(--bg-accent-soft)] text-[var(--text)] border-[var(--border-accent)]'
+            "
+            >/{{ command.code }}</span
+          >
+          <span
+            class="composer-slash-title font-medium transition-colors duration-200"
+            :class="index === activeIndex ? 'text-[var(--accent)]' : ''"
+            >{{ command.title }}</span
+          >
+          <span
+            v-if="command.disabled && command.disabledHint"
+            class="composer-slash-hint mono dim text-[11px] opacity-60"
+            >{{ command.disabledHint }}</span
+          >
+          <span
+            v-else-if="command.hint"
+            class="composer-slash-hint mono dim text-[11px] opacity-60 transition-opacity duration-200 group-hover:opacity-100"
+            >{{ command.hint }}</span
+          >
         </button>
       </div>
     </Transition>

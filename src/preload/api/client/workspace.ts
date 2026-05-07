@@ -9,4 +9,3 @@ export function createWorkspaceApi(ipcRenderer: IpcRenderer): CodexDesktopApi["w
     applyReverseDiff: (args) => ipcRenderer.invoke(IPC_WORKSPACE_CHANNELS.workspaceReverseDiffApply, args),
   } satisfies CodexDesktopApi["workspace"];
 }
-

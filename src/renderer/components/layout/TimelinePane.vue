@@ -286,20 +286,11 @@
       @update:open="onMcpResourceToggle(node.item.id, $event)"
     />
 
-    <CommandReadActivityRow
-      v-else-if="node.kind === 'commandRead'"
-      :item="node.item"
-    />
+    <CommandReadActivityRow v-else-if="node.kind === 'commandRead'" :item="node.item" />
 
-    <CommandListActivityRow
-      v-else-if="node.kind === 'commandList'"
-      :item="node.item"
-    />
+    <CommandListActivityRow v-else-if="node.kind === 'commandList'" :item="node.item" />
 
-    <CommandSearchActivityRow
-      v-else-if="node.kind === 'commandSearch'"
-      :item="node.item"
-    />
+    <CommandSearchActivityRow v-else-if="node.kind === 'commandSearch'" :item="node.item" />
 
     <McpToolCardContent
       v-else-if="node.kind === 'mcpToolGroup'"

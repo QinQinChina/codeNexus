@@ -8,4 +8,3 @@ export function createCacheApi(ipcRenderer: IpcRenderer): CodexDesktopApi["cache
     clear: (args) => ipcRenderer.invoke(IPC_CACHE_CHANNELS.cacheClear, args),
   } satisfies CodexDesktopApi["cache"];
 }
-

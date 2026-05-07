@@ -6,13 +6,13 @@
 
 ## 当前结构
 
-| 目录 | 说明 |
-| --- | --- |
+| 目录         | 说明                                          |
+| ------------ | --------------------------------------------- |
 | `generated/` | `codex app-server` 生成的 TypeScript 协议类型 |
-| `main/` | Electron 主进程、窗口、IPC、服务 |
-| `preload/` | `contextBridge` 桥接与 IPC 客户端 |
-| `renderer/` | Vue UI、状态、流程编排、业务模块 |
-| `shared/` | 主渲染共用类型与 IPC 契约 |
+| `main/`      | Electron 主进程、窗口、IPC、服务              |
+| `preload/`   | `contextBridge` 桥接与 IPC 客户端             |
+| `renderer/`  | Vue UI、状态、流程编排、业务模块              |
+| `shared/`    | 主渲染共用类型与 IPC 契约                     |
 
 ## 维护边界
 

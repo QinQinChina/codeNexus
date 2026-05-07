@@ -20,6 +20,12 @@ type UseTimelineScrollControllerOptions = {
 
 const DEFAULT_EDGE_FADE_THRESHOLD_PX = 1;
 const DEFAULT_LOAD_OLDER_TRIGGER_PX = 24;
+const LAYOUT_SCROLL_HEIGHT_EPSILON_PX = 2;
+
+type VisibleRowAnchor = {
+  rowId: string;
+  topOffsetPx: number;
+};
 
 export function useTimelineScrollController(options: UseTimelineScrollControllerOptions) {
   const hasTopEdgeFade = ref(false);
@@ -45,6 +51,41 @@ export function useTimelineScrollController(options: UseTimelineScrollController
   function captureViewport(): TimelineViewportSnapshot | null {
     const element = options.timelineRef.value;
     return element ? snapshotTimelineViewport(element) : null;
+  }
+
+  function timelineRows(element: HTMLElement): HTMLElement[] {
+    return Array.from(element.querySelectorAll<HTMLElement>(".chat-timeline-row[data-row-id]"));
+  }
+
+  function captureVisibleRowAnchor(element: HTMLElement): VisibleRowAnchor | null {
+    const timelineRect = element.getBoundingClientRect();
+    for (const row of timelineRows(element)) {
+      const rowId = String(row.dataset.rowId ?? "").trim();
+      if (!rowId) continue;
+      const rowRect = row.getBoundingClientRect();
+      if (rowRect.bottom < timelineRect.top) continue;
+      if (rowRect.top > timelineRect.bottom) break;
+      return {
+        rowId,
+        topOffsetPx: rowRect.top - timelineRect.top,
+      };
+    }
+    return null;
+  }
+
+  function restoreVisibleRowAnchor(element: HTMLElement, anchor: VisibleRowAnchor): boolean {
+    const row = timelineRows(element).find((item) => String(item.dataset.rowId ?? "") === anchor.rowId);
+    if (!row) return false;
+    const timelineRect = element.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    const delta = rowRect.top - timelineRect.top - anchor.topOffsetPx;
+    const maxScrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
+    element.scrollTop = Math.max(0, Math.min(maxScrollTop, element.scrollTop + delta));
+    return true;
+  }
+
+  function syncTimelineScrollTopCache(element: HTMLElement) {
+    lastTimelineScrollTop = Math.max(0, element.scrollTop);
   }
 
   function updateTimelineViewportState() {
@@ -189,20 +230,28 @@ export function useTimelineScrollController(options: UseTimelineScrollController
 
   function notifyTimelineLayoutChange() {
     const before = captureViewport();
+    const beforeElement = options.timelineRef.value;
+    const anchor = beforeElement ? captureVisibleRowAnchor(beforeElement) : null;
+    const wasFollowing = autoFollowEnabled.value;
     void nextTick(() => {
       const element = options.timelineRef.value;
       if (!element) {
         scheduleTimelineViewportStateUpdate();
         return;
       }
-      if (before && !autoFollowEnabled.value) {
+      if (before && !wasFollowing) {
         const after = snapshotTimelineViewport(element);
-        element.scrollTop = Math.max(
-          0,
-          Math.min(Math.max(0, after.scrollHeight - after.clientHeight), before.scrollTop)
-        );
+        const restored = anchor ? restoreVisibleRowAnchor(element, anchor) : false;
+        if (!restored) {
+          element.scrollTop = Math.max(
+            0,
+            Math.min(Math.max(0, after.scrollHeight - after.clientHeight), before.scrollTop)
+          );
+        }
+        syncTimelineScrollTopCache(element);
       }
-      applyContentChangeIntent("layout-change");
+      if (wasFollowing) scheduleAutoScrollToBottom();
+      else scheduleTimelineViewportStateUpdate();
     });
   }
 
@@ -258,7 +307,8 @@ export function useTimelineScrollController(options: UseTimelineScrollController
         const element = options.timelineRef.value;
         const nextScrollHeight = Math.max(0, Math.round(element?.scrollHeight ?? 0));
         const hadHeight = lastObservedTimelineScrollHeight > 0;
-        const heightChanged = nextScrollHeight !== lastObservedTimelineScrollHeight;
+        const heightChanged =
+          Math.abs(nextScrollHeight - lastObservedTimelineScrollHeight) > LAYOUT_SCROLL_HEIGHT_EPSILON_PX;
         lastObservedTimelineScrollHeight = nextScrollHeight;
         if (
           hadHeight &&

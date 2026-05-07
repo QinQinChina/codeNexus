@@ -12,4 +12,3 @@ export function createLocalStateApi(
     patchSettings: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appLocalSettingsPatch, args),
   } satisfies CodexDesktopApi["localState"];
 }
-

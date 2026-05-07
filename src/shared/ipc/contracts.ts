@@ -211,10 +211,7 @@ export type HistoryThreadTaskListArgs = {
   includeDone?: boolean;
 };
 
-export type HistoryThreadTaskListFailureCode =
-  | "INVALID_THREAD_ID"
-  | "TASK_STORE_CORRUPTED"
-  | "TASK_STORE_READ_FAILED";
+export type HistoryThreadTaskListFailureCode = "INVALID_THREAD_ID" | "TASK_STORE_CORRUPTED" | "TASK_STORE_READ_FAILED";
 
 export type HistoryThreadTaskListResult =
   | {

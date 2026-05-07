@@ -9,7 +9,10 @@ import { useDebugTimelineStore } from "../../stores/debugTimeline.store";
 import { resolveThreadTitle } from "../../features/history/threadTitle";
 import { buildThreadHistoryMetadataFromServerThread } from "../../features/history/threadMetadata";
 import { codexDesktop } from "../../api/codexDesktopClient";
-import { buildProtocolNoticeTimelineText, buildProtocolNoticeToast } from "../../features/timeline/protocolNoticeRender";
+import {
+  buildProtocolNoticeTimelineText,
+  buildProtocolNoticeToast,
+} from "../../features/timeline/protocolNoticeRender";
 import { showToast } from "../../ui/toast";
 import { appendDebugLog } from "../../shared/debugLog";
 import {
@@ -491,9 +494,8 @@ export function installEventPipeline(pinia: Pinia) {
     if (isGuardianApprovalReviewMethodName(n.method)) {
       void (async () => {
         try {
-          const { buildGuardianApprovalReviewActivity, buildGuardianApprovalReviewEventId } = await import(
-            "../../features/guardian/guardianApprovalReview"
-          );
+          const { buildGuardianApprovalReviewActivity, buildGuardianApprovalReviewEventId } =
+            await import("../../features/guardian/guardianApprovalReview");
           const guardianReviewActivity = buildGuardianApprovalReviewActivity(n.method, params);
           if (!guardianReviewActivity) return;
           const guardianThreadId = effectiveThreadId;

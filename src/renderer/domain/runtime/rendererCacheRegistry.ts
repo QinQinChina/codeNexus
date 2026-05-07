@@ -161,7 +161,8 @@ function buildRendererCacheProviders(context: RuntimeRendererCacheContext): Map<
   register({
     namespace: "renderer.timeline.diffHighlight",
     getStats: async () => {
-      const { getDiffSyntaxHighlightCacheStats } = await import("../../features/timeline/renderModel/diffSyntaxHighlight");
+      const { getDiffSyntaxHighlightCacheStats } =
+        await import("../../features/timeline/renderModel/diffSyntaxHighlight");
       return { ...getDiffSyntaxHighlightCacheStats(), note: "Diff 高亮缓存" };
     },
     clear: async () => {
@@ -233,9 +234,7 @@ function buildRendererCacheProviders(context: RuntimeRendererCacheContext): Map<
   return providers;
 }
 
-export async function listRendererCachesForRuntime(
-  context: RuntimeRendererCacheContext
-): Promise<CacheListResult> {
+export async function listRendererCachesForRuntime(context: RuntimeRendererCacheContext): Promise<CacheListResult> {
   const items: CacheStatsItem[] = [];
   for (const [namespace, provider] of buildRendererCacheProviders(context).entries()) {
     try {

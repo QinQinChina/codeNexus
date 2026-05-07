@@ -15,7 +15,9 @@
 
       <div v-if="serverStatusText" class="dim text-[12px] leading-[1.35]">{{ serverStatusText }}</div>
 
-      <div class="inline-flex w-full items-center gap-1 rounded-full border border-[var(--ui-well-border)] bg-[var(--ui-well-bg)] p-1">
+      <div
+        class="inline-flex w-full items-center gap-1 rounded-full border border-[var(--ui-well-border)] bg-[var(--ui-well-bg)] p-1"
+      >
         <button
           type="button"
           class="btn-mini flex-1"
@@ -144,11 +146,7 @@
 
         <template v-else>
           <div class="text-[12px] leading-[1.4] text-[color:var(--text-muted)]">
-            {{
-              activeTab === "resources"
-                ? "选择一个资源后即可读取内容。"
-                : "选择一个模板后即可填写变量并读取内容。"
-            }}
+            {{ activeTab === "resources" ? "选择一个资源后即可读取内容。" : "选择一个模板后即可填写变量并读取内容。" }}
           </div>
         </template>
 
@@ -172,9 +170,7 @@
         </div>
 
         <template v-if="summaryResourceLabel">
-          <div
-            class="grid gap-2 rounded-[10px] border border-[var(--ui-well-border)] bg-[var(--ui-well-bg)] p-3"
-          >
+          <div class="grid gap-2 rounded-[10px] border border-[var(--ui-well-border)] bg-[var(--ui-well-bg)] p-3">
             <div class="grid gap-1">
               <div class="text-[12px] font-medium text-[color:var(--text-muted)]">资源名</div>
               <div class="text-[12px] font-medium">{{ summaryResourceLabel }}</div>

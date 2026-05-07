@@ -48,7 +48,7 @@
 
 :root[data-theme="light"] .workspace-editor-pane {
   --we-tabs-bg: color-mix(in srgb, rgb(from var(--surface-1) r g b / 0.98) 86%, var(--accent-soft) 14%);
-  --we-tab-active-bg: color-mix(in srgb, white 0.9800%, transparent);
+  --we-tab-active-bg: color-mix(in srgb, white 0.98%, transparent);
   --we-tab-active-border: color-mix(in srgb, var(--border) 92%, transparent);
   --we-tab-divider: color-mix(in srgb, rgb(from var(--text) r g b / 0.34) 92%, var(--border) 8%);
   --we-tab-text: color-mix(in srgb, var(--text) 76%, transparent);
@@ -56,8 +56,8 @@
   --we-tab-close-color: color-mix(in srgb, var(--text) 82%, transparent);
   --we-tab-close-hover-color: color-mix(in srgb, var(--text) 96%, transparent);
   --we-tab-close-hover-bg: color-mix(in srgb, rgb(from var(--surface-1) r g b / 0.92) 92%, var(--accent-soft) 8%);
-  --we-chrome-bg: color-mix(in srgb, white 0.9600%, transparent);
-  --we-code-bg: color-mix(in srgb, white 0.9800%, transparent);
+  --we-chrome-bg: color-mix(in srgb, white 0.96%, transparent);
+  --we-code-bg: color-mix(in srgb, white 0.98%, transparent);
   --we-code-gutter-bg: rgb(from var(--surface-1) r g b / 0.98);
   --we-code-gutter-text: color-mix(in srgb, var(--text-muted) 94%, transparent);
   --we-code-text: color-mix(in srgb, var(--text) 96%, transparent);
@@ -66,9 +66,9 @@
   --we-cm-selection-bg: rgb(from var(--accent) r g b / 0.18);
   --we-cm-active-line-bg: rgb(from var(--text) r g b / 0.04);
   --we-cm-gutter-active-bg: rgb(from var(--text) r g b / 0.05);
-  --we-cm-panel-bg: color-mix(in srgb, white 0.9800%, transparent);
+  --we-cm-panel-bg: color-mix(in srgb, white 0.98%, transparent);
   --we-cm-panel-border: rgb(from var(--border) r g b / 0.22);
-  --we-cm-tooltip-bg: color-mix(in srgb, white 0.9800%, transparent);
+  --we-cm-tooltip-bg: color-mix(in srgb, white 0.98%, transparent);
   --we-cm-tooltip-border: rgb(from var(--border) r g b / 0.22);
   --we-cm-search-match-bg: rgb(from var(--warning) r g b / 0.22);
   --we-cm-search-match-border: rgb(from var(--warning) r g b / 0.42);
@@ -81,6 +81,3 @@
   --we-cm-bracket-error-bg: rgb(from var(--danger) r g b / 0.14);
   --we-cm-bracket-error-border: rgb(from var(--danger) r g b / 0.32);
 }
-
-
-

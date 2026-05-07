@@ -4,13 +4,7 @@ import type { Thread as ServerThread } from "../../../generated/codex-app-server
 import type { ThreadSourceKind } from "../../../generated/codex-app-server/v2/ThreadSourceKind";
 import type { ThreadHistoryItem } from "../../domain/types";
 
-export const ALL_THREAD_SOURCE_KINDS: ThreadSourceKind[] = [
-  "cli",
-  "vscode",
-  "exec",
-  "appServer",
-  "unknown",
-];
+export const ALL_THREAD_SOURCE_KINDS: ThreadSourceKind[] = ["cli", "vscode", "exec", "appServer", "unknown"];
 
 export type ThreadSourceDetails = {
   threadSourceKind: ThreadSourceKind | null;
@@ -95,10 +89,7 @@ export function buildHistoryThreadMetadataPatchFromServerThread(
 
 export function buildThreadHistoryMetadataFromServerThread(
   thread: Pick<ServerThread, "source" | "forkedFromId" | "agentNickname" | "agentRole">
-): Pick<
-  ThreadHistoryItem,
-  "threadSourceKind" | "forkedFromId" | "agentNickname" | "agentRole" | "agentPath"
-> {
+): Pick<ThreadHistoryItem, "threadSourceKind" | "forkedFromId" | "agentNickname" | "agentRole" | "agentPath"> {
   const sourceDetails = extractThreadSourceDetails(thread.source);
   return {
     threadSourceKind: sourceDetails.threadSourceKind ?? undefined,
@@ -109,8 +100,6 @@ export function buildThreadHistoryMetadataFromServerThread(
   };
 }
 
-export function resolveThreadParentIdForGraph(item: {
-  forkedFromId?: string | null;
-}): string {
+export function resolveThreadParentIdForGraph(item: { forkedFromId?: string | null }): string {
   return normalizeOptionalText(item.forkedFromId) ?? "";
 }

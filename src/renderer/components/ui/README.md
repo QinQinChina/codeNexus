@@ -6,17 +6,17 @@
 
 ## 当前内容
 
-| 文件 | 说明 |
-| --- | --- |
+| 文件                       | 说明                    |
+| -------------------------- | ----------------------- |
 | `AgentMarkdownContent.vue` | Agent Markdown 渲染容器 |
-| `Collapsible.vue` | 折叠面板 |
-| `DetailDisclosure.vue` | 详情展开 |
-| `LazyImageThumb.vue` | 图片缩略图懒加载 |
-| `LoadingDots.vue` | 加载点动画 |
-| `PendingThreadArt.vue` | 空态 / 等待态插画 |
-| `SelectDropdown.vue` | 下拉选择 |
-| `WaterBallProgress.vue` | 水球进度条 |
-| `WaveText.vue` | 动效文字 |
+| `Collapsible.vue`          | 折叠面板                |
+| `DetailDisclosure.vue`     | 详情展开                |
+| `LazyImageThumb.vue`       | 图片缩略图懒加载        |
+| `LoadingDots.vue`          | 加载点动画              |
+| `PendingThreadArt.vue`     | 空态 / 等待态插画       |
+| `SelectDropdown.vue`       | 下拉选择                |
+| `WaterBallProgress.vue`    | 水球进度条              |
+| `WaveText.vue`             | 动效文字                |
 
 ## 维护边界
 

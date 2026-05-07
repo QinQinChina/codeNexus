@@ -5,8 +5,7 @@
         <TopBarWorkspaceButton />
       </div>
 
-      <div class="topbar-center row">
-      </div>
+      <div class="topbar-center row"></div>
 
       <div class="topbar-right-stack">
         <div class="row topbar-controls topbar-controls--sleek">
@@ -216,5 +215,4 @@ function onOpenSettings() {
   height: 18px;
   background: color-mix(in srgb, var(--topbar-border) 78%, transparent);
 }
-
 </style>

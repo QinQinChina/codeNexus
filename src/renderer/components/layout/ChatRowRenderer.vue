@@ -114,10 +114,7 @@
   </div>
 
   <div v-else-if="renderedRow.kind === 'mcpToolGroup'" class="chat-row chat-row--tool flex min-w-0 m-0">
-    <ChatSshToolActivity
-      v-if="isSshMcpToolGroup((renderedRow as any).group)"
-      :group="(renderedRow as any).group"
-    />
+    <ChatSshToolActivity v-if="isSshMcpToolGroup((renderedRow as any).group)" :group="(renderedRow as any).group" />
     <div v-else class="chat-tool-wrap w-full max-w-full min-w-0">
       <McpToolCardContent
         :open="isMcpToolGroupOpen((renderedRow as any).group.id)"
@@ -255,7 +252,9 @@ const McpToolCardContent = defineAsyncComponent({
 
 const isSshMcpToolGroup = (group: McpToolGroupNode | null | undefined): boolean => {
   return (group?.items ?? []).some((item) => {
-    const server = String(item?.server ?? "").trim().toLowerCase();
+    const server = String(item?.server ?? "")
+      .trim()
+      .toLowerCase();
     return server.includes("ssh");
   });
 };

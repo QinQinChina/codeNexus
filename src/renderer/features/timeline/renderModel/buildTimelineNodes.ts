@@ -1812,7 +1812,10 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
           ])
         );
         for (const action of commandEvent.actions) {
-          bySignature.set(`${action.type}:${action.command}:${action.path}:${action.query}:${action.startLine ?? ""}:${action.endLine ?? ""}`, action);
+          bySignature.set(
+            `${action.type}:${action.command}:${action.path}:${action.query}:${action.startLine ?? ""}:${action.endLine ?? ""}`,
+            action
+          );
         }
         baseItem.actions = [...bySignature.values()];
       }
@@ -2109,7 +2112,10 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
       ])
     );
     for (const action of incomingItem.actions ?? []) {
-      actionsBySignature.set(`${action.type}:${action.command}:${action.path}:${action.query}:${action.startLine ?? ""}:${action.endLine ?? ""}`, action);
+      actionsBySignature.set(
+        `${action.type}:${action.command}:${action.path}:${action.query}:${action.startLine ?? ""}:${action.endLine ?? ""}`,
+        action
+      );
     }
     keepItem.actions = [...actionsBySignature.values()];
     keepItem.lastEventMethod = String(incomingItem.lastEventMethod || keepItem.lastEventMethod) as

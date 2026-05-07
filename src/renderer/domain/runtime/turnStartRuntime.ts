@@ -60,7 +60,9 @@ function isExperimentalApiCapabilityError(error: unknown): boolean {
       ? String((error as { message?: unknown }).message ?? "")
       : String(error ?? "");
   const normalized = msg.toLowerCase();
-  return normalized.includes("requires experimentalapi capability") || normalized.includes("experimentalapi capability");
+  return (
+    normalized.includes("requires experimentalapi capability") || normalized.includes("experimentalapi capability")
+  );
 }
 
 export function createTurnStartRuntime(deps: TurnStartRuntimeDeps): TurnStartRuntime {
@@ -79,8 +81,7 @@ export function createTurnStartRuntime(deps: TurnStartRuntimeDeps): TurnStartRun
     const hasExperimentalApi = deps.getServerExperimentalApi(params.threadServerId);
     const composeMode = params.composeModeOverride ?? deps.getComposeMode();
     const wantsPlan = composeMode === "plan";
-    const wantsStructuredFinalAnswer =
-      !wantsPlan && deps.getAssistantFinalMessageFormat() === "structured-json-v1";
+    const wantsStructuredFinalAnswer = !wantsPlan && deps.getAssistantFinalMessageFormat() === "structured-json-v1";
     const requestedModel = normalizeModelName(params.model ?? deps.getModel());
     const requestedEffort = normalizeEffort(params.effort ?? deps.getReasoningEffort());
     const requestedSummary = normalizeReasoningSummary(params.summary ?? deps.getReasoningSummary());

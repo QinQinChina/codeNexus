@@ -72,5 +72,3 @@
 .meter-fill.critical {
   background: linear-gradient(90deg, rgb(from var(--danger) r g b / 0.95), rgb(from var(--danger) r g b / 0.98));
 }
-
-

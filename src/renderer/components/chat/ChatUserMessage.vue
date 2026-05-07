@@ -1,11 +1,12 @@
 <template>
-  <div class="chat-row chat-row--user flex min-w-0 m-0 animate-enter-slide-up opacity-0" style="animation-duration: 300ms;">
+  <div
+    class="chat-row chat-row--user flex min-w-0 m-0 animate-enter-slide-up opacity-0"
+    style="animation-duration: 300ms"
+  >
     <div
       class="chat-bubble chat-bubble-user w-full max-w-full min-w-0 cursor-pointer rounded-[4px] border border-[color:var(--bubble-user-border)] bg-[var(--bubble-user-bg)] bg-clip-padding px-3 py-2.5 shadow-[var(--bubble-shadow)] transition-[transform,box-shadow,border-color] hover:-translate-y-[1px] hover:shadow-md hover:border-[var(--border-accent)]"
       :class="
-        isHistoryRewriteAnchor
-          ? 'outline outline-2 outline-[var(--ui-well-focus-outline)] outline-offset-[1px]'
-          : ''
+        isHistoryRewriteAnchor ? 'outline outline-2 outline-[var(--ui-well-focus-outline)] outline-offset-[1px]' : ''
       "
       @click="$emit('click', event)"
     >
@@ -24,15 +25,9 @@
               <span class="chat-inline-file-token__label">{{ part.label }}</span>
             </button>
           </template>
-          <div
-            v-if="imageCount > 0"
-            class="chat-user-images mt-2.5 flex flex-col gap-2"
-          >
+          <div v-if="imageCount > 0" class="chat-user-images mt-2.5 flex flex-col gap-2">
             <div class="mono dim text-[11px]">附图 {{ imageCount }} 张</div>
-            <div
-              v-if="visibleImages.length > 0"
-              class="chat-user-image-list flex flex-wrap gap-2 max-[1500px]:gap-1.5"
-            >
+            <div v-if="visibleImages.length > 0" class="chat-user-image-list flex flex-wrap gap-2 max-[1500px]:gap-1.5">
               <LazyImageThumb
                 v-for="image in visibleImages"
                 :key="image.id"
@@ -52,9 +47,7 @@
         <span
           class="chat-bubble-meta-right inline-flex flex-none min-w-0 items-center justify-end gap-2.5 whitespace-nowrap"
         >
-          <span v-if="showTimestamps" class="mono dim">{{
-            formattedTime
-          }}</span>
+          <span v-if="showTimestamps" class="mono dim">{{ formattedTime }}</span>
         </span>
       </div>
     </div>

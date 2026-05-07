@@ -305,11 +305,7 @@
 .topbar .btn-icon.has-approval-dot:not(.attn-breathe) {
   border-color: color-mix(in srgb, var(--border-danger) 58%, transparent);
   background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--bg-danger-soft) 72%, transparent),
-      transparent
-    ),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-danger-soft) 72%, transparent), transparent),
     var(--topbar-hover-bg);
 }
 
@@ -382,11 +378,7 @@
 .topbar .btn-icon.attn-breathe {
   border-color: var(--border-danger-hover);
   background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--bg-danger-soft) 80%, transparent),
-      transparent
-    ),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-danger-soft) 80%, transparent), transparent),
     var(--topbar-hover-bg);
 }
 
@@ -396,22 +388,12 @@
 
 .panel-head-collapsible.has-approval-dot:not(.attn-breathe) {
   background:
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--bg-danger-soft) 90%, transparent) 0%,
-      transparent 56%
-    ),
-    transparent;
+    linear-gradient(90deg, color-mix(in srgb, var(--bg-danger-soft) 90%, transparent) 0%, transparent 56%), transparent;
 }
 
 .panel-head-collapsible.attn-breathe {
   background:
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--bg-danger-soft) 100%, transparent) 0%,
-      transparent 58%
-    ),
-    transparent;
+    linear-gradient(90deg, color-mix(in srgb, var(--bg-danger-soft) 100%, transparent) 0%, transparent 58%), transparent;
 }
 
 .panel-head-collapsible.has-approval-dot .panel-title {
@@ -634,5 +616,3 @@ textarea:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 1px;
 }
-
-

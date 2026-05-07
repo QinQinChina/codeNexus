@@ -133,21 +133,27 @@ function buildDefaultDynamicToolsEnabledByName(): Record<BuiltinDynamicToolName,
 }
 
 function normalizeUiFontFamilyPreset(value: unknown): UiFontFamilyPreset {
-  const raw = String(value ?? "").trim().toLowerCase();
+  const raw = String(value ?? "")
+    .trim()
+    .toLowerCase();
   if (raw === "source-han-sans-sc") return "source-han-sans-sc";
   if (raw === "alibaba-puhuiti") return "alibaba-puhuiti";
   return DEFAULT_UI_FONT_FAMILY_PRESET;
 }
 
 function normalizeUiFontSizePreset(value: unknown): UiFontSizePreset {
-  const raw = String(value ?? "").trim().toLowerCase();
+  const raw = String(value ?? "")
+    .trim()
+    .toLowerCase();
   if (raw === "small") return "small";
   if (raw === "large") return "large";
   return DEFAULT_UI_FONT_SIZE_PRESET;
 }
 
 export function normalizeUiWorkspaceFileIconTheme(value: unknown): UiWorkspaceFileIconTheme {
-  const raw = String(value ?? "").trim().toLowerCase();
+  const raw = String(value ?? "")
+    .trim()
+    .toLowerCase();
   if (raw === "vscode-icons") return "vscode-icons";
   return DEFAULT_UI_WORKSPACE_FILE_ICON_THEME;
 }
@@ -345,7 +351,10 @@ export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
       leftSidebarVisible: toBoolean(ui?.leftSidebarVisible, DEFAULT_USER_LOCAL_SETTINGS.ui.leftSidebarVisible),
       leftSidebarWidthPx: toPositiveInteger(ui?.leftSidebarWidthPx, DEFAULT_USER_LOCAL_SETTINGS.ui.leftSidebarWidthPx),
       filesSidebarVisible: toBoolean(ui?.filesSidebarVisible, DEFAULT_USER_LOCAL_SETTINGS.ui.filesSidebarVisible),
-      filesSidebarWidthPx: toPositiveInteger(ui?.filesSidebarWidthPx, DEFAULT_USER_LOCAL_SETTINGS.ui.filesSidebarWidthPx),
+      filesSidebarWidthPx: toPositiveInteger(
+        ui?.filesSidebarWidthPx,
+        DEFAULT_USER_LOCAL_SETTINGS.ui.filesSidebarWidthPx
+      ),
       centerEditorWidthPx: toPositiveInteger(
         ui?.centerEditorWidthPx,
         DEFAULT_USER_LOCAL_SETTINGS.ui.centerEditorWidthPx
@@ -469,8 +478,7 @@ export function mergeUserLocalSettings(
           : current.workspaceAppearance.backgroundFitMode,
     },
     remoteSync: {
-      enabled:
-        patchRemoteSync && "enabled" in patchRemoteSync ? patchRemoteSync.enabled : current.remoteSync.enabled,
+      enabled: patchRemoteSync && "enabled" in patchRemoteSync ? patchRemoteSync.enabled : current.remoteSync.enabled,
       serverBaseUrl:
         patchRemoteSync && "serverBaseUrl" in patchRemoteSync
           ? patchRemoteSync.serverBaseUrl

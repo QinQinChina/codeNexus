@@ -1117,14 +1117,22 @@ function resizeComposerInput() {
   el.scrollTop = Math.max(0, Math.min(nextMaxScrollTop, nextMaxScrollTop - previousBottomOffset));
 }
 
-function onPaneLayoutChange() {
+function refreshTimelineLayout(options: { resizeComposer: boolean }) {
   measureCenterContentWidth();
-  resizeComposerInput();
+  if (options.resizeComposer) resizeComposerInput();
   void nextTick(() => {
     notifyTimelineLayoutChange();
     scheduleTimelineViewportStateUpdate();
   });
   refreshOpenPopoversPlacement();
+}
+
+function onPaneLayoutChange() {
+  refreshTimelineLayout({ resizeComposer: false });
+}
+
+function onWindowLayoutChange() {
+  refreshTimelineLayout({ resizeComposer: true });
 }
 
 async function addComposeImageFiles(files: Iterable<File>) {
@@ -1491,7 +1499,7 @@ onMounted(() => {
   });
   if (centerContentRef.value) centerContentResizeObserver.observe(centerContentRef.value);
   observeTimelineElement();
-  window.addEventListener("resize", onPaneLayoutChange);
+  window.addEventListener("resize", onWindowLayoutChange);
   window.addEventListener("scroll", onWindowViewportChange, true);
   window.addEventListener("pointerdown", onWindowPointerDown, true);
   window.addEventListener("keydown", onWindowKeydown);
@@ -1499,7 +1507,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener("resize", onPaneLayoutChange);
+  window.removeEventListener("resize", onWindowLayoutChange);
   window.removeEventListener("scroll", onWindowViewportChange, true);
   window.removeEventListener("pointerdown", onWindowPointerDown, true);
   window.removeEventListener("keydown", onWindowKeydown);

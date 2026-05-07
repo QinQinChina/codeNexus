@@ -264,7 +264,19 @@ body::-webkit-scrollbar-button {
   }
 }
 
-@keyframes wave-text-opacity {
+@keyframes wave-text-opacity-a {
+  0% {
+    opacity: var(--wave-min-op, 0.25);
+  }
+  50% {
+    opacity: var(--wave-max-op, 1);
+  }
+  100% {
+    opacity: var(--wave-min-op, 0.25);
+  }
+}
+
+@keyframes wave-text-opacity-b {
   0% {
     opacity: var(--wave-min-op, 0.25);
   }
@@ -333,13 +345,7 @@ html[data-tone="light"] .chat-context-compaction-text.is-completed {
   position: absolute;
   inset: 0;
   transform: translateX(-120%);
-  background: linear-gradient(
-    100deg,
-    transparent 25%,
-    var(--ui-shimmer-highlight) 48%,
-    transparent 72%
-  );
+  background: linear-gradient(100deg, transparent 25%, var(--ui-shimmer-highlight) 48%, transparent 72%);
   animation: shimmer-sweep 1.2s ease-in-out infinite;
   pointer-events: none;
 }
-

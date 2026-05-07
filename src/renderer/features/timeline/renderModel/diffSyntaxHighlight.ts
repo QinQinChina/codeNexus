@@ -61,10 +61,7 @@ const normalizeCodeLineContent = (line: DiffLine) => {
   return text;
 };
 
-const softenDiffTokenStyle = (
-  style: Record<string, string>,
-  kind: DiffLine["kind"]
-): Record<string, string> => {
+const softenDiffTokenStyle = (style: Record<string, string>, kind: DiffLine["kind"]): Record<string, string> => {
   if (kind !== "add" && kind !== "del") return style;
   const next = { ...style };
   if (!next.fontWeight) next.fontWeight = "500";

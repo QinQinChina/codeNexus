@@ -57,7 +57,12 @@ import {
   normalizeCodeLanguage,
   type SyntaxHighlightToken,
 } from "../../features/timeline/renderModel/codeSyntaxHighlight";
-import { isPathLikeStrict, parsePathToken, summarizeParsedPath, tokenizePathLikeText } from "../../domain/pathHighlight";
+import {
+  isPathLikeStrict,
+  parsePathToken,
+  summarizeParsedPath,
+  tokenizePathLikeText,
+} from "../../domain/pathHighlight";
 import { showToast } from "../../ui/toast";
 
 defineOptions({
@@ -929,7 +934,11 @@ function onRootClick(event: MouseEvent) {
     event.stopPropagation();
     void copyTextToClipboard(full)
       .then(() => {
-        showToast({ kind: "success", title: "已复制", message: `路径已复制：${String(pathToken.textContent ?? "").trim()}` });
+        showToast({
+          kind: "success",
+          title: "已复制",
+          message: `路径已复制：${String(pathToken.textContent ?? "").trim()}`,
+        });
       })
       .catch((error) => {
         showToast({
@@ -984,7 +993,11 @@ function onRootKeydown(event: KeyboardEvent) {
   event.stopPropagation();
   void copyTextToClipboard(full)
     .then(() => {
-      showToast({ kind: "success", title: "已复制", message: `路径已复制：${String(pathToken.textContent ?? "").trim()}` });
+      showToast({
+        kind: "success",
+        title: "已复制",
+        message: `路径已复制：${String(pathToken.textContent ?? "").trim()}`,
+      });
     })
     .catch((error) => {
       showToast({

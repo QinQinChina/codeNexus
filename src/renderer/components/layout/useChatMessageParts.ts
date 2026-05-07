@@ -4,22 +4,26 @@ import { buildComposeDraftFromStructuredText, buildStructuredTextSegments } from
 import { basenameFromPath } from "../../domain/workspaceFiles";
 import { useRuntimeStore } from "../../stores/runtime.store";
 import { useWorkspaceFilesStore } from "../../stores/workspaceFiles.store";
-import type { 
-  ChatUserMessageSnapshot, 
-  ChatUserMessagePart, 
-  LazyImageSourceKind, 
-  ChatImageEntry, 
+import type {
+  ChatUserMessageSnapshot,
+  ChatUserMessagePart,
+  LazyImageSourceKind,
+  ChatImageEntry,
   ThumbLoadErrorPayload,
   ImageToolItemWithImages,
-  ImageToolImageEntry
+  ImageToolImageEntry,
 } from "./chat.types";
 
 export function useChatMessageParts(hiddenImageIds: () => Set<string>, onLayoutChange?: () => void) {
   const runtimeStore = useRuntimeStore();
   const workspaceFilesStore = useWorkspaceFilesStore();
 
-  const toRecord = (value: unknown): Record<string, unknown> | null => value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
-  const toStringArray = (value: unknown, opts?: { keepEmpty?: boolean }): string[] => Array.isArray(value) ? value.map((item) => String(item ?? "")).filter((item) => (opts?.keepEmpty ? true : !!item.trim())) : [];
+  const toRecord = (value: unknown): Record<string, unknown> | null =>
+    value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  const toStringArray = (value: unknown, opts?: { keepEmpty?: boolean }): string[] =>
+    Array.isArray(value)
+      ? value.map((item) => String(item ?? "")).filter((item) => (opts?.keepEmpty ? true : !!item.trim()))
+      : [];
 
   const getUserMessageSnapshot = (event: TimelineEventItem): ChatUserMessageSnapshot => {
     const params = toRecord(event?.params);
@@ -35,12 +39,22 @@ export function useChatMessageParts(hiddenImageIds: () => Set<string>, onLayoutC
     const snapshot = getUserMessageSnapshot(event);
     const parts: ChatUserMessagePart[] = [];
     let index = 0;
-    for (const segment of buildStructuredTextSegments(snapshot.text, snapshot.textElements, { inferAbsolutePaths: true })) {
+    for (const segment of buildStructuredTextSegments(snapshot.text, snapshot.textElements, {
+      inferAbsolutePaths: true,
+    })) {
       if (segment.type === "text") {
-        if (segment.text) { parts.push({ key: `${event.id}:text:${index}`, type: "text", text: segment.text }); }
+        if (segment.text) {
+          parts.push({ key: `${event.id}:text:${index}`, type: "text", text: segment.text });
+        }
       } else {
         const label = String(segment.placeholder ?? "").trim() || basenameFromPath(segment.path) || segment.path;
-        parts.push({ key: `${event.id}:file:${index}:${segment.path}`, type: "file", path: segment.path, label, title: segment.path });
+        parts.push({
+          key: `${event.id}:file:${index}:${segment.path}`,
+          type: "file",
+          path: segment.path,
+          label,
+          title: segment.path,
+        });
       }
       index += 1;
     }
@@ -67,7 +81,12 @@ export function useChatMessageParts(hiddenImageIds: () => Set<string>, onLayoutC
     const entries: ChatImageEntry[] = [];
     snapshot.images.forEach((source, i) => {
       const kind = inferLazyImageSourceKind(source);
-      entries.push({ id: `${event.id}:img:${i + 1}:${source.length}`, sourceKind: kind === "localPath" ? "remoteUrl" : kind, source, title: `图片 ${i + 1}` });
+      entries.push({
+        id: `${event.id}:img:${i + 1}:${source.length}`,
+        sourceKind: kind === "localPath" ? "remoteUrl" : kind,
+        source,
+        title: `图片 ${i + 1}`,
+      });
     });
     snapshot.localImages.forEach((source, i) => {
       const name = basenameFromPath(source) || source;
@@ -114,13 +133,28 @@ export function useChatMessageParts(hiddenImageIds: () => Set<string>, onLayoutC
     const anchorEventId = String(event?.id ?? "").trim();
     const anchorTurnId = String(event?.turnId ?? "").trim();
     if (!anchorEventId) return;
-    if (runtimeStore.historyRewriteActive && historyRewriteAnchorId.value && anchorEventId === historyRewriteAnchorId.value) {
+    if (
+      runtimeStore.historyRewriteActive &&
+      historyRewriteAnchorId.value &&
+      anchorEventId === historyRewriteAnchorId.value
+    ) {
       runtimeStore.cancelHistoryRewrite({ restoreDraft: true });
       return;
     }
     const snapshot = getUserMessageSnapshot(event);
-    const draft = buildComposeDraftFromStructuredText(snapshot.text, snapshot.textElements, { inferAbsolutePaths: true, idPrefix: "history-file" });
-    runtimeStore.startHistoryRewrite({ anchorEventId, anchorTurnId, prefillText: draft.composeInput || snapshot.text || (snapshot.images.length + snapshot.localImages.length > 0 ? "" : String(event?.paramsText ?? "")), prefillMentions: draft.composeFileMentions });
+    const draft = buildComposeDraftFromStructuredText(snapshot.text, snapshot.textElements, {
+      inferAbsolutePaths: true,
+      idPrefix: "history-file",
+    });
+    runtimeStore.startHistoryRewrite({
+      anchorEventId,
+      anchorTurnId,
+      prefillText:
+        draft.composeInput ||
+        snapshot.text ||
+        (snapshot.images.length + snapshot.localImages.length > 0 ? "" : String(event?.paramsText ?? "")),
+      prefillMentions: draft.composeFileMentions,
+    });
   };
 
   return {

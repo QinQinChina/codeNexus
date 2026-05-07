@@ -23,15 +23,18 @@ export function registerCodexHandlers(deps: {
     };
   });
 
-  ipcMain.handle(IPC_CODEX_CHANNELS.codexServerStart, async (_evt, args: { cwd?: string; experimentalApi?: boolean }) => {
-    return await serverManager.start({
-      cwd: args?.cwd,
-      experimentalApi: Boolean(args?.experimentalApi),
-      onMessage: (payload) => {
-        sendEvent(payload);
-      },
-    });
-  });
+  ipcMain.handle(
+    IPC_CODEX_CHANNELS.codexServerStart,
+    async (_evt, args: { cwd?: string; experimentalApi?: boolean }) => {
+      return await serverManager.start({
+        cwd: args?.cwd,
+        experimentalApi: Boolean(args?.experimentalApi),
+        onMessage: (payload) => {
+          sendEvent(payload);
+        },
+      });
+    }
+  );
 
   ipcMain.handle(IPC_CODEX_CHANNELS.codexServerStop, async (_evt, args: { serverId: string }) => {
     return serverManager.stop(args.serverId);

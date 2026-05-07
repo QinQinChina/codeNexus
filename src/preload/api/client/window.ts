@@ -23,4 +23,3 @@ export function createWindowApi(ipcRenderer: IpcRenderer): CodexDesktopApi["wind
     },
   } satisfies CodexDesktopApi["window"];
 }
-

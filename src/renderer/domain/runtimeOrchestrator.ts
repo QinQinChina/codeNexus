@@ -65,10 +65,7 @@ import { createSkillsRuntime } from "./runtime/skillsRuntime";
 import { createTurnInputRuntime } from "./runtime/turnInputRuntime";
 import { createTurnStartRuntime } from "./runtime/turnStartRuntime";
 import { createWorkspaceFileRuntime } from "./runtime/workspaceFileRuntime";
-import {
-  invalidateThreadContentCache,
-  type ThreadContentCacheEntry,
-} from "./runtime/rendererCacheRuntime";
+import { invalidateThreadContentCache, type ThreadContentCacheEntry } from "./runtime/rendererCacheRuntime";
 import {
   buildConfigBatchChangesFromDraft,
   createDefaultGlobalConfigDraft,
@@ -83,10 +80,7 @@ import {
   normalizeSandboxMode,
 } from "./serverInterop";
 import { isWithinWorkspaceFsPath, resolveWorkspaceFsPath } from "./workspacePath";
-import {
-  buildComposeDraftFromUserTurnInputs,
-  hasMeaningfulComposeText,
-} from "./composeFileMentions";
+import { buildComposeDraftFromUserTurnInputs, hasMeaningfulComposeText } from "./composeFileMentions";
 import type { HistoryThread } from "../../shared/ipc";
 import type { Thread as ServerThread } from "../../generated/codex-app-server/v2/Thread";
 import type { ThreadListParams } from "../../generated/codex-app-server/v2/ThreadListParams";
@@ -169,18 +163,18 @@ type JsonRpcErrorLike = {
   message: string;
 };
 
-async function confirmModalLazy(options: Parameters<typeof import("../ui/modal")["confirmModal"]>[0]) {
+async function confirmModalLazy(options: Parameters<(typeof import("../ui/modal"))["confirmModal"]>[0]) {
   const { confirmModal } = await import("../ui/modal");
   return confirmModal(options);
 }
 
-async function promptNumberModalLazy(options: Parameters<typeof import("../ui/modal")["promptNumberModal"]>[0]) {
+async function promptNumberModalLazy(options: Parameters<(typeof import("../ui/modal"))["promptNumberModal"]>[0]) {
   const { promptNumberModal } = await import("../ui/modal");
   return promptNumberModal(options);
 }
 
 async function parseSessionReplayEventsLazy(
-  entries: Parameters<typeof import("../features/history/replayParsers")["parseSessionReplayEvents"]>[0],
+  entries: Parameters<(typeof import("../features/history/replayParsers"))["parseSessionReplayEvents"]>[0],
   threadId: string
 ): Promise<ReplayTimelineEvent[]> {
   const { parseSessionReplayEvents } = await import("../features/history/replayParsers");
@@ -762,7 +756,10 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (!confirmed) return false;
 
     if (rollback.combinedDiff.trim()) {
-      const dry = await codexDesktop.workspace.dryRunApplyReverseDiff({ cwd: workspace, diffText: rollback.combinedDiff });
+      const dry = await codexDesktop.workspace.dryRunApplyReverseDiff({
+        cwd: workspace,
+        diffText: rollback.combinedDiff,
+      });
       if (!dry.ok) {
         pushEvent("rollback:error", `无法回退文件内容：${dry.error}`, { threadId: tid, level: "error" });
         showToast({ kind: "error", title: "重写失败", message: "文件回退预检失败（工作区可能已手动修改）" });
@@ -776,7 +773,10 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (!ok) return false;
 
     if (rollback.combinedDiff.trim()) {
-      const applied = await codexDesktop.workspace.applyReverseDiff({ cwd: workspace, diffText: rollback.combinedDiff });
+      const applied = await codexDesktop.workspace.applyReverseDiff({
+        cwd: workspace,
+        diffText: rollback.combinedDiff,
+      });
       if (!applied.ok) {
         timelineStore.removeTurnEvents(tid, rollback.turnIds);
         threadStore.removeTurnsFromState(tid, rollback.turnIds);
@@ -1307,9 +1307,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         ]);
         if (currentResult.status !== "fulfilled") throw currentResult.reason;
 
-        const { buildThreadHandoffDiagnostics } = await import(
-          "../features/history/threadHandoffDiagnostics"
-        );
+        const { buildThreadHandoffDiagnostics } = await import("../features/history/threadHandoffDiagnostics");
         const diagnostics = buildThreadHandoffDiagnostics({
           threadId,
           parentThreadId,
@@ -2666,7 +2664,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       }
     }
 
-    const rewroteHistoryBeforeSend = runtimeStore.historyRewriteActive && runtimeStore.historyRewriteSource === "history";
+    const rewroteHistoryBeforeSend =
+      runtimeStore.historyRewriteActive && runtimeStore.historyRewriteSource === "history";
     const historyRewriteReady = await rollbackHistoryRewriteBeforeSend(threadId);
     if (!historyRewriteReady) return;
     if (!rewroteHistoryBeforeSend) {
@@ -3083,16 +3082,28 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const resetCodexMemory = async () => {
     const serverId = getServerIdForWorkspace(runtimeStore.workspacePath);
     if (!serverId) {
-      showToast({ kind: "warn", title: "\u65e0\u6cd5\u91cd\u7f6e\u8bb0\u5fc6", message: "\u5f53\u524d\u672a\u8fde\u63a5 Codex \u670d\u52a1\u3002" });
+      showToast({
+        kind: "warn",
+        title: "\u65e0\u6cd5\u91cd\u7f6e\u8bb0\u5fc6",
+        message: "\u5f53\u524d\u672a\u8fde\u63a5 Codex \u670d\u52a1\u3002",
+      });
       return;
     }
     try {
       await codexDesktop.codexServer.rpc({ serverId, method: "memory/reset" });
-      showToast({ kind: "success", title: "\u8bb0\u5fc6\u5df2\u91cd\u7f6e", message: "Codex \u8bb0\u5fc6\u5df2\u6e05\u7a7a\u3002" });
+      showToast({
+        kind: "success",
+        title: "\u8bb0\u5fc6\u5df2\u91cd\u7f6e",
+        message: "Codex \u8bb0\u5fc6\u5df2\u6e05\u7a7a\u3002",
+      });
       pushEvent("memory/reset", "Codex memory reset", { threadId: runtimeStore.currentThreadId || APP_TIMELINE_ID });
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
-      showToast({ kind: "error", title: "\u91cd\u7f6e\u8bb0\u5fc6\u5931\u8d25", message: msg || "memory/reset \u8bf7\u6c42\u5931\u8d25" });
+      showToast({
+        kind: "error",
+        title: "\u91cd\u7f6e\u8bb0\u5fc6\u5931\u8d25",
+        message: msg || "memory/reset \u8bf7\u6c42\u5931\u8d25",
+      });
       pushEvent("memory/reset:error", msg || "memory/reset failed", {
         threadId: runtimeStore.currentThreadId || APP_TIMELINE_ID,
         level: "error",
@@ -3103,12 +3114,20 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const setCurrentThreadMemoryMode = async (mode: ThreadMemoryMode) => {
     const threadId = String(runtimeStore.currentThreadId ?? "").trim();
     if (!threadId) {
-      showToast({ kind: "warn", title: "\u65e0\u6cd5\u8bbe\u7f6e\u8bb0\u5fc6", message: "\u8bf7\u5148\u9009\u62e9\u4e00\u4e2a\u7ebf\u7a0b\u3002" });
+      showToast({
+        kind: "warn",
+        title: "\u65e0\u6cd5\u8bbe\u7f6e\u8bb0\u5fc6",
+        message: "\u8bf7\u5148\u9009\u62e9\u4e00\u4e2a\u7ebf\u7a0b\u3002",
+      });
       return;
     }
     const serverId = getServerIdForThread(threadId);
     if (!serverId) {
-      showToast({ kind: "warn", title: "\u65e0\u6cd5\u8bbe\u7f6e\u8bb0\u5fc6", message: "\u5f53\u524d\u7ebf\u7a0b\u672a\u8fde\u63a5 Codex \u670d\u52a1\u3002" });
+      showToast({
+        kind: "warn",
+        title: "\u65e0\u6cd5\u8bbe\u7f6e\u8bb0\u5fc6",
+        message: "\u5f53\u524d\u7ebf\u7a0b\u672a\u8fde\u63a5 Codex \u670d\u52a1\u3002",
+      });
       return;
     }
     try {
@@ -3117,12 +3136,18 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       showToast({
         kind: "success",
         title: enabled ? "\u7ebf\u7a0b\u8bb0\u5fc6\u5df2\u542f\u7528" : "\u7ebf\u7a0b\u8bb0\u5fc6\u5df2\u5173\u95ed",
-        message: enabled ? "\u5f53\u524d\u7ebf\u7a0b\u4f1a\u4f7f\u7528 Codex \u8bb0\u5fc6\u3002" : "\u5f53\u524d\u7ebf\u7a0b\u4e0d\u4f1a\u4f7f\u7528 Codex \u8bb0\u5fc6\u3002",
+        message: enabled
+          ? "\u5f53\u524d\u7ebf\u7a0b\u4f1a\u4f7f\u7528 Codex \u8bb0\u5fc6\u3002"
+          : "\u5f53\u524d\u7ebf\u7a0b\u4e0d\u4f1a\u4f7f\u7528 Codex \u8bb0\u5fc6\u3002",
       });
       pushEvent("memory/mode", `thread memory mode: ${mode}`, { threadId });
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
-      showToast({ kind: "error", title: "\u8bbe\u7f6e\u8bb0\u5fc6\u5931\u8d25", message: msg || "thread/memoryMode/set \u8bf7\u6c42\u5931\u8d25" });
+      showToast({
+        kind: "error",
+        title: "\u8bbe\u7f6e\u8bb0\u5fc6\u5931\u8d25",
+        message: msg || "thread/memoryMode/set \u8bf7\u6c42\u5931\u8d25",
+      });
       pushEvent("memory/mode:error", msg || "thread/memoryMode/set failed", { threadId, level: "error" });
     }
   };

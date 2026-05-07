@@ -1,11 +1,6 @@
 import type { DiffLineKind } from "./diff";
 import { getParsedDiffCached } from "./diff";
-export {
-  isLocalThinkingEvent,
-  isLocalUserEvent,
-  isMarkdownEvent,
-  isReasoningStreamEvent,
-} from "../eventKinds";
+export { isLocalThinkingEvent, isLocalUserEvent, isMarkdownEvent, isReasoningStreamEvent } from "../eventKinds";
 import type {
   CommandActionNode,
   CommandGroupItem,

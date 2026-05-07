@@ -6,13 +6,13 @@
 
 ## 当前内容
 
-| 文件 | 说明 |
-| --- | --- |
-| `replayParsers.ts` | 历史事件回放解析 |
+| 文件                          | 说明                    |
+| ----------------------------- | ----------------------- |
+| `replayParsers.ts`            | 历史事件回放解析        |
 | `threadHandoffDiagnostics.ts` | handoff transcript 诊断 |
-| `threadHistoryItem.ts` | 历史项结构整理 |
-| `threadMetadata.ts` | 线程元数据辅助 |
-| `threadTitle.ts` | 标题生成与修正 |
+| `threadHistoryItem.ts`        | 历史项结构整理          |
+| `threadMetadata.ts`           | 线程元数据辅助          |
+| `threadTitle.ts`              | 标题生成与修正          |
 
 ## 维护边界
 

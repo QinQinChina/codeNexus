@@ -22,9 +22,7 @@
       {{ item.path }}
     </div>
 
-    <div
-      class="mono whitespace-pre-wrap [overflow-wrap:anywhere] break-words text-[11px] text-[var(--text)]"
-    >
+    <div class="mono whitespace-pre-wrap [overflow-wrap:anywhere] break-words text-[11px] text-[var(--text)]">
       {{ metaText }}
     </div>
 

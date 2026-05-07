@@ -6,15 +6,15 @@
 
 ## 当前内容
 
-| 文件 / 目录 | 说明 |
-| --- | --- |
-| `handlers/index.ts` | 统一注册入口 |
-| `handlers/app.handlers.ts` | 应用与窗口相关 IPC |
-| `handlers/codex.handlers.ts` | Codex 线程、回合、协议相关 IPC |
-| `handlers/history.handlers.ts` | 历史回放与读取 |
-| `handlers/cache.handlers.ts` | 统一缓存查询与清理 |
-| `handlers/workspace.handlers.ts` | 工作区与文件操作 |
-| `handlers/git.handlers.ts` | Git 读写与摘要 |
+| 文件 / 目录                      | 说明                           |
+| -------------------------------- | ------------------------------ |
+| `handlers/index.ts`              | 统一注册入口                   |
+| `handlers/app.handlers.ts`       | 应用与窗口相关 IPC             |
+| `handlers/codex.handlers.ts`     | Codex 线程、回合、协议相关 IPC |
+| `handlers/history.handlers.ts`   | 历史回放与读取                 |
+| `handlers/cache.handlers.ts`     | 统一缓存查询与清理             |
+| `handlers/workspace.handlers.ts` | 工作区与文件操作               |
+| `handlers/git.handlers.ts`       | Git 读写与摘要                 |
 
 ## 维护边界
 

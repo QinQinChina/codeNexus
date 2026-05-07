@@ -15,4 +15,3 @@ export function createUpdateApi(ipcRenderer: IpcRenderer): CodexDesktopApi["upda
     },
   } satisfies CodexDesktopApi["update"];
 }
-

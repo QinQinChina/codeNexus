@@ -211,11 +211,7 @@ watch(
 
 .env-diag-item.is-ok {
   border-color: color-mix(in srgb, var(--success) 38%, var(--card-border, var(--border)));
-  background: color-mix(
-    in srgb,
-    var(--bg-success-soft) 42%,
-    var(--card-bg, var(--surface-1))
-  );
+  background: color-mix(in srgb, var(--bg-success-soft) 42%, var(--card-bg, var(--surface-1)));
 }
 
 .env-diag-item.is-missing {

@@ -5,7 +5,12 @@ import {
   buildUserTurnInputsFromComposeDraft,
 } from "../composeFileMentions";
 import type { UserInput as CodexUserInput } from "../../../generated/codex-app-server/v2/UserInput";
-import type { ComposeImageAttachment, ComposeWorkspaceFileMention, TimelineUserMessageParams, UserTurnInput } from "../types";
+import type {
+  ComposeImageAttachment,
+  ComposeWorkspaceFileMention,
+  TimelineUserMessageParams,
+  UserTurnInput,
+} from "../types";
 
 export type TurnInputRuntime = {
   cloneUserTurnInput: (value: UserTurnInput) => UserTurnInput;
@@ -15,9 +20,7 @@ export type TurnInputRuntime = {
   buildComposeAttachmentsFromUserTurnInputs: (
     values: UserTurnInput[]
   ) => Promise<{ attachments: ComposeImageAttachment[]; failedLocalPaths: string[] }>;
-  buildTimelineUserMessagePayload: (
-    values: UserTurnInput[]
-  ) => {
+  buildTimelineUserMessagePayload: (values: UserTurnInput[]) => {
     displayText: string;
     payload: TimelineUserMessageParams;
   };
@@ -26,9 +29,7 @@ export type TurnInputRuntime = {
     attachments: ComposeImageAttachment[],
     mentions: ComposeWorkspaceFileMention[]
   ) => UserTurnInput[];
-  summarizeLocalUserMessage: (
-    values: UserTurnInput[]
-  ) => {
+  summarizeLocalUserMessage: (values: UserTurnInput[]) => {
     displayText: string;
     payload: TimelineUserMessageParams;
   };

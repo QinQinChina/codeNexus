@@ -6,16 +6,16 @@
 
 ## 当前内容
 
-| 文件 / 目录 | 说明 |
-| --- | --- |
-| `TopBar.vue` | 顶部栏：连接状态、工作区、主题、窗口控制 |
-| `LeftSidebar.vue` | 左侧导航与 Settings 入口 |
-| `CenterPane.vue` | 聊天主工作区 |
-| `SettingsPage.vue` | 完整设置页 |
-| `WorkspaceEditorPane.vue` | 文件编辑器区域 |
-| `GlobalConfigDrawer.vue` / `EnvSetupDrawer.vue` / `IntegrationsDrawer.vue` / `UpdateDrawer.vue` | Settings 具体页内容 |
-| `left-sidebar/` | 工作区、Git、线程、workflow 列表 |
-| `topbar/` | 顶部栏局部组件与样式 |
+| 文件 / 目录                                                                                     | 说明                                     |
+| ----------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `TopBar.vue`                                                                                    | 顶部栏：连接状态、工作区、主题、窗口控制 |
+| `LeftSidebar.vue`                                                                               | 左侧导航与 Settings 入口                 |
+| `CenterPane.vue`                                                                                | 聊天主工作区                             |
+| `SettingsPage.vue`                                                                              | 完整设置页                               |
+| `WorkspaceEditorPane.vue`                                                                       | 文件编辑器区域                           |
+| `GlobalConfigDrawer.vue` / `EnvSetupDrawer.vue` / `IntegrationsDrawer.vue` / `UpdateDrawer.vue` | Settings 具体页内容                      |
+| `left-sidebar/`                                                                                 | 工作区、Git、线程、workflow 列表         |
+| `topbar/`                                                                                       | 顶部栏局部组件与样式                     |
 
 ## 维护边界
 

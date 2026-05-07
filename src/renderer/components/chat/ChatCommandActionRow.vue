@@ -2,12 +2,15 @@
   <div class="chat-terminal-action-wrap w-full max-w-full min-w-0">
     <div
       class="chat-terminal-action-line inline-flex w-full max-w-full min-w-0 items-center gap-1.5 p-0 m-0 box-border border-0 bg-transparent text-xs"
+      :class="{ 'is-running': item.item.status === 'running' }"
       :title="commandActionNodeTitle(item)"
     >
-      <span class="chat-terminal-action-left inline-flex flex-none items-center gap-1">
-        <span v-if="item.item.status === 'running'" class="running-indicator is-muted" aria-hidden="true"></span>
+      <span
+        v-if="item.item.status !== 'running'"
+        class="chat-terminal-action-left inline-flex flex-none items-center gap-1"
+      >
         <CheckCircle2
-          v-else-if="item.item.status === 'completed'"
+          v-if="item.item.status === 'completed'"
           class="chat-terminal-action-icon chat-terminal-action-icon--success h-[14px] w-[14px] flex-none [stroke-width:2.8]"
           aria-hidden="true"
         />
@@ -122,7 +125,7 @@ const actionText = computed(() => {
   color: color-mix(in srgb, var(--text) 94%, white 6%);
 }
 
-.chat-terminal-action-line:has(.running-indicator) {
+.chat-terminal-action-line.is-running {
   --chat-terminal-action-wave-color: color-mix(in srgb, var(--fg-accent) 80%, var(--text) 20%);
 }
 

@@ -12,11 +12,7 @@
         class="chat-bubble-body min-w-0"
         :rawText="event.paramsText"
       />
-      <AgentMarkdownContent
-        v-else
-        class="chat-bubble-body agent-markdown-body min-w-0"
-        :html="markdownHtml"
-      />
+      <AgentMarkdownContent v-else class="chat-bubble-body agent-markdown-body min-w-0" :html="markdownHtml" />
       <div
         v-if="event.method === 'item/plan/delta' && execState"
         class="plan-delta-actions mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-[var(--border)] pt-2.5"
@@ -56,9 +52,7 @@
           class="!inline-flex !h-7 !items-center !justify-center !rounded-xl !border !border-[color:var(--border-warning)] !bg-gradient-to-b !from-[color:var(--bg-warning-soft)] !to-[color:var(--button-bg)] !px-3 !tracking-[0.1px] !text-[color:var(--fg-warning)] !shadow-none transition-[border-color,background,box-shadow,color] duration-150 hover:!border-[color:var(--border-warning-hover)] hover:!to-[color:var(--button-bg-hover)] focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-[color:var(--bg-warning-soft)] active:!translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
           type="button"
           :disabled="isTurnRunning || execState.executing"
-          :title="
-            isTurnRunning ? '当前回合运行中，请等待完成后再执行计划' : '切换到 agent 模式并发送“执行计划”'
-          "
+          :title="isTurnRunning ? '当前回合运行中，请等待完成后再执行计划' : '切换到 agent 模式并发送“执行计划”'"
           @click="$emit('execute-plan', event)"
         >
           <span v-if="execState.executing">执行中...</span>

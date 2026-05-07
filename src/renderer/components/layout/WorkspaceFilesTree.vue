@@ -136,7 +136,9 @@ const normalizedFilter = computed(() =>
 const hasFilter = computed(() => normalizedFilter.value.length > 0);
 
 function resolveFileType(pathValue: string): { label: string; tone: FileTypeTone } {
-  const path = String(pathValue ?? "").trim().toLowerCase();
+  const path = String(pathValue ?? "")
+    .trim()
+    .toLowerCase();
   if (!path) return { label: "FILE", tone: "other" };
   if (path.endsWith(".vue")) return { label: "VUE", tone: "vue" };
   if (path.endsWith(".ts") || path.endsWith(".tsx")) return { label: "TS", tone: "ts" };
@@ -155,7 +157,14 @@ function resolveFileType(pathValue: string): { label: string; tone: FileTypeTone
 function includesFilter(path: string, label: string): boolean {
   if (!hasFilter.value) return true;
   const q = normalizedFilter.value;
-  return String(path ?? "").toLowerCase().includes(q) || String(label ?? "").toLowerCase().includes(q);
+  return (
+    String(path ?? "")
+      .toLowerCase()
+      .includes(q) ||
+    String(label ?? "")
+      .toLowerCase()
+      .includes(q)
+  );
 }
 
 const treeRows = computed<TreeRow[]>(() => {
@@ -312,7 +321,13 @@ onMounted(() => {
 });
 
 watch(
-  () => [workspaceFilesStore.activeFilePath, treeRows.value.length, workspaceFilesStore.directoryPath, hasFilter.value] as const,
+  () =>
+    [
+      workspaceFilesStore.activeFilePath,
+      treeRows.value.length,
+      workspaceFilesStore.directoryPath,
+      hasFilter.value,
+    ] as const,
   () => {
     nextTick(() => {
       scrollActiveRowIntoView();

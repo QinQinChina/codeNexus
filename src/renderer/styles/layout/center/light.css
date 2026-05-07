@@ -1,6 +1,6 @@
 :root[data-tone="light"] .center-pane .history-replay-indicator {
   border-color: rgb(from var(--text) r g b / 0.14);
-  background: color-mix(in srgb, white 0.5500%, transparent);
+  background: color-mix(in srgb, white 0.55%, transparent);
 }
 
 :root[data-tone="light"] .center-pane .history-replay-indicator-loading {
@@ -21,13 +21,13 @@
 
 :root[data-tone="light"] .composer-lightbox-overlay .composer-lightbox-image {
   border-color: rgb(from var(--text) r g b / 0.18);
-  background: color-mix(in srgb, white 0.9500%, transparent);
+  background: color-mix(in srgb, white 0.95%, transparent);
   box-shadow: 0 24px 56px rgb(from var(--text) r g b / 0.35);
 }
 
 :root[data-tone="light"] .composer-lightbox-overlay .composer-lightbox-close {
   border-color: rgb(from var(--text) r g b / 0.22);
-  background: color-mix(in srgb, white 0.9500%, transparent);
+  background: color-mix(in srgb, white 0.95%, transparent);
   color: rgb(from var(--surface-2) r g b / 0.94);
 }
 
@@ -42,6 +42,3 @@
     0 0 0 2px rgb(from var(--accent) r g b / 0.28),
     0 8px 20px rgb(from var(--text) r g b / 0.24);
 }
-
-
-

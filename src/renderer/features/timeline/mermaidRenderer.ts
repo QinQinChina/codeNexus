@@ -55,7 +55,18 @@ export async function sanitizeDiagramSvg(svg: string) {
       const sanitizedHtml = String(
         DOMPurify.sanitize(element.innerHTML, {
           USE_PROFILES: { html: true },
-          FORBID_TAGS: ["style", "script", "iframe", "object", "embed", "form", "input", "button", "textarea", "select"],
+          FORBID_TAGS: [
+            "style",
+            "script",
+            "iframe",
+            "object",
+            "embed",
+            "form",
+            "input",
+            "button",
+            "textarea",
+            "select",
+          ],
           FORBID_ATTR: [
             "onerror",
             "onload",

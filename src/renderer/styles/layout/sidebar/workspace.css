@@ -822,4 +822,3 @@ html[data-tone="light"] .workspace-files-editor-footer__error {
 html[data-tone="light"] .workspace-editor-pane {
   --wf-surface: color-mix(in srgb, white 86%, var(--accent-soft) 14%);
 }
-
