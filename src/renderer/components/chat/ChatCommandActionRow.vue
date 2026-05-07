@@ -87,7 +87,7 @@ const actionText = computed(() => {
   min-height: 20px;
   align-items: center;
   gap: 5px;
-  color: color-mix(in srgb, var(--text) 94%, white 6%);
+  color: var(--text-muted);
 }
 
 .chat-terminal-action-text {
