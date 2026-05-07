@@ -248,6 +248,7 @@
 
 .timeline-pane--chat .is-loading-shimmer {
   --ui-shimmer-highlight: rgb(from var(--accent) r g b / 0.22);
+  color: var(--fg-accent);
 }
 
 .timeline-pane--chat .chat-system-line.chat-system-line--error {
@@ -310,6 +311,7 @@
 
 :root[data-theme="light"] .timeline-pane--chat .is-loading-shimmer {
   --ui-shimmer-highlight: rgb(from var(--accent) r g b / 0.14);
+  color: var(--fg-accent);
 }
 
 :root[data-theme="light"] .timeline-pane--chat .chat-system-line.chat-system-line--error {
