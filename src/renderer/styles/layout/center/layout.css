@@ -219,10 +219,6 @@
   transform: translateX(-50%);
 }
 
-.timeline-pane--chat .chat-row {
-  animation: chat-row-soft-in 220ms ease both;
-}
-
 .timeline-pane--chat .chat-row--assistant,
 .timeline-pane--chat .chat-row--tool,
 .timeline-pane--chat .chat-row--activity,
@@ -267,17 +263,6 @@
 
 .timeline-pane--chat .composer-queue-fab {
   right: max(14px, calc((100% - var(--chat-content-max-w)) / 2 + 14px));
-}
-
-@keyframes chat-row-soft-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 /* === Low-glare light workbench tuning === */
