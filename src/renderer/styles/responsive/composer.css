@@ -2,4 +2,15 @@
   .composer-lightbox-stage {
     padding: 20px;
   }
+
+  .composer-lightbox-stage--image {
+    padding: 44px 14px 70px;
+  }
+
+  .composer-lightbox-toolbar {
+    right: 12px;
+    bottom: 12px;
+    max-width: calc(100vw - 24px);
+    overflow-x: auto;
+  }
 }

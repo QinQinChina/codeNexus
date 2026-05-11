@@ -5,6 +5,7 @@
       <LeftSidebar v-if="showLeftSidebar" class="tasks-pane-host" />
 
       <SettingsPage v-if="settingsOpen" key="settings" id="center-content" />
+      <ImageWorkbench v-else-if="mainView === 'image'" key="image" id="center-content" />
       <CenterPane v-else key="chat" />
       <div
         v-if="!settingsOpen && showEditorPane"
@@ -23,6 +24,7 @@
         :class="{ 'is-compact': isEditorCompact }"
       />
       <DebugTimelineSidebar v-if="showDebugSidebar" class="files-pane-host" />
+      <ImageSettingsSidebar v-else-if="showImageSettingsSidebar" class="files-pane-host" />
       <WorkspaceFilesSidebar v-else-if="showFilesSidebar" class="files-pane-host" />
 
       <div
@@ -54,6 +56,8 @@ import BottomBar from "./components/layout/BottomBar.vue";
 import {
   AppClosingOverlay,
   DebugTimelineSidebar,
+  ImageWorkbench,
+  ImageSettingsSidebar,
   LeftSidebar,
   SettingsPage,
   WorkspaceEditorPane,
@@ -67,7 +71,6 @@ import { useRuntimeStore } from "./stores/runtime.store";
 import { useGlobalAppearanceStore } from "./stores/globalAppearance.store";
 import { useModelCatalogStore } from "./stores/modelCatalog.store";
 import { useRemoteSyncStore } from "./stores/remoteSync.store";
-import { useUpdateStore } from "./stores/update.store";
 import { useWorkspaceFilesStore } from "./stores/workspaceFiles.store";
 import type { AppWindowState } from "../shared/ipc/contracts";
 import {
@@ -89,7 +92,6 @@ const notificationSoundStore = useNotificationSoundStore();
 const globalAppearanceStore = useGlobalAppearanceStore();
 const modelCatalogStore = useModelCatalogStore();
 const remoteSyncStore = useRemoteSyncStore();
-const updateStore = useUpdateStore();
 const workspaceFilesStore = useWorkspaceFilesStore();
 appShellStore.initLocalSettings();
 runtimeStore.initLocalDraftState();
@@ -100,17 +102,15 @@ appClosingStore.initBridge();
 void notificationSoundStore.refreshAvailable();
 void globalAppearanceStore.applyGlobalAppearance();
 void remoteSyncStore.initBridge();
-void updateStore.initBridge();
 
 const settingsOpen = computed(() => appShellStore.settingsOpen);
 const showAppClosingOverlay = computed(() => appClosingStore.visible);
 const mainView = computed(() => appShellStore.mainView);
-const showLeftSidebar = computed(
-  () => !settingsOpen.value && mainView.value === "chat" && appShellStore.leftSidebarVisible
-);
+const showLeftSidebar = computed(() => !settingsOpen.value && appShellStore.leftSidebarVisible);
 const showDebugSidebar = computed(
   () => !settingsOpen.value && mainView.value === "chat" && runtimeStore.timelineDebugEnabled
 );
+const showImageSettingsSidebar = computed(() => !settingsOpen.value && mainView.value === "image");
 const showFilesSidebar = computed(() => {
   return (
     !settingsOpen.value &&
@@ -187,17 +187,17 @@ const showEditorPane = computed(
 );
 
 const centerHardMinWidthPx = computed(() => {
-  return workspaceFilesStore.hasOpenTabs ? CENTER_WITH_EDITOR_HARD_MIN_WIDTH_PX : CENTER_BASE_MIN_WIDTH_PX;
+  return showEditorPane.value ? CENTER_WITH_EDITOR_HARD_MIN_WIDTH_PX : CENTER_BASE_MIN_WIDTH_PX;
 });
 
 const resolvedShellWidths = computed(() => {
   return resolveShellWidths({
     containerWidth: getMainWidthPx(),
     leftVisible: showLeftSidebar.value,
-    filesVisible: showFilesSidebar.value || showDebugSidebar.value,
+    filesVisible: showFilesSidebar.value || showDebugSidebar.value || showImageSettingsSidebar.value,
     rightVisible: false,
     leftPreferredWidth: requestedLeftSidebarWidthPx.value,
-    filesPreferredWidth: requestedFilesSidebarWidthPx.value,
+    filesPreferredWidth: showImageSettingsSidebar.value ? 344 : requestedFilesSidebarWidthPx.value,
     rightPreferredWidth: 0,
     centerHardMinWidth: centerHardMinWidthPx.value,
     prioritySide: "left",
@@ -248,7 +248,7 @@ const leftSashAriaLabel = computed(() => {
 
 const mainClass = computed(() => ({
   "has-editor": !settingsOpen.value && showEditorPane.value,
-  "has-files-sidebar": showFilesSidebar.value || showDebugSidebar.value,
+  "has-files-sidebar": showFilesSidebar.value || showDebugSidebar.value || showImageSettingsSidebar.value,
   "has-settings": settingsOpen.value,
 }));
 
@@ -305,9 +305,10 @@ const normalizeVisibleSidebarPreviewWidthPx = (rawNext: number, maxWidthPx: numb
 
 const getMaxLeftSidebarWidthPx = () => {
   const mainWidth = getMainWidthPx();
+  const rightWidth = showImageSettingsSidebar.value ? 344 : requestedFilesSidebarWidthPx.value;
   const reservedWidth =
     centerHardMinWidthPx.value +
-    (showFilesSidebar.value || showDebugSidebar.value ? requestedFilesSidebarWidthPx.value : 0);
+    (showFilesSidebar.value || showDebugSidebar.value || showImageSettingsSidebar.value ? rightWidth : 0);
   const max = mainWidth - reservedWidth;
   return Math.max(0, Math.floor(max));
 };

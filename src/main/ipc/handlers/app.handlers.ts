@@ -1,15 +1,24 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeImage, Notification, shell } from "electron";
-import { spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { appendFile, copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { IPC_APP_CHANNELS } from "../../../shared/ipc/channels";
 import { resolveUiFontSizeZoomFactor, type UserLocalSettingsPatch } from "../../../shared/localSettings";
 import { normalizeSafeExternalUrl } from "../../utils/externalUrl";
-import type { AppTextEncoding, AppTextLineEnding, AppWindowState } from "../../../shared/ipc/contracts";
+import type {
+  AppTextEncoding,
+  AppTextLineEnding,
+  AppWindowState,
+  ImageGenerationGeneratedImage,
+  ImageGenerationGenerateArgs,
+} from "../../../shared/ipc/contracts";
 import type { LocalSettingsService } from "../../services/LocalSettingsService";
+import type { CodexProfileService } from "../../services/CodexProfileService";
+import type { CodexSkillRootsService } from "../../services/CodexSkillRootsService";
+import type { ImageGenerationHistoryService } from "../../services/ImageGenerationHistoryService";
 import type { RemoteStateSyncService } from "../../services/RemoteStateSyncService";
-import type { UpdateService } from "../../services/UpdateService";
+import type { CodexProviderProfileInput } from "../../../shared/codexProfiles";
 
 function isPathWithinDir(filePath: string, dirPath: string): boolean {
   const file = resolve(String(filePath ?? ""));
@@ -79,11 +88,392 @@ function safeJsonStringify(value: unknown): string {
   }
 }
 
+function tryParseObjectJson(text: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(text);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
 function truncateText(value: unknown, maxLen: number): string | undefined {
   const text = typeof value === "string" ? value : value === null || value === undefined ? "" : String(value);
   if (!text) return undefined;
   if (text.length <= maxLen) return text;
   return `${text.slice(0, maxLen)}\n…(truncated ${text.length - maxLen} chars)`;
+}
+
+function toNullableText(value: unknown): string | null {
+  const text = String(value ?? "").trim();
+  return text || null;
+}
+
+function toIntegerInRange(value: unknown, fallback: number, min: number, max: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  const rounded = Math.round(n);
+  return Math.max(min, Math.min(max, rounded));
+}
+
+function normalizeHttpUrl(value: unknown): string | null {
+  const text = toNullableText(value);
+  if (!text) return null;
+  const trimmed = text.replace(/\/+$/, "");
+  if (!/^https?:\/\//i.test(trimmed)) return null;
+  return trimmed;
+}
+
+const IMAGE_MIME_BY_EXT: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+  ".bmp": "image/bmp",
+};
+
+const IMAGE_EXT_BY_MIME: Record<string, string> = {
+  "image/png": ".png",
+  "image/jpeg": ".jpg",
+  "image/webp": ".webp",
+  "image/gif": ".gif",
+  "image/bmp": ".bmp",
+};
+
+function imageMimeFromExt(extValue: unknown): string {
+  const ext = String(extValue ?? "")
+    .trim()
+    .toLowerCase();
+  return IMAGE_MIME_BY_EXT[ext] || "image/png";
+}
+
+function imageExtFromMime(mimeValue: unknown, fallbackFormat: string): string {
+  const mime = String(mimeValue ?? "")
+    .split(";")[0]
+    .trim()
+    .toLowerCase();
+  if (IMAGE_EXT_BY_MIME[mime]) return IMAGE_EXT_BY_MIME[mime];
+  const format = String(fallbackFormat ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^\./, "");
+  if (format === "jpg" || format === "jpeg") return ".jpg";
+  if (format === "webp") return ".webp";
+  return ".png";
+}
+
+function normalizeImageOutputFormat(value: unknown, fallback: string): string {
+  const text = String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^\./, "");
+  if (text === "jpg") return "jpeg";
+  if (text === "jpeg" || text === "png" || text === "webp") return text;
+  return String(fallback || "png").trim() || "png";
+}
+
+function normalizeImageBackground(value: unknown, fallback: string): string {
+  const text = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  if (text === "transparent" || text === "opaque" || text === "auto") return text;
+  return String(fallback || "auto").trim() || "auto";
+}
+
+function normalizeImageModeration(value: unknown, fallback: string): string {
+  const text = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  if (text === "low" || text === "auto") return text;
+  return String(fallback || "auto").trim() || "auto";
+}
+
+function normalizeImageOutputCompression(value: unknown, fallback: number): number {
+  return toIntegerInRange(value, fallback, 0, 100);
+}
+
+function normalizeImageEndpoint(baseUrlValue: unknown, kind: "generations" | "edits"): string {
+  const baseUrl = normalizeHttpUrl(baseUrlValue);
+  if (!baseUrl) throw new Error("图片生成服务地址无效，请填写 http(s) URL。");
+  const url = new URL(baseUrl);
+  const path = url.pathname.replace(/\/+$/, "");
+  if (/\/images\/(generations|edits)$/i.test(path)) {
+    return baseUrl.replace(/\/images\/(generations|edits)$/i, `/images/${kind}`);
+  }
+  if (/\/v1$/i.test(path)) return `${baseUrl}/images/${kind}`;
+  return `${baseUrl}/v1/images/${kind}`;
+}
+
+function sanitizePathSegment(value: unknown, fallback: string): string {
+  const text = String(value ?? "")
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return text || fallback;
+}
+
+function parseImageDataUrl(value: string): { mimeType: string; buffer: Buffer } | null {
+  const match = String(value ?? "").match(/^data:([^;,]+);base64,(.+)$/i);
+  if (!match) return null;
+  const mimeType = String(match[1] ?? "image/png").trim().toLowerCase() || "image/png";
+  const body = String(match[2] ?? "").trim();
+  if (!body) return null;
+  return { mimeType, buffer: Buffer.from(body, "base64") };
+}
+
+function dataUrlToBlob(value: string): { blob: Blob; mimeType: string } | null {
+  const parsed = parseImageDataUrl(value);
+  if (!parsed) return null;
+  return {
+    blob: new Blob([new Uint8Array(parsed.buffer)], { type: parsed.mimeType }),
+    mimeType: parsed.mimeType,
+  };
+}
+
+function imageBufferToDataUrl(buffer: Buffer, mimeType: string): string {
+  return `data:${mimeType || "image/png"};base64,${buffer.toString("base64")}`;
+}
+
+async function readImageFileAsDataUrl(filePath: string): Promise<string> {
+  const ext = extname(filePath).toLowerCase();
+  const directMime = IMAGE_MIME_BY_EXT[ext];
+  if (directMime) {
+    const buffer = await readFile(filePath);
+    return imageBufferToDataUrl(buffer, directMime);
+  }
+  const image = nativeImage.createFromPath(filePath);
+  if (image.isEmpty()) throw new Error("app:readImageFileDataUrl failed to load image");
+  return image.toDataURL();
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function readErrorBody(response: Response): Promise<string> {
+  try {
+    const text = await response.text();
+    return text.length > 1200 ? `${text.slice(0, 1200)}...` : text;
+  } catch {
+    return "";
+  }
+}
+
+function extractGeneratedImages(value: unknown): Array<{
+  buffer?: Buffer;
+  url?: string;
+  mimeType?: string;
+  revisedPrompt: string | null;
+}> {
+  const record = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, any>) : {};
+  const data = Array.isArray(record.data) ? record.data : [];
+  const items = data.length > 0 ? data : Array.isArray(record.images) ? record.images : [];
+  const out: Array<{ buffer?: Buffer; url?: string; mimeType?: string; revisedPrompt: string | null }> = [];
+  for (const itemValue of items) {
+    const item =
+      itemValue && typeof itemValue === "object" && !Array.isArray(itemValue)
+        ? (itemValue as Record<string, any>)
+        : {};
+    const revisedPrompt = toNullableText(item.revised_prompt ?? item.revisedPrompt);
+    const rawBase64 = toNullableText(item.b64_json ?? item.base64 ?? item.image_base64);
+    if (rawBase64) {
+      if (/^https?:\/\//i.test(rawBase64)) {
+        out.push({ url: rawBase64, mimeType: toNullableText(item.mime_type) ?? undefined, revisedPrompt });
+        continue;
+      }
+      const parsedDataUrl = parseImageDataUrl(rawBase64);
+      if (parsedDataUrl) {
+        out.push({ buffer: parsedDataUrl.buffer, mimeType: parsedDataUrl.mimeType, revisedPrompt });
+      } else {
+        out.push({
+          buffer: Buffer.from(rawBase64, "base64"),
+          mimeType: toNullableText(item.mime_type) ?? undefined,
+          revisedPrompt,
+        });
+      }
+      continue;
+    }
+    const url = toNullableText(item.url ?? item.image_url ?? item.output_url ?? item.image);
+    if (url) out.push({ url, mimeType: toNullableText(item.mime_type) ?? undefined, revisedPrompt });
+  }
+  return out;
+}
+
+async function generateImagesWithSettings(
+  localSettingsService: LocalSettingsService,
+  imageGenerationHistoryService: ImageGenerationHistoryService,
+  args: ImageGenerationGenerateArgs
+) {
+  const prompt = toNullableText(args?.prompt);
+  if (!prompt) throw new Error("图片生成提示词不能为空。");
+
+  const { settings } = await localSettingsService.read();
+  const imageSettings = settings.imageGeneration;
+  if (!imageSettings.enabled) throw new Error("图片生成功能未启用，请先在设置中开启。");
+  if (!imageSettings.baseUrl) throw new Error("图片生成服务地址未配置。");
+  if (!imageSettings.apiKey) throw new Error("图片生成 API Key 未配置。");
+
+  const timeoutMs = toIntegerInRange(imageSettings.timeoutMs, 120_000, 10_000, 600_000);
+  const requestedMode = args?.mode === "edit" ? "edit" : "generate";
+  const inputImages = Array.isArray(args?.inputImages)
+    ? args.inputImages
+        .map((item) => ({
+          dataUrl: toNullableText(item?.dataUrl),
+          name: toNullableText(item?.name),
+        }))
+        .filter((item): item is { dataUrl: string; name: string | null } => Boolean(item.dataUrl))
+    : [];
+  const mode = requestedMode === "edit" && inputImages.length > 0 ? "edit" : "generate";
+  const endpoint = normalizeImageEndpoint(imageSettings.baseUrl, mode === "edit" ? "edits" : "generations");
+  const outputFormat = normalizeImageOutputFormat(args?.outputFormat, imageSettings.outputFormat);
+  const n = Math.min(
+    toIntegerInRange(args?.n, 1, 1, 4),
+    toIntegerInRange(imageSettings.maxImages, 1, 1, 4)
+  );
+  const size = toNullableText(args?.size) ?? imageSettings.defaultSize;
+  const quality = toNullableText(args?.quality) ?? imageSettings.defaultQuality;
+  const model = toNullableText(imageSettings.model) || "gpt-image-2";
+  const background = normalizeImageBackground(args?.background, imageSettings.defaultBackground);
+  const moderation = normalizeImageModeration(args?.moderation, imageSettings.defaultModeration);
+  const outputCompression = normalizeImageOutputCompression(args?.outputCompression, imageSettings.outputCompression);
+  const requestBody =
+    mode === "edit"
+      ? (() => {
+          const form = new FormData();
+          form.append("model", model);
+          form.append("prompt", prompt);
+          form.append("n", String(n));
+          form.append("size", size);
+          form.append("quality", quality);
+          if (outputFormat) form.append("output_format", outputFormat);
+          if (background) form.append("background", background);
+          if ((outputFormat === "jpeg" || outputFormat === "webp") && Number.isFinite(outputCompression)) {
+            form.append("output_compression", String(outputCompression));
+          }
+          for (let index = 0; index < inputImages.length; index += 1) {
+            const image = inputImages[index];
+            const parsed = dataUrlToBlob(image.dataUrl);
+            if (!parsed) throw new Error(`图片输入无效：第 ${index + 1} 张不是有效的 data URL。`);
+            const name = image.name || `image-${index + 1}${imageExtFromMime(parsed.mimeType, outputFormat)}`;
+            form.append("image[]", parsed.blob, name);
+          }
+          const maskDataUrl = toNullableText(args?.maskDataUrl);
+          if (maskDataUrl) {
+            const parsedMask = dataUrlToBlob(maskDataUrl);
+            if (!parsedMask) throw new Error("图片蒙版无效：不是有效的 data URL。");
+            form.append("mask", parsedMask.blob, `mask${imageExtFromMime(parsedMask.mimeType, outputFormat)}`);
+          }
+          return form;
+        })()
+      : JSON.stringify({
+          model,
+          prompt,
+          n,
+          size,
+          quality,
+          output_format: outputFormat,
+          background,
+          moderation,
+          output_compression: outputFormat === "jpeg" || outputFormat === "webp" ? outputCompression : undefined,
+        });
+
+  const response = await fetchWithTimeout(
+    endpoint,
+    {
+      method: "POST",
+      headers:
+        mode === "edit"
+          ? {
+              Authorization: `Bearer ${imageSettings.apiKey}`,
+            }
+          : {
+              Authorization: `Bearer ${imageSettings.apiKey}`,
+              "Content-Type": "application/json",
+            },
+      body: requestBody,
+    },
+    timeoutMs
+  );
+
+  if (!response.ok) {
+    const body = await readErrorBody(response);
+    throw new Error(`图片${mode === "edit" ? "编辑" : "生成"}失败：HTTP ${response.status}${body ? ` ${body}` : ""}`);
+  }
+
+  const json = (await response.json()) as unknown;
+  const images = extractGeneratedImages(json);
+  if (images.length === 0) throw new Error(`图片${mode === "edit" ? "编辑" : "生成"}响应中没有可用图片。`);
+
+  const threadSegment = sanitizePathSegment(args?.threadId, "app");
+  const callSegment = sanitizePathSegment(args?.callId, randomUUID());
+  const dir = join(app.getPath("userData"), "generated-images", threadSegment);
+  await mkdir(dir, { recursive: true });
+
+  const savedImages: ImageGenerationGeneratedImage[] = [];
+  for (let index = 0; index < images.length; index += 1) {
+    const image = images[index];
+    let buffer = image.buffer;
+    let mimeType = image.mimeType || "";
+    if (!buffer && image.url) {
+      const imageUrl = normalizeHttpUrl(image.url);
+      if (!imageUrl) throw new Error(`图片下载地址无效：${image.url}`);
+      const imageResponse = await fetchWithTimeout(imageUrl, { method: "GET" }, timeoutMs);
+      if (!imageResponse.ok) {
+        const body = await readErrorBody(imageResponse);
+        throw new Error(`图片下载失败：HTTP ${imageResponse.status}${body ? ` ${body}` : ""}`);
+      }
+      const contentType = imageResponse.headers.get("content-type") || "";
+      mimeType = mimeType || contentType.split(";")[0].trim();
+      buffer = Buffer.from(await imageResponse.arrayBuffer());
+    }
+    if (!buffer) continue;
+    const ext = imageExtFromMime(mimeType, outputFormat);
+    mimeType = mimeType || imageMimeFromExt(ext);
+    const fileName = `${Date.now()}-${callSegment}-${index + 1}${ext}`;
+    const filePath = join(dir, fileName);
+    await writeFile(filePath, buffer);
+    savedImages.push({
+      path: filePath,
+      dataUrl: imageBufferToDataUrl(buffer, mimeType),
+      mimeType,
+      revisedPrompt: image.revisedPrompt,
+    });
+  }
+
+  if (savedImages.length === 0) throw new Error(`图片${mode === "edit" ? "编辑" : "生成"}结果保存失败。`);
+  const historyItem = await imageGenerationHistoryService.create({
+    model,
+    prompt,
+    revisedPrompt: savedImages.find((image) => image.revisedPrompt)?.revisedPrompt ?? null,
+    mode,
+    size,
+    quality,
+    outputFormat,
+    background,
+    moderation,
+    outputCompression,
+    images: savedImages.map((image) => ({
+      path: image.path,
+      mimeType: image.mimeType,
+      revisedPrompt: image.revisedPrompt,
+    })),
+  });
+  return {
+    ok: true as const,
+    historyId: historyItem.id,
+    createdAt: historyItem.createdAt,
+    model,
+    prompt,
+    revisedPrompt: historyItem.revisedPrompt,
+    images: savedImages,
+  };
 }
 
 function focusMainWindow(win: BrowserWindow | null): void {
@@ -104,46 +494,6 @@ function getBackgroundRelativeDir(): string {
 
 function getBackgroundAbsoluteDir(): string {
   return join(app.getPath("userData"), getBackgroundRelativeDir());
-}
-
-function invokeWindowsVoiceTyping(): { ok: boolean; reason?: string; detail?: string } {
-  if (process.platform !== "win32") {
-    return { ok: false, reason: "unsupported-platform", detail: "Only available on Windows." };
-  }
-
-  const psScript = [
-    "$signature='[DllImport(\"user32.dll\", SetLastError=true)] public static extern void keybd_event(byte bVk, byte bScan, int dwFlags, int dwExtraInfo);'",
-    "Add-Type -MemberDefinition $signature -Name NativeKey -Namespace WinApi",
-    "$VK_LWIN=0x5B",
-    "$VK_H=0x48",
-    "$KEYUP=0x0002",
-    "[WinApi.NativeKey]::keybd_event($VK_LWIN,0,0,0)",
-    "Start-Sleep -Milliseconds 35",
-    "[WinApi.NativeKey]::keybd_event($VK_H,0,0,0)",
-    "Start-Sleep -Milliseconds 35",
-    "[WinApi.NativeKey]::keybd_event($VK_H,0,$KEYUP,0)",
-    "Start-Sleep -Milliseconds 35",
-    "[WinApi.NativeKey]::keybd_event($VK_LWIN,0,$KEYUP,0)",
-  ].join("; ");
-
-  const result = spawnSync(
-    "powershell.exe",
-    ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", psScript],
-    { encoding: "utf8", windowsHide: true, timeout: 5000 }
-  );
-
-  if (result.error) {
-    return { ok: false, reason: "spawn-failed", detail: String(result.error.message || result.error) };
-  }
-
-  if (typeof result.status === "number" && result.status !== 0) {
-    const stderr = String(result.stderr ?? "").trim();
-    const stdout = String(result.stdout ?? "").trim();
-    const detail = stderr || stdout || `powershell exited with status ${result.status}`;
-    return { ok: false, reason: "invoke-failed", detail };
-  }
-
-  return { ok: true };
 }
 
 const ALLOWED_NOTIFICATION_SOUND_EXTS = new Set<string>([".mp3", ".wav", ".ogg", ".m4a"]);
@@ -217,10 +567,18 @@ function resolveSoundPathOrThrow(musicDir: string, id: string): string {
 export function registerAppHandlers(deps: {
   getMainWindow: () => BrowserWindow | null;
   localSettingsService: LocalSettingsService;
+  codexProfileService: CodexProfileService;
+  codexSkillRootsService: CodexSkillRootsService;
+  imageGenerationHistoryService: ImageGenerationHistoryService;
   remoteSyncService: RemoteStateSyncService;
-  updateService: UpdateService;
 }) {
-  const { localSettingsService, remoteSyncService, updateService } = deps;
+  const {
+    localSettingsService,
+    codexProfileService,
+    codexSkillRootsService,
+    imageGenerationHistoryService,
+    remoteSyncService,
+  } = deps;
   const getWindowOrNull = (): BrowserWindow | null => {
     const win = deps.getMainWindow();
     if (!win || win.isDestroyed()) return null;
@@ -343,6 +701,55 @@ export function registerAppHandlers(deps: {
     return { path: localSettingsService.path, exists: true as const, settings };
   });
 
+  ipcMain.handle(IPC_APP_CHANNELS.appCodexProfilesRead, async () => {
+    const { exists, state } = await codexProfileService.read();
+    return { path: codexProfileService.path, exists, state };
+  });
+
+  ipcMain.handle(
+    IPC_APP_CHANNELS.appCodexProfilesUpsert,
+    async (_evt, args: { profile: CodexProviderProfileInput }) => {
+      const state = await codexProfileService.upsert(args?.profile ?? {});
+      return { path: codexProfileService.path, exists: true as const, state };
+    }
+  );
+
+  ipcMain.handle(IPC_APP_CHANNELS.appCodexProfilesDelete, async (_evt, args: { id: string }) => {
+    const state = await codexProfileService.delete(args?.id ?? "");
+    return { path: codexProfileService.path, exists: true as const, state };
+  });
+
+  ipcMain.handle(IPC_APP_CHANNELS.appCodexProfilesSetActive, async (_evt, args: { id: string | null }) => {
+    const state = await codexProfileService.setActive(args?.id ?? null);
+    return { path: codexProfileService.path, exists: true as const, state };
+  });
+
+  ipcMain.handle(IPC_APP_CHANNELS.appCodexAuthWriteApiKey, async (_evt, args: { apiKey: string }) => {
+    const apiKey = String(args?.apiKey ?? "").trim();
+    const authPath = join(homedir(), ".codex", "auth.json");
+    let existing: Record<string, unknown> = {};
+    try {
+      existing = tryParseObjectJson(await readFile(authPath, "utf8"));
+    } catch {}
+    const next = { ...existing, OPENAI_API_KEY: apiKey };
+    await mkdir(dirname(authPath), { recursive: true });
+    await writeFile(authPath, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+    return { ok: true as const, path: authPath };
+  });
+
+  ipcMain.handle(IPC_APP_CHANNELS.appCodexSkillRootsRead, async () => {
+    const { exists, state } = await codexSkillRootsService.read();
+    return { path: codexSkillRootsService.path, exists, state };
+  });
+
+  ipcMain.handle(
+    IPC_APP_CHANNELS.appCodexSkillRootsSetForWorkspace,
+    async (_evt, args: { workspacePath: string; roots: string[] }) => {
+      const state = await codexSkillRootsService.setRootsForWorkspace(args?.workspacePath ?? "", args?.roots ?? []);
+      return { path: codexSkillRootsService.path, exists: true as const, state };
+    }
+  );
+
   ipcMain.handle(IPC_APP_CHANNELS.appRemoteSyncGetState, async () => {
     return { state: remoteSyncService.getState() };
   });
@@ -439,9 +846,20 @@ export function registerAppHandlers(deps: {
   ipcMain.handle(IPC_APP_CHANNELS.appReadImageFileDataUrl, async (_evt, args: { path: string }) => {
     const filePath = resolveLocalFilePath(args?.path ?? "");
     if (!filePath) throw new Error("app:readImageFileDataUrl requires path");
-    const image = nativeImage.createFromPath(filePath);
-    if (image.isEmpty()) throw new Error("app:readImageFileDataUrl failed to load image");
-    return { ok: true, dataUrl: image.toDataURL() };
+    return { ok: true, dataUrl: await readImageFileAsDataUrl(filePath) };
+  });
+
+  ipcMain.handle(IPC_APP_CHANNELS.appImageGenerationGenerate, async (_evt, args: ImageGenerationGenerateArgs) => {
+    return generateImagesWithSettings(localSettingsService, imageGenerationHistoryService, args);
+  });
+
+  ipcMain.handle(IPC_APP_CHANNELS.appImageGenerationHistoryList, async () => {
+    return { items: await imageGenerationHistoryService.list() };
+  });
+
+  ipcMain.handle(IPC_APP_CHANNELS.appImageGenerationHistoryDelete, async (_evt, args: { id: string }) => {
+    const result = await imageGenerationHistoryService.delete(args?.id);
+    return { ok: true as const, ...result };
   });
 
   ipcMain.handle(IPC_APP_CHANNELS.appImportBackgroundImage, async () => {
@@ -491,31 +909,6 @@ export function registerAppHandlers(deps: {
 
   ipcMain.handle(IPC_APP_CHANNELS.appClearBackgroundImage, async () => {
     await rm(getBackgroundAbsoluteDir(), { recursive: true, force: true });
-    return { ok: true as const };
-  });
-
-  ipcMain.handle(IPC_APP_CHANNELS.appInvokeWindowsVoiceTyping, async () => {
-    return invokeWindowsVoiceTyping();
-  });
-
-  ipcMain.handle(IPC_APP_CHANNELS.appUpdateGetState, async () => {
-    return { state: updateService.getState() };
-  });
-
-  ipcMain.handle(IPC_APP_CHANNELS.appUpdateCheck, async () => {
-    await updateService.checkForUpdates();
-    return { ok: true as const };
-  });
-
-  ipcMain.handle(IPC_APP_CHANNELS.appUpdateDownload, async () => {
-    await updateService.downloadUpdate();
-    return { ok: true as const };
-  });
-
-  ipcMain.handle(IPC_APP_CHANNELS.appUpdateRestartToInstall, async () => {
-    updateService.requestRestartToInstall();
-    const win = getWindowOrNull();
-    if (win) win.close();
     return { ok: true as const };
   });
 

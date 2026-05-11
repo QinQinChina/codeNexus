@@ -246,11 +246,6 @@
   box-shadow: none;
 }
 
-.timeline-pane--chat .is-loading-shimmer {
-  --ui-shimmer-highlight: rgb(from var(--accent) r g b / 0.22);
-  color: var(--fg-accent);
-}
-
 .timeline-pane--chat .chat-system-line.chat-system-line--error {
   border-color: color-mix(in srgb, var(--border-danger) 90%, var(--border) 10%);
   background: color-mix(in srgb, var(--bg-danger-soft) 82%, var(--surface-1) 18%);
@@ -307,11 +302,6 @@
   border-color: transparent;
   background: transparent;
   box-shadow: none;
-}
-
-:root[data-theme="light"] .timeline-pane--chat .is-loading-shimmer {
-  --ui-shimmer-highlight: rgb(from var(--accent) r g b / 0.14);
-  color: var(--fg-accent);
 }
 
 :root[data-theme="light"] .timeline-pane--chat .chat-system-line.chat-system-line--error {

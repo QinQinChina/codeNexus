@@ -75,6 +75,40 @@
               </div>
 
               <div v-if="activeTab === 'skills'">
+                <section class="integrations-config-section">
+                  <div class="integrations-section-head">
+                    <div>
+                      <div class="integrations-mcp-section-title">本地 Skills Roots</div>
+                      <div class="integrations-section-subtitle dim">仅对当前工作区追加扫描目录。</div>
+                    </div>
+                    <button class="btn-mini" type="button" :disabled="!canMutateSkillRoots" @click="onPickSkillRoot">
+                      选择目录
+                    </button>
+                  </div>
+                  <div class="integrations-root-add">
+                    <input
+                      v-model="skillRootInput"
+                      class="context-input mono"
+                      type="text"
+                      placeholder="D:\path\to\skills"
+                      :disabled="!canMutateSkillRoots"
+                      @keydown.enter.prevent="onAddSkillRoot"
+                    />
+                    <button class="btn-mini" type="button" :disabled="!canAddSkillRoot" @click="onAddSkillRoot">
+                      添加
+                    </button>
+                  </div>
+                  <div v-if="currentSkillRoots.length > 0" class="integrations-root-list">
+                    <div v-for="root in currentSkillRoots" :key="root" class="integrations-root-row">
+                      <span class="mono" :title="root">{{ root }}</span>
+                      <button class="btn-mini" type="button" :disabled="codexSkillRootsStore.saving" @click="onRemoveSkillRoot(root)">
+                        移除
+                      </button>
+                    </div>
+                  </div>
+                  <div v-else class="integrations-section-subtitle dim">当前工作区未配置额外 Skills 目录。</div>
+                </section>
+
                 <SkillsList
                   :items="skillsStore.items"
                   :pendingPath="skillPendingPath"
@@ -87,6 +121,109 @@
 
               <div v-else>
                 <div class="integrations-mcp-tab">
+                  <section class="integrations-config-section">
+                    <div class="integrations-section-head">
+                      <div>
+                        <div class="integrations-mcp-section-title">MCP JSON 导入</div>
+                        <div class="integrations-section-subtitle dim">
+                          支持 <span class="mono">{"mcpServers": {...}}</span> 或单个 server JSON。
+                        </div>
+                      </div>
+                      <button class="btn-mini" type="button" :disabled="!canWriteMcpConfig" @click="onImportMcpJson">
+                        导入
+                      </button>
+                    </div>
+                    <textarea
+                      v-model="mcpJsonText"
+                      class="context-input integrations-json-textarea mono"
+                      placeholder='{"mcpServers":{"filesystem":{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","."]}}}'
+                      :disabled="!canWriteMcpConfig"
+                    ></textarea>
+                    <div v-if="mcpJsonResultText" class="integrations-section-subtitle mono" :class="{ 'is-error': mcpJsonResultIsError }">
+                      {{ mcpJsonResultText }}
+                    </div>
+                  </section>
+
+                  <section class="integrations-config-section">
+                    <div class="integrations-section-head">
+                      <div>
+                        <div class="integrations-mcp-section-title">MCP 手动配置</div>
+                        <div class="integrations-section-subtitle dim">保存后写入 Codex 配置并重载 MCP。</div>
+                      </div>
+                      <button class="btn-mini" type="button" @click="resetMcpForm">清空</button>
+                    </div>
+                    <div class="integrations-mcp-form">
+                      <label class="global-row">
+                        <span class="context-label">ID</span>
+                        <input v-model="mcpForm.id" class="context-input mono" type="text" placeholder="filesystem" />
+                      </label>
+                      <label class="global-row">
+                        <span class="context-label">传输</span>
+                        <select v-model="mcpForm.type" class="context-input mono">
+                          <option value="stdio">stdio</option>
+                          <option value="http">http</option>
+                          <option value="sse">sse</option>
+                        </select>
+                      </label>
+                      <label v-if="mcpForm.type === 'stdio'" class="global-row">
+                        <span class="context-label">Command</span>
+                        <input v-model="mcpForm.command" class="context-input mono" type="text" placeholder="npx" />
+                      </label>
+                      <label v-if="mcpForm.type === 'stdio'" class="global-row">
+                        <span class="context-label">Args</span>
+                        <textarea
+                          v-model="mcpForm.args"
+                          class="context-input integrations-small-textarea mono"
+                          placeholder='["-y","@modelcontextprotocol/server-filesystem","."]'
+                        ></textarea>
+                      </label>
+                      <label v-if="mcpForm.type === 'stdio'" class="global-row">
+                        <span class="context-label">Env</span>
+                        <textarea
+                          v-model="mcpForm.env"
+                          class="context-input integrations-small-textarea mono"
+                          placeholder='{"TOKEN":"..."}'
+                        ></textarea>
+                      </label>
+                      <label v-if="mcpForm.type === 'stdio'" class="global-row">
+                        <span class="context-label">CWD</span>
+                        <input v-model="mcpForm.cwd" class="context-input mono" type="text" placeholder="留空使用默认目录" />
+                      </label>
+                      <label v-if="mcpForm.type !== 'stdio'" class="global-row">
+                        <span class="context-label">URL</span>
+                        <input v-model="mcpForm.url" class="context-input mono" type="url" placeholder="https://..." />
+                      </label>
+                      <label v-if="mcpForm.type !== 'stdio'" class="global-row">
+                        <span class="context-label">Headers</span>
+                        <textarea
+                          v-model="mcpForm.headers"
+                          class="context-input integrations-small-textarea mono"
+                          placeholder='{"Authorization":"Bearer ..."}'
+                        ></textarea>
+                      </label>
+                      <label class="global-row global-row-checkbox">
+                        <span class="context-label">启用</span>
+                        <span class="integrations-checkbox-line">
+                          <input v-model="mcpForm.enabled" type="checkbox" />
+                        </span>
+                      </label>
+                    </div>
+                    <div v-if="mcpFormError" class="global-field-error">{{ mcpFormError }}</div>
+                    <div class="integrations-form-actions">
+                      <button class="btn-mini" type="button" :disabled="!canWriteMcpConfig || mcpFormPending" @click="onSaveMcpForm">
+                        保存 MCP
+                      </button>
+                      <button
+                        class="btn-mini danger"
+                        type="button"
+                        :disabled="!canWriteMcpConfig || mcpFormPending || !mcpForm.id"
+                        @click="onDeleteMcpForm"
+                      >
+                        删除 MCP
+                      </button>
+                    </div>
+                  </section>
+
                   <section class="integrations-mcp-resource">
                     <div class="integrations-mcp-section-title">资源查看</div>
                     <McpResourcePanel />
@@ -155,6 +292,9 @@
                           {{ server.message }}
                         </div>
                         <div class="mcp-actions">
+                          <button type="button" class="btn-mini" @click.prevent.stop="onEditMcpServer(server)">
+                            编辑
+                          </button>
                           <button type="button" class="btn-mini" @click.prevent.stop="onOpenMcpResources(server.id)">
                             查看资源
                           </button>
@@ -165,6 +305,9 @@
                             @click.prevent.stop="onMcpOAuth(server.id)"
                           >
                             OAuth 登录
+                          </button>
+                          <button type="button" class="btn-mini danger" @click.prevent.stop="onDeleteMcpServer(server.id)">
+                            删除
                           </button>
                         </div>
                       </div>
@@ -181,7 +324,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
+import { codexDesktop } from "../../api/codexDesktopClient";
 import McpResourcePanel from "../mcp/McpResourcePanel.vue";
 import DetailDisclosure from "../ui/DetailDisclosure.vue";
 import SkillsList from "./SkillsList.vue";
@@ -192,7 +336,13 @@ import { useSkillsStore } from "../../stores/skills.store";
 import { useSkillsUiStore } from "../../stores/skillsUi.store";
 import { useMcpStore } from "../../stores/mcp.store";
 import { useMcpResourceStore } from "../../stores/mcpResource.store";
+import { useCodexSkillRootsStore } from "../../stores/codexSkillRoots.store";
 import type { McpServerState, SkillState } from "../../domain/types";
+import {
+  normalizeCodexMcpServerId,
+  type CodexMcpServerConfig,
+  type CodexMcpTransport,
+} from "../../../shared/codexMcp";
 
 const runtime = getRuntimeOrchestrator();
 const runtimeStore = useRuntimeStore();
@@ -201,6 +351,7 @@ const skillsStore = useSkillsStore();
 const skillsUiStore = useSkillsUiStore();
 const mcpStore = useMcpStore();
 const mcpResourceStore = useMcpResourceStore();
+const codexSkillRootsStore = useCodexSkillRootsStore();
 
 const props = defineProps<{ mode?: "drawer" | "settings" }>();
 const isSettings = computed(() => props.mode === "settings");
@@ -287,6 +438,31 @@ const skillsStateText = computed(() => {
   return "";
 });
 
+const skillRootInput = ref("");
+const currentSkillRoots = computed(() => codexSkillRootsStore.rootsForWorkspace(runtimeStore.workspacePath));
+const canMutateSkillRoots = computed(
+  () => Boolean(String(runtimeStore.workspacePath ?? "").trim()) && !codexSkillRootsStore.saving
+);
+const canAddSkillRoot = computed(() => canMutateSkillRoots.value && Boolean(skillRootInput.value.trim()));
+
+const onAddSkillRoot = async () => {
+  const root = skillRootInput.value.trim();
+  if (!root) return;
+  await runtime.addSkillRoot(root);
+  skillRootInput.value = "";
+};
+
+const onPickSkillRoot = async () => {
+  if (!canMutateSkillRoots.value) return;
+  const root = await codexDesktop.workspace.select();
+  if (!root) return;
+  await runtime.addSkillRoot(root);
+};
+
+const onRemoveSkillRoot = (root: string) => {
+  void runtime.removeSkillRoot(root);
+};
+
 const onRefreshSkills = () => {
   void runtime.refreshSkills(true);
 };
@@ -309,16 +485,187 @@ const onSkillToggleRequest = ({ skill, enabled }: { skill: SkillState; enabled: 
 
 const canRefreshMcp = computed(() => Boolean(runtimeStore.serverId) && mcpStore.loadState !== "loading");
 const canReloadMcp = computed(() => Boolean(runtimeStore.serverId) && mcpStore.loadState !== "loading");
+const canWriteMcpConfig = computed(() => Boolean(runtimeStore.serverId) && !mcpFormPending.value);
 const mcpStateText = computed(() => {
   if (!runtimeStore.serverId) return "未连接服务";
   if (mcpStore.loadState === "loading") return "加载中…";
   if (mcpStore.loadState === "error") return mcpStore.errorText ? `加载失败：${mcpStore.errorText}` : "加载失败";
-  if (mcpStore.servers.length === 0) return "暂无 MCP 配置（config.toml 中未配置 mcp_servers）";
+  if (mcpStore.servers.length === 0) return "暂无 MCP 配置";
   return "";
 });
 
 const mcpPendingId = ref("");
 const mcpOauthPendingId = ref("");
+const mcpFormPending = ref(false);
+const mcpFormError = ref("");
+const mcpJsonText = ref("");
+const mcpJsonResultText = ref("");
+const mcpJsonResultIsError = ref(false);
+const mcpForm = reactive({
+  id: "",
+  enabled: true,
+  type: "stdio" as CodexMcpTransport,
+  command: "",
+  args: "",
+  env: "",
+  cwd: "",
+  url: "",
+  headers: "",
+});
+
+const toText = (value: unknown): string => String(value ?? "").trim();
+
+const parseStringArrayField = (text: string, label: string): string[] => {
+  const raw = String(text ?? "").trim();
+  if (!raw) return [];
+  if (raw.startsWith("[")) {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) throw new Error(`${label} 必须是 JSON 数组`);
+    return parsed.map((item) => String(item ?? "")).filter(Boolean);
+  }
+  return raw
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
+const parseStringRecordField = (text: string, label: string): Record<string, string> | undefined => {
+  const raw = String(text ?? "").trim();
+  if (!raw) return undefined;
+  if (raw.startsWith("{")) {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error(`${label} 必须是 JSON 对象`);
+    const out: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      const normalizedKey = String(key ?? "").trim();
+      if (!normalizedKey) continue;
+      out[normalizedKey] = String(value ?? "");
+    }
+    return Object.keys(out).length > 0 ? out : undefined;
+  }
+  const out: Record<string, string> = {};
+  for (const line of raw.split(/\r?\n/)) {
+    const idx = line.indexOf("=");
+    if (idx <= 0) continue;
+    const key = line.slice(0, idx).trim();
+    if (!key) continue;
+    out[key] = line.slice(idx + 1).trim();
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+};
+
+const stringifyRecord = (value: Record<string, string> | undefined): string => {
+  if (!value || Object.keys(value).length === 0) return "";
+  return JSON.stringify(value, null, 2);
+};
+
+const resetMcpForm = () => {
+  mcpForm.id = "";
+  mcpForm.enabled = true;
+  mcpForm.type = "stdio";
+  mcpForm.command = "";
+  mcpForm.args = "";
+  mcpForm.env = "";
+  mcpForm.cwd = "";
+  mcpForm.url = "";
+  mcpForm.headers = "";
+  mcpFormError.value = "";
+};
+
+const buildMcpFormConfig = (): CodexMcpServerConfig => {
+  const id = normalizeCodexMcpServerId(mcpForm.id);
+  const type = mcpForm.type === "http" || mcpForm.type === "sse" ? mcpForm.type : "stdio";
+  const server =
+    type === "stdio"
+      ? {
+          type,
+          command: toText(mcpForm.command),
+          args: parseStringArrayField(mcpForm.args, "Args"),
+          env: parseStringRecordField(mcpForm.env, "Env"),
+          cwd: toText(mcpForm.cwd) || undefined,
+        }
+      : {
+          type,
+          url: toText(mcpForm.url),
+          headers: parseStringRecordField(mcpForm.headers, "Headers"),
+        };
+  return {
+    id,
+    enabled: Boolean(mcpForm.enabled),
+    server,
+  };
+};
+
+const onEditMcpServer = (server: McpServerState) => {
+  mcpForm.id = server.id;
+  mcpForm.enabled = server.enabled;
+  mcpForm.type = server.type ?? (server.url ? "http" : "stdio");
+  mcpForm.command = server.command ?? "";
+  mcpForm.args = server.args && server.args.length > 0 ? JSON.stringify(server.args, null, 2) : "";
+  mcpForm.env = stringifyRecord(server.env);
+  mcpForm.cwd = server.cwd ?? "";
+  mcpForm.url = server.url ?? "";
+  mcpForm.headers = stringifyRecord(server.headers);
+  mcpFormError.value = "";
+};
+
+const onSaveMcpForm = async () => {
+  mcpFormPending.value = true;
+  mcpFormError.value = "";
+  try {
+    await runtime.upsertMcpServer(buildMcpFormConfig());
+  } catch (error: any) {
+    mcpFormError.value = String(error?.message ?? error ?? "保存失败");
+  } finally {
+    mcpFormPending.value = false;
+  }
+};
+
+const onDeleteMcpForm = async () => {
+  const id = normalizeCodexMcpServerId(mcpForm.id);
+  if (!id) return;
+  await onDeleteMcpServer(id);
+};
+
+const onDeleteMcpServer = async (serverId: string) => {
+  const id = normalizeCodexMcpServerId(serverId);
+  if (!id) return;
+  if (!window.confirm(`删除 MCP「${id}」？`)) return;
+  mcpFormPending.value = true;
+  mcpFormError.value = "";
+  try {
+    await runtime.deleteMcpServer(id);
+    if (normalizeCodexMcpServerId(mcpForm.id) === id) resetMcpForm();
+  } catch (error: any) {
+    mcpFormError.value = String(error?.message ?? error ?? "删除失败");
+  } finally {
+    mcpFormPending.value = false;
+  }
+};
+
+const onImportMcpJson = async () => {
+  mcpJsonResultText.value = "";
+  mcpJsonResultIsError.value = false;
+  const text = mcpJsonText.value.trim();
+  if (!text) {
+    mcpJsonResultText.value = "请输入 JSON。";
+    mcpJsonResultIsError.value = true;
+    return;
+  }
+  mcpFormPending.value = true;
+  try {
+    const res = await runtime.importMcpServersFromJson(text);
+    mcpJsonResultIsError.value = res.imported === 0 || res.errors.length > 0;
+    mcpJsonResultText.value =
+      res.errors.length > 0 ? `已导入 ${res.imported} 个；错误：${res.errors.join("；")}` : `已导入 ${res.imported} 个 MCP。`;
+    if (res.imported > 0) mcpJsonText.value = "";
+  } catch (error: any) {
+    mcpJsonResultIsError.value = true;
+    mcpJsonResultText.value = String(error?.message ?? error ?? "导入失败");
+  } finally {
+    mcpFormPending.value = false;
+  }
+};
 
 const onToggleMcp = async (serverId: string, enabled: boolean) => {
   if (!serverId || mcpPendingId.value === serverId) return;
@@ -419,6 +766,7 @@ watch(
 );
 
 onMounted(() => {
+  if (codexSkillRootsStore.loadState === "idle") void codexSkillRootsStore.refresh();
   if (runtimeStore.serverId) {
     void runtime.refreshMcp();
     void runtime.refreshSkills(false);
@@ -524,9 +872,102 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 
-.integrations-mcp-resource {
+.integrations-config-section {
   display: grid;
   gap: 10px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 68%, transparent);
+  background: color-mix(in srgb, var(--surface-1) 76%, transparent);
+}
+
+.integrations-section-head {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.integrations-section-subtitle {
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.integrations-section-subtitle.is-error {
+  color: var(--fg-danger, var(--danger));
+}
+
+.integrations-root-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.integrations-root-list {
+  display: grid;
+  gap: 6px;
+}
+
+.integrations-root-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface-2) 52%, transparent);
+}
+
+.integrations-root-row > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.integrations-json-textarea,
+.integrations-small-textarea {
+  min-height: 88px;
+  height: auto;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  resize: vertical;
+  line-height: 1.4;
+}
+
+.integrations-small-textarea {
+  min-height: 62px;
+}
+
+.integrations-mcp-form {
+  display: grid;
+  gap: 9px;
+}
+
+.integrations-checkbox-line {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.integrations-form-actions,
+.integrations-mcp-resource {
+  display: grid;
+}
+
+.integrations-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.integrations-mcp-resource {
   padding: 12px;
   border-radius: 14px;
   border: 1px solid color-mix(in srgb, var(--border) 68%, transparent);
@@ -631,5 +1072,11 @@ onBeforeUnmount(() => {
 .mcp-message.is-error {
   border-color: color-mix(in srgb, var(--danger) 32%, var(--border));
   background: color-mix(in srgb, var(--bg-danger-soft) 42%, var(--surface-1));
+}
+
+.btn-mini.danger {
+  border-color: var(--border-danger);
+  color: var(--fg-danger);
+  background: var(--bg-danger-soft);
 }
 </style>

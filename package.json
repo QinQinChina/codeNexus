@@ -13,7 +13,7 @@
     "format": "pnpm exec prettier --ignore-path .prettierignore --write .",
     "format:check": "pnpm exec prettier --ignore-path .prettierignore --check .",
     "typecheck": "pnpm exec tsc --noEmit",
-    "codex:types": "npx -y @openai/codex@0.124.0 app-server generate-ts --experimental --out .\\\\tmp\\\\codex_0.124.0_generated",
+    "codex:types": "npx -y @openai/codex@0.130.0 app-server generate-ts --experimental --out .\\\\tmp\\\\codex_0.130.0_generated",
     "dist": "pnpm run build && pnpm exec electron-builder --config electron-builder.yml",
     "upload:minio": "node scripts/upload-minio.mjs",
     "dist:minio": "pnpm run dist && pnpm run upload:minio"
@@ -29,7 +29,6 @@
     "@lezer/highlight": "^1.2.3",
     "codemirror": "^6.0.2",
     "dompurify": "^3.3.1",
-    "electron-updater": "^6.8.3",
     "html-to-image": "^1.11.13",
     "lucide-vue-next": "^0.574.0",
     "markdown-it": "^14.1.1",

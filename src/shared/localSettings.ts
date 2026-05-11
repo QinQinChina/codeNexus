@@ -17,13 +17,28 @@ export type LocalRemoteSyncSettings = {
   heartbeatIntervalSec: number;
 };
 
+export type LocalImageGenerationSettings = {
+  enabled: boolean;
+  baseUrl: string | null;
+  apiKey: string | null;
+  model: string;
+  defaultSize: string;
+  defaultQuality: string;
+  outputFormat: string;
+  defaultBackground: string;
+  defaultModeration: string;
+  outputCompression: number;
+  timeoutMs: number;
+  maxImages: number;
+};
+
 export type LocalThreadWorkspaceGroupsCollapsedState = Record<string, boolean>;
 export type LocalDynamicToolsSettings = {
   enabledByName: Record<BuiltinDynamicToolName, boolean>;
 };
 
 export type GlobalBackgroundFitMode = "cover" | "contain" | "tile";
-export type MainView = "chat";
+export type MainView = "chat" | "image";
 export type UiFontFamilyPreset = "alibaba-puhuiti" | "source-han-sans-sc";
 export type UiFontSizePreset = "small" | "medium" | "large";
 export type UiWorkspaceFileIconTheme = "lucide" | "vscode-icons";
@@ -58,6 +73,7 @@ export type UserLocalSettings = {
   };
   workspaceAppearance: LocalGlobalAppearanceState;
   remoteSync: LocalRemoteSyncSettings;
+  imageGeneration: LocalImageGenerationSettings;
   dynamicTools: LocalDynamicToolsSettings;
   developer: {
     debugLogEnabled: boolean;
@@ -103,6 +119,20 @@ export type UserLocalSettingsPatch = {
     desktopId: string | null;
     heartbeatIntervalSec: number | null;
   }>;
+  imageGeneration?: Partial<{
+    enabled: boolean;
+    baseUrl: string | null;
+    apiKey: string | null;
+    model: string | null;
+    defaultSize: string | null;
+    defaultQuality: string | null;
+    outputFormat: string | null;
+    defaultBackground: string | null;
+    defaultModeration: string | null;
+    outputCompression: number | null;
+    timeoutMs: number | null;
+    maxImages: number | null;
+  }>;
   dynamicTools?: Partial<{
     enabledByName: Partial<Record<BuiltinDynamicToolName, boolean>> | null;
   }>;
@@ -119,6 +149,21 @@ export const DEFAULT_GLOBAL_BACKGROUND_FIT_MODE: GlobalBackgroundFitMode = "cove
 export const DEFAULT_REMOTE_SYNC_HEARTBEAT_INTERVAL_SEC = 15;
 export const MIN_REMOTE_SYNC_HEARTBEAT_INTERVAL_SEC = 5;
 export const MAX_REMOTE_SYNC_HEARTBEAT_INTERVAL_SEC = 120;
+export const DEFAULT_IMAGE_GENERATION_MODEL = "gpt-image-2";
+export const DEFAULT_IMAGE_GENERATION_SIZE = "1024x1024";
+export const DEFAULT_IMAGE_GENERATION_QUALITY = "auto";
+export const DEFAULT_IMAGE_GENERATION_OUTPUT_FORMAT = "png";
+export const DEFAULT_IMAGE_GENERATION_BACKGROUND = "auto";
+export const DEFAULT_IMAGE_GENERATION_MODERATION = "auto";
+export const DEFAULT_IMAGE_GENERATION_OUTPUT_COMPRESSION = 100;
+export const MIN_IMAGE_GENERATION_OUTPUT_COMPRESSION = 0;
+export const MAX_IMAGE_GENERATION_OUTPUT_COMPRESSION = 100;
+export const DEFAULT_IMAGE_GENERATION_TIMEOUT_MS = 120_000;
+export const MIN_IMAGE_GENERATION_TIMEOUT_MS = 10_000;
+export const MAX_IMAGE_GENERATION_TIMEOUT_MS = 600_000;
+export const DEFAULT_IMAGE_GENERATION_MAX_IMAGES = 1;
+export const MIN_IMAGE_GENERATION_MAX_IMAGES = 1;
+export const MAX_IMAGE_GENERATION_MAX_IMAGES = 4;
 export const DEFAULT_UI_FONT_FAMILY_PRESET: UiFontFamilyPreset = "alibaba-puhuiti";
 export const DEFAULT_UI_FONT_SIZE_PRESET: UiFontSizePreset = "medium";
 export const DEFAULT_UI_WORKSPACE_FILE_ICON_THEME: UiWorkspaceFileIconTheme = "lucide";
@@ -129,7 +174,7 @@ const UI_FONT_SIZE_ZOOM_FACTORS: Record<UiFontSizePreset, number> = {
 };
 
 function buildDefaultDynamicToolsEnabledByName(): Record<BuiltinDynamicToolName, boolean> {
-  return {};
+  return { image_generate: true };
 }
 
 function normalizeUiFontFamilyPreset(value: unknown): UiFontFamilyPreset {
@@ -210,6 +255,20 @@ export const DEFAULT_USER_LOCAL_SETTINGS: UserLocalSettings = {
     desktopId: null,
     heartbeatIntervalSec: DEFAULT_REMOTE_SYNC_HEARTBEAT_INTERVAL_SEC,
   },
+  imageGeneration: {
+    enabled: false,
+    baseUrl: null,
+    apiKey: null,
+    model: DEFAULT_IMAGE_GENERATION_MODEL,
+    defaultSize: DEFAULT_IMAGE_GENERATION_SIZE,
+    defaultQuality: DEFAULT_IMAGE_GENERATION_QUALITY,
+    outputFormat: DEFAULT_IMAGE_GENERATION_OUTPUT_FORMAT,
+    defaultBackground: DEFAULT_IMAGE_GENERATION_BACKGROUND,
+    defaultModeration: DEFAULT_IMAGE_GENERATION_MODERATION,
+    outputCompression: DEFAULT_IMAGE_GENERATION_OUTPUT_COMPRESSION,
+    timeoutMs: DEFAULT_IMAGE_GENERATION_TIMEOUT_MS,
+    maxImages: DEFAULT_IMAGE_GENERATION_MAX_IMAGES,
+  },
   dynamicTools: {
     enabledByName: buildDefaultDynamicToolsEnabledByName(),
   },
@@ -249,7 +308,21 @@ function toIntegerInRange(value: unknown, fallback: number, min: number, max: nu
   return rounded;
 }
 
+function toNonEmptyString(value: unknown, fallback: string): string {
+  const text = String(value ?? "").trim();
+  return text || fallback;
+}
+
+function normalizeHttpBaseUrl(value: unknown, fallback: string | null): string | null {
+  const text = toNullableString(value, fallback);
+  if (!text) return null;
+  const normalized = text.replace(/\/+$/, "");
+  if (!/^https?:\/\//i.test(normalized)) return fallback;
+  return normalized;
+}
+
 function normalizeMainView(value: unknown, fallback: MainView): MainView {
+  if (value === "image") return "image";
   if (value === "chat") return "chat";
   return fallback;
 }
@@ -285,6 +358,48 @@ function normalizeRemoteSyncSettings(value: unknown): LocalRemoteSyncSettings {
       DEFAULT_USER_LOCAL_SETTINGS.remoteSync.heartbeatIntervalSec,
       MIN_REMOTE_SYNC_HEARTBEAT_INTERVAL_SEC,
       MAX_REMOTE_SYNC_HEARTBEAT_INTERVAL_SEC
+    ),
+  };
+}
+
+function normalizeImageGenerationSettings(value: unknown): LocalImageGenerationSettings {
+  const record = toRecord(value);
+  return {
+    enabled: toBoolean(record?.enabled, DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.enabled),
+    baseUrl: normalizeHttpBaseUrl(record?.baseUrl, DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.baseUrl),
+    apiKey: toNullableString(record?.apiKey, DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.apiKey),
+    model: toNonEmptyString(record?.model, DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.model),
+    defaultSize: toNonEmptyString(record?.defaultSize, DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.defaultSize),
+    defaultQuality: toNonEmptyString(
+      record?.defaultQuality,
+      DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.defaultQuality
+    ),
+    outputFormat: toNonEmptyString(record?.outputFormat, DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.outputFormat),
+    defaultBackground: toNonEmptyString(
+      record?.defaultBackground,
+      DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.defaultBackground
+    ),
+    defaultModeration: toNonEmptyString(
+      record?.defaultModeration,
+      DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.defaultModeration
+    ),
+    outputCompression: toIntegerInRange(
+      record?.outputCompression,
+      DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.outputCompression,
+      MIN_IMAGE_GENERATION_OUTPUT_COMPRESSION,
+      MAX_IMAGE_GENERATION_OUTPUT_COMPRESSION
+    ),
+    timeoutMs: toIntegerInRange(
+      record?.timeoutMs,
+      DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.timeoutMs,
+      MIN_IMAGE_GENERATION_TIMEOUT_MS,
+      MAX_IMAGE_GENERATION_TIMEOUT_MS
+    ),
+    maxImages: toIntegerInRange(
+      record?.maxImages,
+      DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.maxImages,
+      MIN_IMAGE_GENERATION_MAX_IMAGES,
+      MAX_IMAGE_GENERATION_MAX_IMAGES
     ),
   };
 }
@@ -333,6 +448,7 @@ export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
   const models = toRecord(root?.models);
   const globalAppearance = toRecord(root?.workspaceAppearance);
   const remoteSync = toRecord(root?.remoteSync);
+  const imageGeneration = toRecord(root?.imageGeneration);
   const dynamicTools = toRecord(root?.dynamicTools);
   const developer = toRecord(root?.developer);
   const inferredMainViewFallback: MainView = DEFAULT_USER_LOCAL_SETTINGS.ui.mainView;
@@ -387,6 +503,7 @@ export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
     },
     workspaceAppearance: normalizeGlobalAppearanceState(globalAppearance),
     remoteSync: normalizeRemoteSyncSettings(remoteSync),
+    imageGeneration: normalizeImageGenerationSettings(imageGeneration),
     dynamicTools: normalizeDynamicToolsSettings(dynamicTools),
     developer: {
       debugLogEnabled: toBoolean(developer?.debugLogEnabled, DEFAULT_USER_LOCAL_SETTINGS.developer.debugLogEnabled),
@@ -404,6 +521,7 @@ export function mergeUserLocalSettings(
   const patchModels = toRecord(patch?.models);
   const patchGlobalAppearance = toRecord(patch?.workspaceAppearance);
   const patchRemoteSync = toRecord(patch?.remoteSync);
+  const patchImageGeneration = toRecord(patch?.imageGeneration);
   const patchDynamicTools = toRecord(patch?.dynamicTools);
   const patchDeveloper = toRecord(patch?.developer);
 
@@ -499,6 +617,56 @@ export function mergeUserLocalSettings(
         patchRemoteSync && "heartbeatIntervalSec" in patchRemoteSync
           ? patchRemoteSync.heartbeatIntervalSec
           : current.remoteSync.heartbeatIntervalSec,
+    },
+    imageGeneration: {
+      enabled:
+        patchImageGeneration && "enabled" in patchImageGeneration
+          ? patchImageGeneration.enabled
+          : current.imageGeneration.enabled,
+      baseUrl:
+        patchImageGeneration && "baseUrl" in patchImageGeneration
+          ? patchImageGeneration.baseUrl
+          : current.imageGeneration.baseUrl,
+      apiKey:
+        patchImageGeneration && "apiKey" in patchImageGeneration
+          ? patchImageGeneration.apiKey
+          : current.imageGeneration.apiKey,
+      model:
+        patchImageGeneration && "model" in patchImageGeneration
+          ? patchImageGeneration.model
+          : current.imageGeneration.model,
+      defaultSize:
+        patchImageGeneration && "defaultSize" in patchImageGeneration
+          ? patchImageGeneration.defaultSize
+          : current.imageGeneration.defaultSize,
+      defaultQuality:
+        patchImageGeneration && "defaultQuality" in patchImageGeneration
+          ? patchImageGeneration.defaultQuality
+          : current.imageGeneration.defaultQuality,
+      outputFormat:
+        patchImageGeneration && "outputFormat" in patchImageGeneration
+          ? patchImageGeneration.outputFormat
+          : current.imageGeneration.outputFormat,
+      defaultBackground:
+        patchImageGeneration && "defaultBackground" in patchImageGeneration
+          ? patchImageGeneration.defaultBackground
+          : current.imageGeneration.defaultBackground,
+      defaultModeration:
+        patchImageGeneration && "defaultModeration" in patchImageGeneration
+          ? patchImageGeneration.defaultModeration
+          : current.imageGeneration.defaultModeration,
+      outputCompression:
+        patchImageGeneration && "outputCompression" in patchImageGeneration
+          ? patchImageGeneration.outputCompression
+          : current.imageGeneration.outputCompression,
+      timeoutMs:
+        patchImageGeneration && "timeoutMs" in patchImageGeneration
+          ? patchImageGeneration.timeoutMs
+          : current.imageGeneration.timeoutMs,
+      maxImages:
+        patchImageGeneration && "maxImages" in patchImageGeneration
+          ? patchImageGeneration.maxImages
+          : current.imageGeneration.maxImages,
     },
     dynamicTools: {
       enabledByName:

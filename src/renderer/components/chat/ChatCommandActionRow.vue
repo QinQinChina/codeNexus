@@ -8,9 +8,14 @@
       <span class="ui-leading-icon-slot" aria-hidden="true">
         <TerminalSquare class="chat-terminal-action-icon h-[14px] w-[14px] flex-none [stroke-width:2.4]" />
       </span>
-      <span class="chat-terminal-action-text" :class="{ 'is-loading-shimmer': item.item.status === 'running' }">{{
-        actionText
-      }}</span>
+      <WaveText
+        v-if="isRunning"
+        class="chat-terminal-action-text"
+        color="var(--accent)"
+        :text="actionText"
+        :cycle-max-chars="128"
+      />
+      <span v-else class="chat-terminal-action-text">{{ actionText }}</span>
       <button
         v-if="item.item.filesCount > 0"
         class="chat-terminal-action-toggle !ml-auto !inline-flex !h-[22px] !w-[22px] !items-center !justify-center !rounded-[4px] !border !border-[var(--ui-well-border)] !bg-[var(--ui-well-bg)] !p-0 !text-inherit !shadow-none opacity-80 transition-[opacity,border-color,background] duration-150 hover:opacity-100 hover:!border-[var(--ui-well-border-hover)] hover:!bg-[var(--ui-well-bg-strong)] focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-[var(--ui-well-focus-outline)] active:!translate-y-0"
@@ -52,6 +57,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { ChevronDown, TerminalSquare } from "lucide-vue-next";
+import WaveText from "../ui/WaveText.vue";
 import type { CommandActionNode } from "../../features/timeline/renderModel/buildTimelineNodes";
 import {
   commandActionNodeTitle,
@@ -74,6 +80,7 @@ const actionText = computed(() => {
   const detail = commandGroupItemActionDetailText(props.item.item);
   return detail ? `${main} · ${detail}` : main;
 });
+const isRunning = computed(() => props.item.item.status === "running");
 </script>
 
 <style scoped>

@@ -164,9 +164,13 @@ export type McpServerState = {
   id: string;
   enabled: boolean;
   state: "connected" | "connecting" | "error" | "disabled" | "unknown";
+  type?: "stdio" | "http" | "sse";
   url?: string;
   command?: string;
   args?: string[];
+  env?: Record<string, string>;
+  cwd?: string;
+  headers?: Record<string, string>;
   authenticated?: boolean;
   authStatus?: string;
   message?: string;

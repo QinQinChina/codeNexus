@@ -2,13 +2,19 @@
   <button
     id="btn-topbar-theme"
     class="topbar-theme-switch"
+    :class="{ 'is-dark': themeStore.theme === 'dark' }"
     type="button"
+    role="switch"
+    :aria-checked="themeStore.theme === 'dark'"
     :aria-label="themeAriaLabel"
     :title="themeAriaLabel"
     @click="onToggleTheme"
   >
-    <span class="topbar-theme-switch-glow" aria-hidden="true"></span>
-    <span class="topbar-theme-switch-orb" aria-hidden="true">
+    <span class="topbar-theme-switch-track" aria-hidden="true">
+      <Sun class="topbar-theme-switch-rail-icon topbar-theme-switch-rail-icon--sun" />
+      <Moon class="topbar-theme-switch-rail-icon topbar-theme-switch-rail-icon--moon" />
+    </span>
+    <span class="topbar-theme-switch-thumb" aria-hidden="true">
       <component :is="themeIcon" class="topbar-theme-switch-icon" />
     </span>
   </button>

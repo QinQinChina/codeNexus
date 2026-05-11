@@ -7,13 +7,15 @@ import { registerAllHandlers } from "./ipc/handlers";
 import { RuntimeThreadStateTracker } from "./runtimeThreadStateTracker";
 import { HistoryService } from "./services/HistoryService";
 import { CodexServerManager } from "./services/CodexServerManager";
+import { CodexProfileService } from "./services/CodexProfileService";
+import { CodexSkillRootsService } from "./services/CodexSkillRootsService";
+import { ImageGenerationHistoryService } from "./services/ImageGenerationHistoryService";
 import { LocalSettingsService } from "./services/LocalSettingsService";
 import { RemoteStateSyncService } from "./services/RemoteStateSyncService";
 import { CacheRegistryService } from "./services/CacheRegistryService";
 import { ThreadArtifactService } from "./services/ThreadArtifactService";
 import { ThreadTaskService } from "./services/ThreadTaskService";
 import { ThreadTitleOverrideService } from "./services/ThreadTitleOverrideService";
-import { UpdateService } from "./services/UpdateService";
 import { WorkspacePatchService } from "./services/WorkspacePatchService";
 import { createMainWindow } from "./windows/mainWindow";
 
@@ -33,11 +35,6 @@ let appCloseFlowStartedAt = 0;
 const codexServerManager = new CodexServerManager();
 const workspacePatchService = new WorkspacePatchService();
 const runtimeThreadStateTracker = new RuntimeThreadStateTracker();
-const updateService = new UpdateService({
-  onState: (payload) => {
-    sendToRenderer(IPC_APP_CHANNELS.appUpdateState, payload);
-  },
-});
 const cacheRegistryService = new CacheRegistryService();
 let remoteStateSyncService: RemoteStateSyncService | null = null;
 
@@ -119,10 +116,6 @@ async function runAppCloseFlow(win: BrowserWindow): Promise<void> {
     await wait(APP_CLOSE_FINALIZE_MS);
 
     allowMainWindowClose = true;
-    if (updateService.shouldQuitAndInstall()) {
-      const started = updateService.quitAndInstall();
-      if (started) return;
-    }
     if (!win.isDestroyed()) win.close();
   })()
     .catch((error) => {
@@ -143,7 +136,6 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   stopCodexServersForClose("before-quit");
-  updateService.dispose();
 });
 
 app
@@ -154,9 +146,16 @@ app
     }
 
     const historyCachePath = join(app.getPath("userData"), "thread-history-cache.json");
+    const generatedImagesDir = join(app.getPath("userData"), "generated-images");
     const historyStore = new HistoryStore(historyCachePath);
     const historyService = new HistoryService(historyStore);
     const localSettingsService = new LocalSettingsService(join(app.getPath("userData"), "user-settings.json"));
+    const codexProfileService = new CodexProfileService(join(app.getPath("userData"), "codex-profiles.json"));
+    const codexSkillRootsService = new CodexSkillRootsService(join(app.getPath("userData"), "codex-skill-roots.json"));
+    const imageGenerationHistoryService = new ImageGenerationHistoryService(
+      join(app.getPath("userData"), "image-generation-history.json"),
+      generatedImagesDir
+    );
     const threadTaskService = new ThreadTaskService(join(app.getPath("userData"), "thread-tasks.json"));
     const threadArtifactService = new ThreadArtifactService(join(app.getPath("userData"), "thread-artifacts.json"));
     const threadTitleOverrideService = new ThreadTitleOverrideService(
@@ -241,12 +240,12 @@ app
       getThreadRunningState: (threadId: string) => runtimeThreadStateTracker.getThreadRunningState(threadId),
       workspacePatchService,
       localSettingsService,
+      codexProfileService,
+      codexSkillRootsService,
+      imageGenerationHistoryService,
       remoteSyncService: remoteStateSyncService,
       cacheRegistryService,
-      updateService,
     });
-
-    updateService.init();
 
     mainWindow = await createMainWindow({
       isDev,
@@ -263,7 +262,6 @@ app
       if (remoteStateSyncService) {
         sendToRenderer(IPC_APP_CHANNELS.appRemoteSyncState, { state: remoteStateSyncService.getState() });
       }
-      updateService.scheduleInitialCheck();
     });
 
     mainWindow.on("close", (event) => {

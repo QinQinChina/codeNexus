@@ -3,6 +3,8 @@
     <div class="bottom-bar__left"></div>
 
     <div class="bottom-bar__right">
+      <TopBarCodexProfileSwitch class="bottom-bar__profile-switch" />
+
       <div class="bottom-bar__conn mono" :class="connectionStateClass" :title="connectionTitleText">
         <span class="bottom-bar__conn-icon" aria-hidden="true">
           <span class="bottom-bar__conn-dot"></span>
@@ -19,6 +21,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import TopBarCodexProfileSwitch from "./topbar/TopBarCodexProfileSwitch.vue";
 import { useAppShellStore } from "../../stores/appShell.store";
 
 const appShellStore = useAppShellStore();
@@ -101,6 +104,35 @@ onBeforeUnmount(() => {
 
 .bottom-bar__right {
   justify-content: flex-end;
+}
+
+.bottom-bar .bottom-bar__profile-switch {
+  flex: 0 1 auto;
+  width: min(360px, 34vw);
+  max-width: min(360px, 34vw);
+  height: 26px;
+  margin-left: 8px;
+  margin-right: 4px;
+  padding-top: 1px;
+  padding-bottom: 1px;
+  border-color: color-mix(in srgb, var(--panel-border, var(--border)) 72%, transparent);
+  background: color-mix(in srgb, var(--panel-bg, var(--surface-1)) 88%, transparent);
+}
+
+.bottom-bar .bottom-bar__profile-switch :deep(.topbar-profile-select) {
+  min-width: 130px;
+  max-width: min(260px, 26vw);
+  height: 22px;
+}
+
+.bottom-bar .bottom-bar__profile-switch :deep(.topbar-profile-empty) {
+  height: 22px;
+}
+
+.bottom-bar .bottom-bar__profile-switch :deep(.topbar-profile-settings) {
+  width: 24px;
+  min-width: 24px;
+  height: 22px;
 }
 
 .bottom-bar__clock {

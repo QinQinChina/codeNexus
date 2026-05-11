@@ -12,6 +12,8 @@ import { useThemeStore } from "./stores/theme.store";
 import { useTypographyStore } from "./stores/typography.store";
 import { useRuntimeStore } from "./stores/runtime.store";
 import { useMessageQueueStore } from "./stores/messageQueue.store";
+import { useCodexProfilesStore } from "./stores/codexProfiles.store";
+import { useCodexSkillRootsStore } from "./stores/codexSkillRoots.store";
 
 async function bootstrap() {
   const pinia = createPinia();
@@ -30,6 +32,8 @@ async function bootstrap() {
 
   runtimeStore.hydrateFromLocalDraftState(draftState);
   messageQueueStore.hydrateFromLocalMessageOutbox(messageOutbox);
+  void useCodexProfilesStore(pinia).refresh();
+  void useCodexSkillRootsStore(pinia).refresh();
 
   const runtime = initRuntimeOrchestrator(pinia);
   const app = createApp(App);

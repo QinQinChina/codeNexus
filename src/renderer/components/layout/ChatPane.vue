@@ -82,35 +82,70 @@
       </div>
     </div>
 
-    <Transition name="composer-lightbox">
-      <div
-        v-if="imageLightboxOpen"
-        class="composer-lightbox-overlay"
-        role="dialog"
-        aria-modal="true"
-        :aria-label="imageLightboxTitle || '图片预览'"
-        @click.self="closeImageLightbox"
-      >
-        <div class="composer-lightbox-backdrop" aria-hidden="true"></div>
-        <div class="composer-lightbox-stage" @click.self="closeImageLightbox">
-          <img class="composer-lightbox-image" :src="imageLightboxSrc" :alt="imageLightboxTitle || '图片预览'" />
-          <button
-            ref="imageLightboxCloseButtonRef"
-            class="composer-lightbox-close"
-            type="button"
-            @click="closeImageLightbox"
-          >
-            ×
-          </button>
+    <Teleport to="body">
+      <Transition name="composer-lightbox">
+        <div
+          v-if="imageLightboxOpen"
+          class="composer-lightbox-overlay composer-lightbox-overlay--image"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="imageLightboxTitle || '图片预览'"
+        >
+          <div class="composer-lightbox-backdrop" aria-hidden="true" @click="closeImageLightbox"></div>
+          <div class="composer-lightbox-stage composer-lightbox-stage--image" @click.self="closeImageLightbox">
+            <div
+              class="composer-lightbox-viewport"
+              :class="{ 'is-dragging': imageLightboxDragging }"
+              @wheel="onImageLightboxWheel"
+              @pointerdown="onImageLightboxPointerDown"
+              @pointermove="onImageLightboxPointerMove"
+              @pointerup="finishImageLightboxDrag"
+              @pointercancel="finishImageLightboxDrag"
+              @lostpointercapture="finishImageLightboxDrag"
+            >
+              <img
+                class="composer-lightbox-image composer-lightbox-image--interactive"
+                :src="imageLightboxSrc"
+                :alt="imageLightboxTitle || '图片预览'"
+                :style="imageLightboxTransformStyle"
+                draggable="false"
+              />
+            </div>
+            <div class="composer-lightbox-toolbar" @pointerdown.stop @click.stop>
+              <span class="composer-lightbox-zoom mono">{{ Math.round(imageLightboxZoom * 100) }}%</span>
+              <button class="composer-lightbox-action" type="button" title="缩小" @click="zoomImageLightboxOut">
+                <ZoomOut aria-hidden="true" />
+              </button>
+              <button class="composer-lightbox-action" type="button" title="放大" @click="zoomImageLightboxIn">
+                <ZoomIn aria-hidden="true" />
+              </button>
+              <button class="composer-lightbox-action" type="button" title="重置视图" @click="resetImageLightboxView">
+                <RotateCcw aria-hidden="true" />
+              </button>
+              <button class="composer-lightbox-action" type="button" title="下载图片" @click="downloadImageLightboxImage">
+                <Download aria-hidden="true" />
+              </button>
+              <button
+                ref="imageLightboxCloseButtonRef"
+                class="composer-lightbox-action composer-lightbox-action--close"
+                type="button"
+                title="关闭"
+                @click="closeImageLightbox"
+              >
+                <X aria-hidden="true" />
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    </Transition>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
 // 聊天视图：将时间线节点重组为对话流卡片，并处理图片预览等交互。
 import { computed, ref } from "vue";
+import { Download, RotateCcw, X, ZoomIn, ZoomOut } from "lucide-vue-next";
 import ChatTimelineViewport from "./ChatTimelineViewport.vue";
 import ChatRowRenderer from "./ChatRowRenderer.vue";
 import WaveText from "../ui/WaveText.vue";
@@ -207,9 +242,23 @@ const {
   imageLightboxSrc,
   imageLightboxTitle,
   imageLightboxCloseButtonRef,
+  imageLightboxZoom,
+  imageLightboxDragging,
+  imageLightboxTransformStyle,
   closeImageLightbox,
-  onPreviewImage,
+  resetImageLightboxView,
+  zoomImageLightboxIn,
+  zoomImageLightboxOut,
+  onImageLightboxWheel,
+  onImageLightboxPointerDown,
+  onImageLightboxPointerMove,
+  finishImageLightboxDrag,
+  downloadImageLightboxImage,
 } = useImageLightbox();
+
+const onPreviewImage = () => {
+  appShellStore.openImageWorkbench();
+};
 
 // --- 辅助逻辑 ---
 const commandFilesOpenById = ref(new Map<string, boolean>());

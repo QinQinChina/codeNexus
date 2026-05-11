@@ -8,7 +8,14 @@
           <Search v-else class="command-activity-icon" />
         </span>
 
-        <span class="command-activity-text" :class="{ 'is-loading-shimmer': isRunning }">
+        <WaveText
+          v-if="isRunning"
+          class="command-activity-text"
+          color="var(--accent)"
+          :text="activityText"
+          :cycle-max-chars="128"
+        />
+        <span v-else class="command-activity-text">
           {{ activityText }}
         </span>
         <span v-if="metaText" class="command-activity-meta mono">{{ metaText }}</span>
@@ -20,6 +27,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { FileText, ListTree, Search } from "lucide-vue-next";
+import WaveText from "../../ui/WaveText.vue";
 import type {
   CommandListNode,
   CommandReadNode,

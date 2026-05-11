@@ -12,7 +12,7 @@ import {
 } from "../../shared/localSettings";
 
 export type IntegrationsDrawerTab = "skills" | "mcp";
-export type SettingsTab = "global" | "sound" | "env" | "integrations" | "remote" | "update";
+export type SettingsTab = "global" | "profiles" | "sound" | "image" | "env" | "integrations" | "remote";
 export type SettingsIntegrationsTab = "skills" | "mcp";
 
 const DEFAULT_LEFT_SIDEBAR_WIDTH_PX = 320;
@@ -60,7 +60,6 @@ export const useAppShellStore = defineStore("appShell", {
     envSetupDrawerOpen: false,
     integrationsDrawerOpen: false,
     integrationsDrawerTab: "skills" as IntegrationsDrawerTab,
-    updateDrawerOpen: false,
 
     settingsOpen: false,
     settingsActiveTab: "global" as SettingsTab,
@@ -124,10 +123,15 @@ export const useAppShellStore = defineStore("appShell", {
     },
     setMainView(next: MainView, opts?: { save?: boolean }) {
       const shouldSave = opts?.save ?? true;
-      const normalized: MainView = "chat";
+      const normalized: MainView = next === "image" ? "image" : "chat";
       this.mainView = normalized;
       if (!shouldSave) return;
       void patchUserLocalSettings({ ui: { mainView: normalized } });
+    },
+    openImageWorkbench(opts?: { save?: boolean }) {
+      this.setMainView("image", opts);
+      this.setLeftSidebarVisible(true, { save: false });
+      this.closeSettings();
     },
     setAssistantFinalMessageFormat(next: AssistantFinalMessageFormat, opts?: { save?: boolean }) {
       const shouldSave = opts?.save ?? true;
@@ -164,7 +168,6 @@ export const useAppShellStore = defineStore("appShell", {
       this.globalConfigDrawerOpen = false;
       this.envSetupDrawerOpen = false;
       this.integrationsDrawerOpen = false;
-      this.updateDrawerOpen = false;
     },
     closeSettings() {
       this.settingsOpen = false;
@@ -198,12 +201,6 @@ export const useAppShellStore = defineStore("appShell", {
         return;
       }
       this.openIntegrationsDrawer(tab);
-    },
-    setUpdateDrawerOpen(next: boolean) {
-      this.updateDrawerOpen = Boolean(next);
-    },
-    toggleUpdateDrawerOpen() {
-      this.setUpdateDrawerOpen(!this.updateDrawerOpen);
     },
     setLeftSidebarWidthPx(next: number, opts?: { save?: boolean }) {
       const shouldSave = opts?.save ?? true;

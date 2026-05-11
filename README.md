@@ -31,12 +31,12 @@
 | 操作系统  | Windows 10/11                              |
 | Node.js   | 建议 LTS                                   |
 | 包管理器  | `pnpm@10`                                  |
-| Codex CLI | 当前协议生成基线为 `@openai/codex@0.124.0` |
+| Codex CLI | 当前协议生成基线为 `@openai/codex@0.130.0` |
 
 建议先确认本机可直接运行：
 
 ```powershell
-npm i -g @openai/codex@0.124.0
+npm i -g @openai/codex@0.130.0
 codex --version
 ```
 

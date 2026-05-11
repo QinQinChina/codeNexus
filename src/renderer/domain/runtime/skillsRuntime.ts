@@ -1,11 +1,13 @@
 import { codexDesktop } from "../../api/codexDesktopClient";
 import { normalizeSkillsErrors, normalizeSkillsListResult, summarizeSkillsListResult } from "../serverInterop";
 import type { SkillState } from "../types";
+import type { SkillsListParams } from "../../../generated/codex-app-server/v2/SkillsListParams";
 
 type SkillsRuntimeDeps = {
   requireActiveWorkspaceServerId: () => string;
   getServerIdForWorkspace: (workspacePath: string) => string;
   getWorkspacePath: () => string;
+  getExtraSkillRootsForWorkspace?: (workspacePath: string) => string[];
 };
 
 export type SkillsListSnapshot = {
@@ -25,10 +27,18 @@ export function createSkillsRuntime(deps: SkillsRuntimeDeps): SkillsRuntime {
     const serverId = deps.getServerIdForWorkspace(workspace);
     if (!serverId) return { entries: [], errors: [], summary: "shape=none skills=0" };
     const cwd = String(workspace ?? "").trim();
+    const extraUserRoots = deps.getExtraSkillRootsForWorkspace?.(cwd) ?? [];
+    const params: SkillsListParams = {
+      cwds: cwd ? [cwd] : [],
+      forceReload,
+      ...(cwd && extraUserRoots.length > 0
+        ? { perCwdExtraUserRoots: [{ cwd, extraUserRoots }] }
+        : {}),
+    };
     const { result } = await codexDesktop.codexServer.rpc({
       serverId,
       method: "skills/list",
-      params: { cwds: cwd ? [cwd] : [], forceReload },
+      params,
     });
     return {
       entries: normalizeSkillsListResult(result),

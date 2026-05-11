@@ -17,9 +17,7 @@
       </div>
     </template>
     <div class="grid gap-2 px-2.5 pb-2.5">
-      <div v-if="isRunning" class="mono dim inline-flex items-center gap-2 is-loading-shimmer text-[11px]">
-        <span>读取资源</span>
-      </div>
+      <WaveText v-if="isRunning" class="mono inline-flex items-center gap-2 text-[11px]" text="读取资源" />
       <div class="grid gap-1">
         <div class="text-[12px] font-medium text-[color:var(--text-muted)]">资源名</div>
         <div class="mono whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px] text-[var(--text)]">
@@ -74,6 +72,7 @@
 import { computed } from "vue";
 import { Database } from "lucide-vue-next";
 import TimelineCardShell from "../TimelineCardShell.vue";
+import WaveText from "../../ui/WaveText.vue";
 import type { McpResourceReadNode } from "../../../features/timeline/renderModel/buildTimelineNodes";
 
 const props = defineProps<{

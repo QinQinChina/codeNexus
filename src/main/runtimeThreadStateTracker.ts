@@ -35,12 +35,21 @@ function isRuntimeTrackedMessage(value: unknown): value is RuntimeTrackedMessage
   return false;
 }
 
-function extractThreadId(message: RuntimeTrackedNotification): string {
-  return normalizeText(message.params.threadId);
-}
+type RuntimeTrackedThreadContext = {
+  threadId: string;
+  turnId: string;
+};
 
-function extractTurnId(message: RuntimeTrackedNotification): string {
-  return normalizeText(message.params.turn.id);
+function extractTrackedThreadContext(message: RuntimeTrackedNotification): RuntimeTrackedThreadContext | null {
+  const params = toRecord(message.params);
+  if (!params) return null;
+  const threadId = normalizeText(params.threadId);
+  if (!threadId) return null;
+  const turn = toRecord(params.turn);
+  return {
+    threadId,
+    turnId: normalizeText(turn?.id),
+  };
 }
 
 export class RuntimeThreadStateTracker {
@@ -67,22 +76,17 @@ export class RuntimeThreadStateTracker {
     const serverId = normalizeText(payload.serverId);
     if (!serverId || !isRuntimeTrackedMessage(payload.msg)) return;
 
-    if (payload.msg.method === "turn/started") {
-      const threadId = extractThreadId(payload.msg);
-      if (!threadId) return;
-      const turnId = extractTurnId(payload.msg);
-      this.markThreadRunning(serverId, threadId, turnId);
-      return;
+    switch (payload.msg.method) {
+      case "turn/started":
+        this.handleTurnStarted(serverId, payload.msg);
+        return;
+      case "turn/completed":
+        this.handleTurnCompleted(payload.msg);
+        return;
+      case "codex/exit":
+        this.clearServer(serverId);
+        return;
     }
-
-    if (payload.msg.method === "turn/completed") {
-      const threadId = extractThreadId(payload.msg);
-      if (!threadId) return;
-      this.markThreadStopped(threadId);
-      return;
-    }
-
-    this.clearServer(serverId);
   }
 
   clearThread(threadIdValue: string) {
@@ -103,6 +107,18 @@ export class RuntimeThreadStateTracker {
     });
   }
 
+  private handleTurnStarted(serverId: string, message: RuntimeTrackedNotification) {
+    const context = extractTrackedThreadContext(message);
+    if (!context) return;
+    this.markThreadRunning(serverId, context.threadId, context.turnId);
+  }
+
+  private handleTurnCompleted(message: RuntimeTrackedNotification) {
+    const context = extractTrackedThreadContext(message);
+    if (!context) return;
+    this.markThreadStopped(context.threadId);
+  }
+
   private markThreadRunning(serverIdValue: string, threadIdValue: string, turnIdValue: string) {
     const serverId = normalizeText(serverIdValue);
     const threadId = normalizeText(threadIdValue);
@@ -111,9 +127,7 @@ export class RuntimeThreadStateTracker {
 
     const prev = this.runningByThread.get(threadId);
     if (prev?.serverId && prev.serverId !== serverId) {
-      const prevSet = this.threadIdsByServer.get(prev.serverId);
-      prevSet?.delete(threadId);
-      if (prevSet && prevSet.size === 0) this.threadIdsByServer.delete(prev.serverId);
+      this.detachThreadFromServer(prev.serverId, threadId);
     }
 
     this.runningByThread.set(threadId, { serverId, turnId });
@@ -128,9 +142,17 @@ export class RuntimeThreadStateTracker {
     const prev = this.runningByThread.get(threadId);
     this.runningByThread.delete(threadId);
     if (!prev?.serverId) return;
-    const set = this.threadIdsByServer.get(prev.serverId);
-    set?.delete(threadId);
-    if (set && set.size === 0) this.threadIdsByServer.delete(prev.serverId);
+    this.detachThreadFromServer(prev.serverId, threadId);
+  }
+
+  private detachThreadFromServer(serverIdValue: string, threadIdValue: string) {
+    const serverId = normalizeText(serverIdValue);
+    const threadId = normalizeText(threadIdValue);
+    if (!serverId || !threadId) return;
+    const set = this.threadIdsByServer.get(serverId);
+    if (!set) return;
+    set.delete(threadId);
+    if (set.size === 0) this.threadIdsByServer.delete(serverId);
   }
 
   private clearServer(serverIdValue: string) {
@@ -138,9 +160,9 @@ export class RuntimeThreadStateTracker {
     if (!serverId) return;
     const set = this.threadIdsByServer.get(serverId);
     if (!set) return;
+    this.threadIdsByServer.delete(serverId);
     for (const threadId of set) {
       this.runningByThread.delete(threadId);
     }
-    this.threadIdsByServer.delete(serverId);
   }
 }

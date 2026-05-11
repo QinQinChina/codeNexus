@@ -165,7 +165,7 @@ export const useThemeStore = defineStore("theme", {
         applyThemeToDocument(this.theme);
       }, opts?.transitionOrigin);
       if (!shouldSave) return;
-      void patchUserLocalSettings({ ui: { theme: this.theme } });
+      void patchUserLocalSettings({ ui: { theme: normalized } });
     },
     setBackgroundOpacityPercent(next: number, opts?: { save?: boolean }) {
       const shouldSave = opts?.save ?? true;

@@ -4,6 +4,9 @@ import { CodexServerManager } from "../../services/CodexServerManager";
 import { type HistoryThread } from "../../historyStore";
 import { HistoryService } from "../../services/HistoryService";
 import type { LocalSettingsService } from "../../services/LocalSettingsService";
+import type { CodexProfileService } from "../../services/CodexProfileService";
+import type { CodexSkillRootsService } from "../../services/CodexSkillRootsService";
+import type { ImageGenerationHistoryService } from "../../services/ImageGenerationHistoryService";
 import type { ThreadArtifactService } from "../../services/ThreadArtifactService";
 import type { ThreadTaskService } from "../../services/ThreadTaskService";
 import type { ThreadTitleOverrideService } from "../../services/ThreadTitleOverrideService";
@@ -14,7 +17,6 @@ import { registerCodexHandlers } from "./codex.handlers";
 import { registerHistoryHandlers } from "./history.handlers";
 import { registerWorkspaceHandlers } from "./workspace.handlers";
 import type { RemoteStateSyncService } from "../../services/RemoteStateSyncService";
-import { UpdateService } from "../../services/UpdateService";
 import { CacheRegistryService } from "../../services/CacheRegistryService";
 import type { HistoryThreadRunningStateResult } from "../../../shared/ipc/contracts";
 
@@ -32,17 +34,21 @@ export type IpcHandlersDeps = {
   getThreadRunningState: (threadId: string) => HistoryThreadRunningStateResult;
   workspacePatchService: WorkspacePatchService;
   localSettingsService: LocalSettingsService;
+  codexProfileService: CodexProfileService;
+  codexSkillRootsService: CodexSkillRootsService;
+  imageGenerationHistoryService: ImageGenerationHistoryService;
   remoteSyncService: RemoteStateSyncService;
   cacheRegistryService: CacheRegistryService;
-  updateService: UpdateService;
 };
 
 export function registerAllHandlers(deps: IpcHandlersDeps) {
   registerAppHandlers({
     getMainWindow: deps.getMainWindow,
     localSettingsService: deps.localSettingsService,
+    codexProfileService: deps.codexProfileService,
+    codexSkillRootsService: deps.codexSkillRootsService,
+    imageGenerationHistoryService: deps.imageGenerationHistoryService,
     remoteSyncService: deps.remoteSyncService,
-    updateService: deps.updateService,
   });
   registerCodexHandlers({ serverManager: deps.serverManager, sendEvent: deps.sendCodexEvent });
   registerCacheHandlers({ cacheRegistryService: deps.cacheRegistryService });

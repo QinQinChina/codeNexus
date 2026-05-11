@@ -1,7 +1,14 @@
 <template>
-  <div class="grid gap-2" :class="{ 'is-loading-shimmer': item.status === 'running' }">
+  <div class="grid gap-2">
     <div class="flex min-w-0 flex-wrap items-center gap-2">
-      <span class="text-[13px] font-semibold text-[var(--text)]">
+      <WaveText
+        v-if="item.status === 'running'"
+        class="text-[13px] font-semibold"
+        color="var(--accent)"
+        :text="item.label"
+        :cycle-max-chars="128"
+      />
+      <span v-else class="text-[13px] font-semibold text-[var(--text)]">
         {{ item.label }}
       </span>
       <span
@@ -71,6 +78,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import DetailDisclosure from "../../ui/DetailDisclosure.vue";
+import WaveText from "../../ui/WaveText.vue";
 import type { DynamicToolTimelineItem } from "../../../domain/dynamicTools";
 
 const props = defineProps<{

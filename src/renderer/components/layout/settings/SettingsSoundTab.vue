@@ -112,10 +112,10 @@ const onVolumeChange = (event: Event) => {
 
 <style scoped>
 .settings-card {
-  border-radius: 16px;
+  border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
   background: color-mix(in srgb, var(--surface-1) 86%, transparent);
-  box-shadow: 0 14px 34px color-mix(in srgb, rgb(from var(--ui-shadow-source) r g b / 0.6) 18%, transparent);
+  box-shadow: 0 8px 22px color-mix(in srgb, rgb(from var(--ui-shadow-source) r g b / 0.5) 12%, transparent);
   overflow: hidden;
 }
 

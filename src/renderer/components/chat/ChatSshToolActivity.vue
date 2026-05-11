@@ -9,7 +9,14 @@
           <TerminalSquare v-else class="ssh-tool-icon" />
         </span>
 
-        <span class="ssh-tool-text" :class="{ 'is-loading-shimmer': isRunning }">{{ activityText }}</span>
+        <WaveText
+          v-if="isRunning"
+          class="ssh-tool-text"
+          color="var(--accent)"
+          :text="activityText"
+          :cycle-max-chars="128"
+        />
+        <span v-else class="ssh-tool-text">{{ activityText }}</span>
       </div>
     </article>
   </div>
@@ -18,6 +25,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { Download, Server, TerminalSquare, Upload } from "lucide-vue-next";
+import WaveText from "../ui/WaveText.vue";
 import type { McpToolCallItem, McpToolGroupNode } from "../../features/timeline/renderModel/buildTimelineNodes";
 
 const props = defineProps<{
@@ -143,8 +151,8 @@ const emptyItem: McpToolCallItem = {
 .ssh-tool-activity {
   position: relative;
   z-index: 1;
-  display: inline-grid;
-  width: fit-content;
+  display: grid;
+  width: 100%;
   max-width: 100%;
   min-width: 0;
   padding: 1px 2px;
@@ -158,6 +166,8 @@ const emptyItem: McpToolCallItem = {
 
 .ssh-tool-line {
   display: inline-flex;
+  justify-self: start;
+  width: auto;
   max-width: 100%;
   min-width: 0;
   min-height: 24px;
@@ -199,7 +209,7 @@ const emptyItem: McpToolCallItem = {
   display: block;
   flex: 1 1 auto;
   min-width: 0;
-  max-width: min(72cqw, 680px);
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
 }

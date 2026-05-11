@@ -6,6 +6,24 @@
   -webkit-app-region: no-drag;
 }
 
+.topbar-approval-trigger {
+  display: inline-flex;
+  align-items: center;
+}
+
+.topbar button.topbar-approval-button {
+  width: 28px;
+  min-width: 28px;
+  height: 24px;
+  padding: 0;
+}
+
+.topbar button.topbar-approval-button .topbar-approval-button__icon {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.15;
+}
+
 .topbar-left {
   grid-column: 1;
   justify-self: start;
@@ -47,85 +65,68 @@
 
 .topbar button.topbar-theme-switch {
   position: relative;
-  width: 32px;
-  min-width: 32px;
-  height: 32px;
+  width: 52px;
+  min-width: 52px;
+  height: 28px;
   padding: 0;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--topbar-control-border, var(--topbar-border)) 72%, transparent);
-  background:
-    radial-gradient(circle at 32% 28%, color-mix(in srgb, white 34%, transparent) 0%, transparent 20%),
-    radial-gradient(circle at 70% 74%, color-mix(in srgb, var(--accent) 22%, transparent) 0%, transparent 60%),
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--topbar-control-bg, var(--topbar-bg)) 88%, var(--accent) 12%),
-      color-mix(in srgb, var(--topbar-control-bg, var(--topbar-bg)) 96%, var(--bg) 4%)
-    );
+  border: 1px solid color-mix(in srgb, var(--topbar-control-border, var(--topbar-border)) 76%, transparent);
+  background: color-mix(in srgb, var(--topbar-control-bg, var(--topbar-bg)) 86%, var(--surface-2) 14%);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 16%, transparent),
-    inset 0 -1px 0 color-mix(in srgb, var(--topbar-text) 6%, transparent),
-    0 8px 16px rgb(from var(--ui-shadow-source) r g b / 0.15);
+    inset 0 1px 0 color-mix(in srgb, white 12%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--topbar-text) 7%, transparent),
+    0 6px 14px rgb(from var(--ui-shadow-source) r g b / 0.13);
   overflow: hidden;
   -webkit-app-region: no-drag;
   transition:
     transform 150ms cubic-bezier(0.22, 1, 0.36, 1),
     border-color 150ms ease,
-    background 180ms ease,
     box-shadow 180ms ease;
 }
 
-.topbar button.topbar-theme-switch::before,
-.topbar button.topbar-theme-switch::after {
-  content: "";
+.topbar button.topbar-theme-switch.is-dark {
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--topbar-control-border, var(--topbar-border)) 64%);
+  background: color-mix(in srgb, var(--topbar-control-bg, var(--topbar-bg)) 74%, var(--accent) 26%);
+}
+
+.topbar button.topbar-theme-switch .topbar-theme-switch-track {
   position: absolute;
-  inset: 0;
+  inset: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   border-radius: inherit;
-  pointer-events: none;
-}
-
-.topbar button.topbar-theme-switch::before {
-  inset: 4px;
-  background:
-    radial-gradient(
-      circle at 34% 28%,
-      color-mix(in srgb, white 38%, transparent) 0%,
-      color-mix(in srgb, white 12%, transparent) 18%,
-      transparent 36%
-    ),
-    radial-gradient(circle at 70% 78%, color-mix(in srgb, var(--accent) 34%, transparent) 0%, transparent 62%);
-  opacity: 0.92;
-}
-
-.topbar button.topbar-theme-switch::after {
-  background: radial-gradient(
-    circle at 50% 50%,
-    color-mix(in srgb, var(--accent) 16%, transparent) 0%,
-    transparent 70%
+  padding: 0 7px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--surface-1) 72%, white 8%),
+    color-mix(in srgb, var(--topbar-control-bg, var(--topbar-bg)) 80%, var(--accent) 20%)
   );
-  opacity: 0.82;
-  transition: opacity 180ms ease;
+  box-shadow: inset 0 1px 2px rgb(from var(--ui-shadow-source) r g b / 0.16);
+  pointer-events: none;
+  transition: background 180ms ease;
 }
 
 .topbar button.topbar-theme-switch:hover:not(:disabled) {
-  transform: translateY(-1px) scale(1.03);
+  transform: translateY(-1px);
   border-color: color-mix(in srgb, var(--topbar-control-border, var(--topbar-border)) 58%, var(--accent) 42%);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 18%, transparent),
-    inset 0 -1px 0 color-mix(in srgb, var(--topbar-text) 6%, transparent),
-    0 10px 18px rgb(from var(--ui-shadow-source) r g b / 0.19);
+    inset 0 1px 0 color-mix(in srgb, white 14%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--topbar-text) 7%, transparent),
+    0 9px 16px rgb(from var(--ui-shadow-source) r g b / 0.17);
 }
 
 .topbar button.topbar-theme-switch:active:not(:disabled) {
-  transform: translateY(0) scale(0.96);
+  transform: translateY(0);
 }
 
 .topbar button.topbar-theme-switch:focus-visible {
   outline: none;
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--focus-ring, var(--accent-soft)) 84%, transparent),
-    inset 0 1px 0 color-mix(in srgb, white 18%, transparent),
-    inset 0 -1px 0 color-mix(in srgb, var(--topbar-text) 6%, transparent),
-    0 10px 18px rgb(from var(--ui-shadow-source) r g b / 0.19);
+    inset 0 1px 0 color-mix(in srgb, white 14%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--topbar-text) 7%, transparent),
+    0 9px 16px rgb(from var(--ui-shadow-source) r g b / 0.17);
 }
 
 .topbar button.topbar-theme-switch:disabled {
@@ -133,47 +134,66 @@
   cursor: not-allowed;
 }
 
-.topbar button.topbar-theme-switch .topbar-theme-switch-orb {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  height: 100%;
+.topbar button.topbar-theme-switch .topbar-theme-switch-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: inherit;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 25%, color-mix(in srgb, white 55%, transparent) 0%, transparent 35%),
+    color-mix(in srgb, var(--surface-1) 84%, var(--topbar-text) 16%);
+  color: var(--topbar-text);
+  box-shadow:
+    0 2px 5px rgb(from var(--ui-shadow-source) r g b / 0.2),
+    inset 0 1px 0 color-mix(in srgb, white 28%, transparent);
+  transform: translateX(0);
+  transition:
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    background 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.topbar button.topbar-theme-switch.is-dark .topbar-theme-switch-thumb {
+  transform: translateX(24px);
+  background:
+    radial-gradient(circle at 35% 25%, color-mix(in srgb, white 32%, transparent) 0%, transparent 34%),
+    color-mix(in srgb, var(--accent) 44%, var(--surface-1) 56%);
+  color: color-mix(in srgb, white 88%, var(--topbar-text) 12%);
 }
 
 .topbar button.topbar-theme-switch .topbar-theme-switch-icon {
-  width: 16px;
-  height: 16px;
+  width: 13px;
+  height: 13px;
   stroke-width: 2.1;
-  color: var(--topbar-text);
   filter: drop-shadow(0 1px 0 color-mix(in srgb, white 16%, transparent));
 }
 
-.topbar button.topbar-theme-switch .topbar-theme-switch-glow {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background:
-    radial-gradient(
-      circle at 36% 30%,
-      color-mix(in srgb, white 32%, transparent) 0%,
-      color-mix(in srgb, white 12%, transparent) 18%,
-      transparent 38%
-    ),
-    radial-gradient(circle at 68% 76%, color-mix(in srgb, var(--accent) 28%, transparent) 0%, transparent 60%);
-  opacity: 0.78;
+.topbar button.topbar-theme-switch .topbar-theme-switch-rail-icon {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2;
+  color: color-mix(in srgb, var(--topbar-text) 54%, transparent);
+  opacity: 0.58;
   transition:
     opacity 180ms ease,
-    transform 180ms ease;
+    color 180ms ease;
 }
 
-.topbar button.topbar-theme-switch:hover:not(:disabled) .topbar-theme-switch-glow {
-  opacity: 0.92;
-  transform: scale(1.02);
+.topbar button.topbar-theme-switch:not(.is-dark) .topbar-theme-switch-rail-icon--sun,
+.topbar button.topbar-theme-switch.is-dark .topbar-theme-switch-rail-icon--moon {
+  opacity: 0;
+}
+
+.topbar button.topbar-theme-switch.is-dark .topbar-theme-switch-rail-icon--sun {
+  color: color-mix(in srgb, white 74%, var(--topbar-text) 26%);
+  opacity: 0.74;
 }
 
 .topbar-menu-shell {
@@ -654,9 +674,9 @@
   .topbar-fly-enter-active,
   .topbar-fly-leave-active,
   .topbar button.topbar-theme-switch,
-  .topbar button.topbar-theme-switch::before,
-  .topbar button.topbar-theme-switch::after,
-  .topbar button.topbar-theme-switch .topbar-theme-switch-glow,
+  .topbar button.topbar-theme-switch .topbar-theme-switch-track,
+  .topbar button.topbar-theme-switch .topbar-theme-switch-thumb,
+  .topbar button.topbar-theme-switch .topbar-theme-switch-rail-icon,
   .dynamic-tools-switch-track,
   .dynamic-tools-switch-thumb {
     transition: none;

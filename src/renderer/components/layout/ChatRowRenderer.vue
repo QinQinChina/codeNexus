@@ -60,6 +60,15 @@
     class="chat-row chat-row--tool flex min-w-0 m-0"
   />
 
+  <div v-else-if="renderedRow.kind === 'dynamicTool'" class="chat-row chat-row--tool flex min-w-0 m-0">
+    <div class="chat-tool-wrap w-full max-w-full min-w-0">
+      <DynamicToolCallCardContent
+        class="dynamic-tool-chat-card w-full rounded-xl border border-[var(--ui-code-border)] bg-[var(--ui-code-bg)] p-3"
+        :item="(renderedRow as any).item"
+      />
+    </div>
+  </div>
+
   <ChatReasoningBlock
     v-else-if="renderedRow.kind === 'reasoningBlock'"
     :isOpen="isReasoningOpen((renderedRow as any).item)"
@@ -206,6 +215,11 @@ const ChatImageToolCard = defineAsyncComponent({
 });
 const ChatWebSearchCard = defineAsyncComponent({
   loader: () => import("../chat/ChatWebSearchCard.vue"),
+  loadingComponent: AsyncTimelineCardLoading,
+  delay: 120,
+});
+const DynamicToolCallCardContent = defineAsyncComponent({
+  loader: () => import("../timeline/cards/DynamicToolCallCardContent.vue"),
   loadingComponent: AsyncTimelineCardLoading,
   delay: 120,
 });

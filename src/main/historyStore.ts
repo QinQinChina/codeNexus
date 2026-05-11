@@ -1050,6 +1050,7 @@ export class HistoryStore {
   private readonly cachePath: string;
   private readonly sessionsRoot: string;
   private snapshot: HistoryThread[] = [];
+  private readonly threadById = new Map<string, HistoryThread>();
   private sessionSummaryCache = new Map<string, SessionSummaryCacheEntry>();
   private sessionMessagesCache = new Map<string, SessionMessagesCacheEntry>();
   private sessionEventsCache = new Map<string, SessionEventsCacheEntry>();
@@ -1062,6 +1063,20 @@ export class HistoryStore {
   constructor(cachePath: string, sessionsRoot?: string) {
     this.cachePath = cachePath;
     this.sessionsRoot = sessionsRoot ?? join(homedir(), ".codex", "sessions");
+  }
+
+  private updateSnapshot(items: HistoryThread[]): void {
+    this.snapshot = items;
+    this.threadById.clear();
+    for (const item of items) {
+      this.threadById.set(item.id, item);
+    }
+  }
+
+  private getThreadById(threadId: string): HistoryThread | undefined {
+    const id = String(threadId ?? "").trim();
+    if (!id) return undefined;
+    return this.threadById.get(id);
   }
 
   private diagLogPath(now = new Date()): string {
@@ -1120,8 +1135,8 @@ export class HistoryStore {
       const { items: diskHistory, stats } = await this.scanDisk(refreshId);
       const scanMs = Number((performance.now() - scanStart).toFixed(1));
 
-      const previousById = new Map(this.snapshot.map((item) => [item.id, item] as const));
-      this.snapshot = diskHistory.map((item) => mergeHistoryThreadMetadataIntoItem(item, previousById.get(item.id)));
+      const previousById = new Map(this.threadById);
+      this.updateSnapshot(diskHistory.map((item) => mergeHistoryThreadMetadataIntoItem(item, previousById.get(item.id))));
 
       const writeStart = performance.now();
       await this.writeCache(this.snapshot);
@@ -1174,13 +1189,15 @@ export class HistoryStore {
     if (patchById.size === 0) return this.getSnapshot();
 
     let changed = false;
-    this.snapshot = this.snapshot.map((item) => {
-      const patch = patchById.get(item.id);
-      if (!patch) return item;
-      const next = applyHistoryThreadMetadataPatch(item, patch);
-      if (!hasSameHistoryThreadMetadata(item, next)) changed = true;
-      return next;
-    });
+    this.updateSnapshot(
+      this.snapshot.map((item) => {
+        const patch = patchById.get(item.id);
+        if (!patch) return item;
+        const next = applyHistoryThreadMetadataPatch(item, patch);
+        if (!hasSameHistoryThreadMetadata(item, next)) changed = true;
+        return next;
+      })
+    );
 
     const nextSessionSummaryCache = new Map<string, SessionSummaryCacheEntry>();
     for (const [sessionPath, entry] of this.sessionSummaryCache.entries()) {
@@ -1208,10 +1225,10 @@ export class HistoryStore {
     if (!threadId) return [];
     const t0 = performance.now();
     await this.loadCacheIfNeeded();
-    const current = this.snapshot.find((item) => item.id === threadId);
+    const current = this.getThreadById(threadId);
     if (!current) {
-      const refreshed = await this.refreshDisk();
-      const afterRefresh = refreshed.find((item) => item.id === threadId);
+      await this.refreshDisk();
+      const afterRefresh = this.getThreadById(threadId);
       if (!afterRefresh) return [];
       const messages = await this.readThreadMessagesFromFile(afterRefresh.sessionPath, limit);
       const elapsedMs = Number((performance.now() - t0).toFixed(1));
@@ -1252,10 +1269,10 @@ export class HistoryStore {
     const t0 = performance.now();
     const includeAux = opts?.includeAux !== false;
     await this.loadCacheIfNeeded();
-    const current = this.snapshot.find((item) => item.id === threadId);
+    const current = this.getThreadById(threadId);
     if (!current) {
-      const refreshed = await this.refreshDisk();
-      const afterRefresh = refreshed.find((item) => item.id === threadId);
+      await this.refreshDisk();
+      const afterRefresh = this.getThreadById(threadId);
       if (!afterRefresh) return { entries: [], total: 0, loaded: 0, hasMore: false };
       const page = await this.readThreadEventsFromFile(afterRefresh.sessionPath, threadId, {
         limit: opts?.limit,
@@ -1306,16 +1323,16 @@ export class HistoryStore {
 
     await this.loadCacheIfNeeded();
 
-    let current = this.snapshot.find((item) => item.id === id);
+    let current = this.getThreadById(id);
     if (!current) {
-      const refreshed = await this.refreshDisk();
-      current = refreshed.find((item) => item.id === id);
+      await this.refreshDisk();
+      current = this.getThreadById(id);
     }
 
     const sessionPath = current?.sessionPath ? String(current.sessionPath) : "";
     if (!sessionPath) {
       // 磁盘上没有可删除的会话目录；但若缓存快照中仍存在，仍需移除。
-      this.snapshot = this.snapshot.filter((item) => item.id !== id);
+      this.updateSnapshot(this.snapshot.filter((item) => item.id !== id));
       this.threadEventsCache.delete(threadEventsCacheKey(id, true));
       this.threadEventsCache.delete(threadEventsCacheKey(id, false));
       this.auxThreadEventsCache.delete(id);
@@ -1339,7 +1356,7 @@ export class HistoryStore {
       if (error?.code !== "ENOENT") throw error;
     }
 
-    this.snapshot = this.snapshot.filter((item) => item.id !== id);
+    this.updateSnapshot(this.snapshot.filter((item) => item.id !== id));
     this.sessionSummaryCache.delete(sessionPath);
     this.sessionSummaryCache.delete(sessionAbs);
     this.invalidateFileCaches(sessionAbs);
@@ -1508,7 +1525,7 @@ export class HistoryStore {
     const t0 = performance.now();
     this.initialized = true;
     const cacheState = await this.readCache();
-    this.snapshot = cacheState.items;
+    this.updateSnapshot(cacheState.items);
     this.sessionSummaryCache = new Map(cacheState.sessionSummaries.map((item) => [item.sessionPath, item]));
     const elapsedMs = Number((performance.now() - t0).toFixed(1));
     if (elapsedMs >= 120) {
@@ -1695,7 +1712,7 @@ export class HistoryStore {
 
     // 优先按 session 日期筛选对应的 file-change 日志，避免在历史回放时扫描巨大的日志全集。
     const tid = String(threadId ?? "").trim();
-    const sessionPath = tid ? String(this.snapshot.find((item) => item.id === tid)?.sessionPath ?? "") : "";
+    const sessionPath = tid ? String(this.getThreadById(tid)?.sessionPath ?? "") : "";
     const sessionYmd = sessionPath ? extractYmdFromSessionPath(sessionPath) : "";
     const ymds = sessionYmd
       ? [ymdWithOffset(sessionYmd, -1), sessionYmd, ymdWithOffset(sessionYmd, 1)].filter(Boolean)
@@ -1902,7 +1919,7 @@ export class HistoryStore {
   }
 
   clearMemoryCaches(): void {
-    this.snapshot = [];
+    this.updateSnapshot([]);
     this.sessionSummaryCache.clear();
     this.sessionMessagesCache.clear();
     this.sessionEventsCache.clear();

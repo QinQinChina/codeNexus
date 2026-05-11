@@ -10,6 +10,7 @@ import type { ConfigRequirementsReadResponse } from "../../generated/codex-app-s
 import type { ListMcpServerStatusResponse } from "../../generated/codex-app-server/v2/ListMcpServerStatusResponse";
 import type { SkillsListResponse } from "../../generated/codex-app-server/v2/SkillsListResponse";
 import type { SandboxMode } from "../../generated/codex-app-server/v2/SandboxMode";
+import { configValueToCodexMcpServerConfig } from "../../shared/codexMcp";
 import { DEFAULT_MODEL_NAME, normalizeModelId } from "../../shared/modelCatalog";
 
 export type ConfigWriteChange = {
@@ -314,20 +315,29 @@ export function extractConfigRequirementsFromReadResult(result: unknown): Config
 
 export function normalizeMcpServersFromConfig(
   result: ConfigReadResponse | null | undefined
-): Array<Pick<McpServerState, "id" | "enabled" | "url" | "command" | "args">> {
+): Array<Pick<McpServerState, "id" | "enabled" | "type" | "url" | "command" | "args" | "env" | "cwd" | "headers">> {
   const root = normalizeConfigReadRoot(result);
   const serversNode = toRecord(root.mcp_servers);
 
-  const entries: Array<Pick<McpServerState, "id" | "enabled" | "url" | "command" | "args">> = [];
+  const entries: Array<
+    Pick<McpServerState, "id" | "enabled" | "type" | "url" | "command" | "args" | "env" | "cwd" | "headers">
+  > = [];
 
   const pushEntry = (idRaw: unknown, raw: Record<string, unknown> | null) => {
-    const id = String(idRaw ?? "").trim();
-    if (!id) return;
-    const enabled = typeof raw?.enabled === "boolean" ? raw.enabled : true;
-    const url = typeof raw?.url === "string" ? raw.url : undefined;
-    const command = typeof raw?.command === "string" ? raw.command : undefined;
-    const args = Array.isArray(raw?.args) ? raw.args.map((value) => String(value)) : undefined;
-    entries.push({ id, enabled, url, command, args });
+    const config = configValueToCodexMcpServerConfig(idRaw, raw);
+    if (!config) return;
+    const server = config.server;
+    entries.push({
+      id: config.id,
+      enabled: config.enabled,
+      type: server.type,
+      url: server.url,
+      command: server.command,
+      args: server.args,
+      env: server.env,
+      cwd: server.cwd,
+      headers: server.headers,
+    });
   };
 
   if (serversNode) {

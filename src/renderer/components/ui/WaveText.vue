@@ -39,7 +39,7 @@ const props = withDefaults(
     charDelaySec: 0.12,
     charAnimDurationSec: 1,
     pauseSec: 0,
-    cycleMaxChars: 42,
+    cycleMaxChars: 0,
     minOpacity: 0.25,
     maxOpacity: 1,
     as: "span",
@@ -47,6 +47,12 @@ const props = withDefaults(
 );
 
 const chars = computed(() => Array.from(String(props.text ?? "")));
+const waveCharCount = computed(() => {
+  const len = chars.value.length;
+  const maxChars = Math.floor(Number(props.cycleMaxChars) || 0);
+  if (maxChars <= 0) return len;
+  return Math.min(len, Math.max(1, maxChars));
+});
 const animationPhase = ref(0);
 const timerId = ref<number | null>(null);
 
@@ -68,6 +74,12 @@ const rootStyle = computed(() => {
 // 每个字符按索引施加延迟，实现“波浪”效果。
 const charStyle = (index: number) => {
   if (!props.enabled) return { animation: "none" } as Record<string, string>;
+  if (index >= waveCharCount.value) {
+    return {
+      animation: "none",
+      opacity: "var(--wave-max-op)",
+    } as Record<string, string>;
+  }
   const delaySec = Math.max(0, Number(props.charDelaySec) || 0);
   return {
     animationName: animationPhase.value % 2 === 0 ? "wave-text-opacity-a" : "wave-text-opacity-b",
@@ -92,11 +104,10 @@ function scheduleNextRound() {
   const text = String(props.text ?? "").trim();
   if (!props.enabled || !text) return;
 
-  const len = chars.value.length;
   const delayMs = Math.max(0, Number(props.charDelaySec) || 0) * 1000;
   const animMs = Math.max(100, (Number(props.charAnimDurationSec) || 1) * 1000);
   const pauseMs = Math.max(0, Number(props.pauseSec) || 0) * 1000;
-  const cycleLen = Math.min(len, Math.max(1, Math.floor(Number(props.cycleMaxChars) || len)));
+  const cycleLen = Math.max(1, waveCharCount.value);
 
   const totalMs = Math.max(0, (cycleLen - 1) * delayMs) + animMs;
   timerId.value = window.setTimeout(() => {

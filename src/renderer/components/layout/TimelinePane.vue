@@ -210,17 +210,25 @@
       <div
         class="terminal-action-line inline-flex w-full min-w-0 items-center gap-1.5 p-0 m-0 box-border border-0 bg-transparent text-xs dim"
         :title="commandActionNodeTitle(node.item)"
-        :class="{ 'is-loading-shimmer': node.item.item.status === 'running' }"
       >
         <span class="ui-leading-icon-slot" aria-hidden="true">
           <TerminalSquare class="terminal-action-icon h-3 w-3 flex-none text-[var(--text-muted)] [stroke-width:2.2]" />
         </span>
-        <span class="terminal-action-text min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{{
-          commandGroupItemActionText(node.item.item)
-        }}</span>
-        <span v-if="commandGroupItemActionDetailText(node.item.item)" class="mono dim">{{
-          commandGroupItemActionDetailText(node.item.item)
-        }}</span>
+        <WaveText
+          v-if="node.item.item.status === 'running'"
+          class="terminal-action-text min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"
+          color="var(--accent)"
+          :text="commandActionDisplayText(node.item)"
+          :cycle-max-chars="128"
+        />
+        <template v-else>
+          <span class="terminal-action-text min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{{
+            commandGroupItemActionText(node.item.item)
+          }}</span>
+          <span v-if="commandGroupItemActionDetailText(node.item.item)" class="mono dim">{{
+            commandGroupItemActionDetailText(node.item.item)
+          }}</span>
+        </template>
         <button
           v-if="node.item.item.filesCount > 0"
           class="terminal-action-toggle !ml-auto !inline-flex !h-[22px] !w-[22px] !items-center !justify-center !rounded-[4px] !border !border-[var(--ui-well-border)] !bg-[var(--ui-well-bg)] !p-0 !text-inherit !shadow-none opacity-80 transition-[opacity,border-color,background] duration-150 hover:opacity-100 hover:!border-[var(--ui-well-border-hover)] hover:!bg-[var(--ui-well-bg-strong)] focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-[var(--ui-well-focus-outline)] active:!translate-y-0"
@@ -560,13 +568,6 @@ const fileChangeRenderableFiles = (item: FileChangeNode): Array<FileChangeFile |
   return [null];
 };
 
-// thinking 事件不同阶段的视觉态判定。
-const isLocalThinkingShimmer = (event: TimelineEventItem) => {
-  if (!isLocalThinkingEvent(event)) return false;
-  const phase = event.thinkingPhase;
-  return phase === "queued" || phase === "preparing" || phase === "reasoning" || phase === "waiting_more";
-};
-
 const eventShellClass = (event: TimelineEventItem) => {
   const isLocalUser = isLocalUserEvent(event);
   const isThinking = isLocalThinkingEvent(event);
@@ -588,7 +589,6 @@ const eventShellClass = (event: TimelineEventItem) => {
   ];
 
   if (isThinking) {
-    const isShimmer = isLocalThinkingShimmer(event);
     let borderColorClass = "border-[var(--border-accent)]";
     let bgClass = "bg-[var(--bg-accent-soft)]";
 
@@ -618,7 +618,6 @@ const eventShellClass = (event: TimelineEventItem) => {
       bgClass,
     ];
 
-    if (isShimmer) classes.push("is-loading-shimmer");
     return classes.join(" ");
   }
 
@@ -817,6 +816,12 @@ const eventTagText = (event: TimelineEventItem) => {
 
 const eventPrimaryText = (event: TimelineEventItem) => {
   return String(event.paramsText ?? "");
+};
+
+const commandActionDisplayText = (node: { item: Parameters<typeof commandGroupItemActionText>[0] }) => {
+  const main = commandGroupItemActionText(node.item);
+  const detail = commandGroupItemActionDetailText(node.item);
+  return detail ? `${main} · ${detail}` : main;
 };
 
 // MCP 工具卡片开合状态：按“线程 + 节点 key”隔离记忆。

@@ -1,4 +1,9 @@
 import type { LocalRemoteSyncSettings, UserLocalSettings, UserLocalSettingsPatch } from "../localSettings";
+import type {
+  CodexProviderProfileInput,
+  CodexProviderProfilesState,
+} from "../codexProfiles";
+import type { CodexSkillRootsState } from "../codexSkillRoots";
 import type { ThreadSourceKind } from "../../generated/codex-app-server/v2/ThreadSourceKind";
 
 // IPC 契约类型：定义 renderer 可通过 preload 调用的桌面 API 形态与数据结构。
@@ -346,24 +351,6 @@ export type AppWindowClosingState = {
   steps: AppClosingStep[];
 };
 
-export type AppUpdatePhase = "disabled" | "idle" | "checking" | "available" | "downloading" | "downloaded" | "error";
-
-export type AppUpdateState = {
-  enabled: boolean;
-  phase: AppUpdatePhase;
-  currentVersion: string;
-  availableVersion: string | null;
-  downloadProgressPercent: number;
-  transferredBytes: number;
-  totalBytes: number;
-  bytesPerSecond: number;
-  releaseName: string | null;
-  releaseNotes: string | null;
-  lastCheckedAt: number;
-  downloadedAt: number;
-  errorMessage: string | null;
-};
-
 export type RemoteSyncPlanStep = {
   step: string;
   status: "pending" | "inProgress" | "completed";
@@ -491,6 +478,76 @@ export type ImportBackgroundImageResult =
       canceled: true;
     };
 
+export type ImageGenerationGenerateArgs = {
+  threadId?: string | null;
+  turnId?: string | null;
+  callId?: string | null;
+  mode?: "generate" | "edit" | null;
+  prompt: string;
+  inputImages?: Array<{
+    dataUrl: string;
+    name?: string | null;
+  }> | null;
+  maskDataUrl?: string | null;
+  size?: string | null;
+  quality?: string | null;
+  outputFormat?: string | null;
+  background?: string | null;
+  moderation?: string | null;
+  outputCompression?: number | null;
+  n?: number | null;
+};
+
+export type ImageGenerationGeneratedImage = {
+  path: string;
+  dataUrl: string;
+  mimeType: string;
+  revisedPrompt: string | null;
+};
+
+export type ImageGenerationHistoryImage = {
+  path: string;
+  mimeType: string;
+  revisedPrompt: string | null;
+};
+
+export type ImageGenerationHistoryItem = {
+  id: string;
+  createdAt: number;
+  updatedAt: number;
+  model: string;
+  prompt: string;
+  revisedPrompt: string | null;
+  mode: "generate" | "edit";
+  size: string | null;
+  quality: string | null;
+  outputFormat: string | null;
+  background: string | null;
+  moderation: string | null;
+  outputCompression: number | null;
+  images: ImageGenerationHistoryImage[];
+};
+
+export type ImageGenerationGenerateResult = {
+  ok: true;
+  historyId: string;
+  createdAt: number;
+  model: string;
+  prompt: string;
+  revisedPrompt: string | null;
+  images: ImageGenerationGeneratedImage[];
+};
+
+export type ImageGenerationHistoryListResult = {
+  items: ImageGenerationHistoryItem[];
+};
+
+export type ImageGenerationHistoryDeleteResult = {
+  ok: true;
+  deleted: boolean;
+  items: ImageGenerationHistoryItem[];
+};
+
 export type LocalSettingsSnapshot = {
   path: string;
   exists: boolean;
@@ -501,6 +558,35 @@ export type PatchedLocalSettingsSnapshot = {
   path: string;
   exists: true;
   settings: UserLocalSettings;
+};
+
+export type CodexProviderProfilesSnapshot = {
+  path: string;
+  exists: boolean;
+  state: CodexProviderProfilesState;
+};
+
+export type CodexProviderProfilesMutationResult = {
+  path: string;
+  exists: true;
+  state: CodexProviderProfilesState;
+};
+
+export type CodexAuthWriteApiKeyResult = {
+  ok: true;
+  path: string;
+};
+
+export type CodexSkillRootsSnapshot = {
+  path: string;
+  exists: boolean;
+  state: CodexSkillRootsState;
+};
+
+export type CodexSkillRootsMutationResult = {
+  path: string;
+  exists: true;
+  state: CodexSkillRootsState;
 };
 
 export type CodexDesktopAppApi = {
@@ -519,7 +605,19 @@ export type CodexDesktopAppApi = {
   readImageFileDataUrl(args: { path: string }): Promise<{ ok: true; dataUrl: string }>;
   importBackgroundImage(): Promise<ImportBackgroundImageResult>;
   clearBackgroundImage(): Promise<{ ok: true }>;
-  invokeWindowsVoiceTyping(): Promise<{ ok: boolean; reason?: string; detail?: string }>;
+  generateImage(args: ImageGenerationGenerateArgs): Promise<ImageGenerationGenerateResult>;
+  listImageGenerationHistory(): Promise<ImageGenerationHistoryListResult>;
+  deleteImageGenerationHistory(args: { id: string }): Promise<ImageGenerationHistoryDeleteResult>;
+  readCodexProfiles(): Promise<CodexProviderProfilesSnapshot>;
+  upsertCodexProfile(args: { profile: CodexProviderProfileInput }): Promise<CodexProviderProfilesMutationResult>;
+  deleteCodexProfile(args: { id: string }): Promise<CodexProviderProfilesMutationResult>;
+  setActiveCodexProfile(args: { id: string | null }): Promise<CodexProviderProfilesMutationResult>;
+  writeCodexAuthApiKey(args: { apiKey: string }): Promise<CodexAuthWriteApiKeyResult>;
+  readCodexSkillRoots(): Promise<CodexSkillRootsSnapshot>;
+  setCodexSkillRootsForWorkspace(args: {
+    workspacePath: string;
+    roots: string[];
+  }): Promise<CodexSkillRootsMutationResult>;
 };
 
 export type CodexDesktopWindowApi = {
@@ -535,14 +633,6 @@ export type CodexDesktopLocalStateApi = {
   initialSettingsSnapshot: LocalSettingsSnapshot;
   readSettings(): Promise<LocalSettingsSnapshot>;
   patchSettings(args: { patch: UserLocalSettingsPatch }): Promise<PatchedLocalSettingsSnapshot>;
-};
-
-export type CodexDesktopUpdateApi = {
-  getState(): Promise<{ state: AppUpdateState }>;
-  check(): Promise<{ ok: true }>;
-  download(): Promise<{ ok: true }>;
-  restartToInstall(): Promise<{ ok: true }>;
-  onState(cb: (payload: { state: AppUpdateState }) => void): () => void;
 };
 
 export type CodexDesktopRemoteSyncApi = {
@@ -608,7 +698,6 @@ export type CodexDesktopApi = {
   app: CodexDesktopAppApi;
   window: CodexDesktopWindowApi;
   localState: CodexDesktopLocalStateApi;
-  update: CodexDesktopUpdateApi;
   remoteSync: CodexDesktopRemoteSyncApi;
   cache: CodexDesktopCacheApi;
   codexServer: CodexDesktopCodexServerApi;

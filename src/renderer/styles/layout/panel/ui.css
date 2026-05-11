@@ -569,12 +569,6 @@ svg.spin {
   transform-box: view-box;
 }
 
-@keyframes shimmer-sweep {
-  to {
-    transform: translateX(120%);
-  }
-}
-
 .history-item .meta {
   font-size: 11px;
   color: var(--text-muted);

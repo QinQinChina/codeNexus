@@ -18,7 +18,10 @@ type SupportedImageProtocolItem =
       status?: string;
       revisedPrompt?: string | null;
       result?: string;
+      results?: string[];
       savedPath?: string;
+      savedPaths?: string[];
+      errorText?: string;
     }
   | {
       type: "image_generation_call";
@@ -47,11 +50,36 @@ function inferImageSourceKind(sourceValue: string): LazyImageSourceKind {
   return "localPath";
 }
 
+function looksLikeLocalImagePath(value: string): boolean {
+  const text = String(value ?? "").trim();
+  if (!text) return false;
+  if (/^[a-z]:[\\/]/i.test(text)) return true;
+  if (/^\\\\[^\\]+\\[^\\]+/.test(text)) return true;
+  if (/^\/[^/]/.test(text)) return true;
+  return /\.(png|jpe?g|webp|gif|bmp|avif)$/i.test(text);
+}
+
 function normalizeImageGenerationResultSource(resultValue: unknown): string {
   const result = String(resultValue ?? "").trim();
   if (!result) return "";
   if (result.startsWith("data:image/") || /^https?:\/\//i.test(result)) return result;
-  return `data:image/png;base64,${result}`;
+  if (looksLikeLocalImagePath(result)) return result;
+  return `data:image/png;base64,${result.replace(/\s+/g, "")}`;
+}
+
+function buildStableFallbackId(parts: Array<unknown>): string {
+  const text = parts
+    .map((value) => {
+      const raw = String(value ?? "").trim();
+      return raw ? raw.slice(0, 120) : "";
+    })
+    .filter(Boolean)
+    .join("|");
+  let hash = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+  }
+  return `image-tool-${hash.toString(36)}`;
 }
 
 function buildImageEntry(id: string, sourceValue: unknown, titleValue?: unknown): ChatImageEntry | null {
@@ -66,7 +94,16 @@ export function buildImageToolItemFromProtocolItem(item: unknown, eventMethod: s
   if (!item || typeof item !== "object" || Array.isArray(item)) return null;
   const protocolItem = item as SupportedImageProtocolItem;
   const type = String((protocolItem as { type?: unknown }).type ?? "").trim();
-  const id = String((protocolItem as { id?: unknown }).id ?? "").trim() || "image-tool";
+  const id =
+    String((protocolItem as { id?: unknown }).id ?? "").trim() ||
+    buildStableFallbackId([
+      type,
+      (protocolItem as any).status,
+      (protocolItem as any).revisedPrompt ?? (protocolItem as any).revised_prompt,
+      (protocolItem as any).result,
+      (protocolItem as any).savedPath,
+      (protocolItem as any).path,
+    ]);
 
   if (type === "imageView") {
     const path = String((protocolItem as Extract<SupportedImageProtocolItem, { type: "imageView" }>).path ?? "").trim();
@@ -96,8 +133,20 @@ export function buildImageToolItemFromProtocolItem(item: unknown, eventMethod: s
       : (generationItem.revised_prompt ?? "")
   ).trim();
   const result = String(generationItem.result ?? "").trim();
+  const resultValues = Array.isArray((generationItem as any).results)
+    ? ((generationItem as any).results as unknown[]).map((value) => String(value ?? "").trim()).filter(Boolean)
+    : [];
   const savedPath = String(generationItem.type === "imageGeneration" ? (generationItem.savedPath ?? "") : "").trim();
-  const resultSource = savedPath ? "" : normalizeImageGenerationResultSource(result);
+  const savedPaths =
+    generationItem.type === "imageGeneration" && Array.isArray((generationItem as any).savedPaths)
+      ? ((generationItem as any).savedPaths as unknown[]).map((value) => String(value ?? "").trim()).filter(Boolean)
+      : [];
+  const allSavedPaths = [...new Set([savedPath, ...savedPaths].filter(Boolean))];
+  const resultSources =
+    allSavedPaths.length > 0
+      ? []
+      : [result, ...resultValues].map((value) => normalizeImageGenerationResultSource(value)).filter(Boolean);
+  const explicitErrorText = String((generationItem as any).errorText ?? "").trim();
 
   const seen = new Set<string>();
   const images: ChatImageEntry[] = [];
@@ -107,8 +156,8 @@ export function buildImageToolItemFromProtocolItem(item: unknown, eventMethod: s
     const image = buildImageEntry(`${id}:${images.length}:${inferImageSourceKind(source)}`, source, title);
     if (image) images.push(image);
   };
-  addImage(savedPath, basenameFromPath(savedPath) || savedPath);
-  addImage(resultSource, "生成图片");
+  for (const path of allSavedPaths) addImage(path, basenameFromPath(path) || path);
+  for (const source of resultSources) addImage(source, "生成图片");
 
   return {
     itemId: id,
@@ -117,16 +166,16 @@ export function buildImageToolItemFromProtocolItem(item: unknown, eventMethod: s
     status,
     detailText: [
       statusText ? `status=${statusText}` : "",
-      savedPath ? `savedPath=${savedPath}` : "",
+      allSavedPaths.length > 0 ? allSavedPaths.map((path, index) => `savedPath[${index + 1}]=${path}`).join("\n") : "",
       result
-        ? resultSource.startsWith("data:image/")
+        ? resultSources.some((source) => source.startsWith("data:image/"))
           ? "result=dataUrl"
           : `result=${result.length > 180 ? `${result.slice(0, 179)}…` : result}`
         : "",
     ]
       .filter(Boolean)
       .join("\n"),
-    errorText: status === "failed" ? (statusText ? `status=${statusText}` : "生成失败") : "",
+    errorText: explicitErrorText || (status === "failed" ? (statusText ? `status=${statusText}` : "生成失败") : ""),
     revisedPrompt: revisedPrompt ? `修订提示词：\n${revisedPrompt}` : "",
     images,
   };

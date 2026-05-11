@@ -4,8 +4,11 @@ import { type CodexDesktopApi } from "../types";
 
 export function createWorkspaceApi(ipcRenderer: IpcRenderer): CodexDesktopApi["workspace"] {
   return {
+    // 选择工作区：由主进程弹出目录选择器并更新当前工作区。
     select: () => ipcRenderer.invoke(IPC_APP_CHANNELS.appSelectWorkspace),
+    // 反向 diff 预演：先计算将要改哪些文件，再交给 UI 展示确认。
     dryRunApplyReverseDiff: (args) => ipcRenderer.invoke(IPC_WORKSPACE_CHANNELS.workspaceReverseDiffDryRun, args),
+    // 反向 diff 应用：确认后真正把补丁写回工作区。
     applyReverseDiff: (args) => ipcRenderer.invoke(IPC_WORKSPACE_CHANNELS.workspaceReverseDiffApply, args),
   } satisfies CodexDesktopApi["workspace"];
 }

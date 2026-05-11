@@ -1,4 +1,5 @@
 import type { TimelineEventItem } from "../../domain/types";
+import type { DynamicToolTimelineItem } from "../../domain/dynamicTools";
 import type {
   ReasoningBlockNode,
   FileChangeNode,
@@ -70,6 +71,7 @@ export type ChatRow =
   | (ChatRowBase & { kind: "system"; text: string })
   | (ChatRowBase & { kind: "activity"; text: string; createdAt: number; tone?: ActivityTone })
   | (ChatRowBase & { kind: "imageTool"; createdAt: number; item: ChatImageToolItem })
+  | (ChatRowBase & { kind: "dynamicTool"; createdAt: number; item: DynamicToolTimelineItem })
   | (ChatRowBase & { kind: "webSearch"; createdAt: number; item: ChatWebSearchItem })
   | (ChatRowBase & { kind: "reasoningBlock"; item: ReasoningBlockNode })
   | (ChatRowBase & { kind: "fileChange"; item: FileChangeNode })

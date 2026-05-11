@@ -29,11 +29,18 @@
           v-for="item in items"
           :key="item.id"
           class="grid gap-1 rounded-[4px] border border-[var(--ui-well-border)] bg-[var(--ui-well-bg)] px-2 py-1.5"
-          :class="[itemClass(item), { 'is-loading-shimmer': item.status === 'running' }]"
+          :class="itemClass(item)"
         >
           <div class="flex items-center justify-between gap-2">
             <span class="mcp-tool-item-status inline-flex min-w-0 items-center gap-1.5 text-[11px]">
-              <span class="mono">{{ item.tool }}</span>
+              <WaveText
+                v-if="item.status === 'running'"
+                class="mono"
+                color="var(--accent)"
+                :text="item.tool"
+                :cycle-max-chars="128"
+              />
+              <span v-else class="mono">{{ item.tool }}</span>
             </span>
             <span class="mono dim flex-none whitespace-nowrap text-[10px]">{{ itemMetricsText(item) }}</span>
           </div>
@@ -156,6 +163,7 @@
 import { Terminal } from "lucide-vue-next";
 import Collapsible from "../../ui/Collapsible.vue";
 import DetailDisclosure from "../../ui/DetailDisclosure.vue";
+import WaveText from "../../ui/WaveText.vue";
 
 export type McpToolCallStatus = "running" | "completed" | "failed" | "unknown";
 

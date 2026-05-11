@@ -45,9 +45,9 @@
 
     <div
       v-if="isRunning"
-      class="file-change-stream-strip mono mx-1.5 mb-1.5 flex min-w-0 items-center gap-2 rounded-[4px] border px-2 py-1 text-[10.5px] is-loading-shimmer"
+      class="file-change-stream-strip mono mx-1.5 mb-1.5 flex min-w-0 items-center gap-2 rounded-[4px] border px-2 py-1 text-[10.5px]"
     >
-      <span class="min-w-0 flex-1 truncate">{{ streamStripText }}</span>
+      <WaveText class="min-w-0 flex-1 truncate" :text="streamStripText" :cycle-max-chars="96" />
       <span class="flex-none text-[var(--text-muted)]">{{ streamCountText }}</span>
     </div>
 
@@ -66,7 +66,7 @@
         v-else
         class="mono rounded-[4px] border border-[var(--ui-code-border)] bg-[var(--ui-code-bg)] p-1.5 text-[11px] text-[var(--ui-code-text-muted)]"
       >
-        <span v-if="isRunning" class="mono dim is-loading-shimmer">正在修改文件…</span>
+        <WaveText v-if="isRunning" class="mono" text="正在修改文件…" />
         <template v-else>{{ emptyText }}</template>
       </div>
     </div>
@@ -77,6 +77,7 @@
 import { computed, ref, watch } from "vue";
 import { FileDiff } from "lucide-vue-next";
 import UnifiedDiffViewer from "./UnifiedDiffViewer.vue";
+import WaveText from "../../ui/WaveText.vue";
 import { getParsedDiffCached } from "../../../features/timeline/renderModel/diff";
 
 export type FileChangeFile = {

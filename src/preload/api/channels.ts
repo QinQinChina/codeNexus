@@ -1,4 +1,4 @@
-// 预加载层导出：IPC channel 常量（供 renderer 通过白名单桥接调用）。
+// 预加载层导出：IPC channel 常量，供 renderer 通过白名单桥接调用。
 export {
   IPC_APP_CHANNELS,
   IPC_CODEX_CHANNELS,

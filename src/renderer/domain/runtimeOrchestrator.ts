@@ -36,6 +36,8 @@ import { useMcpStore } from "../stores/mcp.store";
 import { useMcpResourceStore } from "../stores/mcpResource.store";
 import { useUserInputStore } from "../stores/userInput.store";
 import { useMessageQueueStore } from "../stores/messageQueue.store";
+import { useCodexProfilesStore } from "../stores/codexProfiles.store";
+import { useCodexSkillRootsStore } from "../stores/codexSkillRoots.store";
 import { resolveHistoryRewriteRollback } from "./historyRewriteRollback";
 import { useApprovalStore } from "../stores/approval.store";
 import { useWorkspaceFilesStore } from "../stores/workspaceFiles.store";
@@ -112,6 +114,13 @@ import {
   type ThreadStartConfigOverrides,
 } from "../../shared/modelToolFeatureOverrides";
 import { buildNewThreadComposeSeed } from "../../shared/newThreadComposeSeed";
+import {
+  codexMcpServerSpecToConfigValue,
+  parseCodexMcpJsonImport,
+  validateCodexMcpServerConfig,
+  type CodexMcpServerConfig,
+} from "../../shared/codexMcp";
+import type { CodexProviderProfile } from "../../shared/codexProfiles";
 import type {
   AppTextEncoding,
   AppTextLineEnding,
@@ -203,6 +212,7 @@ export type RuntimeOrchestrator = {
   refreshGlobalConfig: () => Promise<void>;
   saveGlobalConfig: (options?: { source?: "manual" | "auto"; silentSuccessToast?: boolean }) => Promise<void>;
   resetGlobalConfig: () => void;
+  applyCodexProfile: (profileId: string) => Promise<void>;
   openExternalUrl: (url: string) => Promise<void>;
   readTextFile: (path: string) => Promise<string>;
   writeTextFile: (path: string, content: string) => Promise<void>;
@@ -216,9 +226,14 @@ export type RuntimeOrchestrator = {
   ) => Promise<WorkspaceTextFileWriteResult>;
   refreshSkills: (forceReload?: boolean) => Promise<void>;
   toggleSkill: (skillPath: string, enabled: boolean) => Promise<void>;
+  addSkillRoot: (root: string) => Promise<void>;
+  removeSkillRoot: (root: string) => Promise<void>;
   refreshMcp: () => Promise<void>;
   reloadMcpConfig: () => Promise<void>;
   toggleMcpEnabled: (serverKey: string, enabled: boolean) => Promise<void>;
+  upsertMcpServer: (config: CodexMcpServerConfig) => Promise<void>;
+  deleteMcpServer: (serverId: string) => Promise<void>;
+  importMcpServersFromJson: (text: string) => Promise<{ imported: number; errors: string[] }>;
   startMcpOAuthLogin: (serverKey: string) => Promise<void>;
   readThreadContent: (params?: {
     threadId?: string;
@@ -270,6 +285,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const approvalStore = useApprovalStore(pinia);
   const messageQueueStore = useMessageQueueStore(pinia);
   const workspaceFilesStore = useWorkspaceFilesStore(pinia);
+  const codexProfilesStore = useCodexProfilesStore(pinia);
+  const codexSkillRootsStore = useCodexSkillRootsStore(pinia);
 
   // 运行期缓存：会话恢复、历史分页、工作区<->服务映射、右侧面板快照。
   const resumedThreadIds = new Set<string>();
@@ -362,6 +379,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     return servers.map((server) => ({
       ...server,
       ...(Array.isArray(server.args) ? { args: [...server.args] } : {}),
+      ...(server.env ? { env: { ...server.env } } : {}),
+      ...(server.headers ? { headers: { ...server.headers } } : {}),
       tools: Array.isArray(server.tools) ? server.tools.map((tool) => ({ ...tool })) : [],
       resources: Array.isArray(server.resources) ? [...server.resources] : [],
       resourceTemplates: Array.isArray(server.resourceTemplates) ? [...server.resourceTemplates] : [],
@@ -648,6 +667,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     requireActiveWorkspaceServerId,
     getServerIdForWorkspace,
     getWorkspacePath: () => String(runtimeStore.workspacePath ?? "").trim(),
+    getExtraSkillRootsForWorkspace: (workspacePath) => codexSkillRootsStore.rootsForWorkspace(workspacePath),
   });
   const { requestSkillsList, writeSkillConfig } = skillsRuntime;
 
@@ -1439,6 +1459,66 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     configStore.setLoadState("ready", configStore.isDirty ? "有未保存改动" : "已同步生效配置（config/read）");
   };
 
+  const buildCodexProfileConfigChanges = (profile: CodexProviderProfile) => {
+    const providerId = String(profile.modelProviderId ?? "").trim();
+    if (!providerId) throw new Error("模型供应商 ID 不能为空。");
+    const model = String(profile.model ?? "").trim();
+    if (!model) throw new Error("模型 ID 不能为空。");
+    const baseUrl = String(profile.baseUrl ?? "").trim();
+    if (!baseUrl) throw new Error("Base URL 不能为空。");
+    return [
+      { keyPath: "model_provider", value: providerId },
+      { keyPath: "model", value: model },
+      {
+        keyPath: `model_providers.${providerId}`,
+        value: {
+          name: String(profile.name ?? "").trim() || providerId,
+          base_url: baseUrl,
+          wire_api: "responses",
+          requires_openai_auth: true,
+        },
+      },
+      { keyPath: "model_reasoning_effort", value: profile.modelReasoningEffort },
+      { keyPath: "model_context_window", value: profile.modelContextWindow ?? null },
+      { keyPath: "model_auto_compact_token_limit", value: profile.modelAutoCompactTokenLimit ?? null },
+    ];
+  };
+
+  const applyCodexProfile = async (profileId: string) => {
+    const id = String(profileId ?? "").trim();
+    if (!id) throw new Error("缺少模型配置 ID。");
+    if (codexProfilesStore.loadState === "idle") {
+      await codexProfilesStore.refresh();
+    }
+    const profile = codexProfilesStore.profiles.find((item) => item.id === id);
+    if (!profile) throw new Error("找不到该模型配置。");
+    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    if (!getServerIdForWorkspace(workspace)) throw new Error("未连接服务，无法应用 Codex 配置。");
+
+    codexProfilesStore.applyingProfileId = id;
+    try {
+      await codexDesktop.app.writeCodexAuthApiKey({ apiKey: profile.apiKey });
+      await requestConfigBatchWrite(buildCodexProfileConfigChanges(profile));
+      await codexProfilesStore.setActiveProfile(id);
+      await refreshGlobalConfig();
+      pushEvent("codex:profile", `applied ${profile.name}\nprovider=${profile.modelProviderId}\nmodel=${profile.model}`, {
+        threadId: APP_TIMELINE_ID,
+      });
+      showToast({
+        kind: "success",
+        title: "模型配置已切换",
+        message: `${profile.name} · ${profile.model}`,
+      });
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent("codex:profile:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
+      showToast({ kind: "error", title: "模型配置切换失败", message: msg });
+      throw e;
+    } finally {
+      codexProfilesStore.applyingProfileId = "";
+    }
+  };
+
   const ALLOWED_EXTERNAL_PROTOCOLS = new Set(["http:", "https:", "mailto:"]);
   const normalizeExternalUrlForOpen = (url: string): string => {
     const raw = String(url ?? "").trim();
@@ -1525,6 +1605,42 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     }
   };
 
+  const addSkillRoot = async (root: string) => {
+    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    if (!workspace) throw new Error("未选择工作区。");
+    const normalizedRoot = String(root ?? "").trim();
+    if (!normalizedRoot) throw new Error("技能目录不能为空。");
+    try {
+      await codexSkillRootsStore.addRootForWorkspace(workspace, normalizedRoot);
+      invalidateSkillsSnapshot(workspace);
+      pushEvent("skills:roots", `added\n${normalizedRoot}`, { threadId: APP_TIMELINE_ID });
+      await refreshSkills(true);
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent("skills:roots:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
+      showToast({ kind: "error", title: "技能目录添加失败", message: msg });
+      throw e;
+    }
+  };
+
+  const removeSkillRoot = async (root: string) => {
+    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    if (!workspace) throw new Error("未选择工作区。");
+    const normalizedRoot = String(root ?? "").trim();
+    if (!normalizedRoot) return;
+    try {
+      await codexSkillRootsStore.removeRootForWorkspace(workspace, normalizedRoot);
+      invalidateSkillsSnapshot(workspace);
+      pushEvent("skills:roots", `removed\n${normalizedRoot}`, { threadId: APP_TIMELINE_ID });
+      await refreshSkills(true);
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent("skills:roots:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
+      showToast({ kind: "error", title: "技能目录移除失败", message: msg });
+      throw e;
+    }
+  };
+
   const refreshMcp = async () => {
     const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
     if (!getServerIdForWorkspace(workspace)) {
@@ -1549,9 +1665,13 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
           id: server.id,
           enabled: server.enabled,
           state: !server.enabled ? "disabled" : (status?.state ?? "unknown"),
+          type: server.type,
           url: server.url,
           command: server.command,
           args: server.args,
+          env: server.env,
+          cwd: server.cwd,
+          headers: server.headers,
           authenticated: status?.authenticated,
           authStatus: status?.authStatus,
           message: status?.message,
@@ -1623,6 +1743,78 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       const msg = e?.message ? String(e.message) : String(e);
       pushEvent("mcp:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
       showToast({ kind: "error", title: "MCP 配置失败", message: msg });
+      throw e;
+    }
+  };
+
+  const upsertMcpServer = async (config: CodexMcpServerConfig) => {
+    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    if (!getServerIdForWorkspace(workspace)) throw new Error("未连接服务，无法写入 MCP 配置。");
+    const error = validateCodexMcpServerConfig(config);
+    if (error) throw new Error(error);
+    const id = String(config.id ?? "").trim();
+    try {
+      await requestConfigBatchWrite([
+        {
+          keyPath: `mcp_servers.${id}`,
+          value: codexMcpServerSpecToConfigValue(config),
+        },
+      ]);
+      await requestReloadMcpConfig();
+      invalidateMcpSnapshot(workspace);
+      pushEvent("mcp", `upserted\n${id}`, { threadId: APP_TIMELINE_ID });
+      await refreshMcp();
+      showToast({ kind: "success", title: "MCP 已保存", message: id });
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent("mcp:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
+      showToast({ kind: "error", title: "MCP 保存失败", message: msg });
+      throw e;
+    }
+  };
+
+  const deleteMcpServer = async (serverId: string) => {
+    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    if (!getServerIdForWorkspace(workspace)) throw new Error("未连接服务，无法写入 MCP 配置。");
+    const id = String(serverId ?? "").trim();
+    if (!id) throw new Error("缺少 MCP ID。");
+    try {
+      await requestConfigBatchWrite([{ keyPath: `mcp_servers.${id}`, value: null }]);
+      await requestReloadMcpConfig();
+      invalidateMcpSnapshot(workspace);
+      pushEvent("mcp", `deleted\n${id}`, { threadId: APP_TIMELINE_ID });
+      await refreshMcp();
+      showToast({ kind: "success", title: "MCP 已删除", message: id });
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent("mcp:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
+      showToast({ kind: "error", title: "MCP 删除失败", message: msg });
+      throw e;
+    }
+  };
+
+  const importMcpServersFromJson = async (text: string): Promise<{ imported: number; errors: string[] }> => {
+    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    if (!getServerIdForWorkspace(workspace)) throw new Error("未连接服务，无法写入 MCP 配置。");
+    const parsed = parseCodexMcpJsonImport(text);
+    if (parsed.servers.length === 0) return { imported: 0, errors: parsed.errors };
+    try {
+      await requestConfigBatchWrite(
+        parsed.servers.map((server) => ({
+          keyPath: `mcp_servers.${server.id}`,
+          value: codexMcpServerSpecToConfigValue(server),
+        }))
+      );
+      await requestReloadMcpConfig();
+      invalidateMcpSnapshot(workspace);
+      pushEvent("mcp", `imported ${parsed.servers.length} servers`, { threadId: APP_TIMELINE_ID });
+      await refreshMcp();
+      showToast({ kind: "success", title: "MCP JSON 已导入", message: `已导入 ${parsed.servers.length} 个服务器` });
+      return { imported: parsed.servers.length, errors: parsed.errors };
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent("mcp:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
+      showToast({ kind: "error", title: "MCP JSON 导入失败", message: msg });
       throw e;
     }
   };
@@ -3614,6 +3806,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     refreshGlobalConfig,
     saveGlobalConfig,
     resetGlobalConfig,
+    applyCodexProfile,
     openExternalUrl,
     readTextFile,
     writeTextFile,
@@ -3623,9 +3816,14 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     writeWorkspaceTextFile,
     refreshSkills,
     toggleSkill,
+    addSkillRoot,
+    removeSkillRoot,
     refreshMcp,
     reloadMcpConfig,
     toggleMcpEnabled,
+    upsertMcpServer,
+    deleteMcpServer,
+    importMcpServersFromJson,
     startMcpOAuthLogin,
     readThreadContent,
     createThreadTask,

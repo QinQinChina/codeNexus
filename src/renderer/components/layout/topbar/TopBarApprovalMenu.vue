@@ -1,10 +1,10 @@
 <template>
-  <div class="topbar-single-switch" :class="{ 'is-open': props.open }">
-    <span class="topbar-single-switch-thumb" aria-hidden="true"></span>
+  <div class="topbar-approval-trigger" :class="{ 'is-open': props.open }">
     <button
       id="btn-topbar-approval"
-      class="topbar-single-switch-option"
+      class="btn-icon topbar-approval-button"
       :class="{
+        'is-active': props.open,
         'has-approval-dot': hasPendingApproval && !props.open,
         'attn-breathe': hasPendingApproval && !props.open,
       }"
@@ -15,8 +15,7 @@
       title="审批"
       @click.stop="emit('toggle')"
     >
-      <ShieldCheck aria-hidden="true" />
-      <span class="topbar-right-switch-label">审批</span>
+      <ShieldCheck class="topbar-approval-button__icon" aria-hidden="true" />
     </button>
   </div>
 

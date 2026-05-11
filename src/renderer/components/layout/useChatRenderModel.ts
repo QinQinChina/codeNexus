@@ -9,6 +9,7 @@ import { isLocalUserEvent, isMarkdownEvent } from "../../features/timeline/rende
 import { useRuntimeStore } from "../../stores/runtime.store";
 import { extractWebSearchTimelineItem } from "../../features/timeline/webSearch";
 import { buildImageToolItemFromProtocolItem } from "../../features/timeline/imageToolRender";
+import { buildDynamicToolTimelineItemFromProtocolItem } from "../../domain/dynamicTools";
 import {
   buildGuardianApprovalReviewActivity,
   isGuardianApprovalReviewMethod,
@@ -235,6 +236,19 @@ export function useChatRenderModel(
         if (e.method === "item/started" || e.method === "item/completed") {
           const item = ((e.params ?? {}) as any).item;
           const type = item && typeof item === "object" ? String(item.type ?? "").trim() : "";
+          if (type === "dynamicToolCall") {
+            const dynamicToolItem = buildDynamicToolTimelineItemFromProtocolItem(item);
+            if (dynamicToolItem) {
+              upsertRow({
+                id: `dyntool:${dynamicToolItem.callId}`,
+                turnKey,
+                kind: "dynamicTool",
+                createdAt: e.createdAt,
+                item: dynamicToolItem,
+              });
+            }
+            continue;
+          }
           if (type === "imageView" || type === "imageGeneration") {
             const imageToolItem = buildImageToolItemFromProtocolItem(item, e.method);
             if (imageToolItem) {
