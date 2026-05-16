@@ -8,7 +8,6 @@
           'is-agent': composeMode === 'default',
           'is-plan': composeMode === 'plan',
           'is-workspace-file-drag-over': isWorkspaceFileDragOver,
-          'is-workspace-file-drop-confirmed': isWorkspaceFileDropConfirmed,
           'is-focused': isInputFocused,
         }"
         @pointerdown="onComposerShellPointerDown"
@@ -311,12 +310,9 @@ const userInputStore = useUserInputStore();
 const isInputFocused = ref(false);
 const workspaceFileDragDepth = ref(0);
 const isWorkspaceFileDragOver = ref(false);
-const isWorkspaceFileDropConfirmed = ref(false);
 const selectedMentionId = ref("");
 const pendingSelectionOffset = ref<number | null>(null);
 const pendingFocusAfterSync = ref(false);
-const recentlyDroppedMentionIds = new Set<string>();
-let dropConfirmTimer: ReturnType<typeof setTimeout> | null = null;
 
 type ComposerScrollSnapshot = {
   top: number;
@@ -349,6 +345,10 @@ function isMentionTokenElement(node: Node | null): node is HTMLElement {
   return node instanceof HTMLElement && node.dataset.composeMentionId != null;
 }
 
+function isMentionTokenSpacerElement(node: Node | null): node is HTMLElement {
+  return node instanceof HTMLElement && node.dataset.composeMentionSpacer === "true";
+}
+
 function isSameMention(left: ComposeWorkspaceFileMention, right: ComposeWorkspaceFileMention): boolean {
   return left.id === right.id && left.path === right.path && left.kind === right.kind;
 }
@@ -368,7 +368,6 @@ function buildMentionTokenElement(mention: ComposeWorkspaceFileMention): HTMLSpa
   root.className = [
     "composer-inline-file-token",
     `composer-inline-file-token--${kind}`,
-    recentlyDroppedMentionIds.has(mention.id) ? "is-dropped" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -385,6 +384,15 @@ function buildMentionTokenElement(mention: ComposeWorkspaceFileMention): HTMLSpa
 
   root.append(icon, label);
   return root;
+}
+
+function buildMentionTokenSpacerElement(): HTMLSpanElement {
+  const spacer = document.createElement("span");
+  spacer.className = "composer-inline-file-token-spacer";
+  spacer.contentEditable = "false";
+  spacer.dataset.composeMentionSpacer = "true";
+  spacer.setAttribute("aria-hidden", "true");
+  return spacer;
 }
 
 function buildMentionTokenIcon(path: string, kind: "file" | "directory"): HTMLSpanElement {
@@ -426,6 +434,7 @@ function renderComposeDraftToDom(root: HTMLDivElement, draft: ComposeDraftState)
     mentionIndex += 1;
     if (!mention) continue;
     root.append(buildMentionTokenElement(mention));
+    root.append(buildMentionTokenSpacerElement());
   }
 
   flushTextBuffer();
@@ -434,6 +443,7 @@ function renderComposeDraftToDom(root: HTMLDivElement, draft: ComposeDraftState)
     const mention = draft.composeFileMentions[mentionIndex];
     if (!mention) continue;
     root.append(buildMentionTokenElement(mention));
+    root.append(buildMentionTokenSpacerElement());
   }
 }
 
@@ -448,6 +458,9 @@ function readComposeDraftFromDom(root: HTMLDivElement): ComposeDraftState {
     }
     if (child.nodeName === "BR") {
       composeInputParts.push("\n");
+      continue;
+    }
+    if (isMentionTokenSpacerElement(child)) {
       continue;
     }
     if (!isMentionTokenElement(child)) {
@@ -485,6 +498,7 @@ function readComposeDraftFromDom(root: HTMLDivElement): ComposeDraftState {
 function getLogicalLengthOfNode(node: Node): number {
   if (node.nodeType === Node.TEXT_NODE) return node.textContent?.length ?? 0;
   if (node.nodeName === "BR") return 1;
+  if (isMentionTokenSpacerElement(node)) return 0;
   if (isMentionTokenElement(node)) return 1;
   let total = 0;
   for (const child of Array.from(node.childNodes)) {
@@ -529,6 +543,9 @@ function resolveDomPointForOffset(root: HTMLDivElement, offsetValue: number): { 
     }
     if (isMentionTokenElement(child) || child.nodeName === "BR") {
       if (remaining <= 0) return { container: root, offset: index };
+      if (isMentionTokenElement(child) && isMentionTokenSpacerElement(children[index + 1] ?? null)) {
+        return { container: root, offset: index + 2 };
+      }
       return { container: root, offset: index + 1 };
     }
     return { container: child, offset: Math.min(remaining, child.childNodes.length) };
@@ -696,18 +713,6 @@ function getMentionIndexById(mentionIdValue: string): number {
   return props.composeFileMentions.findIndex((mention) => mention.id === mentionId);
 }
 
-function markDroppedMentions(mentions: ComposeWorkspaceFileMention[]) {
-  recentlyDroppedMentionIds.clear();
-  for (const mention of mentions) recentlyDroppedMentionIds.add(mention.id);
-  isWorkspaceFileDropConfirmed.value = true;
-  if (dropConfirmTimer) clearTimeout(dropConfirmTimer);
-  dropConfirmTimer = setTimeout(() => {
-    recentlyDroppedMentionIds.clear();
-    isWorkspaceFileDropConfirmed.value = false;
-    dropConfirmTimer = null;
-  }, 1100);
-}
-
 function insertDroppedFiles(paths: Array<{ path: string; kind?: ComposeWorkspaceFileMention["kind"] }>, offsetValue: number) {
   const offset = Math.max(0, Math.min(String(props.composeInput ?? "").length, Math.round(offsetValue)));
   const insertedMentions = paths
@@ -733,7 +738,6 @@ function insertDroppedFiles(paths: Array<{ path: string; kind?: ComposeWorkspace
       focusOffset: offset + insertedMentions.length,
     }
   );
-  markDroppedMentions(insertedMentions);
 }
 
 function getCaretOffsetFromPoint(clientX: number, clientY: number): number {
