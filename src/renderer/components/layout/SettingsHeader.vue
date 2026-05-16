@@ -26,7 +26,7 @@
         class="settings-close"
         type="button"
         aria-label="关闭设置"
-        title="关闭设置"
+        v-tooltip="'关闭设置'"
         @click="appShellStore.closeSettings()"
       >
         <X aria-hidden="true" />

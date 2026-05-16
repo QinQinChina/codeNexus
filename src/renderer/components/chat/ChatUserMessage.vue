@@ -15,7 +15,7 @@
               v-else
               class="chat-inline-file-token"
               type="button"
-              :title="part.title"
+              v-tooltip="part.title"
               @click.stop="$emit('file-token-click', part.path)"
             >
               <span class="chat-inline-file-token__icon" aria-hidden="true"></span>
@@ -32,7 +32,8 @@
                 class="h-[92px] w-[92px] max-w-full"
                 :source="image.source"
                 :sourceKind="image.sourceKind"
-                :title="image.title"
+                :previewTitle="image.title"
+                v-tooltip="image.title"
                 :workspaceRoot="workspaceRoot"
                 :rootMarginPx="260"
                 @load-error="$emit('thumb-load-error', $event)"

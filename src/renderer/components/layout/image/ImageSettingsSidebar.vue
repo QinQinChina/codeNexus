@@ -139,11 +139,11 @@
           </div>
           <div class="image-settings-sidebar__prompt-block">
             <div class="image-workbench__label">提示词</div>
-            <p>{{ selectedHistoryItem.prompt }}</p>
+            <p class="app-scrollbar">{{ selectedHistoryItem.prompt }}</p>
           </div>
           <div v-if="selectedHistoryItem.revisedPrompt" class="image-settings-sidebar__prompt-block">
             <div class="image-workbench__label">修订提示词</div>
-            <p>{{ selectedHistoryItem.revisedPrompt }}</p>
+            <p class="app-scrollbar">{{ selectedHistoryItem.revisedPrompt }}</p>
           </div>
         </div>
       </section>

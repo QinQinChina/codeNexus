@@ -11,7 +11,7 @@
       >
         <template #trigger="{ triggerProps }">
           <div :class="eventMetaClass(node.event, true)" v-bind="triggerProps">
-            <span :class="eventTagClass(node.event)" :title="eventTagText(node.event)">{{
+            <span :class="eventTagClass(node.event)" v-tooltip="eventTagText(node.event)">{{
               eventTagText(node.event)
             }}</span>
             <span
@@ -81,7 +81,7 @@
 
       <div v-else class="event" :class="eventShellClass(node.event)">
         <div :class="eventMetaClass(node.event, false)">
-          <span :class="eventTagClass(node.event)" :title="eventTagText(node.event)">{{
+          <span :class="eventTagClass(node.event)" v-tooltip="eventTagText(node.event)">{{
             eventTagText(node.event)
           }}</span>
           <span
@@ -168,7 +168,7 @@
             <span class="ui-leading-icon-slot" aria-hidden="true">
               <Brain class="h-3 w-3 flex-none text-[var(--fg-warning)] [stroke-width:2.2]" />
             </span>
-            <span class="min-w-0 truncate" :title="node.item.title ?? ''">{{ node.item.title ?? "思考" }}</span>
+            <span class="min-w-0 truncate" v-tooltip="node.item.title ?? ''">{{ node.item.title ?? "思考" }}</span>
             <span v-if="reasoningDurationText(node.item.durationMs)" class="mono dim whitespace-nowrap">{{
               reasoningDurationText(node.item.durationMs)
             }}</span>
@@ -234,7 +234,7 @@
     <div v-else-if="node.kind === 'commandAction'" class="terminal-action-wrap w-full">
       <div
         class="terminal-action-line inline-flex w-full min-w-0 items-center gap-1.5 p-0 m-0 box-border border-0 bg-transparent text-xs dim"
-        :title="commandActionNodeTitle(node.item)"
+        v-tooltip="commandActionNodeTitle(node.item)"
       >
         <span class="ui-leading-icon-slot" aria-hidden="true">
           <TerminalSquare class="terminal-action-icon h-3 w-3 flex-none text-[var(--text-muted)] [stroke-width:2.2]" />
@@ -259,7 +259,7 @@
           class="terminal-action-toggle !ml-auto !inline-flex !h-[22px] !w-[22px] !items-center !justify-center !rounded-[4px] !border !border-[var(--ui-well-border)] !bg-[var(--ui-well-bg)] !p-0 !text-inherit !shadow-none opacity-80 transition-[opacity,border-color,background] duration-150 hover:opacity-100 hover:!border-[var(--ui-well-border-hover)] hover:!bg-[var(--ui-well-bg-strong)] focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-[var(--ui-well-focus-outline)] active:!translate-y-0"
           type="button"
           :aria-expanded="isCommandFilesOpen(node.item.id) ? 'true' : 'false'"
-          :title="isCommandFilesOpen(node.item.id) ? '收起文件清单' : '展开文件清单'"
+          v-tooltip="isCommandFilesOpen(node.item.id) ? '收起文件清单' : '展开文件清单'"
           @click.stop="toggleCommandFilesOpen(node.item.id)"
         >
           <ChevronDown

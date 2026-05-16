@@ -5,7 +5,7 @@
         <span class="attn-dot" aria-hidden="true"></span>
         <div class="text-[12px] font-semibold tracking-[0.2px] text-[color:var(--text)]">计划问答</div>
       </div>
-      <span class="mono dim text-[11px]" :title="userInputQueueTitle">{{ userInputQueueText }}</span>
+      <span class="mono dim text-[11px]" v-tooltip="userInputQueueTitle">{{ userInputQueueText }}</span>
     </div>
 
     <div :id="userInputBoxId" :class="{ dim: !activeUserInputPrompt }">

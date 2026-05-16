@@ -6,7 +6,7 @@
     <div
       class="chat-inline-activity__line chat-inline-activity__line--compact chat-inline-activity__line--full chat-terminal-action-line inline-flex w-full max-w-full min-w-0 items-center gap-1.5 p-0 m-0 box-border border-0 bg-transparent text-xs"
       :class="{ 'is-running': item.item.status === 'running' }"
-      :title="commandActionNodeTitle(item)"
+      v-tooltip="commandActionNodeTitle(item)"
     >
       <span class="chat-inline-activity__icon ui-leading-icon-slot" aria-hidden="true">
         <TerminalSquare
@@ -26,7 +26,7 @@
         class="chat-terminal-action-toggle !ml-auto !inline-flex !h-[22px] !w-[22px] !items-center !justify-center !rounded-[4px] !border !border-[var(--ui-well-border)] !bg-[var(--ui-well-bg)] !p-0 !text-inherit !shadow-none opacity-80 transition-[opacity,border-color,background] duration-150 hover:opacity-100 hover:!border-[var(--ui-well-border-hover)] hover:!bg-[var(--ui-well-bg-strong)] focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-[var(--ui-well-focus-outline)] active:!translate-y-0"
         type="button"
         :aria-expanded="isFilesOpen ? 'true' : 'false'"
-        :title="isFilesOpen ? '收起文件清单' : '展开文件清单'"
+        v-tooltip="isFilesOpen ? '收起文件清单' : '展开文件清单'"
         @click.stop="$emit('toggle-files')"
       >
         <ChevronDown

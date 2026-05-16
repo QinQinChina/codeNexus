@@ -55,7 +55,7 @@
                   role="button"
                   tabindex="0"
                   :data-agent-path-full="fullForPath(token.value)"
-                  :title="fullForPath(token.value)"
+                  v-tooltip="fullForPath(token.value)"
                   @click.stop="onCopyPathToken(token.value)"
                   @keydown.enter.prevent.stop="onCopyPathToken(token.value)"
                   @keydown.space.prevent.stop="onCopyPathToken(token.value)"

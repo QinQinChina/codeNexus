@@ -3,7 +3,7 @@
     ref="tickerViewportRef"
     class="topbar-announcement"
     :class="tickerClass"
-    :title="tickerFullText"
+    v-tooltip="tickerFullText"
     role="status"
     aria-live="polite"
   >

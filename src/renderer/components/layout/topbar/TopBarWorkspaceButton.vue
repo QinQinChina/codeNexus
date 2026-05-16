@@ -3,7 +3,7 @@
     id="btn-workspace-select"
     class="btn-mini topbar-workspace-select"
     type="button"
-    :title="workspaceButtonTitle"
+    v-tooltip="workspaceButtonTitle"
     :aria-label="workspaceButtonTitle"
     @click="onSelectWorkspaceClick"
   >

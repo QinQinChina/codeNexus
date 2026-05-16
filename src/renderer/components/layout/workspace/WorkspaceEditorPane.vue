@@ -14,7 +14,7 @@
             type="button"
             role="tab"
             :aria-selected="isActiveTab(tab.path) ? 'true' : 'false'"
-            :title="tab.path"
+            v-tooltip="tab.path"
             @click="onActivateTab(tab.path)"
           >
             <FileText class="workspace-editor-tab__icon" aria-hidden="true" />
@@ -26,7 +26,7 @@
           <button
             class="workspace-editor-tab__close"
             type="button"
-            :title="`关闭 ${basenameFromPath(tab.path) || tab.path}`"
+            v-tooltip="`关闭 ${basenameFromPath(tab.path) || tab.path}`"
             @click.stop="onCloseTab(tab.path)"
           >
             <X class="workspace-editor-tab__close-icon" aria-hidden="true" />
@@ -43,7 +43,7 @@
 
         <template v-else>
           <div v-if="visibleBreadcrumbs.length > 0" class="workspace-editor-pane__chrome">
-            <div class="workspace-editor-pane__breadcrumbs" :title="workspaceFilesStore.activeFilePath">
+            <div class="workspace-editor-pane__breadcrumbs" v-tooltip="workspaceFilesStore.activeFilePath">
               <template v-for="(crumb, index) in visibleBreadcrumbs" :key="`${crumb}-${index}`">
                 <span
                   class="workspace-editor-pane__breadcrumb"

@@ -9,7 +9,7 @@
         aria-hidden="true"
       />
       <div class="file-change-card-main flex min-w-0 flex-1 items-start gap-2.5">
-        <div class="mono min-w-0 flex-1 truncate text-[12.5px] text-[var(--text)]" :title="pathTitle">
+        <div class="mono min-w-0 flex-1 truncate text-[12.5px] text-[var(--text)]" v-tooltip="pathTitle">
           {{ pathText }}
         </div>
         <div
@@ -42,7 +42,7 @@
           v-if="hasDiff"
           type="button"
           class="file-change-toggle mono inline-flex h-[20px] flex-none items-center justify-center rounded-[4px] border px-1.5 text-[10px] leading-none"
-          :title="isDiffExpanded ? '收起 diff' : '展开 diff'"
+          v-tooltip="isDiffExpanded ? '收起 diff' : '展开 diff'"
           :aria-expanded="isDiffExpanded ? 'true' : 'false'"
           @click="isDiffExpanded = !isDiffExpanded"
         >

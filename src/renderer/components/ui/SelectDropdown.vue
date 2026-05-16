@@ -14,7 +14,7 @@
     @click="onTriggerClick"
     @keydown="onTriggerKeydown"
   >
-    <span class="ui-select-value mono" :title="selectedLabel">{{ selectedLabel }}</span>
+    <span class="ui-select-value mono" v-tooltip="selectedLabel">{{ selectedLabel }}</span>
     <span class="ui-select-chevron" :class="{ open }" aria-hidden="true">▾</span>
   </button>
 
@@ -23,7 +23,7 @@
       <div
         v-if="open"
         ref="popoverRef"
-        :class="['ui-select-popover', { 'ui-select-popover--light': resolvedTheme === 'light' }]"
+        :class="['ui-select-popover', 'app-scrollbar', { 'ui-select-popover--light': resolvedTheme === 'light' }]"
         :style="popoverStyle"
         :id="listboxId"
         role="listbox"
@@ -47,7 +47,7 @@
           @mouseenter="onOptionMouseEnter(idx)"
           @click="onOptionClick(opt.value)"
         >
-          <span class="ui-select-option-label" :title="opt.label">{{ opt.label }}</span>
+          <span class="ui-select-option-label" v-tooltip="opt.label">{{ opt.label }}</span>
         </button>
       </div>
     </Transition>

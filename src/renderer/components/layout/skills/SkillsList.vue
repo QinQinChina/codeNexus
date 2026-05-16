@@ -12,7 +12,7 @@
       ]"
     >
       <div class="skill-summary" :class="modeClass">
-        <label class="skill-switch" :title="switchTitle(skill)">
+        <label class="skill-switch" v-tooltip="switchTitle(skill)">
           <input
             class="skill-switch-input"
             type="checkbox"
@@ -29,7 +29,7 @@
         <div class="skill-summary-main">
           <div class="skill-summary-topline">
             <div class="skill-title-wrap">
-              <div class="name" :title="skill.name">{{ skill.name }}</div>
+              <div class="name" v-tooltip="skill.name">{{ skill.name }}</div>
               <div v-if="mode === 'manager'" class="skill-badge-row">
                 <span class="skill-status-pill" :class="skill.enabled ? 'is-enabled' : 'is-disabled'">
                   {{ skill.enabled ? "已启用" : "已关闭" }}
@@ -42,7 +42,7 @@
               v-if="skill.description || skill.path"
               class="skill-summary-toggle"
               type="button"
-              :title="isSkillOpen(skill) ? '收起详情' : '展开详情'"
+              v-tooltip="isSkillOpen(skill) ? '收起详情' : '展开详情'"
               :aria-label="isSkillOpen(skill) ? '收起技能详情' : '展开技能详情'"
               @click="toggleSkillOpen(skill)"
             >
@@ -50,11 +50,11 @@
             </button>
           </div>
 
-          <div v-if="mode === 'manager'" class="skill-preview" :title="previewText(skill)">
+          <div v-if="mode === 'manager'" class="skill-preview" v-tooltip="previewText(skill)">
             {{ previewText(skill) }}
           </div>
 
-          <div v-if="skill.path" class="skill-path" :title="skill.path">{{ skill.path }}</div>
+          <div v-if="skill.path" class="skill-path" v-tooltip="skill.path">{{ skill.path }}</div>
         </div>
       </div>
 
@@ -66,7 +66,7 @@
 
         <section v-if="skill.path" class="skill-info-block">
           <div class="skill-info-label mono">路径</div>
-          <div class="skill-path skill-path--body" :title="skill.path">{{ skill.path }}</div>
+          <div class="skill-path skill-path--body" v-tooltip="skill.path">{{ skill.path }}</div>
         </section>
       </div>
     </article>

@@ -18,7 +18,7 @@
           type="button"
           class="composer-slash-option group"
           :class="{ 'is-active': index === activeIndex && !command.disabled }"
-          :title="
+          v-tooltip="
             command.disabled ? command.disabledHint || command.hint || command.title : command.hint || command.title
           "
           :disabled="command.disabled"

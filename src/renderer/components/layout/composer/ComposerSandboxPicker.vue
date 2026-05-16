@@ -4,7 +4,7 @@
     type="button"
     class="composer-sandbox-trigger composer-select--sandbox mono"
     :class="[sandboxToneClass, { 'is-open': open }]"
-    :title="title"
+    v-tooltip="tooltipText"
     aria-haspopup="listbox"
     :aria-expanded="open ? 'true' : 'false'"
     aria-label="权限"
@@ -57,7 +57,7 @@ type SelectOption = {
 const props = defineProps<{
   modelValue: SandboxMode;
   options: readonly SelectOption[];
-  title: string;
+  tooltipText: string;
 }>();
 
 const emit = defineEmits<{

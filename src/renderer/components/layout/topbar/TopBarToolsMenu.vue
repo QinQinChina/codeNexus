@@ -8,7 +8,7 @@
       aria-haspopup="menu"
       :aria-expanded="props.open ? 'true' : 'false'"
       aria-label="工具"
-      title="工具"
+      v-tooltip="'工具'"
       @click.stop="emit('toggle')"
     >
       <SlidersHorizontal aria-hidden="true" />

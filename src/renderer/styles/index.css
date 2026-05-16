@@ -19,6 +19,7 @@
 @import "./timeline.css";
 @import "./chat-timeline.css";
 @import "./composer.css";
+@import "./tooltip.css";
 @import "./responsive/layout.css";
 @import "./responsive/center.css";
 @import "./responsive/composer.css";

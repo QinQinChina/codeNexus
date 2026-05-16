@@ -4,11 +4,11 @@
       <div class="lsb-pane-head-row">
         <div class="lsb-pane-title">线程</div>
         <div class="lsb-head-badges">
-          <span class="lsb-head-badge is-accent mono" :title="threadsCountTitle">{{ threadsCountText }}</span>
+          <span class="lsb-head-badge is-accent mono" v-tooltip="threadsCountTitle">{{ threadsCountText }}</span>
           <span
             v-if="runningThreadsCount > 0"
             class="lsb-head-badge is-success mono"
-            :title="`进行中的线程：${runningThreadsCount}`"
+            v-tooltip="`进行中的线程：${runningThreadsCount}`"
           >
             运行 {{ runningThreadsCount }}
           </span>
@@ -29,7 +29,7 @@
           id="btn-refresh-history"
           class="lsb-icon-btn lsb-thread-refresh-btn"
           type="button"
-          title="从磁盘刷新历史"
+          v-tooltip="'从磁盘刷新历史'"
           aria-label="刷新"
           :disabled="isRefreshingHistory"
           @click="onRefreshHistoryClick"
@@ -55,7 +55,7 @@
             v-if="threadFilterText"
             class="lsb-search-clear"
             type="button"
-            title="清空搜索"
+            v-tooltip="'清空搜索'"
             aria-label="清空搜索"
             @click="threadFilterText = ''"
           >
@@ -96,15 +96,15 @@
                     class="lsb-group-head lsb-group-head-toggle"
                     type="button"
                     v-bind="triggerProps"
-                    :title="threadGroupToggleTitle(group, open)"
+                    v-tooltip="threadGroupToggleTitle(group, open)"
                   >
                     <span class="lsb-group-head-left">
                       <Folder class="lsb-group-icon" aria-hidden="true" />
-                      <span class="lsb-group-title" :title="group.cwdFull">{{ group.title }}</span>
+                      <span class="lsb-group-title" v-tooltip="group.cwdFull">{{ group.title }}</span>
                       <span
                         v-if="threadFilterActive"
                         class="lsb-head-badge mono"
-                        :title="`匹配 ${group.rows.length} 条`"
+                        v-tooltip="`匹配 ${group.rows.length} 条`"
                         >{{ group.rows.length }}</span
                       >
                     </span>

@@ -6,7 +6,7 @@
       type="button"
       :aria-expanded="open ? 'true' : 'false'"
       aria-controls="topbar-plan-menu"
-      title="查看当前线程计划"
+      v-tooltip="'查看当前线程计划'"
       @click="toggleOpen"
     >
       <span class="topbar-plan-label">计划</span>

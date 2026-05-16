@@ -100,7 +100,7 @@
                   </div>
                   <div v-if="currentSkillRoots.length > 0" class="integrations-root-list">
                     <div v-for="root in currentSkillRoots" :key="root" class="integrations-root-row">
-                      <span class="mono" :title="root">{{ root }}</span>
+                      <span class="mono" v-tooltip="root">{{ root }}</span>
                       <button class="btn-mini" type="button" :disabled="codexSkillRootsStore.saving" @click="onRemoveSkillRoot(root)">
                         移除
                       </button>
@@ -238,7 +238,7 @@
                       summaryClass="mcp-summary"
                     >
                       <template #summary="{ open: detailsOpen }">
-                        <label class="skill-switch" :title="server.enabled ? '关闭 MCP' : '启用 MCP'">
+                        <label class="skill-switch" v-tooltip="server.enabled ? '关闭 MCP' : '启用 MCP'">
                           <input
                             class="skill-switch-input"
                             type="checkbox"
@@ -257,7 +257,7 @@
                           <div
                             v-if="mcpSummarySubtext(server)"
                             class="mcp-subtitle mono dim"
-                            :title="mcpSummarySubtext(server)"
+                            v-tooltip="mcpSummarySubtext(server)"
                           >
                             {{ mcpSummarySubtext(server) }}
                           </div>

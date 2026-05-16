@@ -54,7 +54,7 @@
             v-for="attachment in composeAttachments"
             :key="attachment.id"
             class="composer-attachment"
-            :title="attachment.name"
+            v-tooltip="attachment.name"
           >
             <button
               class="composer-attachment-preview"
@@ -130,7 +130,7 @@
             />
             <ComposerSandboxPicker
               :modelValue="sandboxMode"
-              :title="sandboxRiskText"
+              :tooltipText="sandboxRiskText"
               :options="sandboxModeOptions"
               @update:modelValue="emit('update:sandboxMode', $event)"
             />
@@ -138,7 +138,7 @@
               v-if="serviceTierLabel"
               class="composer-service-tier mono"
               :class="{ 'is-fast': serviceTierLabel === '快速' }"
-              :title="serviceTierTooltip || serviceTierLabel"
+              v-tooltip="serviceTierTooltip || serviceTierLabel"
               >{{ serviceTierLabel }}</span
             >
           </div>
@@ -148,7 +148,7 @@
               id="btn-add-image"
               class="btn-mini composer-icon-button"
               type="button"
-              title="添加图片"
+              v-tooltip="'添加图片'"
               aria-label="添加图片"
               @click="emit('pick-images')"
             >
@@ -157,7 +157,7 @@
 
             <div
               class="composer-context"
-              :title="contextUsageTooltip"
+              v-tooltip="contextUsageTooltip"
             >
               <WaterBallProgress
                 class="composer-context-ball"
@@ -178,7 +178,7 @@
               :class="{ 'is-running': isTurnRunning, 'is-disabled': sendDisabled && !isTurnRunning }"
               type="button"
               :disabled="sendDisabled && !isTurnRunning"
-              :title="sendTitle"
+              v-tooltip="sendTitle"
               :aria-label="sendTitle"
               @click="emit('send')"
             >
@@ -196,7 +196,7 @@
               class="composer-send-button composer-stop-button is-running"
               type="button"
               :disabled="interruptDisabled"
-              :title="interruptTitle"
+              v-tooltip="interruptTitle"
               :aria-label="interruptTitle"
               @click="emit('interrupt-turn')"
             >

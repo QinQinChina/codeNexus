@@ -14,6 +14,7 @@ import { useRuntimeStore } from "./stores/runtime.store";
 import { useMessageQueueStore } from "./stores/messageQueue.store";
 import { useCodexProfilesStore } from "./stores/codexProfiles.store";
 import { useCodexSkillRootsStore } from "./stores/codexSkillRoots.store";
+import { installTooltipDirective } from "./directives/tooltip";
 
 async function bootstrap() {
   const pinia = createPinia();
@@ -38,6 +39,7 @@ async function bootstrap() {
   const runtime = initRuntimeOrchestrator(pinia);
   const app = createApp(App);
   app.use(pinia);
+  installTooltipDirective(app);
   app.mount("#app");
 
   const windowControlsOverlay = (navigator as any).windowControlsOverlay as

@@ -5,14 +5,14 @@
     <div class="bottom-bar__right">
       <CodexProfileSwitch class="bottom-bar__profile-switch" />
 
-      <div class="bottom-bar__conn mono" :class="connectionStateClass" :title="connectionTitleText">
+      <div class="bottom-bar__conn mono" :class="connectionStateClass" v-tooltip="connectionTitleText">
         <span class="bottom-bar__conn-icon" aria-hidden="true">
           <span class="bottom-bar__conn-dot"></span>
         </span>
         <span class="bottom-bar__conn-text">{{ connectionLabel }}</span>
       </div>
 
-      <div class="bottom-bar__clock mono dim" :title="titleText" :aria-label="`当前时间 ${timeText}`">
+      <div class="bottom-bar__clock mono dim" v-tooltip="titleText" :aria-label="`当前时间 ${timeText}`">
         {{ timeText }}
       </div>
     </div>

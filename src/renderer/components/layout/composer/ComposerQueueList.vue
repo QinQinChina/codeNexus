@@ -10,7 +10,7 @@
         class="composer-queue-primary"
         type="button"
         :disabled="msg.status === 'sending'"
-        :title="msg.displayText || msg.text"
+        v-tooltip="msg.displayText || msg.text"
         @click="$emit('edit', msg.id)"
       >
         <span
@@ -38,7 +38,7 @@
           type="button"
           :disabled="msg.status === 'sending'"
           @click="$emit('send-now', msg.id)"
-          title="立即发送"
+          v-tooltip="'立即发送'"
         >
           <SendHorizontal class="h-3.5 w-3.5 mr-1.5" />
           <span>发送</span>
@@ -48,7 +48,7 @@
           type="button"
           :disabled="msg.status === 'sending'"
           @click="$emit('remove', msg.id)"
-          title="删除"
+          v-tooltip="'删除'"
         >
           <Trash2 class="h-3.5 w-3.5 mr-1.5" />
           <span>删除</span>

@@ -317,7 +317,7 @@
                     </div>
                     <div v-if="modelCatalogStore.customIds.length > 0" class="global-model-list">
                       <div v-for="id in modelCatalogStore.customIds" :key="id" class="global-model-item">
-                        <span class="global-model-item-id mono" :title="id">{{ id }}</span>
+                        <span class="global-model-item-id mono" v-tooltip="id">{{ id }}</span>
                         <button
                           class="btn-mini"
                           type="button"

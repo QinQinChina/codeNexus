@@ -8,7 +8,10 @@
       </div>
     </div>
 
-    <section class="image-workbench__stage" :class="{ 'is-history': !selectedHistoryItem && workbench.historyItems.length > 0 }">
+    <section
+      class="image-workbench__stage app-scrollbar"
+      :class="{ 'is-history': !selectedHistoryItem && workbench.historyItems.length > 0 }"
+    >
       <div class="image-workbench__stage-head">
         <span>{{ selectedHistoryItem ? "详情" : "历史记录" }}</span>
         <span class="mono">{{ workbench.historyItems.length }} 次生成</span>
@@ -35,16 +38,16 @@
           <article v-for="image in selectedHistoryItem.images" :key="image.path" class="image-workbench__result">
             <div class="image-workbench__result-tools">
               <span class="image-workbench__zoom mono">{{ Math.round(getImageZoom(image.path) * 100) }}%</span>
-              <button class="image-workbench__tool" type="button" title="缩小" @click="zoomImage(image.path, 1 / ZOOM_STEP)">
+              <button class="image-workbench__tool" type="button" v-tooltip="'缩小'" @click="zoomImage(image.path, 1 / ZOOM_STEP)">
                 <ZoomOut aria-hidden="true" />
               </button>
-              <button class="image-workbench__tool" type="button" title="放大" @click="zoomImage(image.path, ZOOM_STEP)">
+              <button class="image-workbench__tool" type="button" v-tooltip="'放大'" @click="zoomImage(image.path, ZOOM_STEP)">
                 <ZoomIn aria-hidden="true" />
               </button>
-              <button class="image-workbench__tool" type="button" title="重置视图" @click="resetImageZoom(image.path)">
+              <button class="image-workbench__tool" type="button" v-tooltip="'重置视图'" @click="resetImageZoom(image.path)">
                 <RotateCcw aria-hidden="true" />
               </button>
-              <button class="image-workbench__tool" type="button" title="下载图片" @click="downloadImage(image)">
+              <button class="image-workbench__tool" type="button" v-tooltip="'下载图片'" @click="downloadImage(image)">
                 <Download aria-hidden="true" />
               </button>
             </div>
@@ -98,7 +101,7 @@
       <div
         v-else-if="workbench.historyItems.length > 0"
         ref="historyScrollerRef"
-        class="image-workbench__history-scroll"
+        class="image-workbench__history-scroll app-scrollbar"
         :class="{ 'is-dragging': historyDragState !== null }"
         @pointerdown="onHistoryPointerDown"
         @wheel="onHistoryWheel"
@@ -159,7 +162,7 @@
                   class="btn-mini btn-mini--danger image-workbench__history-delete"
                   type="button"
                   aria-label="删除失败记录"
-                  title="删除失败记录"
+                  v-tooltip="'删除失败记录'"
                   @click.stop="workbench.deleteHistoryItem(item.id)"
                   @keydown.stop
                 >

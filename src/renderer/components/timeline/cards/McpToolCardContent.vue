@@ -37,7 +37,7 @@
           </div>
           <div
             class="mono dim whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[10px]"
-            :title="itemTitle(item)"
+            v-tooltip="itemTitle(item)"
           >
             {{ itemTitle(item) }}
           </div>

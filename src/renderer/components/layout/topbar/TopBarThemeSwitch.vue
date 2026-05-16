@@ -7,7 +7,7 @@
     role="switch"
     :aria-checked="themeStore.theme === 'dark'"
     :aria-label="themeAriaLabel"
-    :title="themeAriaLabel"
+    v-tooltip="themeAriaLabel"
     @click="onToggleTheme"
   >
     <span class="topbar-theme-switch-track" aria-hidden="true">

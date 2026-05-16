@@ -4,7 +4,7 @@
     type="button"
     class="composer-model-reasoning-trigger"
     :class="['composer-select--model', modelToneClass, { 'is-open': open }]"
-    :title="triggerTitle"
+    v-tooltip="triggerTitle"
     aria-haspopup="dialog"
     :aria-expanded="open ? 'true' : 'false'"
     @click="onTriggerClick"
@@ -23,7 +23,7 @@
       <div
         v-if="open"
         ref="popoverRef"
-        class="composer-model-reasoning-popover"
+        class="composer-model-reasoning-popover app-scrollbar"
         :style="popoverStyle"
         role="dialog"
         aria-label="模型和思考程度"
@@ -62,7 +62,7 @@
       <div
         v-if="open && activeModel"
         ref="reasoningPopoverRef"
-        class="composer-model-reasoning-popover composer-model-reasoning-popover--sub"
+        class="composer-model-reasoning-popover composer-model-reasoning-popover--sub app-scrollbar"
         :style="reasoningPopoverStyle"
         role="listbox"
         :aria-label="`${activeModel} 思考程度`"

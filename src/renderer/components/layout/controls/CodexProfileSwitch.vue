@@ -1,5 +1,5 @@
 <template>
-  <div class="codex-profile-switch" :title="switchTitle">
+  <div class="codex-profile-switch" v-tooltip="switchTitle">
     <Bot class="codex-profile-switch__icon" aria-hidden="true" />
     <SelectDropdown
       v-if="profilesStore.profiles.length > 0"
@@ -16,7 +16,7 @@
     <button
       class="btn-icon codex-profile-switch__settings"
       type="button"
-      title="管理模型配置"
+      v-tooltip="'管理模型配置'"
       @click="openProfileSettings"
     >
       <Settings2 aria-hidden="true" />

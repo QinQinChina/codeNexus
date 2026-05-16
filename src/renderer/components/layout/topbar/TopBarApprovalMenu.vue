@@ -12,7 +12,7 @@
       aria-haspopup="menu"
       :aria-expanded="props.open ? 'true' : 'false'"
       aria-label="审批"
-      title="审批"
+      v-tooltip="'审批'"
       @click.stop="emit('toggle')"
     >
       <ShieldCheck class="topbar-approval-button__icon" aria-hidden="true" />
@@ -25,7 +25,7 @@
         <div class="topbar-menu-section">
           <div class="row" style="align-items: baseline; justify-content: space-between; gap: 10px">
             <div class="topbar-menu-heading">审批</div>
-            <div class="mono dim text-[11px]" :title="approvalQueueTitle">{{ approvalQueueText }}</div>
+            <div class="mono dim text-[11px]" v-tooltip="approvalQueueTitle">{{ approvalQueueText }}</div>
           </div>
 
           <div id="approval-box" :class="{ dim: !activeApprovalPrompt }">
@@ -87,7 +87,7 @@
                   <DetailDisclosure
                     v-for="file in applyPatchFiles(activeApprovalPrompt)"
                     :key="file.path"
-                    :title="applyPatchFileSummary(file)"
+                    v-tooltip="applyPatchFileSummary(file)"
                     :defaultOpen="false"
                     :content="file.body"
                   />

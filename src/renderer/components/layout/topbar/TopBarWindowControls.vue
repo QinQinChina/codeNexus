@@ -4,7 +4,7 @@
     class="btn-icon"
     type="button"
     aria-label="最小化"
-    title="最小化"
+    v-tooltip="'最小化'"
     @click="onWindowMinimize"
   >
     <Minus aria-hidden="true" />
@@ -14,7 +14,7 @@
     class="btn-icon"
     type="button"
     :aria-label="windowExpanded ? '还原' : '最大化'"
-    :title="windowExpanded ? '还原' : '最大化'"
+    v-tooltip="windowExpanded ? '还原' : '最大化'"
     @click="onWindowToggleMaximize"
   >
     <Copy v-if="windowExpanded" aria-hidden="true" />
@@ -25,7 +25,7 @@
     class="btn-icon danger"
     type="button"
     aria-label="关闭"
-    title="关闭"
+    v-tooltip="'关闭'"
     @click="onWindowClose"
   >
     <X aria-hidden="true" />
