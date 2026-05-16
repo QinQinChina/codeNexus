@@ -9,7 +9,8 @@ export const SettingsPage = defineAsyncComponent(() => import("./layout/Settings
 export const WorkspaceEditorPane = defineAsyncComponent(() => import("./layout/workspace/WorkspaceEditorPane.vue"));
 export const WorkspaceFilesSidebar = defineAsyncComponent(() => import("./layout/workspace/WorkspaceFilesSidebar.vue"));
 export const ComposerQueueList = defineAsyncComponent(() => import("./layout/composer/ComposerQueueList.vue"));
-export const ComposerSlashCommandList = defineAsyncComponent(() => import("./layout/composer/ComposerSlashCommandList.vue"));
-export const PlanSummaryPanel = defineAsyncComponent(() => import("./layout/PlanSummaryPanel.vue"));
+export const ComposerSlashCommandList = defineAsyncComponent(
+  () => import("./layout/composer/ComposerSlashCommandList.vue")
+);
 export const SkillsManagerOverlay = defineAsyncComponent(() => import("./layout/skills/SkillsManagerOverlay.vue"));
 export const ChatPane = defineAsyncComponent(() => import("./layout/chat/ChatPane.vue"));

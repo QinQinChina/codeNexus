@@ -199,15 +199,6 @@
   gap: 10px;
 }
 
-.timeline-pane--chat #timeline > .plan-summary {
-  width: var(--chat-column-w);
-  margin-left: auto;
-  margin-right: auto;
-  position: sticky;
-  top: 0;
-  z-index: 12;
-}
-
 .timeline-pane--chat #timeline > .chat-pane,
 .timeline-pane--chat #timeline > .timeline-empty-state-shell {
   width: var(--chat-column-w);
@@ -232,19 +223,6 @@
   transform: translateX(-50%);
 }
 
-.timeline-pane--chat .plan-summary {
-  width: min(100%, var(--chat-content-max-w));
-  margin-left: auto;
-  margin-right: auto;
-  border-radius: 10px;
-  border-color: color-mix(in srgb, var(--border) 76%, var(--accent) 18%);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--surface-2) 68%, transparent),
-    color-mix(in srgb, var(--surface-1) 90%, transparent)
-  );
-}
-
 .timeline-pane--chat .composer-queue-fab {
   right: max(14px, calc((100% - var(--chat-content-max-w)) / 2 + 14px));
 }
@@ -260,14 +238,4 @@
   border: 0;
   background: transparent;
   box-shadow: none;
-}
-
-:root[data-theme="light"] .timeline-pane--chat .plan-summary {
-  border-color: color-mix(in srgb, var(--light-border) 76%, var(--accent) 18%);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--light-elevated-bg) 78%, var(--accent) 5%),
-    color-mix(in srgb, var(--light-panel-bg) 92%, transparent)
-  );
-  box-shadow: var(--light-shadow-sm);
 }

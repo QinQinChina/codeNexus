@@ -13,6 +13,204 @@
   stroke-width: 2;
 }
 
+.topbar-plan-summary {
+  grid-column: 2;
+  position: relative;
+  justify-self: center;
+  width: min(100%, 640px);
+  min-width: 0;
+  -webkit-app-region: no-drag;
+}
+
+.topbar button.topbar-plan-trigger {
+  width: 100%;
+  height: 28px;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--tb-control-border) 72%, transparent);
+  border-radius: var(--tb-radius);
+  background: color-mix(in srgb, var(--tb-control-bg) 88%, var(--surface-2) 12%);
+  color: var(--topbar-text);
+}
+
+.topbar button.topbar-plan-trigger:hover:not(:disabled),
+.topbar-plan-summary.is-open button.topbar-plan-trigger {
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--tb-control-border) 66%);
+  background: color-mix(in srgb, var(--topbar-active-bg, var(--accent)) 40%, var(--tb-control-bg) 60%);
+}
+
+.topbar-plan-label {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.topbar-plan-progress {
+  min-width: 34px;
+  color: var(--topbar-text-muted);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.topbar-plan-current {
+  position: relative;
+  min-width: 0;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  color: var(--topbar-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.topbar-plan-current-text {
+  min-width: 0;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-plan-spinner,
+.topbar-plan-step-spinner {
+  width: 10px;
+  height: 10px;
+  border-width: 1.6px;
+}
+
+.topbar-plan-caret {
+  width: 13px;
+  height: 13px;
+  color: var(--topbar-text-muted);
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 180ms ease;
+}
+
+.topbar-plan-caret.is-open {
+  color: var(--topbar-text);
+  transform: rotate(180deg);
+}
+
+.topbar-menu-shell--plan {
+  left: 0;
+  right: 0;
+  width: min(100%, 640px);
+}
+
+.topbar-plan-menu {
+  max-height: min(44vh, 420px);
+  gap: 9px;
+  padding: 10px;
+}
+
+.topbar-plan-menu-head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.topbar-plan-menu-progress {
+  flex: 0 0 auto;
+  color: var(--topbar-dropdown-text, var(--text));
+  font-size: 11px;
+}
+
+.topbar-plan-explanation {
+  color: color-mix(in srgb, var(--topbar-dropdown-text, var(--text)) 66%, transparent);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.topbar-plan-list {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.topbar-plan-step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 9px;
+  min-width: 0;
+  padding: 6px 7px;
+  border-radius: var(--tb-radius-sm);
+  color: var(--topbar-dropdown-text, var(--text));
+}
+
+.topbar-plan-step.is-inProgress {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.topbar-plan-step.is-pending {
+  color: color-mix(in srgb, var(--topbar-dropdown-text, var(--text)) 58%, transparent);
+}
+
+.topbar-plan-step-status {
+  min-width: 82px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.topbar-plan-step-status.is-completed {
+  color: var(--fg-success);
+}
+
+.topbar-plan-step-status.is-in-progress {
+  color: var(--fg-accent);
+}
+
+.topbar-plan-step-status.is-pending {
+  color: var(--topbar-text-muted);
+}
+
+.topbar-plan-step-icon {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  stroke-width: 2.2;
+}
+
+.topbar-plan-step-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.topbar-plan-step-slide-enter-active,
+.topbar-plan-step-slide-leave-active {
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.topbar-plan-step-slide-enter-from {
+  opacity: 0;
+  transform: translateY(100%);
+}
+
+.topbar-plan-step-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-100%);
+}
+
 .topbar-controls--sleek {
   gap: 6px;
 }
@@ -861,6 +1059,9 @@
   .topbar-more-panel,
   .topbar-single-switch-thumb,
   .topbar-menu-item-chevron,
+  .topbar-plan-caret,
+  .topbar-plan-step-slide-enter-active,
+  .topbar-plan-step-slide-leave-active,
   .dynamic-tools-switch-track,
   .dynamic-tools-switch-thumb {
     transition: none;

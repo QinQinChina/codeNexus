@@ -32,6 +32,8 @@
         </div>
       </div>
 
+      <TopBarPlanSummary />
+
       <div class="topbar-right-stack">
         <div class="row topbar-controls topbar-controls--sleek">
           <div class="control-group control-group-panes" aria-label="面板">
@@ -102,6 +104,7 @@ import {
   Settings,
 } from "lucide-vue-next";
 import TopBarWorkspaceButton from "./topbar/TopBarWorkspaceButton.vue";
+import TopBarPlanSummary from "./topbar/TopBarPlanSummary.vue";
 import TopBarThemeSwitch from "./topbar/TopBarThemeSwitch.vue";
 import TopBarWindowControls from "./topbar/TopBarWindowControls.vue";
 import { useAppShellStore } from "../../stores/appShell.store";

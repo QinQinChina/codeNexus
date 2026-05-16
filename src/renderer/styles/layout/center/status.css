@@ -1,8 +1,3 @@
-.timeline-pane.timeline-pane--with-plan,
-.timeline-pane.timeline-pane--no-plan {
-  grid-template-rows: minmax(0, 1fr);
-}
-
 .timeline-pane.timeline-pane--skills-page {
   grid-template-rows: minmax(0, 1fr);
 }

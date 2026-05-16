@@ -1,7 +1,12 @@
 <template>
   <section id="center-content" ref="centerContentRef" class="content content-center">
     <div class="center-workbench">
-      <div id="timeline-pane" class="center-pane timeline-pane" :class="timelinePaneClass" :style="timelineViewportStyle">
+      <div
+        id="timeline-pane"
+        class="center-pane timeline-pane"
+        :class="timelinePaneClass"
+        :style="timelineViewportStyle"
+      >
         <SkillsManagerOverlay v-if="skillsUiStore.managerOpen" />
 
         <template v-else>
@@ -12,17 +17,6 @@
             :style="timelineStyle"
             @scroll="onTimelineScroll"
           >
-            <PlanSummaryPanel
-              v-if="hasPlanSummary && !isTimelineLoading"
-              class="timeline-plan-summary-sticky"
-              :open="isPlanSummaryOpen"
-              :summaryText="planSummaryRightText"
-              :showRunningIcon="planSummaryShowRunningIcon"
-              :explanationText="planSummaryExplanationText"
-              :steps="planSummarySteps"
-              @toggle="togglePlanSummaryOpen"
-            />
-
             <div v-if="isTimelineLoading || shouldShowCenterEmptyState" class="timeline-empty-state-shell">
               <CenterPaneEmptyState
                 :loading="isTimelineLoading"
@@ -187,13 +181,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import ComposerPanel from "./composer/ComposerPanel.vue";
 import CenterPaneEmptyState from "./CenterPaneEmptyState.vue";
-import {
-  ChatPane,
-  ComposerQueueList,
-  ComposerSlashCommandList,
-  PlanSummaryPanel,
-  SkillsManagerOverlay,
-} from "../asyncViews";
+import { ChatPane, ComposerQueueList, ComposerSlashCommandList, SkillsManagerOverlay } from "../asyncViews";
 import { useTimelineScrollController } from "./composables/useTimelineScrollController";
 import type { TimelineViewportAdapter } from "./chat/timelineScrollPolicy";
 import { hasMeaningfulComposeText, stripComposeFileTokenChars } from "../../domain/composeFileMentions";
@@ -201,7 +189,6 @@ import { getRuntimeOrchestrator } from "../../domain/runtimeOrchestrator";
 import type {
   CollaborationModeKind,
   ComposeImageAttachment,
-  PlanStepState,
   ThreadHistoryItem,
   TimelineEventItem,
 } from "../../domain/types";
@@ -267,7 +254,6 @@ const composeLightboxCloseRef = ref<HTMLButtonElement | null>(null);
 const queuePopoverToggleRef = ref<HTMLButtonElement | null>(null);
 const queuePopoverRef = ref<HTMLDivElement | null>(null);
 const slashPopoverRef = ref<HTMLDivElement | null>(null);
-const isPlanSummaryOpen = ref(true);
 const queuePopoverOpen = ref(false);
 const activeSlashIndex = ref(-1);
 const composeLightboxAttachmentId = ref("");
@@ -386,7 +372,6 @@ const timelineScrollController = useTimelineScrollController({
 const {
   hasTopEdgeFade,
   hasBottomEdgeFade,
-  bumpTimelineLayoutRevision,
   forceFollowBottom,
   notifyTimelineLayoutChange,
   onTimelineScroll,
@@ -442,9 +427,6 @@ const isTimelineCompact = computed(() => {
 const timelinePaneClass = computed(() => {
   if (skillsUiStore.managerOpen) return ["timeline-pane--skills-page"];
   const classes = ["timeline-pane--chat"];
-  classes.push(
-    hasPlanSummary.value && !isTimelineLoading.value ? "timeline-pane--with-plan" : "timeline-pane--no-plan"
-  );
   if (runtimeStore.timelineDebugEnabled) classes.push("is-debug-open");
   if (isTimelineCompact.value) classes.push("is-compact");
   return classes;
@@ -504,18 +486,6 @@ const trailingThinkingEvent = computed<TimelineEventItem | null>(() => {
   return null;
 });
 
-const planSummary = computed(() => threadStore.currentTurnPlan);
-const planSummarySteps = computed<PlanStepState[]>(() => planSummary.value?.plan ?? []);
-const planSummaryExplanationText = computed(() => String(planSummary.value?.explanation ?? "").trim());
-const hasPlanSummary = computed(() => Boolean(planSummaryExplanationText.value) || planSummarySteps.value.length > 0);
-const planSummaryShowRunningIcon = computed(() => planSummarySteps.value.some((step) => step.status === "inProgress"));
-const planSummaryRightText = computed(() => {
-  if (planSummarySteps.value.length === 0) return "";
-  const completed = planSummarySteps.value.filter((step) => step.status === "completed").length;
-  const running = planSummarySteps.value.find((step) => step.status === "inProgress");
-  if (running) return `进行中：${running.step}`;
-  return `${completed}/${planSummarySteps.value.length} 已完成`;
-});
 const composeLightboxAttachment = computed<ComposeImageAttachment | null>(() => {
   const attachmentId = String(composeLightboxAttachmentId.value ?? "").trim();
   if (!attachmentId) return null;
@@ -1035,12 +1005,6 @@ async function buildComposeAttachmentFromFile(file: File, imageIndex: number): P
   };
 }
 
-function togglePlanSummaryOpen() {
-  isPlanSummaryOpen.value = !isPlanSummaryOpen.value;
-  bumpTimelineLayoutRevision();
-  void nextTick(() => scheduleTimelineViewportStateUpdate());
-}
-
 function ensureComposerSelectionVisible() {
   const el = composerInputRef.value;
   if (!el) return;
@@ -1426,23 +1390,6 @@ watch(currentThreadId, () => {
   if (queuePopoverVisible.value) closeQueuePopover();
 });
 
-watch(
-  () =>
-    [
-      hasPlanSummary.value,
-      isPlanSummaryOpen.value,
-      planSummarySteps.value.length,
-      planSummaryExplanationText.value,
-    ] as const,
-  () => {
-    void nextTick(() => {
-      bumpTimelineLayoutRevision();
-      scheduleTimelineViewportStateUpdate();
-    });
-  },
-  { flush: "post" }
-);
-
 watch(shouldShowComposerPanel, (visible) => {
   if (!visible) {
     if (queuePopoverVisible.value) closeQueuePopover();
@@ -1520,13 +1467,3 @@ onBeforeUnmount(() => {
   }
 });
 </script>
-
-<style scoped>
-.timeline-pane.timeline-pane--chat.timeline-pane--with-plan {
-  grid-template-rows: minmax(0, 1fr);
-}
-
-.timeline-pane.timeline-pane--chat.timeline-pane--no-plan {
-  grid-template-rows: minmax(0, 1fr);
-}
-</style>
