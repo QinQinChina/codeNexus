@@ -1364,12 +1364,15 @@ textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-
 }
 
 .composer-mode-group {
+  --composer-mode-pad: 4px;
+  --composer-mode-gap: 2px;
   position: relative;
-  display: inline-flex;
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: center;
-  gap: 2px;
+  gap: var(--composer-mode-gap);
   min-height: var(--composer-control-h);
-  padding: 4px;
+  padding: var(--composer-mode-pad);
   border: 1px solid var(--composer-mode-group-border);
   border-radius: var(--composer-control-radius);
   background: var(--composer-mode-group-bg);
@@ -1378,30 +1381,29 @@ textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-
 
 .composer-mode-thumb {
   position: absolute;
-  top: 4px;
-  bottom: 4px;
+  top: var(--composer-mode-pad);
+  bottom: var(--composer-mode-pad);
+  left: var(--composer-mode-pad);
+  width: calc((100% - (var(--composer-mode-pad) * 2) - var(--composer-mode-gap)) / 2);
   border: 1px solid var(--composer-mode-group-border);
   border-radius: calc(var(--composer-control-radius) - 2px);
   background: var(--surface-1);
-  box-shadow: 0 8px 18px rgb(from var(--ui-shadow-source) r g b / 0.08);
+  box-shadow: none;
   transition:
-    left 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    width 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
     border-color 160ms ease,
-    background-color 160ms ease,
-    box-shadow 160ms ease;
+    background-color 160ms ease;
 }
 
 .composer-shell.is-agent .composer-mode-thumb {
   border-color: var(--composer-agent-mode-border);
   background: var(--composer-agent-mode-bg);
-  box-shadow: 0 8px 18px var(--composer-agent-glow);
 }
 
 .composer-shell.is-plan .composer-mode-thumb {
   border-color: var(--composer-plan-mode-border);
   background: var(--composer-plan-mode-bg);
-  box-shadow: 0 8px 18px var(--composer-plan-glow);
+  transform: translateX(calc(100% + var(--composer-mode-gap)));
 }
 
 .composer-mode-button {

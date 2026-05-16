@@ -683,11 +683,12 @@ function syncRenderedHtml() {
   const template = document.createElement("div");
   template.innerHTML = props.html;
   const nextPlainText = String(template.textContent ?? "");
-  const shouldAnimateStreamingTail =
-    Boolean(props.streaming) &&
+  const canAnimateInitialText = !hasRenderedHtmlOnce && nextPlainText.length > 0;
+  const canAnimateGrowingText =
     hasRenderedHtmlOnce &&
     nextPlainText.length > lastRenderedPlainText.length &&
     nextPlainText.startsWith(lastRenderedPlainText);
+  const shouldAnimateStreamingTail = Boolean(props.streaming) && (canAnimateInitialText || canAnimateGrowingText);
 
   const nextFrozenMermaidBlocks = new Map<string, HTMLElement>();
   const nextMermaidFailures = new Map<string, string>();
@@ -724,7 +725,7 @@ function syncRenderedHtml() {
   }
 
   if (shouldAnimateStreamingTail) {
-    markStreamingTextTail(template, lastRenderedPlainText.length);
+    markStreamingTextTail(template, hasRenderedHtmlOnce ? lastRenderedPlainText.length : 0);
   }
 
   host.replaceChildren(...Array.from(template.childNodes));

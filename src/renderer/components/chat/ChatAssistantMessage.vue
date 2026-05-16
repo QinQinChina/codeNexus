@@ -16,7 +16,7 @@
         v-else
         class="chat-bubble-body agent-markdown-body min-w-0"
         :html="markdownHtml"
-        :streaming="isStreaming"
+        :streaming="isStreaming || event.method === 'item/agentMessage/delta' || event.method === 'item/plan/delta'"
       />
       <div
         v-if="event.method === 'item/plan/delta' && execState"

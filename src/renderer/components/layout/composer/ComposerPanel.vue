@@ -96,13 +96,7 @@
               role="group"
               aria-label="协作模式"
             >
-              <div
-                class="composer-mode-thumb"
-                :style="{
-                  left: composeMode === 'default' ? '4px' : 'calc(50% + 1px)',
-                  width: 'calc(50% - 5px)',
-                }"
-              ></div>
+              <div class="composer-mode-thumb"></div>
               <button
                 class="btn-mini composer-mode-button"
                 type="button"
