@@ -1,7 +1,7 @@
 import { computed, ref, watch } from "vue";
-import { useThreadStore } from "../../stores/thread.store";
-import { useRuntimeStore } from "../../stores/runtime.store";
-import type { ActivityTone } from "./chat.types";
+import { useThreadStore } from "../../../stores/thread.store";
+import { useRuntimeStore } from "../../../stores/runtime.store";
+import type { ActivityTone } from "../types/chat.types";
 
 export function useChatLayout() {
   const threadStore = useThreadStore();

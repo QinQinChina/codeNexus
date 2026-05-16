@@ -1,7 +1,7 @@
 <template>
   <section id="center-content" ref="centerContentRef" class="content content-center">
     <div class="center-workbench">
-      <div id="timeline-pane" class="center-pane timeline-pane" :class="timelinePaneClass">
+      <div id="timeline-pane" class="center-pane timeline-pane" :class="timelinePaneClass" :style="timelineViewportStyle">
         <SkillsManagerOverlay v-if="skillsUiStore.managerOpen" />
 
         <template v-else>
@@ -28,8 +28,6 @@
                 :loading="isTimelineLoading"
                 :historyItems="emptyStateHistoryItems"
                 :mode="emptyStateMode"
-                @create-thread="onEmptyStateCreateThread"
-                @start-chat="onEmptyStateStartChat"
                 @switch-thread="onEmptyStateSwitchThread"
               />
             </div>
@@ -82,7 +80,6 @@
             :contextUsagePercent="contextUsagePercent"
             :contextUsageLevel="contextUsageLevel"
             :contextUsageTokensText="contextUsageTokensText"
-            :contextWindowLimitWarningText="contextWindowLimitWarningText"
             :isTurnRunning="isTurnRunning"
             :sendDisabled="sendDisabled"
             :sendTitle="sendTitle"
@@ -185,7 +182,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import ComposerPanel from "./ComposerPanel.vue";
+import ComposerPanel from "./composer/ComposerPanel.vue";
 import CenterPaneEmptyState from "./CenterPaneEmptyState.vue";
 import {
   ChatPane,
@@ -194,7 +191,7 @@ import {
   PlanSummaryPanel,
   SkillsManagerOverlay,
 } from "../asyncViews";
-import { useTimelineScrollController } from "./useTimelineScrollController";
+import { useTimelineScrollController } from "./composables/useTimelineScrollController";
 import { hasMeaningfulComposeText, stripComposeFileTokenChars } from "../../domain/composeFileMentions";
 import { getRuntimeOrchestrator } from "../../domain/runtimeOrchestrator";
 import type {
@@ -343,11 +340,9 @@ const workspaceRoot = computed(() => String(runtimeStore.workspacePath ?? "").tr
 const contentTimelineEvents = computed<TimelineEventItem[]>(() => timelineStore.eventsForThread(timelineKey.value));
 const timelineRevision = computed(() => timelineStore.threadRevisionForThread(timelineKey.value));
 const queueItems = computed(() => messageQueueStore.queueByThread.get(timelineKey.value) ?? []);
-const emptyThreadComposerUnlocked = ref(false);
-const emptyStateMode = computed<"default" | "pendingThread" | "emptyThread">(() => {
+const emptyStateMode = computed<"default" | "pendingThread">(() => {
   const tid = currentThreadId.value;
   if (isPendingThreadId(tid)) return "pendingThread";
-  if (tid && contentTimelineEvents.value.length === 0) return "emptyThread";
   return "default";
 });
 const modelOptions = computed(() =>
@@ -395,13 +390,14 @@ const {
 const emptyStateHistoryItems = computed<ThreadHistoryItem[]>(() => threadStore.threadHistory.slice(0, 8));
 const shouldShowComposerPanel = computed(() => {
   if (skillsUiStore.managerOpen) return false;
-  return emptyStateMode.value !== "emptyThread" || emptyThreadComposerUnlocked.value;
+  return true;
 });
 const shouldShowQueueFab = computed(() => shouldShowComposerPanel.value && queueItems.value.length > 0);
 const shouldShowCenterEmptyState = computed(() => {
   if (contentTimelineEvents.value.length > 0) return false;
-  if (emptyStateMode.value === "emptyThread" && emptyThreadComposerUnlocked.value) return false;
-  return true;
+  if (emptyStateMode.value === "pendingThread") return true;
+  if (currentThreadId.value) return false;
+  return emptyStateHistoryItems.value.length > 0;
 });
 const composerDockSpacePx = computed(() => {
   if (!shouldShowComposerPanel.value) return 12;
@@ -470,11 +466,6 @@ const contextUsageTooltip = computed(() => {
   const contextWindow = currentTokenUsage.value.contextWindow;
   if (usedTokens == null || contextWindow == null || contextWindow <= 0) return "上下文窗口信息暂不可用";
   return `上下文使用 ${usedTokens}/${contextWindow} 个 token`;
-});
-const contextWindowLimitWarningText = computed(() => {
-  if (contextUsagePercent.value >= 95) return "上下文已非常接近上限，建议尽快压缩当前线程。";
-  if (contextUsagePercent.value >= 85) return "上下文占用偏高，建议关注压缩或新开线程。";
-  return "";
 });
 
 const trailingContextCompactionEvent = computed<TimelineEventItem | null>(() => {
@@ -654,15 +645,6 @@ const composerStatusText = computed(() => {
     ? "正在初始化线程，初始化完成后将自动发送。"
     : `正在初始化线程，初始化完成后将自动发送（已排队 ${pending} 条）。`;
 });
-
-function onEmptyStateStartChat() {
-  emptyThreadComposerUnlocked.value = true;
-  void nextTick(() => {
-    observeComposerPanelSize();
-    resizeComposerInput();
-    composerInputRef.value?.focus();
-  });
-}
 
 function onComposeInputUpdate(value: string) {
   runtimeStore.composeInput = value;
@@ -1310,11 +1292,6 @@ function onCancelRewrite() {
   });
 }
 
-async function onEmptyStateCreateThread() {
-  await runtime.createThread();
-  nextTick(() => composerInputRef.value?.focus());
-}
-
 async function onEmptyStateSwitchThread(threadId: string) {
   await runtime.switchThread(threadId);
 }
@@ -1435,7 +1412,6 @@ watch(composeLightboxAttachment, (value) => {
 });
 
 watch(currentThreadId, () => {
-  emptyThreadComposerUnlocked.value = false;
   if (queuePopoverVisible.value) closeQueuePopover();
 });
 

@@ -1,7 +1,7 @@
 <template>
   <div class="grid gap-2">
     <div class="flex min-w-0 flex-wrap items-center gap-2">
-      <WaveText
+      <ExecutionWaveText
         v-if="item.status === 'running'"
         class="text-[13px] font-semibold"
         color="var(--accent)"
@@ -78,7 +78,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import DetailDisclosure from "../../ui/DetailDisclosure.vue";
-import WaveText from "../../ui/WaveText.vue";
+import ExecutionWaveText from "../../ui/ExecutionWaveText.vue";
 import type { DynamicToolTimelineItem } from "../../../domain/dynamicTools";
 
 const props = defineProps<{

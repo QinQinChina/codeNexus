@@ -1,8 +1,8 @@
 import { reactive, computed, watch } from "vue";
-import type { TimelineEventItem } from "../../domain/types";
-import type { PlanDeltaExecUiState } from "./chat.types";
-import { useRuntimeStore, type SandboxMode } from "../../stores/runtime.store";
-import { getRuntimeOrchestrator } from "../../domain/runtimeOrchestrator";
+import type { TimelineEventItem } from "../../../domain/types";
+import type { PlanDeltaExecUiState } from "../types/chat.types";
+import { useRuntimeStore, type SandboxMode } from "../../../stores/runtime.store";
+import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
 
 export function usePlanExecution(contentEvents: () => TimelineEventItem[], isTurnRunning: () => boolean) {
   const runtimeStore = useRuntimeStore();

@@ -1,7 +1,7 @@
 import { computed } from "vue";
-import { useThreadStore } from "../../stores/thread.store";
-import { useRuntimeStore } from "../../stores/runtime.store";
-import type { TimelineEventItem, TurnPlanState } from "../../domain/types";
+import { useThreadStore } from "../../../stores/thread.store";
+import { useRuntimeStore } from "../../../stores/runtime.store";
+import type { TimelineEventItem, TurnPlanState } from "../../../domain/types";
 
 export function useChatTimeline() {
   const threadStore = useThreadStore();

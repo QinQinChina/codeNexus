@@ -60,7 +60,7 @@
 
 <script setup lang="ts">
 import { SendHorizontal, Trash2 } from "lucide-vue-next";
-import type { QueuedMessage } from "../../stores/messageQueue.store";
+import type { QueuedMessage } from "../../../stores/messageQueue.store";
 
 defineProps<{
   items: QueuedMessage[];

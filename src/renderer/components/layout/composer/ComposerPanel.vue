@@ -3,11 +3,12 @@
     <div class="composer-input-area">
       <div
         :ref="composerPanelRef"
-        class="composer-shell relative grid min-w-0 cursor-text gap-2.5 rounded-[20px] p-3 transition-all duration-300 max-[1500px]:gap-2 max-[1500px]:rounded-[16px] max-[1500px]:p-2.5 border border-[var(--composer-shell-border)] bg-[var(--composer-shell-bg)] focus-within:border-[var(--composer-shell-focus-border)]"
+        class="composer-shell"
         :class="{
           'is-agent': composeMode === 'default',
           'is-plan': composeMode === 'plan',
           'is-workspace-file-drag-over': isWorkspaceFileDragOver,
+          'is-workspace-file-drop-confirmed': isWorkspaceFileDropConfirmed,
           'is-focused': isInputFocused,
         }"
         @pointerdown="onComposerShellPointerDown"
@@ -19,7 +20,7 @@
         <UserInputDock v-if="hasPendingComposerUserInput" />
         <div
           v-if="isWorkspaceFileDragOver"
-          class="pointer-events-none absolute inset-2 z-10 grid place-items-center rounded-[10px] border border-dashed border-[color:var(--border-accent)] bg-[color:var(--bg-accent-soft)]/80 px-4 text-center text-[12px] font-medium text-[color:var(--fg-accent)] backdrop-blur-[6px]"
+          class="composer-file-drop-overlay"
           aria-hidden="true"
         >
           松开鼠标，将工作区文件添加到当前提问
@@ -49,28 +50,28 @@
           @change="onComposerImageInputChange"
         />
 
-        <div v-if="composeAttachments.length > 0" class="flex flex-wrap gap-2 max-[1500px]:gap-1.5">
+        <div v-if="composeAttachments.length > 0" class="composer-attachments">
           <div
             v-for="attachment in composeAttachments"
             :key="attachment.id"
-            class="relative h-11 w-11 flex-none max-[1500px]:h-10 max-[1500px]:w-10"
+            class="composer-attachment"
             :title="attachment.name"
           >
             <button
-              class="block h-full w-full min-w-0 cursor-zoom-in overflow-hidden rounded-[6px] border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent-soft)] max-[1500px]:rounded-[5px]"
+              class="composer-attachment-preview"
               type="button"
               :aria-label="`预览图片：${attachment.name}`"
               @click="onPreviewAttachment(attachment.id)"
             >
               <img
-                class="block h-11 w-11 rounded-[6px] border border-[var(--border)] bg-[var(--surface-1)] object-cover shadow-[var(--ui-shadow-sm)] max-[1500px]:h-10 max-[1500px]:w-10 max-[1500px]:rounded-[5px]"
+                class="composer-attachment-image"
                 :src="attachment.previewUrl"
                 :alt="attachment.name"
                 loading="lazy"
               />
             </button>
             <button
-              class="absolute -right-[5px] -top-[5px] inline-flex h-4 w-4 min-w-4 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-1)] p-0 text-[12px] leading-none text-[color:var(--text)] shadow-[var(--ui-shadow-md)] hover:border-[color:var(--border-danger)] hover:bg-[color:var(--bg-danger-soft)] hover:text-[color:var(--fg-danger)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent-soft)] active:translate-y-0 max-[1500px]:-right-1 max-[1500px]:-top-1 max-[1500px]:h-[15px] max-[1500px]:w-[15px] max-[1500px]:min-w-[15px] max-[1500px]:text-[11px]"
+              class="composer-attachment-remove"
               type="button"
               aria-label="移除图片"
               @click.stop.prevent="onRemoveAttachment(attachment.id)"
@@ -80,142 +81,108 @@
           </div>
         </div>
 
-        <div
-          class="composer-toolbar grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t pt-2 max-[1500px]:grid-cols-1 max-[1500px]:gap-2 max-[1500px]:pt-1.5"
-        >
-          <div class="flex min-w-0 flex-wrap items-center gap-2 max-[1500px]:w-full max-[1500px]:gap-1.5">
+        <div class="composer-toolbar">
+          <div class="composer-toolbar-main">
             <div
               v-if="historyRewriteActive"
-              class="mono inline-flex items-center gap-2 rounded-full border border-[color:var(--border-accent)] bg-[color:var(--bg-accent-soft)] px-2 py-1 text-[color:var(--text)]"
+              class="composer-rewrite-chip mono"
             >
               <span>{{ historyRewriteSource === "queue" ? "编辑排队消息" : "重写历史消息" }}</span>
-              <button class="btn-mini" type="button" @click="emit('cancel-rewrite')">取消</button>
+              <button class="btn-mini composer-rewrite-cancel" type="button" @click="emit('cancel-rewrite')">取消</button>
             </div>
 
             <div
-              class="composer-mode-group relative inline-flex items-center gap-0.5 rounded-full bg-[var(--composer-mode-group-bg)] p-1 shadow-inner border border-[var(--composer-mode-group-border)]"
+              class="composer-mode-group"
               role="group"
               aria-label="协作模式"
             >
               <div
-                class="composer-mode-thumb absolute h-[calc(100%-8px)] rounded-full bg-[var(--surface-1)] shadow-sm border border-[var(--composer-mode-group-border)] transition-all duration-300 ease-out"
+                class="composer-mode-thumb"
                 :style="{
                   left: composeMode === 'default' ? '4px' : 'calc(50% + 1px)',
                   width: 'calc(50% - 5px)',
                 }"
               ></div>
               <button
-                class="btn-mini composer-mode-button relative z-10 flex-1 inline-flex items-center justify-center gap-1.5 rounded-full py-1.5 transition-colors duration-200 px-3"
+                class="btn-mini composer-mode-button"
                 type="button"
-                :class="
-                  composeMode === 'default'
-                    ? 'text-[var(--accent)] font-semibold'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text)]'
-                "
+                :class="[
+                  'is-agent',
+                  composeMode === 'default' ? 'is-active' : '',
+                ]"
                 @click="emit('set-compose-mode', 'default')"
               >
-                <Bot class="h-3.5 w-3.5" aria-hidden="true" /><span>执行</span>
+                <Bot class="composer-mode-icon" aria-hidden="true" /><span>执行</span>
               </button>
               <button
-                class="btn-mini composer-mode-button relative z-10 flex-1 inline-flex items-center justify-center gap-1.5 rounded-full py-1.5 transition-colors duration-200 px-3"
+                class="btn-mini composer-mode-button"
                 type="button"
-                :class="
-                  composeMode === 'plan'
-                    ? 'text-[var(--accent)] font-semibold'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text)]'
-                "
+                :class="[
+                  'is-plan',
+                  composeMode === 'plan' ? 'is-active' : '',
+                ]"
                 @click="emit('set-compose-mode', 'plan')"
               >
-                <ListTodo class="h-3.5 w-3.5" aria-hidden="true" /><span>计划</span>
+                <ListTodo class="composer-mode-icon" aria-hidden="true" /><span>计划</span>
               </button>
             </div>
 
-            <SelectDropdown
-              id="sel-model"
-              v-model="modelValueModel"
-              class="composer-select composer-select--model mono inline-flex h-7 w-[clamp(108px,14vw,152px)] min-w-0 cursor-pointer items-center justify-between gap-2 rounded-full px-2.5 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-transparent text-[color:var(--input-text)] shadow-none transition-all duration-200 max-[1500px]:w-[clamp(100px,16vw,136px)]"
-              :class="modelToneClass"
-              :minPopoverWidth="0"
-              :options="modelOptions"
-              aria-label="模型"
+            <ComposerModelReasoningPicker
+              :model="model"
+              :reasoningEffort="reasoningEffort"
+              :modelOptions="modelOptions"
+              :reasoningEffortOptions="reasoningEffortOptions"
+              @update:model="emit('update:model', $event)"
+              @update:reasoningEffort="emit('update:reasoningEffort', $event)"
             />
-            <SelectDropdown
-              id="sel-effort"
-              v-model="reasoningEffortModel"
-              class="composer-select composer-select--effort mono inline-flex h-7 min-w-0 w-[min(100%,70px)] max-w-[70px] cursor-pointer items-center justify-between gap-2 rounded-full px-2.5 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-transparent text-[color:var(--input-text)] shadow-none transition-all duration-200 max-[1500px]:w-[min(100%,66px)] max-[1500px]:max-w-[66px]"
-              :class="reasoningToneClass"
-              :minPopoverWidth="0"
-              :options="reasoningEffortOptions"
-              aria-label="思考程度"
-            />
-            <SelectDropdown
-              id="sel-sandbox"
-              v-model="sandboxModeModel"
-              class="composer-select composer-select--sandbox mono inline-flex h-7 min-w-0 w-[min(100%,82px)] max-w-[82px] cursor-pointer items-center justify-between gap-1.5 rounded-full px-2.5 bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-transparent text-[color:var(--input-text)] shadow-none transition-all duration-200 max-[1500px]:w-[min(100%,76px)] max-[1500px]:max-w-[76px]"
-              :class="sandboxToneClass"
+            <ComposerSandboxPicker
+              :modelValue="sandboxMode"
               :title="sandboxRiskText"
-              :minPopoverWidth="120"
               :options="sandboxModeOptions"
-              aria-label="权限"
+              @update:modelValue="emit('update:sandboxMode', $event)"
             />
             <span
               v-if="serviceTierLabel"
-              class="mono inline-flex h-7 items-center rounded-full border px-2.5 text-[11px] font-medium tracking-[0.01em] max-[1500px]:h-6 max-[1500px]:px-2 max-[1500px]:text-[10px]"
-              :class="
-                serviceTierLabel === '快速'
-                  ? 'border-[color:var(--border-accent)] bg-[color:var(--bg-accent-soft)] text-[color:var(--fg-accent)]'
-                  : 'border-[var(--border)] bg-[var(--surface-2)] text-[color:var(--text-muted)]'
-              "
+              class="composer-service-tier mono"
+              :class="{ 'is-fast': serviceTierLabel === '快速' }"
               :title="serviceTierTooltip || serviceTierLabel"
               >{{ serviceTierLabel }}</span
             >
           </div>
 
-          <div
-            class="ml-0 inline-flex min-w-0 items-center justify-end gap-2 justify-self-end max-[1500px]:w-full max-[1500px]:justify-self-stretch max-[1500px]:gap-1.5"
-          >
+          <div class="composer-toolbar-actions">
             <button
               id="btn-add-image"
-              class="btn-mini composer-icon-button inline-flex h-[30px] w-[30px] min-w-[30px] items-center justify-center p-0"
+              class="btn-mini composer-icon-button"
               type="button"
               title="添加图片"
               aria-label="添加图片"
               @click="emit('pick-images')"
             >
-              <ImagePlus class="h-[14px] w-[14px]" />
+              <ImagePlus class="composer-icon-button-icon" />
             </button>
 
             <div
-              class="inline-flex min-w-0 items-center gap-2 max-[1500px]:justify-end max-[1500px]:gap-1.5"
+              class="composer-context"
               :title="contextUsageTooltip"
             >
               <WaterBallProgress
-                class="h-[30px] w-[30px] min-w-[30px] flex-none overflow-hidden rounded-full saturate-[0.96] max-[1500px]:h-6 max-[1500px]:w-6 max-[1500px]:min-w-6"
+                class="composer-context-ball"
                 :percent="contextUsagePercent"
                 :level="contextUsageLevel"
                 :aria-label="contextUsageTooltip"
               />
-              <div class="flex min-w-0 flex-col items-end justify-center gap-0.5 leading-none">
-                <div
-                  class="mono text-[11px] font-medium tracking-[0.01em] text-[color:var(--text-muted)] max-[1500px]:text-[10px]"
-                >
+              <div class="composer-context-copy">
+                <div class="composer-context-tokens mono">
                   {{ contextUsageTokensText }}
                 </div>
-              </div>
-              <div
-                v-if="contextWindowLimitWarningText"
-                class="inline-flex items-center gap-1 rounded-full border border-[color:var(--border-warning)] bg-[color:var(--bg-warning-soft)] px-2 py-1 text-[10px] font-semibold text-[color:var(--fg-warning)] max-[1500px]:px-1.5"
-                :title="contextWindowLimitWarningText"
-              >
-                <ShieldAlert class="h-3 w-3" />
-                <span class="max-[1500px]:hidden">接近上限</span>
               </div>
             </div>
 
             <button
               id="btn-send-stop"
-              class="composer-send-button group relative inline-flex h-8 w-8 min-w-8 items-center justify-center rounded-full border border-[color:var(--border-accent)] bg-gradient-to-b from-[color:var(--bg-accent-soft)] to-[color:var(--button-bg)] p-0 text-[color:var(--fg-accent)] max-[1500px]:h-[30px] max-[1500px]:w-[30px] max-[1500px]:min-w-[30px] hover:border-[color:var(--border-accent-hover)] hover:to-[color:var(--button-bg-hover)] hover:text-[color:var(--fg-accent)] active:scale-95 transition-all duration-200"
-              :class="{ 'is-running': isTurnRunning, 'opacity-50 cursor-not-allowed': sendDisabled && !isTurnRunning }"
+              class="composer-send-button"
+              :class="{ 'is-running': isTurnRunning, 'is-disabled': sendDisabled && !isTurnRunning }"
               type="button"
               :disabled="sendDisabled && !isTurnRunning"
               :title="sendTitle"
@@ -224,32 +191,32 @@
             >
               <div
                 v-if="!sendDisabled && !isTurnRunning"
-                class="absolute inset-0 rounded-full bg-[var(--accent)] opacity-20 animate-ping group-hover:hidden"
+                class="composer-send-ping"
               ></div>
               <SendHorizontal
-                class="h-4 w-4 stroke-[2.25] max-[1500px]:h-[14px] max-[1500px]:w-[14px] transition-transform group-hover:translate-x-0.5"
+                class="composer-send-icon"
               />
-              <span class="composer-send-label text-[12px] font-semibold">发送</span>
+              <span class="composer-send-label">发送</span>
             </button>
             <button
               v-if="isTurnRunning"
-              class="composer-send-button is-running inline-flex h-8 w-8 min-w-8 items-center justify-center rounded-full border border-[color:var(--border-danger)] bg-gradient-to-b from-[color:var(--bg-danger-soft)] to-[color:var(--button-bg)] p-0 text-[color:var(--fg-danger)] max-[1500px]:h-[30px] max-[1500px]:w-[30px] max-[1500px]:min-w-[30px] hover:border-[color:var(--border-danger-hover)] hover:to-[color:var(--button-bg-hover)] hover:text-[color:var(--fg-danger)] active:scale-95 transition-all duration-200"
+              class="composer-send-button composer-stop-button is-running"
               type="button"
               :disabled="interruptDisabled"
               :title="interruptTitle"
               :aria-label="interruptTitle"
               @click="emit('interrupt-turn')"
             >
-              <Square class="h-4 w-4 stroke-[2.25] max-[1500px]:h-[14px] max-[1500px]:w-[14px]" />
+              <Square class="composer-send-icon" />
             </button>
           </div>
         </div>
 
         <div
           v-if="statusText"
-          class="composer-status-line -mt-1 flex min-w-0 items-center justify-start max-[1500px]:-mt-0.5"
+          class="composer-status-line"
         >
-          <WaveText class="mono dim text-[11px] leading-[1.25] max-[1500px]:text-[10px]" :text="statusText" />
+          <WaveText class="composer-status-text mono dim" :text="statusText" />
         </div>
       </div>
     </div>
@@ -258,23 +225,25 @@
 
 <script setup lang="ts">
 import { computed, defineAsyncComponent, nextTick, ref, watch } from "vue";
-import { Bot, ImagePlus, ListTodo, SendHorizontal, ShieldAlert, Square } from "lucide-vue-next";
-import type { CollaborationModeKind, ComposeImageAttachment, ComposeWorkspaceFileMention } from "../../domain/types";
+import { Bot, ImagePlus, ListTodo, SendHorizontal, Square } from "lucide-vue-next";
+import type { CollaborationModeKind, ComposeImageAttachment, ComposeWorkspaceFileMention } from "../../../domain/types";
 import {
   COMPOSE_FILE_TOKEN_CHAR,
   countComposeFileTokensBeforeOffset,
   createComposeFileMention,
   findComposeFileTokenOffsetByMentionIndex,
-} from "../../domain/composeFileMentions";
-import { basenameFromPath } from "../../domain/workspaceFiles";
-import { hasWorkspaceFileDragData, readWorkspaceFileDragData } from "../../domain/workspaceFileDrag";
-import { useRuntimeStore, type SandboxMode } from "../../stores/runtime.store";
-import { useUserInputStore } from "../../stores/userInput.store";
-import SelectDropdown from "../ui/SelectDropdown.vue";
-import WaterBallProgress from "../ui/WaterBallProgress.vue";
-import WaveText from "../ui/WaveText.vue";
+} from "../../../domain/composeFileMentions";
+import { basenameFromPath } from "../../../domain/workspaceFiles";
+import { hasWorkspaceFileDragData, readWorkspaceFileDragData } from "../../../domain/workspaceFileDrag";
+import { useRuntimeStore, type SandboxMode } from "../../../stores/runtime.store";
+import { useUserInputStore } from "../../../stores/userInput.store";
+import WaterBallProgress from "../../ui/WaterBallProgress.vue";
+import WaveText from "../../ui/WaveText.vue";
+import { resolveVscodeEntryIcon } from "../workspace/vscodeFileIcons";
+import ComposerModelReasoningPicker from "./ComposerModelReasoningPicker.vue";
+import ComposerSandboxPicker from "./ComposerSandboxPicker.vue";
 
-const UserInputDock = defineAsyncComponent(() => import("../userInput/UserInputDock.vue"));
+const UserInputDock = defineAsyncComponent(() => import("../../userInput/UserInputDock.vue"));
 
 type SelectOption = {
   value: string;
@@ -314,7 +283,6 @@ const props = defineProps<{
   contextUsagePercent: number;
   contextUsageLevel: string;
   contextUsageTokensText: string;
-  contextWindowLimitWarningText: string;
   isTurnRunning: boolean;
   sendDisabled: boolean;
   sendTitle: string;
@@ -349,9 +317,12 @@ const userInputStore = useUserInputStore();
 const isInputFocused = ref(false);
 const workspaceFileDragDepth = ref(0);
 const isWorkspaceFileDragOver = ref(false);
+const isWorkspaceFileDropConfirmed = ref(false);
 const selectedMentionId = ref("");
 const pendingSelectionOffset = ref<number | null>(null);
 const pendingFocusAfterSync = ref(false);
+const recentlyDroppedMentionIds = new Set<string>();
+let dropConfirmTimer: ReturnType<typeof setTimeout> | null = null;
 
 type ComposerScrollSnapshot = {
   top: number;
@@ -363,35 +334,6 @@ function bindComposerInputRef(el: HTMLDivElement | null) {
   internalComposerInputRef.value = el;
   props.composerInputRef(el);
 }
-
-const modelValueModel = computed({
-  get: () => props.model,
-  set: (value: string) => emit("update:model", value),
-});
-
-const reasoningEffortModel = computed({
-  get: () => props.reasoningEffort,
-  set: (value: string) => emit("update:reasoningEffort", value),
-});
-
-const sandboxModeModel = computed({
-  get: () => props.sandboxMode,
-  set: (value: string) => emit("update:sandboxMode", value as SandboxMode),
-});
-
-function normalizeToneKey(value: unknown): string {
-  return (
-    String(value ?? "")
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "default"
-  );
-}
-
-const modelToneClass = computed(() => "is-" + normalizeToneKey(props.model));
-const reasoningToneClass = computed(() => "is-" + normalizeToneKey(props.reasoningEffort));
-const sandboxToneClass = computed(() => "is-" + normalizeToneKey(props.sandboxMode));
 
 const hasPendingComposerUserInput = computed(() => {
   const threadId = String(runtimeStore.currentThreadId ?? "").trim();
@@ -414,7 +356,7 @@ function isMentionTokenElement(node: Node | null): node is HTMLElement {
 }
 
 function isSameMention(left: ComposeWorkspaceFileMention, right: ComposeWorkspaceFileMention): boolean {
-  return left.id === right.id && left.path === right.path;
+  return left.id === right.id && left.path === right.path && left.kind === right.kind;
 }
 
 function isSameComposeDraft(left: ComposeDraftState, right: ComposeDraftState): boolean {
@@ -428,22 +370,44 @@ function isSameComposeDraft(left: ComposeDraftState, right: ComposeDraftState): 
 
 function buildMentionTokenElement(mention: ComposeWorkspaceFileMention): HTMLSpanElement {
   const root = document.createElement("span");
-  root.className = "composer-inline-file-token";
+  const kind = mention.kind === "directory" ? "directory" : "file";
+  root.className = [
+    "composer-inline-file-token",
+    `composer-inline-file-token--${kind}`,
+    recentlyDroppedMentionIds.has(mention.id) ? "is-dropped" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
   root.contentEditable = "false";
   root.dataset.composeMentionId = mention.id;
   root.dataset.composeMentionPath = mention.path;
+  root.dataset.composeMentionKind = kind;
   root.title = mention.path;
 
-  const icon = document.createElement("span");
-  icon.className = "composer-inline-file-token__icon";
-  icon.setAttribute("aria-hidden", "true");
-
+  const icon = buildMentionTokenIcon(mention.path, kind);
   const label = document.createElement("span");
   label.className = "composer-inline-file-token__label";
   label.textContent = basenameFromPath(mention.path) || mention.path;
 
   root.append(icon, label);
   return root;
+}
+
+function buildMentionTokenIcon(path: string, kind: "file" | "directory"): HTMLSpanElement {
+  const icon = document.createElement("span");
+  icon.className = "composer-inline-file-token__icon";
+  icon.setAttribute("aria-hidden", "true");
+
+  const vscodeIcon = resolveVscodeEntryIcon(path, { isDirectory: kind === "directory" });
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", `0 0 ${vscodeIcon.width ?? 16} ${vscodeIcon.height ?? 16}`);
+  svg.setAttribute("width", "1em");
+  svg.setAttribute("height", "1em");
+  svg.setAttribute("aria-hidden", "true");
+  svg.innerHTML = vscodeIcon.body;
+
+  icon.append(svg);
+  return icon;
 }
 
 function renderComposeDraftToDom(root: HTMLDivElement, draft: ComposeDraftState) {
@@ -738,10 +702,22 @@ function getMentionIndexById(mentionIdValue: string): number {
   return props.composeFileMentions.findIndex((mention) => mention.id === mentionId);
 }
 
-function insertDroppedFiles(paths: Array<{ path: string }>, offsetValue: number) {
+function markDroppedMentions(mentions: ComposeWorkspaceFileMention[]) {
+  recentlyDroppedMentionIds.clear();
+  for (const mention of mentions) recentlyDroppedMentionIds.add(mention.id);
+  isWorkspaceFileDropConfirmed.value = true;
+  if (dropConfirmTimer) clearTimeout(dropConfirmTimer);
+  dropConfirmTimer = setTimeout(() => {
+    recentlyDroppedMentionIds.clear();
+    isWorkspaceFileDropConfirmed.value = false;
+    dropConfirmTimer = null;
+  }, 1100);
+}
+
+function insertDroppedFiles(paths: Array<{ path: string; kind?: ComposeWorkspaceFileMention["kind"] }>, offsetValue: number) {
   const offset = Math.max(0, Math.min(String(props.composeInput ?? "").length, Math.round(offsetValue)));
   const insertedMentions = paths
-    .map((item) => createComposeFileMention(item.path))
+    .map((item) => createComposeFileMention(item.path, { kind: item.kind }))
     .filter((item): item is ComposeWorkspaceFileMention => Boolean(item));
   if (insertedMentions.length === 0) return;
 
@@ -763,6 +739,7 @@ function insertDroppedFiles(paths: Array<{ path: string }>, offsetValue: number)
       focusOffset: offset + insertedMentions.length,
     }
   );
+  markDroppedMentions(insertedMentions);
 }
 
 function getCaretOffsetFromPoint(clientX: number, clientY: number): number {

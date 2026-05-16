@@ -1,5 +1,5 @@
 <template>
-  <div class="chat-row chat-row--assistant flex min-w-0 m-0">
+  <div :class="[CHAT_ROW_BASE_CLASS, 'chat-row--assistant']">
     <div class="chat-bubble chat-bubble-assistant w-full max-w-full min-w-0">
       <PlanOutputCard
         v-if="event.method === 'item/plan/delta' && assistantPlanMessageFormat === 'plan-card-v1'"
@@ -20,7 +20,7 @@
         <SelectDropdown
           :id="`plan-delta-model-${event.id}`"
           :modelValue="execState.model"
-          class="mono inline-flex h-7 w-[clamp(108px,14vw,152px)] min-w-0 cursor-pointer items-center justify-between gap-2 rounded-[4px] border border-[color:var(--input-border)] bg-[color:var(--input-bg)] px-2 text-[color:var(--input-text)] shadow-none transition-[border-color,box-shadow,background,color] duration-150 hover:border-[color:var(--button-border-hover)] hover:bg-[color:var(--button-bg-hover)] focus:border-[color:var(--button-border-hover)] focus:shadow-[0_0_0_3px_var(--accent-soft)] max-[1500px]:w-[clamp(100px,16vw,136px)]"
+          class="mono inline-flex h-7 w-[clamp(108px,14vw,152px)] min-w-0 cursor-pointer items-center justify-between gap-2 rounded-[4px] border border-[color:var(--input-border)] bg-[color:var(--input-bg)] px-2 text-[color:var(--input-text)] shadow-none transition-[border-color,box-shadow,background,color] duration-150 hover:border-[color:var(--button-border-hover)] hover:bg-[color:var(--button-bg-hover)] max-[1500px]:w-[clamp(100px,16vw,136px)]"
           :options="modelOptions"
           :minPopoverWidth="0"
           aria-label="模型"
@@ -30,7 +30,7 @@
         <SelectDropdown
           :id="`plan-delta-effort-${event.id}`"
           :modelValue="execState.reasoningEffort"
-          class="mono inline-flex h-7 min-w-0 w-[min(100%,70px)] max-w-[70px] cursor-pointer items-center justify-between gap-2 rounded-[4px] border border-[color:var(--input-border)] bg-[color:var(--input-bg)] px-2 text-[color:var(--input-text)] shadow-none transition-[border-color,box-shadow,background,color] duration-150 hover:border-[color:var(--button-border-hover)] hover:bg-[color:var(--button-bg-hover)] focus:border-[color:var(--button-border-hover)] focus:shadow-[0_0_0_3px_var(--accent-soft)] max-[1500px]:w-[min(100%,66px)] max-[1500px]:max-w-[66px]"
+          class="mono inline-flex h-7 min-w-0 w-[min(100%,70px)] max-w-[70px] cursor-pointer items-center justify-between gap-2 rounded-[4px] border border-[color:var(--input-border)] bg-[color:var(--input-bg)] px-2 text-[color:var(--input-text)] shadow-none transition-[border-color,box-shadow,background,color] duration-150 hover:border-[color:var(--button-border-hover)] hover:bg-[color:var(--button-bg-hover)] max-[1500px]:w-[min(100%,66px)] max-[1500px]:max-w-[66px]"
           :minPopoverWidth="0"
           :options="reasoningEffortOptions"
           aria-label="思考强度"
@@ -40,7 +40,7 @@
         <SelectDropdown
           :id="`plan-delta-sandbox-${event.id}`"
           :modelValue="execState.sandboxMode"
-          class="mono inline-flex h-7 min-w-0 w-[min(100%,64px)] max-w-[64px] cursor-pointer items-center justify-between gap-1.5 rounded-[4px] border border-[color:var(--input-border)] bg-[color:var(--input-bg)] px-1.5 text-[color:var(--input-text)] shadow-none transition-[border-color,box-shadow,background,color] duration-150 hover:border-[color:var(--button-border-hover)] hover:bg-[color:var(--button-bg-hover)] focus:border-[color:var(--button-border-hover)] focus:shadow-[0_0_0_3px_var(--accent-soft)] max-[1500px]:w-[min(100%,60px)] max-[1500px]:max-w-[60px]"
+          class="mono inline-flex h-7 min-w-0 w-[min(100%,64px)] max-w-[64px] cursor-pointer items-center justify-between gap-1.5 rounded-[4px] border border-[color:var(--input-border)] bg-[color:var(--input-bg)] px-1.5 text-[color:var(--input-text)] shadow-none transition-[border-color,box-shadow,background,color] duration-150 hover:border-[color:var(--button-border-hover)] hover:bg-[color:var(--button-bg-hover)] max-[1500px]:w-[min(100%,60px)] max-[1500px]:max-w-[60px]"
           :class="sandboxSelectClass"
           :minPopoverWidth="0"
           :options="sandboxModeOptions"
@@ -68,8 +68,9 @@ import { defineAsyncComponent, defineComponent, h } from "vue";
 import AgentMarkdownContent from "../ui/AgentMarkdownContent.vue";
 import SelectDropdown from "../ui/SelectDropdown.vue";
 import type { TimelineEventItem, TurnPlanState } from "../../domain/types";
-import type { PlanDeltaExecUiState } from "../layout/chat.types";
+import type { PlanDeltaExecUiState } from "../layout/types/chat.types";
 import type { SandboxMode } from "../../stores/runtime.store";
+import { CHAT_ROW_BASE_CLASS } from "../layout/chat/chatPresentation";
 
 type OptionInput =
   | string

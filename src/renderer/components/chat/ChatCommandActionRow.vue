@@ -1,21 +1,26 @@
 <template>
-  <div class="chat-terminal-action-wrap w-full max-w-full min-w-0">
+  <div
+    class="chat-inline-activity chat-terminal-action-wrap w-full max-w-full min-w-0"
+    :class="{ 'is-running': item.item.status === 'running' }"
+  >
     <div
-      class="chat-terminal-action-line inline-flex w-full max-w-full min-w-0 items-center gap-1.5 p-0 m-0 box-border border-0 bg-transparent text-xs"
+      class="chat-inline-activity__line chat-inline-activity__line--compact chat-inline-activity__line--full chat-terminal-action-line inline-flex w-full max-w-full min-w-0 items-center gap-1.5 p-0 m-0 box-border border-0 bg-transparent text-xs"
       :class="{ 'is-running': item.item.status === 'running' }"
       :title="commandActionNodeTitle(item)"
     >
-      <span class="ui-leading-icon-slot" aria-hidden="true">
-        <TerminalSquare class="chat-terminal-action-icon h-[14px] w-[14px] flex-none [stroke-width:2.4]" />
+      <span class="chat-inline-activity__icon ui-leading-icon-slot" aria-hidden="true">
+        <TerminalSquare
+          class="chat-inline-activity__svg chat-terminal-action-icon h-[14px] w-[14px] flex-none [stroke-width:2.4]"
+        />
       </span>
-      <WaveText
+      <ExecutionWaveText
         v-if="isRunning"
-        class="chat-terminal-action-text"
+        class="chat-inline-activity__text chat-terminal-action-text"
         color="var(--accent)"
         :text="actionText"
         :cycle-max-chars="128"
       />
-      <span v-else class="chat-terminal-action-text">{{ actionText }}</span>
+      <span v-else class="chat-inline-activity__text chat-terminal-action-text">{{ actionText }}</span>
       <button
         v-if="item.item.filesCount > 0"
         class="chat-terminal-action-toggle !ml-auto !inline-flex !h-[22px] !w-[22px] !items-center !justify-center !rounded-[4px] !border !border-[var(--ui-well-border)] !bg-[var(--ui-well-bg)] !p-0 !text-inherit !shadow-none opacity-80 transition-[opacity,border-color,background] duration-150 hover:opacity-100 hover:!border-[var(--ui-well-border-hover)] hover:!bg-[var(--ui-well-bg-strong)] focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-[var(--ui-well-focus-outline)] active:!translate-y-0"
@@ -57,7 +62,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { ChevronDown, TerminalSquare } from "lucide-vue-next";
-import WaveText from "../ui/WaveText.vue";
+import ExecutionWaveText from "../ui/ExecutionWaveText.vue";
 import type { CommandActionNode } from "../../features/timeline/renderModel/buildTimelineNodes";
 import {
   commandActionNodeTitle,
@@ -82,30 +87,3 @@ const actionText = computed(() => {
 });
 const isRunning = computed(() => props.item.item.status === "running");
 </script>
-
-<style scoped>
-.chat-terminal-action-wrap {
-  /* 状态只做“进行中扫光”提示，不做成功/失败配色。 */
-}
-
-.chat-terminal-action-line {
-  display: flex !important;
-  width: 100%;
-  min-height: 20px;
-  align-items: center;
-  gap: 5px;
-  color: var(--text-muted);
-}
-
-.chat-terminal-action-text {
-  display: block;
-  flex: 1 1 auto;
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-  overflow-wrap: normal !important;
-  text-overflow: ellipsis;
-  white-space: nowrap !important;
-  word-break: normal !important;
-}
-</style>

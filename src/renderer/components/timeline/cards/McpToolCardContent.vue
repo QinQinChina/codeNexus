@@ -1,25 +1,16 @@
 <template>
-  <Collapsible
-    class="event simple-mcp-tool-event group mb-2.5 min-w-0 max-w-full rounded-[4px] border border-[var(--ui-well-border)] bg-[var(--ui-timeline-card-bg)] p-[var(--timeline-card-padding,10px)] shadow-[var(--ui-timeline-card-shadow)] last:mb-0"
-    :class="[groupClass]"
+  <TimelineCardShell
+    class="w-full simple-mcp-tool-event"
+    :cardClass="groupClass"
+    :tagText="tagText"
+    :statusText="''"
+    :statusKind="''"
     :open="open"
     :keepMounted="true"
     @update:open="emit('update:open', $event)"
   >
-    <template #trigger="{ triggerProps }">
-      <div
-        class="flex min-w-0 flex-wrap items-center gap-2 mb-1.5 cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-well-focus-outline)] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
-        v-bind="triggerProps"
-      >
-        <Terminal
-          class="h-[13px] w-[13px] flex-none text-[color:var(--accent)] [stroke-width:2.2]"
-          aria-hidden="true"
-        />
-        <span
-          class="inline-flex items-center max-w-full overflow-hidden text-ellipsis whitespace-nowrap h-[22px] px-[9px] rounded-[4px] border border-[var(--ui-well-border)] bg-[var(--ui-well-bg-strong)] text-[var(--text-muted)] text-[11px] tracking-[0.2px]"
-          >{{ tagText }}</span
-        >
-      </div>
+    <template #icon>
+      <Terminal class="h-[13px] w-[13px] flex-none text-[color:var(--accent)] [stroke-width:2.2]" aria-hidden="true" />
     </template>
     <div class="grid gap-1.5 px-2.5 pb-2.5">
       <div class="mono dim">{{ summaryText }}</div>
@@ -33,7 +24,7 @@
         >
           <div class="flex items-center justify-between gap-2">
             <span class="mcp-tool-item-status inline-flex min-w-0 items-center gap-1.5 text-[11px]">
-              <WaveText
+              <ExecutionWaveText
                 v-if="item.status === 'running'"
                 class="mono"
                 color="var(--accent)"
@@ -155,15 +146,15 @@
         </li>
       </ol>
     </div>
-  </Collapsible>
+  </TimelineCardShell>
 </template>
 
 <script setup lang="ts">
 // MCP 工具卡片内容：展示工具调用的输入/输出摘要与可展开的详情信息。
 import { Terminal } from "lucide-vue-next";
-import Collapsible from "../../ui/Collapsible.vue";
+import TimelineCardShell from "../TimelineCardShell.vue";
 import DetailDisclosure from "../../ui/DetailDisclosure.vue";
-import WaveText from "../../ui/WaveText.vue";
+import ExecutionWaveText from "../../ui/ExecutionWaveText.vue";
 
 export type McpToolCallStatus = "running" | "completed" | "failed" | "unknown";
 

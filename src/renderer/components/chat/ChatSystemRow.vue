@@ -1,5 +1,5 @@
 <template>
-  <div class="chat-row chat-row--system flex min-w-0 m-0">
+  <div :class="[CHAT_ROW_BASE_CLASS, 'chat-row--system']">
     <div
       class="chat-system-line chat-system-line--error mono inline-flex w-full max-w-full min-w-0 items-start gap-2 rounded-[6px] border px-3 py-2 text-xs"
     >
@@ -10,6 +10,8 @@
 </template>
 
 <script setup lang="ts">
+import { CHAT_ROW_BASE_CLASS } from "../layout/chat/chatPresentation";
+
 defineProps<{
   text: string;
 }>();

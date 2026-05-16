@@ -13,6 +13,7 @@ import { buildApprovalPromptFromRequest } from "../../app/events/approvalPrompts
 import { useTimelineStore } from "../../stores/timeline.store";
 import { useUserInputStore } from "../../stores/userInput.store";
 import { useApprovalStore } from "../../stores/approval.store";
+import { useImageWorkbenchStore } from "../../stores/imageWorkbench.store";
 import { normalizeUserInputPrompt } from "../../domain/userInputInterop";
 import { safeJsonStringify } from "../../utils/safeJson";
 import { isCodexServerRequestMessage } from "../../../shared/codex-protocol";
@@ -22,6 +23,16 @@ import {
 } from "../../../shared/dynamicTools";
 import type { DynamicToolCallParams } from "../../../generated/codex-app-server/v2/DynamicToolCallParams";
 import type { DynamicToolCallResponse } from "../../../generated/codex-app-server/v2/DynamicToolCallResponse";
+import type {
+  ImageGenerationGenerateArgs,
+  ImageGenerationHistoryItem,
+  ImageGenerationTaskItem,
+} from "../../../shared/ipc/contracts";
+import type { ImageWorkbenchHistoryItem } from "../../stores/imageWorkbench.store";
+
+const IMAGE_TOOL_TASK_POLL_INTERVAL_MS = 1500;
+const IMAGE_TOOL_TASK_WAIT_TIMEOUT_MS = 610_000;
+const IMAGE_TOOL_MAX_REFERENCE_IMAGES = 4;
 
 function toPrettyJson(value: unknown): string {
   return safeJsonStringify(value ?? {}, { space: 2 });
@@ -41,6 +52,28 @@ function toIntegerInRange(value: unknown, fallback: number, min: number, max: nu
   if (!Number.isFinite(n)) return fallback;
   const rounded = Math.round(n);
   return Math.max(min, Math.min(max, rounded));
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => String(item ?? "").trim()).filter(Boolean);
+}
+
+function fileNameFromPathLike(value: string, fallback: string): string {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) return fallback;
+  const parts = normalized.split(/[\\/]+/).filter(Boolean);
+  return parts[parts.length - 1] || fallback;
+}
+
+function extensionFromDataUrl(value: string): string {
+  const match = String(value ?? "")
+    .trim()
+    .match(/^data:image\/([^;]+);base64,/i);
+  const raw = String(match?.[1] ?? "png").toLowerCase();
+  if (raw === "jpeg") return "jpg";
+  const ext = raw.replace(/[^a-z0-9.+-]/gi, "");
+  return ext || "png";
 }
 
 function normalizeImageToolCallParams(value: unknown): DynamicToolCallParams | null {
@@ -67,12 +100,13 @@ function buildImageGenerationEventId(params: DynamicToolCallParams): string {
 function buildImageGenerationItem(
   params: DynamicToolCallParams,
   status: string,
-  extra?: { savedPaths?: string[]; revisedPrompt?: string | null; errorText?: string }
+  extra?: { savedPaths?: string[]; revisedPrompt?: string | null; errorText?: string; pendingImageCount?: number }
 ) {
   return {
     type: "imageGeneration",
     id: params.callId,
     status,
+    pendingImageCount: extra?.pendingImageCount,
     revisedPrompt: extra?.revisedPrompt ?? null,
     result: "",
     savedPath: extra?.savedPaths?.[0] ?? "",
@@ -81,13 +115,23 @@ function buildImageGenerationItem(
   };
 }
 
+function filterPersistedImageWorkbenchHistoryItems(items: ImageWorkbenchHistoryItem[]): ImageGenerationHistoryItem[] {
+  return items.filter((item): item is ImageGenerationHistoryItem => item.workbenchStatus === undefined);
+}
+
 function upsertImageGenerationEvent(
   timelineStore: ReturnType<typeof useTimelineStore>,
   params: DynamicToolCallParams,
   method: "item/started" | "item/completed",
   status: string,
   paramsText: string,
-  extra?: { savedPaths?: string[]; revisedPrompt?: string | null; errorText?: string; level?: "info" | "error" }
+  extra?: {
+    savedPaths?: string[];
+    revisedPrompt?: string | null;
+    errorText?: string;
+    pendingImageCount?: number;
+    level?: "info" | "error";
+  }
 ) {
   timelineStore.upsertEvent({
     threadId: params.threadId,
@@ -111,6 +155,10 @@ function buildFailedToolResponse(message: string): DynamicToolCallResponse {
   };
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, Math.max(0, Math.round(ms))));
+}
+
 function normalizeToolCallArguments(params: DynamicToolCallParams) {
   const args = toRecord(params.arguments);
   return {
@@ -128,15 +176,154 @@ function isCodeNexusImageGenerationTool(params: DynamicToolCallParams): boolean 
   );
 }
 
+type ImageToolReferenceImageResolution = {
+  inputImages: NonNullable<ImageGenerationGenerateArgs["inputImages"]>;
+  requestedCount: number;
+  skippedCount: number;
+};
+
+function findLatestUserImagePayload(
+  timelineStore: ReturnType<typeof useTimelineStore>,
+  threadId: string
+): { images: string[]; localImages: string[] } {
+  const events = timelineStore.eventsForThread(threadId);
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index];
+    if (event?.method !== "user") continue;
+    const params = toRecord(event.params);
+    return {
+      images: toStringArray(params.images),
+      localImages: toStringArray(params.local_images),
+    };
+  }
+  return { images: [], localImages: [] };
+}
+
+async function resolveImageToolReferenceImages(
+  timelineStore: ReturnType<typeof useTimelineStore>,
+  params: DynamicToolCallParams
+): Promise<ImageToolReferenceImageResolution> {
+  const payload = findLatestUserImagePayload(timelineStore, params.threadId);
+  const dataUrls = payload.images.slice(0, IMAGE_TOOL_MAX_REFERENCE_IMAGES);
+  const remainingSlots = Math.max(0, IMAGE_TOOL_MAX_REFERENCE_IMAGES - dataUrls.length);
+  const localPaths = payload.localImages.slice(0, remainingSlots);
+  const requestedCount = dataUrls.length + localPaths.length;
+  if (requestedCount === 0) return { inputImages: [], requestedCount: 0, skippedCount: 0 };
+
+  const inputImages: NonNullable<ImageGenerationGenerateArgs["inputImages"]> = [];
+  let skippedCount = 0;
+
+  dataUrls.forEach((dataUrl, index) => {
+    if (/^data:image\/[^;]+;base64,/i.test(dataUrl)) {
+      inputImages.push({
+        dataUrl,
+        name: `reference-${index + 1}.${extensionFromDataUrl(dataUrl)}`,
+      });
+    } else {
+      skippedCount += 1;
+    }
+  });
+
+  for (let index = 0; index < localPaths.length; index += 1) {
+    const path = localPaths[index];
+    try {
+      const res = await codexDesktop.app.readImageFileDataUrl({ path });
+      const dataUrl = String(res?.dataUrl ?? "").trim();
+      if (!/^data:image\/[^;]+;base64,/i.test(dataUrl)) {
+        skippedCount += 1;
+        continue;
+      }
+      inputImages.push({
+        dataUrl,
+        name: fileNameFromPathLike(path, `reference-${inputImages.length + 1}.${extensionFromDataUrl(dataUrl)}`),
+      });
+    } catch {
+      skippedCount += 1;
+    }
+  }
+
+  return { inputImages, requestedCount, skippedCount };
+}
+
+function formatImageToolRequestParamsText(args: ReturnType<typeof normalizeToolCallArguments>, referenceCount: number) {
+  return [
+    args.prompt ? `prompt=${args.prompt}` : "prompt=<empty>",
+    referenceCount > 0 ? `referenceImages=${referenceCount}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 async function playPlanQnaNotificationSoundTwiceLazy() {
   const { playPlanQnaNotificationSoundTwice } = await import("../../features/notificationSound/player");
   await playPlanQnaNotificationSoundTwice();
+}
+
+async function syncImageWorkbenchTasksLazy(imageWorkbenchStore: ReturnType<typeof useImageWorkbenchStore>) {
+  try {
+    await imageWorkbenchStore.syncTasks();
+  } catch {
+    // 图片工作台只是订阅同一份任务状态；同步失败不应中断工具响应。
+  }
+}
+
+async function waitForImageGenerationTask(taskId: string): Promise<ImageGenerationTaskItem> {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < IMAGE_TOOL_TASK_WAIT_TIMEOUT_MS) {
+    const taskRes = await codexDesktop.app.listImageGenerationTasks();
+    const task = (Array.isArray(taskRes.tasks) ? taskRes.tasks : []).find((item) => item.id === taskId);
+    if (!task) throw new Error("图片生成任务不存在或已被删除。");
+    if (task.status === "succeeded" || task.status === "failed" || task.status === "canceled") return task;
+    await sleep(IMAGE_TOOL_TASK_POLL_INTERVAL_MS);
+  }
+  throw new Error("图片生成任务等待超时。");
+}
+
+async function resolveImageGenerationHistoryItem(historyId: string): Promise<ImageGenerationHistoryItem> {
+  const historyRes = await codexDesktop.app.listImageGenerationHistory();
+  const item = (Array.isArray(historyRes.items) ? historyRes.items : []).find((entry) => entry.id === historyId);
+  if (!item) throw new Error("图片生成已完成，但未找到对应历史记录。");
+  return item;
+}
+
+async function buildSuccessfulImageToolResponse(
+  historyItem: ImageGenerationHistoryItem,
+  referenceResolution?: ImageToolReferenceImageResolution
+): Promise<DynamicToolCallResponse> {
+  const imageContentItems = await Promise.all(
+    historyItem.images.map(async (image) => {
+      const res = await codexDesktop.app.readImageFileDataUrl({ path: image.path });
+      return { type: "inputImage" as const, imageUrl: res.dataUrl };
+    })
+  );
+  const savedPaths = historyItem.images.map((image) => image.path).filter(Boolean);
+  const usedReferences = referenceResolution?.inputImages.length ?? 0;
+  const skippedReferences = referenceResolution?.skippedCount ?? 0;
+  const referenceText =
+    usedReferences > 0
+      ? ` Used ${usedReferences} reference image${usedReferences === 1 ? "" : "s"}.${
+          skippedReferences > 0
+            ? ` Skipped ${skippedReferences} unreadable reference image${skippedReferences === 1 ? "" : "s"}.`
+            : ""
+        }`
+      : "";
+  return {
+    success: true,
+    contentItems: [
+      {
+        type: "inputText",
+        text: `Image generated and saved locally: ${savedPaths.join(", ")}${referenceText}`,
+      },
+      ...imageContentItems,
+    ],
+  };
 }
 
 export function installRequestResponder(pinia: Pinia) {
   const timelineStore = useTimelineStore(pinia);
   const userInputStore = useUserInputStore(pinia);
   const approvalStore = useApprovalStore(pinia);
+  const imageWorkbenchStore = useImageWorkbenchStore(pinia);
 
   const unsubscribe = codexDesktop.codexServer.onEvent((payload) => {
     const msg = payload?.msg;
@@ -199,55 +386,94 @@ export function installRequestResponder(pinia: Pinia) {
           toolParams,
           "item/started",
           "running",
-          args.prompt ? `prompt=${args.prompt}` : "prompt=<empty>"
+          args.prompt ? `prompt=${args.prompt}` : "prompt=<empty>",
+          { pendingImageCount: args.n }
         );
 
         try {
           if (!args.prompt) throw new Error("图片生成提示词不能为空。");
-          const result = await codexDesktop.app.generateImage({
+          const referenceResolution = await resolveImageToolReferenceImages(timelineStore, toolParams);
+          if (referenceResolution.requestedCount > 0 && referenceResolution.inputImages.length === 0) {
+            throw new Error("当前消息包含参考图片，但这些图片都无法读取。");
+          }
+          const submitResult = await codexDesktop.app.submitImageGenerationTask({
             threadId: toolParams.threadId,
             turnId: toolParams.turnId,
             callId: toolParams.callId,
             prompt: args.prompt,
+            inputImages: referenceResolution.inputImages.length > 0 ? referenceResolution.inputImages : null,
             size: args.size,
             quality: args.quality,
             outputFormat: args.outputFormat,
             n: args.n,
           });
-          const savedPaths = result.images.map((image) => image.path).filter(Boolean);
-          const revisedPrompt = result.revisedPrompt ?? null;
+          const submittedTaskId = String(submitResult.task?.id ?? "").trim();
+          if (!submittedTaskId) throw new Error("图片生成任务提交失败。");
+          imageWorkbenchStore.generationTasks = Array.isArray(submitResult.tasks) ? submitResult.tasks : [];
+          imageWorkbenchStore.mergeHistoryAndTasks(
+            filterPersistedImageWorkbenchHistoryItems(imageWorkbenchStore.historyItems),
+            imageWorkbenchStore.generationTasks
+          );
+          void syncImageWorkbenchTasksLazy(imageWorkbenchStore);
+
+          upsertImageGenerationEvent(
+            timelineStore,
+            toolParams,
+            "item/started",
+            "running",
+            [
+              formatImageToolRequestParamsText(args, referenceResolution.inputImages.length),
+              referenceResolution.skippedCount > 0 ? `skippedReferenceImages=${referenceResolution.skippedCount}` : "",
+              `taskId=${submittedTaskId}`,
+            ]
+              .filter(Boolean)
+              .join("\n"),
+            { pendingImageCount: args.n }
+          );
+
+          const completedTask = await waitForImageGenerationTask(submittedTaskId);
+          await syncImageWorkbenchTasksLazy(imageWorkbenchStore);
+          if (completedTask.status !== "succeeded") {
+            throw new Error(
+              completedTask.errorText || `图片生成任务${completedTask.status === "canceled" ? "已取消" : "失败"}。`
+            );
+          }
+          const historyId = String(completedTask.historyId ?? "").trim();
+          if (!historyId) throw new Error("图片生成任务已完成，但缺少历史记录 ID。");
+          const historyItem = await resolveImageGenerationHistoryItem(historyId);
+          const savedPaths = historyItem.images.map((image) => image.path).filter(Boolean);
+          const revisedPrompt = historyItem.revisedPrompt ?? null;
           upsertImageGenerationEvent(
             timelineStore,
             toolParams,
             "item/completed",
             "completed",
-            [`status=completed`, ...savedPaths.map((path, index) => `savedPath[${index + 1}]=${path}`)].join("\n"),
+            [
+              `status=completed`,
+              `taskId=${submittedTaskId}`,
+              `historyId=${historyId}`,
+              referenceResolution.inputImages.length > 0
+                ? `referenceImages=${referenceResolution.inputImages.length}`
+                : "",
+              referenceResolution.skippedCount > 0 ? `skippedReferenceImages=${referenceResolution.skippedCount}` : "",
+              ...savedPaths.map((path, index) => `savedPath[${index + 1}]=${path}`),
+            ]
+              .filter(Boolean)
+              .join("\n"),
             { savedPaths, revisedPrompt }
           );
           await codexDesktop.codexServer.respond({
             serverId: payload.serverId,
             id: msg.id,
-            result: {
-              success: true,
-              contentItems: [
-                {
-                  type: "inputText",
-                  text: `Image generated and saved locally: ${savedPaths.join(", ")}`,
-                },
-                ...result.images.map((image) => ({ type: "inputImage" as const, imageUrl: image.dataUrl })),
-              ],
-            } satisfies DynamicToolCallResponse,
+            result: await buildSuccessfulImageToolResponse(historyItem, referenceResolution),
           });
         } catch (error: any) {
+          await syncImageWorkbenchTasksLazy(imageWorkbenchStore);
           const message = String(error?.message ?? error ?? "图片生成失败");
-          upsertImageGenerationEvent(
-            timelineStore,
-            toolParams,
-            "item/completed",
-            `failed: ${message}`,
-            message,
-            { errorText: message, level: "error" }
-          );
+          upsertImageGenerationEvent(timelineStore, toolParams, "item/completed", `failed: ${message}`, message, {
+            errorText: message,
+            level: "error",
+          });
           await codexDesktop.codexServer.respond({
             serverId: payload.serverId,
             id: msg.id,

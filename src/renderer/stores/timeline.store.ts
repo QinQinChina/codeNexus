@@ -4,6 +4,7 @@ import type { TimelineEventItem, TimelineEventLevel } from "../domain/types";
 
 const MAX_EVENT_PARAMS_CHARS = 60_000;
 const STREAM_FLUSH_DELAY_MS = 16;
+const STREAM_FLUSH_FALLBACK_DELAY_MS = 120;
 
 type PendingAppend = {
   threadId: string;
@@ -23,6 +24,8 @@ type PendingAppend = {
 
 const pendingAppendsByKey = new Map<string, PendingAppend>();
 let flushScheduled = false;
+let scheduledFlushRafId: number | null = null;
+let scheduledFlushTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 type ThreadTimelineState = {
   order: string[];
@@ -59,14 +62,25 @@ function scheduleFlush(store: { flushPendingAppends: () => void }) {
   if (flushScheduled) return;
   flushScheduled = true;
   const runner = () => {
+    if (!flushScheduled) return;
     flushScheduled = false;
+    if (scheduledFlushRafId != null && typeof cancelAnimationFrame === "function") {
+      cancelAnimationFrame(scheduledFlushRafId);
+    }
+    if (scheduledFlushTimeoutId != null) {
+      clearTimeout(scheduledFlushTimeoutId);
+    }
+    scheduledFlushRafId = null;
+    scheduledFlushTimeoutId = null;
     store.flushPendingAppends();
   };
   if (typeof (globalThis as any).requestAnimationFrame === "function") {
-    (globalThis as any).requestAnimationFrame(runner);
-    return;
+    scheduledFlushRafId = (globalThis as any).requestAnimationFrame(runner);
   }
-  setTimeout(runner, STREAM_FLUSH_DELAY_MS);
+  scheduledFlushTimeoutId = setTimeout(
+    runner,
+    scheduledFlushRafId == null ? STREAM_FLUSH_DELAY_MS : STREAM_FLUSH_FALLBACK_DELAY_MS
+  );
 }
 
 function createEmptyThreadState(): ThreadTimelineState {

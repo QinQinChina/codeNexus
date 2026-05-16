@@ -112,6 +112,7 @@ function cloneComposeFileMention(value: ComposeWorkspaceFileMention): ComposeWor
   return {
     id: String(value.id ?? "").trim(),
     path: String(value.path ?? "").trim(),
+    ...(value.kind === "directory" || value.kind === "file" ? { kind: value.kind } : {}),
   };
 }
 
@@ -188,7 +189,6 @@ export const useRuntimeStore = defineStore("runtime", {
     composerFocusSeq: 0,
     timelineDebugEnabled: false,
     pendingThreadInitSendCountByThread: new Map<string, number>(),
-    centerEmptyStateEligible: true,
     timelineScrollToBottomSeq: 0,
     suppressNextScrollToBottomOncePending: false,
   }),
@@ -705,15 +705,6 @@ export const useRuntimeStore = defineStore("runtime", {
       this.pendingThreadInitSendCountByThread.delete(fromKey);
       if (count == null || count <= 0) return;
       this.pendingThreadInitSendCountByThread.set(toKey, count);
-    },
-    // 空态入口只消费一次，避免重复展示 onboarding 区域。
-    consumeCenterEmptyStateEligible(): boolean {
-      if (!this.centerEmptyStateEligible) return false;
-      this.centerEmptyStateEligible = false;
-      return true;
-    },
-    resetCenterEmptyStateEligible() {
-      this.centerEmptyStateEligible = true;
     },
     // Request the chat timeline to scroll back to the latest content.
     requestScrollTimelineToBottom() {

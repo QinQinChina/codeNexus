@@ -1,5 +1,5 @@
-import type { TimelineEventItem } from "../../domain/types";
-import type { DynamicToolTimelineItem } from "../../domain/dynamicTools";
+import type { TimelineEventItem } from "../../../domain/types";
+import type { DynamicToolTimelineItem } from "../../../domain/dynamicTools";
 import type {
   ReasoningBlockNode,
   FileChangeNode,
@@ -9,9 +9,9 @@ import type {
   CommandSearchNode,
   McpResourceReadNode,
   McpToolGroupNode,
-} from "../../features/timeline/renderModel/buildTimelineNodes";
-import type { NormalizedWebSearchActionType } from "../../features/timeline/webSearch";
-import type { SandboxMode } from "../../stores/runtime.store";
+} from "../../../features/timeline/renderModel/buildTimelineNodes";
+import type { NormalizedWebSearchActionType } from "../../../features/timeline/webSearch";
+import type { SandboxMode } from "../../../stores/runtime.store";
 
 export type LazyImageSourceKind = "dataUrl" | "remoteUrl" | "localPath";
 
@@ -39,6 +39,7 @@ export type ChatImageToolItem = {
   itemType: "imageView" | "imageGeneration";
   title: string;
   status: ImageToolStatus;
+  pendingImageCount?: number;
   detailText: string;
   errorText: string;
   revisedPrompt: string;
@@ -65,22 +66,44 @@ export type ChatRowBase = {
   turnKey: string;
 };
 
-export type ChatRow =
-  | (ChatRowBase & { kind: "user"; event: TimelineEventItem })
-  | (ChatRowBase & { kind: "assistant"; event: TimelineEventItem })
-  | (ChatRowBase & { kind: "system"; text: string })
+export type ChatAuxActivityStatus = "running" | "completed";
+
+export type ChatAuxActivitySummaryItem = {
+  key: string;
+  label: string;
+  count: number;
+};
+
+export type ChatAuxiliaryRow =
   | (ChatRowBase & { kind: "activity"; text: string; createdAt: number; tone?: ActivityTone })
   | (ChatRowBase & { kind: "imageTool"; createdAt: number; item: ChatImageToolItem })
   | (ChatRowBase & { kind: "dynamicTool"; createdAt: number; item: DynamicToolTimelineItem })
   | (ChatRowBase & { kind: "webSearch"; createdAt: number; item: ChatWebSearchItem })
   | (ChatRowBase & { kind: "reasoningBlock"; item: ReasoningBlockNode })
-  | (ChatRowBase & { kind: "fileChange"; item: FileChangeNode })
   | (ChatRowBase & { kind: "commandAction"; item: CommandActionNode })
   | (ChatRowBase & { kind: "commandRead"; item: CommandReadNode })
   | (ChatRowBase & { kind: "commandList"; item: CommandListNode })
   | (ChatRowBase & { kind: "commandSearch"; item: CommandSearchNode })
   | (ChatRowBase & { kind: "mcpResourceRead"; item: McpResourceReadNode })
   | (ChatRowBase & { kind: "mcpToolGroup"; group: McpToolGroupNode });
+
+export type ChatMainRow =
+  | (ChatRowBase & { kind: "user"; event: TimelineEventItem })
+  | (ChatRowBase & { kind: "assistant"; event: TimelineEventItem })
+  | (ChatRowBase & { kind: "system"; text: string })
+  | (ChatRowBase & { kind: "fileChange"; item: FileChangeNode })
+  | ChatAuxiliaryRow;
+
+export type ChatAuxActivityGroupRow = ChatRowBase & {
+  kind: "auxActivityGroup";
+  items: ChatAuxiliaryRow[];
+  summaryItems: ChatAuxActivitySummaryItem[];
+  summaryText: string;
+  status: ChatAuxActivityStatus;
+  defaultCollapsed: boolean;
+};
+
+export type ChatRow = ChatMainRow | ChatAuxActivityGroupRow;
 
 export type ChatRenderedRow = ChatRow;
 

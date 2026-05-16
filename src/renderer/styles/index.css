@@ -15,7 +15,9 @@
 @import "./layout/panel/forms/global-config.css";
 @import "./layout/panel/forms/instruction-editor.css";
 @import "./layout/panel/forms/context-controls.css";
+@import "./layout/settings.css";
 @import "./timeline.css";
+@import "./chat-timeline.css";
 @import "./composer.css";
 @import "./responsive/layout.css";
 @import "./responsive/center.css";

@@ -214,7 +214,7 @@
         <span class="ui-leading-icon-slot" aria-hidden="true">
           <TerminalSquare class="terminal-action-icon h-3 w-3 flex-none text-[var(--text-muted)] [stroke-width:2.2]" />
         </span>
-        <WaveText
+        <ExecutionWaveText
           v-if="node.item.item.status === 'running'"
           class="terminal-action-text min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"
           color="var(--accent)"
@@ -307,35 +307,36 @@
 <script setup lang="ts">
 // 时间线视图：承载时间线卡片渲染与交互，包括 diff、markdown、工具输出等。
 import { computed, ref, watch } from "vue";
-import CommandListActivityRow from "../timeline/activities/CommandListActivityRow.vue";
-import CommandReadActivityRow from "../timeline/activities/CommandReadActivityRow.vue";
-import CommandSearchActivityRow from "../timeline/activities/CommandSearchActivityRow.vue";
-import FileChangeCardContent from "../timeline/cards/FileChangeCardContent.vue";
-import McpResourceReadCardContent from "../timeline/cards/McpResourceReadCardContent.vue";
-import McpToolCardContent from "../timeline/cards/McpToolCardContent.vue";
-import type { McpToolItem } from "../timeline/cards/McpToolCardContent.vue";
-import WorkspaceFileSaveCardContent from "../timeline/cards/WorkspaceFileSaveCardContent.vue";
-import AgentMarkdownContent from "../ui/AgentMarkdownContent.vue";
-import PlanOutputCard from "../ui/PlanOutputCard.vue";
-import StructuredFinalAnswerCard from "../ui/StructuredFinalAnswerCard.vue";
-import UnifiedDiffViewer from "../timeline/cards/UnifiedDiffViewer.vue";
-import Collapsible from "../ui/Collapsible.vue";
-import WaveText from "../ui/WaveText.vue";
+import CommandListActivityRow from "../../timeline/activities/CommandListActivityRow.vue";
+import CommandReadActivityRow from "../../timeline/activities/CommandReadActivityRow.vue";
+import CommandSearchActivityRow from "../../timeline/activities/CommandSearchActivityRow.vue";
+import FileChangeCardContent from "../../timeline/cards/FileChangeCardContent.vue";
+import McpResourceReadCardContent from "../../timeline/cards/McpResourceReadCardContent.vue";
+import McpToolCardContent from "../../timeline/cards/McpToolCardContent.vue";
+import type { McpToolItem } from "../../timeline/cards/McpToolCardContent.vue";
+import WorkspaceFileSaveCardContent from "../../timeline/cards/WorkspaceFileSaveCardContent.vue";
+import AgentMarkdownContent from "../../ui/AgentMarkdownContent.vue";
+import PlanOutputCard from "../../ui/PlanOutputCard.vue";
+import StructuredFinalAnswerCard from "../../ui/StructuredFinalAnswerCard.vue";
+import UnifiedDiffViewer from "../../timeline/cards/UnifiedDiffViewer.vue";
+import Collapsible from "../../ui/Collapsible.vue";
+import ExecutionWaveText from "../../ui/ExecutionWaveText.vue";
+import WaveText from "../../ui/WaveText.vue";
 import { Brain, ChevronDown, TerminalSquare } from "lucide-vue-next";
-import { useAppShellStore } from "../../stores/appShell.store";
-import { useMcpResourceStore } from "../../stores/mcpResource.store";
-import { useMcpStore } from "../../stores/mcp.store";
-import { useRuntimeStore } from "../../stores/runtime.store";
-import { useThreadStore } from "../../stores/thread.store";
-import { useViewPrefsStore } from "../../stores/viewPrefs.store";
-import { safeJsonStringify } from "../../utils/safeJson";
-import type { TimelineEventItem, TurnPlanState } from "../../domain/types";
-import { tryParseStructuredFinalAnswerV1 } from "../../domain/structuredFinalAnswer";
-import { getWorkspaceFileSaveTimelineItemFromEvent } from "../../domain/workspaceFiles";
-import { useAgentMarkdownRenderer } from "../../features/timeline/useAgentMarkdownRenderer";
-import { renderMarkdownToSafeHtml } from "../../features/timeline/markdownRenderer";
-import { useMarkdownRendererRefresh } from "../../features/timeline/useMarkdownRendererRefresh";
-import { isGuardianApprovalReviewMethod } from "../../features/guardian/guardianApprovalReview";
+import { useAppShellStore } from "../../../stores/appShell.store";
+import { useMcpResourceStore } from "../../../stores/mcpResource.store";
+import { useMcpStore } from "../../../stores/mcp.store";
+import { useRuntimeStore } from "../../../stores/runtime.store";
+import { useThreadStore } from "../../../stores/thread.store";
+import { useViewPrefsStore } from "../../../stores/viewPrefs.store";
+import { safeJsonStringify } from "../../../utils/safeJson";
+import type { TimelineEventItem, TurnPlanState } from "../../../domain/types";
+import { tryParseStructuredFinalAnswerV1 } from "../../../domain/structuredFinalAnswer";
+import { getWorkspaceFileSaveTimelineItemFromEvent } from "../../../domain/workspaceFiles";
+import { useAgentMarkdownRenderer } from "../../../features/timeline/useAgentMarkdownRenderer";
+import { renderMarkdownToSafeHtml } from "../../../features/timeline/markdownRenderer";
+import { useMarkdownRendererRefresh } from "../../../features/timeline/useMarkdownRendererRefresh";
+import { isGuardianApprovalReviewMethod } from "../../../features/guardian/guardianApprovalReview";
 import {
   buildMcpToolDefinitionIndex,
   buildTimelineRenderNodes,
@@ -344,7 +345,7 @@ import {
   type ReasoningBlockNode,
   type FileChangeNode,
   type FileChangeFile,
-} from "../../features/timeline/renderModel/buildTimelineNodes";
+} from "../../../features/timeline/renderModel/buildTimelineNodes";
 import {
   commandGroupItemActionText,
   commandGroupItemActionDetailText,
@@ -368,7 +369,7 @@ import {
   mcpToolItemMetricsText,
   mcpToolItemStatusText,
   mcpToolItemTitle,
-} from "../../features/timeline/renderModel/formatters";
+} from "../../../features/timeline/renderModel/formatters";
 
 const props = defineProps<{
   contentEvents: TimelineEventItem[];

@@ -5,7 +5,8 @@ import {
   restorePrependScrollTop,
   snapshotTimelineViewport,
   type TimelineViewportSnapshot,
-} from "./timelineScrollPolicy";
+} from "../chat/timelineScrollPolicy";
+import { CHAT_TIMELINE_ROW_SELECTOR } from "../chat/chatPresentation";
 
 type UseTimelineScrollControllerOptions = {
   timelineRef: Ref<HTMLElement | null>;
@@ -54,7 +55,7 @@ export function useTimelineScrollController(options: UseTimelineScrollController
   }
 
   function timelineRows(element: HTMLElement): HTMLElement[] {
-    return Array.from(element.querySelectorAll<HTMLElement>(".chat-timeline-row[data-row-id]"));
+    return Array.from(element.querySelectorAll<HTMLElement>(CHAT_TIMELINE_ROW_SELECTOR));
   }
 
   function captureVisibleRowAnchor(element: HTMLElement): VisibleRowAnchor | null {

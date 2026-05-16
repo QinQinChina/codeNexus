@@ -1,5 +1,15 @@
 <template>
-  <div ref="rootRef" v-bind="$attrs" @click="onRootClick" @keydown="onRootKeydown"></div>
+  <div
+    ref="rootRef"
+    v-bind="$attrs"
+    @click="onRootClick"
+    @keydown="onRootKeydown"
+    @pointerdown="onRootPointerDown"
+    @pointermove="onRootPointerMove"
+    @pointerup="onRootPointerUp"
+    @pointercancel="onRootPointerUp"
+    @wheel="onRootWheel"
+  ></div>
 
   <Teleport to="body">
     <Transition name="composer-lightbox">
@@ -14,7 +24,7 @@
         <div class="composer-lightbox-stage agent-mermaid-lightbox-stage" @click.self="closeMermaidLightbox">
           <div ref="lightboxPanelRef" class="agent-mermaid-lightbox-panel" tabindex="-1">
             <div class="agent-mermaid-lightbox-toolbar">
-              <span class="agent-mermaid-lightbox-status">Mermaid 图预览</span>
+              <span class="agent-mermaid-lightbox-status">Mermaid 图预览 · {{ Math.round(lightboxUserZoom * 100) }}%</span>
               <button
                 type="button"
                 class="agent-mermaid-lightbox-copy"
@@ -29,14 +39,21 @@
               ref="lightboxRenderRef"
               class="agent-mermaid-lightbox-render app-scrollbar"
               :class="{ 'is-dragging': lightboxIsDragging }"
-              title="左键拖动平移 · Ctrl/⌘ + 滚轮缩放"
+              title="左键拖动平移 · 滚轮缩放"
               @pointerdown="onMermaidLightboxPointerDown"
               @pointermove="onMermaidLightboxPointerMove"
               @pointerup="onMermaidLightboxPointerUp"
               @pointercancel="onMermaidLightboxPointerUp"
+              @lostpointercapture="onMermaidLightboxPointerUp"
               @wheel="onMermaidLightboxWheel"
-              v-html="lightboxSvgHtml"
-            ></div>
+            >
+              <div
+                ref="lightboxContentRef"
+                class="agent-mermaid-lightbox-content"
+                :style="mermaidLightboxContentStyle"
+                v-html="lightboxSvgHtml"
+              ></div>
+            </div>
           </div>
         </div>
       </div>
@@ -45,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import { getCurrentInstance, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   normalizeMermaidError,
   readMermaidTone,
@@ -76,6 +93,7 @@ const props = defineProps<{
 const rootRef = ref<HTMLElement | null>(null);
 const lightboxPanelRef = ref<HTMLElement | null>(null);
 const lightboxRenderRef = ref<HTMLElement | null>(null);
+const lightboxContentRef = ref<HTMLElement | null>(null);
 const lightboxSvgHtml = ref("");
 const lightboxSource = ref("");
 const lightboxCopyState = ref<CopyButtonState>("idle");
@@ -90,6 +108,9 @@ const MERMAID_VIEWPORT_MARGIN_PX = 260;
 const MERMAID_LIGHTBOX_ZOOM_MIN = 0.25;
 const MERMAID_LIGHTBOX_ZOOM_MAX = 4;
 const MERMAID_LIGHTBOX_ZOOM_SENSITIVITY = 0.0015;
+const MERMAID_INLINE_ZOOM_MIN = 0.25;
+const MERMAID_INLINE_ZOOM_MAX = 4;
+const MERMAID_INLINE_ZOOM_SENSITIVITY = 0.0015;
 const MERMAID_WHEEL_LINE_HEIGHT_PX = 16;
 const CODE_COPY_FEEDBACK_RESET_MS = 1600;
 type CopyButtonState = "idle" | "success" | "error";
@@ -105,8 +126,13 @@ let renderTaskSeq = 0;
 let codeHighlightTaskSeq = 0;
 let lightboxTaskSeq = 0;
 const lightboxUserZoom = ref(1);
+const lightboxPanX = ref(0);
+const lightboxPanY = ref(0);
 const lightboxIsDragging = ref(false);
 const componentUid = String(getCurrentInstance()?.uid ?? `fallback-${Math.random().toString(36).slice(2)}`);
+const mermaidLightboxContentStyle = computed(() => ({
+  transform: `translate3d(${lightboxPanX.value}px, ${lightboxPanY.value}px, 0) scale(${lightboxUserZoom.value})`,
+}));
 let frozenMermaidBlocks = new Map<string, HTMLElement>();
 let mermaidFailureByKey = new Map<string, string>();
 let mermaidSourceByKey = new Map<string, string>();
@@ -116,8 +142,14 @@ const isInViewport = ref(true);
 let lightboxDragPointerId: number | null = null;
 let lightboxDragStartClientX = 0;
 let lightboxDragStartClientY = 0;
-let lightboxDragStartScrollLeft = 0;
-let lightboxDragStartScrollTop = 0;
+let lightboxDragStartPanX = 0;
+let lightboxDragStartPanY = 0;
+let mermaidDragViewport: HTMLElement | null = null;
+let mermaidDragPointerId: number | null = null;
+let mermaidDragStartClientX = 0;
+let mermaidDragStartClientY = 0;
+let mermaidDragStartScrollLeft = 0;
+let mermaidDragStartScrollTop = 0;
 
 function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -127,6 +159,15 @@ function normalizeWheelDeltaPx(event: WheelEvent, pageHeight: number) {
   if (event.deltaMode === 1) return event.deltaY * MERMAID_WHEEL_LINE_HEIGHT_PX;
   if (event.deltaMode === 2) return event.deltaY * Math.max(220, pageHeight);
   return event.deltaY;
+}
+
+function readMermaidBlockUserZoom(block: HTMLElement) {
+  const zoom = Number(block.dataset.agentMermaidZoom ?? "");
+  return clampNumber(Number.isFinite(zoom) && zoom > 0 ? zoom : 1, MERMAID_INLINE_ZOOM_MIN, MERMAID_INLINE_ZOOM_MAX);
+}
+
+function writeMermaidBlockUserZoom(block: HTMLElement, zoom: number) {
+  block.dataset.agentMermaidZoom = String(clampNumber(zoom, MERMAID_INLINE_ZOOM_MIN, MERMAID_INLINE_ZOOM_MAX));
 }
 
 function clearRenderTimer() {
@@ -163,6 +204,19 @@ function clearCodeCopyResetTimer(button: HTMLButtonElement) {
 function clearAllCodeCopyResetTimers() {
   codeCopyResetTimerByButton.forEach((timer) => clearTimeout(timer));
   codeCopyResetTimerByButton.clear();
+}
+
+function clearMermaidDragState() {
+  if (mermaidDragViewport instanceof HTMLElement) {
+    mermaidDragViewport.classList.remove("is-dragging");
+    if (mermaidDragPointerId != null && mermaidDragViewport.hasPointerCapture(mermaidDragPointerId)) {
+      try {
+        mermaidDragViewport.releasePointerCapture(mermaidDragPointerId);
+      } catch {}
+    }
+  }
+  mermaidDragViewport = null;
+  mermaidDragPointerId = null;
 }
 
 function readCodeLanguageRaw(codeElement: HTMLElement) {
@@ -559,6 +613,7 @@ function clearMermaidFailures() {
 function syncRenderedHtml() {
   const host = rootRef.value;
   if (!host) return;
+  clearMermaidDragState();
   clearAllCodeCopyResetTimers();
 
   // Keep diagram SVG blocks stable while the parent HTML updates (streaming output).
@@ -620,6 +675,7 @@ function createMermaidErrorElement(detail: string) {
 function createMermaidRenderElement(svg: string, blockKey?: string) {
   const block = document.createElement("div");
   block.className = "agent-mermaid-block";
+  block.dataset.agentMermaidZoom = "1";
   if (blockKey) block.dataset.agentMermaidKey = blockKey;
 
   const toolbar = document.createElement("div");
@@ -652,7 +708,8 @@ function createMermaidRenderElement(svg: string, blockKey?: string) {
   toolbar.append(status, actions);
 
   const viewport = document.createElement("div");
-  viewport.className = "agent-mermaid-viewport";
+  viewport.className = "agent-mermaid-viewport app-scrollbar";
+  viewport.title = "左键拖动平移 · 滚轮缩放";
 
   const body = document.createElement("div");
   body.className = "agent-mermaid-render";
@@ -720,9 +777,11 @@ function layoutMermaidBlock(block: HTMLElement) {
 
   const availableWidth = Math.max(180, viewport.clientWidth - 8);
   const availableHeight = MERMAID_MAX_HEIGHT_PX;
-  const scale = Math.min(availableWidth / dimensions.width, availableHeight / dimensions.height, 1);
-  const targetWidth = dimensions.width * scale;
-  const targetHeight = dimensions.height * scale;
+  const fitScale = Math.min(availableWidth / dimensions.width, availableHeight / dimensions.height, 1);
+  const userZoom = readMermaidBlockUserZoom(block);
+  const effectiveScale = fitScale * userZoom;
+  const targetWidth = dimensions.width * effectiveScale;
+  const targetHeight = dimensions.height * effectiveScale;
 
   applySvgDimensions(svg, targetWidth, targetHeight);
   render.style.width = `${targetWidth}px`;
@@ -730,14 +789,15 @@ function layoutMermaidBlock(block: HTMLElement) {
 
   const status = block.querySelector<HTMLElement>("[data-agent-mermaid-role='status']");
   if (status) {
-    status.textContent = scale < 0.999 ? `完整显示 · 已缩放 ${Math.round(scale * 100)}%` : "完整显示";
+    const fitText = fitScale < 0.999 ? `适配 ${Math.round(fitScale * 100)}%` : "原始尺寸";
+    status.textContent = userZoom === 1 ? fitText : `${fitText} · 缩放 ${Math.round(userZoom * 100)}%`;
   }
 
   const expandButton = block.querySelector<HTMLButtonElement>("[data-agent-mermaid-action='lightbox']");
   if (expandButton) {
-    const shouldShow = scale < MERMAID_LIGHTBOX_BUTTON_THRESHOLD;
+    const shouldShow = fitScale < MERMAID_LIGHTBOX_BUTTON_THRESHOLD;
     expandButton.hidden = !shouldShow;
-    expandButton.title = shouldShow ? `当前显示 ${Math.round(scale * 100)}%，点击放大查看` : "";
+    expandButton.title = shouldShow ? `当前适配 ${Math.round(fitScale * 100)}%，点击放大查看` : "";
   }
 }
 
@@ -761,7 +821,8 @@ function scheduleLayoutMermaidBlocks() {
 function layoutMermaidLightbox() {
   const panel = lightboxPanelRef.value;
   const render = lightboxRenderRef.value;
-  const svg = render?.querySelector<SVGSVGElement>("svg");
+  const content = lightboxContentRef.value;
+  const svg = content?.querySelector<SVGSVGElement>("svg");
   if (!(panel instanceof HTMLElement) || !(render instanceof HTMLElement) || !(svg instanceof SVGSVGElement)) return;
 
   const dimensions = readSvgDimensions(svg);
@@ -770,10 +831,8 @@ function layoutMermaidLightbox() {
   const availableWidth = Math.max(240, panel.clientWidth - 32);
   const availableHeight = Math.max(220, panel.clientHeight - 32);
   const fitScale = Math.min(availableWidth / dimensions.width, availableHeight / dimensions.height, 1);
-  const userZoom = clampNumber(lightboxUserZoom.value, MERMAID_LIGHTBOX_ZOOM_MIN, MERMAID_LIGHTBOX_ZOOM_MAX);
-  const effectiveScale = fitScale * userZoom;
 
-  applySvgDimensions(svg, dimensions.width * effectiveScale, dimensions.height * effectiveScale);
+  applySvgDimensions(svg, dimensions.width * fitScale, dimensions.height * fitScale);
 }
 
 function scheduleMermaidLightboxLayout() {
@@ -789,6 +848,8 @@ function closeMermaidLightbox() {
   lightboxTaskSeq += 1;
   lightboxIsDragging.value = false;
   lightboxDragPointerId = null;
+  lightboxPanX.value = 0;
+  lightboxPanY.value = 0;
   clearLightboxCopyResetTimer();
   lightboxCopyBusy.value = false;
   lightboxCopyState.value = "idle";
@@ -800,6 +861,8 @@ async function openMermaidLightbox(source: string) {
   const nextSeq = lightboxTaskSeq + 1;
   lightboxTaskSeq = nextSeq;
   lightboxUserZoom.value = 1;
+  lightboxPanX.value = 0;
+  lightboxPanY.value = 0;
   clearLightboxCopyResetTimer();
   lightboxCopyBusy.value = false;
   lightboxCopyState.value = "idle";
@@ -829,45 +892,32 @@ async function openMermaidLightbox(source: string) {
 
 function onMermaidLightboxWheel(event: WheelEvent) {
   if (!lightboxSvgHtml.value) return;
-  if (!(event.ctrlKey || event.metaKey)) return;
 
   const render = lightboxRenderRef.value;
   if (!(render instanceof HTMLElement)) return;
-  const svg = render.querySelector<SVGSVGElement>("svg");
-  if (!(svg instanceof SVGSVGElement)) return;
+  const content = lightboxContentRef.value;
+  if (!(content instanceof HTMLElement)) return;
 
   const previousZoom = clampNumber(lightboxUserZoom.value, MERMAID_LIGHTBOX_ZOOM_MIN, MERMAID_LIGHTBOX_ZOOM_MAX);
   const deltaPx = normalizeWheelDeltaPx(event, render.clientHeight);
   if (!Number.isFinite(deltaPx) || deltaPx === 0) return;
+
+  event.preventDefault();
+  event.stopPropagation();
 
   const factor = Math.exp(-deltaPx * MERMAID_LIGHTBOX_ZOOM_SENSITIVITY);
   if (!Number.isFinite(factor) || factor <= 0) return;
   const nextZoom = clampNumber(previousZoom * factor, MERMAID_LIGHTBOX_ZOOM_MIN, MERMAID_LIGHTBOX_ZOOM_MAX);
   if (Math.abs(nextZoom - previousZoom) < 0.0001) return;
 
-  event.preventDefault();
-
   const renderRect = render.getBoundingClientRect();
-  const svgRect = svg.getBoundingClientRect();
-  const pointerViewportX = event.clientX - renderRect.left;
-  const pointerViewportY = event.clientY - renderRect.top;
-  const pointerLocalX = event.clientX - svgRect.left;
-  const pointerLocalY = event.clientY - svgRect.top;
+  const pointerX = event.clientX - (renderRect.left + renderRect.width / 2);
+  const pointerY = event.clientY - (renderRect.top + renderRect.height / 2);
   const zoomRatio = nextZoom / previousZoom;
 
+  lightboxPanX.value = pointerX - (pointerX - lightboxPanX.value) * zoomRatio;
+  lightboxPanY.value = pointerY - (pointerY - lightboxPanY.value) * zoomRatio;
   lightboxUserZoom.value = nextZoom;
-  layoutMermaidLightbox();
-
-  const nextSvgRect = svg.getBoundingClientRect();
-  const svgOriginX = nextSvgRect.left - renderRect.left + render.scrollLeft;
-  const svgOriginY = nextSvgRect.top - renderRect.top + render.scrollTop;
-  const maxScrollLeft = Math.max(0, render.scrollWidth - render.clientWidth);
-  const maxScrollTop = Math.max(0, render.scrollHeight - render.clientHeight);
-  const nextScrollLeft = svgOriginX + pointerLocalX * zoomRatio - pointerViewportX;
-  const nextScrollTop = svgOriginY + pointerLocalY * zoomRatio - pointerViewportY;
-
-  render.scrollLeft = clampNumber(nextScrollLeft, 0, maxScrollLeft);
-  render.scrollTop = clampNumber(nextScrollTop, 0, maxScrollTop);
 }
 
 function onMermaidLightboxPointerDown(event: PointerEvent) {
@@ -883,10 +933,12 @@ function onMermaidLightboxPointerDown(event: PointerEvent) {
   lightboxDragPointerId = event.pointerId;
   lightboxDragStartClientX = event.clientX;
   lightboxDragStartClientY = event.clientY;
-  lightboxDragStartScrollLeft = render.scrollLeft;
-  lightboxDragStartScrollTop = render.scrollTop;
+  lightboxDragStartPanX = lightboxPanX.value;
+  lightboxDragStartPanY = lightboxPanY.value;
 
-  if (!render.hasPointerCapture(event.pointerId)) render.setPointerCapture(event.pointerId);
+  try {
+    if (!render.hasPointerCapture(event.pointerId)) render.setPointerCapture(event.pointerId);
+  } catch {}
 }
 
 function onMermaidLightboxPointerMove(event: PointerEvent) {
@@ -900,8 +952,8 @@ function onMermaidLightboxPointerMove(event: PointerEvent) {
 
   const dx = event.clientX - lightboxDragStartClientX;
   const dy = event.clientY - lightboxDragStartClientY;
-  render.scrollLeft = lightboxDragStartScrollLeft - dx;
-  render.scrollTop = lightboxDragStartScrollTop - dy;
+  lightboxPanX.value = lightboxDragStartPanX + dx;
+  lightboxPanY.value = lightboxDragStartPanY + dy;
 }
 
 function onMermaidLightboxPointerUp(event: PointerEvent) {
@@ -911,7 +963,9 @@ function onMermaidLightboxPointerUp(event: PointerEvent) {
   const render = lightboxRenderRef.value;
   if (render instanceof HTMLElement) {
     if (lightboxDragPointerId != null && render.hasPointerCapture(lightboxDragPointerId)) {
-      render.releasePointerCapture(lightboxDragPointerId);
+      try {
+        render.releasePointerCapture(lightboxDragPointerId);
+      } catch {}
     }
   }
 
@@ -919,6 +973,110 @@ function onMermaidLightboxPointerUp(event: PointerEvent) {
 
   lightboxIsDragging.value = false;
   lightboxDragPointerId = null;
+}
+
+function findMermaidViewportFromTarget(target: EventTarget | null) {
+  return target instanceof HTMLElement ? target.closest<HTMLElement>(".agent-mermaid-viewport") : null;
+}
+
+function onRootWheel(event: WheelEvent) {
+  const viewport = findMermaidViewportFromTarget(event.target);
+  if (!(viewport instanceof HTMLElement)) return;
+
+  const block = viewport.closest<HTMLElement>(".agent-mermaid-block");
+  const render = viewport.querySelector<HTMLElement>(".agent-mermaid-render");
+  const svg = render?.querySelector<SVGSVGElement>("svg");
+  if (!(block instanceof HTMLElement) || !(render instanceof HTMLElement) || !(svg instanceof SVGSVGElement)) return;
+
+  const previousZoom = readMermaidBlockUserZoom(block);
+  const deltaPx = normalizeWheelDeltaPx(event, viewport.clientHeight);
+  if (!Number.isFinite(deltaPx) || deltaPx === 0) return;
+
+  const factor = Math.exp(-deltaPx * MERMAID_INLINE_ZOOM_SENSITIVITY);
+  if (!Number.isFinite(factor) || factor <= 0) return;
+  const nextZoom = clampNumber(previousZoom * factor, MERMAID_INLINE_ZOOM_MIN, MERMAID_INLINE_ZOOM_MAX);
+  if (Math.abs(nextZoom - previousZoom) < 0.0001) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const viewportRect = viewport.getBoundingClientRect();
+  const svgRect = svg.getBoundingClientRect();
+  const pointerViewportX = event.clientX - viewportRect.left;
+  const pointerViewportY = event.clientY - viewportRect.top;
+  const pointerLocalX = event.clientX - svgRect.left;
+  const pointerLocalY = event.clientY - svgRect.top;
+  const zoomRatio = nextZoom / previousZoom;
+
+  writeMermaidBlockUserZoom(block, nextZoom);
+  layoutMermaidBlock(block);
+
+  const nextSvgRect = svg.getBoundingClientRect();
+  const svgOriginX = nextSvgRect.left - viewportRect.left + viewport.scrollLeft;
+  const svgOriginY = nextSvgRect.top - viewportRect.top + viewport.scrollTop;
+  const maxScrollLeft = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+  const maxScrollTop = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
+  const nextScrollLeft = svgOriginX + pointerLocalX * zoomRatio - pointerViewportX;
+  const nextScrollTop = svgOriginY + pointerLocalY * zoomRatio - pointerViewportY;
+
+  viewport.scrollLeft = clampNumber(nextScrollLeft, 0, maxScrollLeft);
+  viewport.scrollTop = clampNumber(nextScrollTop, 0, maxScrollTop);
+}
+
+function onRootPointerDown(event: PointerEvent) {
+  if (event.button !== 0) return;
+  if (event.isPrimary === false) return;
+
+  const viewport = findMermaidViewportFromTarget(event.target);
+  if (!(viewport instanceof HTMLElement)) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  mermaidDragViewport = viewport;
+  mermaidDragPointerId = event.pointerId;
+  mermaidDragStartClientX = event.clientX;
+  mermaidDragStartClientY = event.clientY;
+  mermaidDragStartScrollLeft = viewport.scrollLeft;
+  mermaidDragStartScrollTop = viewport.scrollTop;
+  viewport.classList.add("is-dragging");
+
+  try {
+    if (!viewport.hasPointerCapture(event.pointerId)) viewport.setPointerCapture(event.pointerId);
+  } catch {}
+}
+
+function onRootPointerMove(event: PointerEvent) {
+  const viewport = mermaidDragViewport;
+  if (!(viewport instanceof HTMLElement)) return;
+  if (mermaidDragPointerId != null && event.pointerId !== mermaidDragPointerId) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const dx = event.clientX - mermaidDragStartClientX;
+  const dy = event.clientY - mermaidDragStartClientY;
+  viewport.scrollLeft = mermaidDragStartScrollLeft - dx;
+  viewport.scrollTop = mermaidDragStartScrollTop - dy;
+}
+
+function onRootPointerUp(event: PointerEvent) {
+  const viewport = mermaidDragViewport;
+  if (!(viewport instanceof HTMLElement)) return;
+  if (mermaidDragPointerId != null && event.pointerId !== mermaidDragPointerId) return;
+
+  if (mermaidDragPointerId != null && viewport.hasPointerCapture(mermaidDragPointerId)) {
+    try {
+      viewport.releasePointerCapture(mermaidDragPointerId);
+    } catch {}
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  viewport.classList.remove("is-dragging");
+  mermaidDragViewport = null;
+  mermaidDragPointerId = null;
 }
 
 function onRootClick(event: MouseEvent) {
@@ -1159,6 +1317,7 @@ onBeforeUnmount(() => {
   renderTaskSeq += 1;
   codeHighlightTaskSeq += 1;
   lightboxTaskSeq += 1;
+  clearMermaidDragState();
   clearLightboxCopyResetTimer();
   clearAllCodeCopyResetTimers();
   clearFrozenMermaidBlocks();

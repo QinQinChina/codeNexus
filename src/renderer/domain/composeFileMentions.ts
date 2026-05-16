@@ -244,7 +244,7 @@ export function hasMeaningfulComposeText(value: string): boolean {
 
 export function createComposeFileMention(
   pathValue: string,
-  options?: { id?: string; idPrefix?: string }
+  options?: { id?: string; idPrefix?: string; kind?: ComposeWorkspaceFileMention["kind"] }
 ): ComposeWorkspaceFileMention | null {
   const path = normalizeAbsoluteFsPath(pathValue);
   if (!path) return null;
@@ -252,6 +252,7 @@ export function createComposeFileMention(
   return {
     id,
     path,
+    ...(options?.kind === "directory" || options?.kind === "file" ? { kind: options.kind } : {}),
   };
 }
 

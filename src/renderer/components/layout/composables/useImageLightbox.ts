@@ -1,5 +1,5 @@
 import { computed, ref, nextTick, watch, onBeforeUnmount } from "vue";
-import type { ImagePreviewPayload } from "./chat.types";
+import type { ImagePreviewPayload } from "../types/chat.types";
 
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 8;

@@ -16,8 +16,22 @@
           class="file-change-card-meta mono flex-none whitespace-nowrap pt-[1px] text-[10.5px] text-[var(--text-muted)]"
         >
           <span v-if="diffMeta.kind === 'lines'" class="file-change-line-stats">
-            <span class="file-change-line-add">+{{ diffMeta.add }}</span>
-            <span class="file-change-line-del">-{{ diffMeta.del }}</span>
+            <span class="file-change-line-count file-change-line-add" :aria-label="`新增 ${diffMeta.add} 行`">
+              <span class="file-change-line-count-prefix">+</span>
+              <span class="file-change-line-count-value" aria-hidden="true">
+                <Transition name="file-change-count-roll">
+                  <span :key="diffMeta.add" class="file-change-line-count-number">{{ diffMeta.add }}</span>
+                </Transition>
+              </span>
+            </span>
+            <span class="file-change-line-count file-change-line-del" :aria-label="`删除 ${diffMeta.del} 行`">
+              <span class="file-change-line-count-prefix">-</span>
+              <span class="file-change-line-count-value" aria-hidden="true">
+                <Transition name="file-change-count-roll">
+                  <span :key="diffMeta.del" class="file-change-line-count-number">{{ diffMeta.del }}</span>
+                </Transition>
+              </span>
+            </span>
           </span>
           <span v-else>{{ diffMeta.text }}</span>
           <span v-if="streamMetaText" class="dim"> &middot; {{ streamMetaText }}</span>
@@ -47,7 +61,7 @@
       v-if="isRunning"
       class="file-change-stream-strip mono mx-1.5 mb-1.5 flex min-w-0 items-center gap-2 rounded-[4px] border px-2 py-1 text-[10.5px]"
     >
-      <WaveText class="min-w-0 flex-1 truncate" :text="streamStripText" :cycle-max-chars="96" />
+      <ExecutionWaveText class="min-w-0 flex-1 truncate" :text="streamStripText" :cycle-max-chars="96" />
       <span class="flex-none text-[var(--text-muted)]">{{ streamCountText }}</span>
     </div>
 
@@ -66,7 +80,7 @@
         v-else
         class="mono rounded-[4px] border border-[var(--ui-code-border)] bg-[var(--ui-code-bg)] p-1.5 text-[11px] text-[var(--ui-code-text-muted)]"
       >
-        <WaveText v-if="isRunning" class="mono" text="正在修改文件…" />
+        <ExecutionWaveText v-if="isRunning" class="mono" text="正在修改文件…" />
         <template v-else>{{ emptyText }}</template>
       </div>
     </div>
@@ -77,7 +91,7 @@
 import { computed, ref, watch } from "vue";
 import { FileDiff } from "lucide-vue-next";
 import UnifiedDiffViewer from "./UnifiedDiffViewer.vue";
-import WaveText from "../../ui/WaveText.vue";
+import ExecutionWaveText from "../../ui/ExecutionWaveText.vue";
 import { getParsedDiffCached } from "../../../features/timeline/renderModel/diff";
 
 export type FileChangeFile = {
@@ -200,8 +214,8 @@ watch(
 
 <style scoped>
 .simple-file-change-event {
-  --file-change-add-fg: color-mix(in srgb, var(--success, var(--fg-success)) 66%, var(--text-muted, var(--text)) 34%);
-  --file-change-del-fg: color-mix(in srgb, var(--danger, var(--fg-danger)) 66%, var(--text-muted, var(--text)) 34%);
+  --file-change-add-fg: color-mix(in srgb, var(--success, var(--fg-success)) 86%, var(--text) 14%);
+  --file-change-del-fg: color-mix(in srgb, var(--danger, var(--fg-danger)) 86%, var(--text) 14%);
 }
 
 .file-change-line-stats {
@@ -210,9 +224,53 @@ watch(
   gap: 6px;
 }
 
-:global(.timeline-pane--chat) .file-change-line-stats {
-  font-weight: 700;
-  letter-spacing: 0.01em;
+.file-change-line-count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.file-change-line-count-prefix {
+  flex: none;
+}
+
+.file-change-line-count-value {
+  position: relative;
+  display: inline-grid;
+  min-width: 2.5ch;
+  height: 1em;
+  overflow: hidden;
+  text-align: right;
+}
+
+.file-change-line-count-number {
+  grid-area: 1 / 1;
+  min-width: 100%;
+  text-align: right;
+}
+
+.file-change-count-roll-enter-active,
+.file-change-count-roll-leave-active {
+  transition:
+    transform 180ms cubic-bezier(0.25, 1, 0.5, 1),
+    opacity 140ms ease-out;
+}
+
+.file-change-count-roll-leave-active {
+  position: absolute;
+  inset: 0;
+}
+
+.file-change-count-roll-enter-from {
+  opacity: 0;
+  transform: translateY(72%);
+}
+
+.file-change-count-roll-leave-to {
+  opacity: 0;
+  transform: translateY(-72%);
 }
 
 .file-change-line-add {
@@ -228,28 +286,6 @@ watch(
     border-color 160ms ease,
     background-color 160ms ease,
     box-shadow 160ms ease;
-}
-
-.file-change-card--chat {
-  --timeline-card-padding: 6px;
-}
-
-.file-change-card--chat .file-change-card-header {
-  align-items: center;
-  gap: 8px;
-}
-
-.file-change-card--chat .file-change-card-main {
-  align-items: center;
-  gap: 8px;
-}
-
-.file-change-card--chat .file-change-card-actions {
-  margin-left: 2px;
-}
-
-.file-change-card--chat .file-change-card-meta {
-  padding-top: 0;
 }
 
 .file-change-card.is-streaming {
@@ -334,7 +370,9 @@ watch(
 @media (prefers-reduced-motion: reduce) {
   .file-change-card,
   .file-change-status-dot,
-  .file-change-stream-pulse {
+  .file-change-stream-pulse,
+  .file-change-count-roll-enter-active,
+  .file-change-count-roll-leave-active {
     animation: none;
     transition: none;
   }

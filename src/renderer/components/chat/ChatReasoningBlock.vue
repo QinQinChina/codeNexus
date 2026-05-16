@@ -1,5 +1,5 @@
 <template>
-  <div class="chat-row chat-row--tool flex min-w-0 m-0">
+  <div :class="CHAT_ROW_TOOL_CLASS">
     <div class="chat-tool-wrap w-full max-w-full min-w-0">
       <Collapsible class="reasoning-summary-event w-full" :open="isOpen" @update:open="$emit('toggle', $event)">
         <template #trigger="{ triggerProps, open }">
@@ -31,6 +31,7 @@
 import { Brain, ChevronDown } from "lucide-vue-next";
 import Collapsible from "../ui/Collapsible.vue";
 import AgentMarkdownContent from "../ui/AgentMarkdownContent.vue";
+import { CHAT_ROW_TOOL_CLASS } from "../layout/chat/chatPresentation";
 
 defineProps<{
   isOpen: boolean;

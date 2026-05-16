@@ -5,14 +5,16 @@
     :style="rootStyle"
     :aria-label="text"
   >
-    <span
-      v-for="(ch, i) in chars"
-      :key="`c:${i}`"
-      class="inline-block opacity-[var(--wave-min-op)]"
-      aria-hidden="true"
-      :style="charStyle(i)"
-      >{{ ch }}</span
-    >
+    <template v-for="(ch, i) in chars" :key="`c:${i}`">
+      <br v-if="ch === '\n'" aria-hidden="true" />
+      <span
+        v-else
+        class="inline-block opacity-[var(--wave-min-op)]"
+        aria-hidden="true"
+        :style="charStyle(i)"
+        >{{ ch }}</span
+      >
+    </template>
   </component>
 </template>
 

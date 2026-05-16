@@ -1,22 +1,29 @@
 <template>
   <div class="chat-tool-wrap w-full max-w-full min-w-0">
-    <article class="ssh-tool-activity" :class="sshActivityClass" :aria-busy="isRunning" tabindex="0">
-      <div class="ssh-tool-line">
-        <span class="ssh-tool-icon-wrap" aria-hidden="true">
-          <Download v-if="primaryToolKind === 'download'" class="ssh-tool-icon" />
-          <Upload v-else-if="primaryToolKind === 'upload'" class="ssh-tool-icon" />
-          <Server v-else-if="primaryToolKind === 'servers'" class="ssh-tool-icon" />
-          <TerminalSquare v-else class="ssh-tool-icon" />
+    <article
+      class="chat-inline-activity ssh-tool-activity"
+      :class="sshActivityClass"
+      :aria-busy="isRunning"
+      tabindex="0"
+    >
+      <div class="chat-inline-activity__line ssh-tool-line">
+        <span class="chat-inline-activity__icon ssh-tool-icon-wrap" aria-hidden="true">
+          <Download v-if="primaryToolKind === 'download'" class="chat-inline-activity__svg ssh-tool-icon" />
+          <Upload v-else-if="primaryToolKind === 'upload'" class="chat-inline-activity__svg ssh-tool-icon" />
+          <Server v-else-if="primaryToolKind === 'servers'" class="chat-inline-activity__svg ssh-tool-icon" />
+          <TerminalSquare v-else class="chat-inline-activity__svg ssh-tool-icon" />
         </span>
 
-        <WaveText
+        <ExecutionWaveText
           v-if="isRunning"
-          class="ssh-tool-text"
+          class="chat-inline-activity__text chat-inline-activity__text--wrap ssh-tool-text"
           color="var(--accent)"
           :text="activityText"
           :cycle-max-chars="128"
         />
-        <span v-else class="ssh-tool-text">{{ activityText }}</span>
+        <span v-else class="chat-inline-activity__text chat-inline-activity__text--wrap ssh-tool-text">{{
+          activityText
+        }}</span>
       </div>
     </article>
   </div>
@@ -25,7 +32,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { Download, Server, TerminalSquare, Upload } from "lucide-vue-next";
-import WaveText from "../ui/WaveText.vue";
+import ExecutionWaveText from "../ui/ExecutionWaveText.vue";
 import type { McpToolCallItem, McpToolGroupNode } from "../../features/timeline/renderModel/buildTimelineNodes";
 
 const props = defineProps<{
@@ -134,105 +141,3 @@ const emptyItem: McpToolCallItem = {
   relatedResourceLabel: "",
 };
 </script>
-
-<style scoped>
-:global(.timeline-pane--chat .chat-tool-wrap > .ssh-tool-activity) {
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-:global(:root[data-theme="light"] .timeline-pane--chat .chat-tool-wrap > .ssh-tool-activity) {
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.ssh-tool-activity {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  padding: 1px 2px;
-  color: var(--text-muted);
-  outline: none;
-}
-
-.ssh-tool-activity.is-running {
-  /* running 仅用于触发 shimmer，不做变色提示 */
-}
-
-.ssh-tool-line {
-  display: inline-flex;
-  justify-self: start;
-  width: auto;
-  max-width: 100%;
-  min-width: 0;
-  min-height: 24px;
-  align-items: center;
-  gap: 7px;
-  border-radius: 5px;
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.ssh-tool-activity:focus-visible .ssh-tool-line {
-  outline: 1px solid color-mix(in srgb, var(--border-accent) 66%, transparent);
-  outline-offset: 3px;
-}
-
-.ssh-tool-icon-wrap {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
-  color: color-mix(in srgb, var(--text-muted) 78%, var(--text) 22%);
-}
-
-.ssh-tool-activity.is-running .ssh-tool-icon-wrap {
-  color: color-mix(in srgb, var(--text) 78%, var(--text-muted) 22%);
-}
-
-.ssh-tool-icon {
-  width: 14px;
-  height: 14px;
-  stroke-width: 2.1;
-}
-
-.ssh-tool-text {
-  display: block;
-  flex: 1 1 auto;
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.ssh-tool-time {
-  flex: none;
-  color: color-mix(in srgb, var(--text-muted) 72%, transparent);
-  font-size: 11px;
-  line-height: 1;
-}
-
-@container (max-width: 520px) {
-  .ssh-tool-line {
-    align-items: flex-start;
-    gap: 6px;
-  }
-
-  .ssh-tool-text {
-    max-width: calc(100cqw - 56px);
-  }
-
-  .ssh-tool-time {
-    display: none;
-  }
-}
-</style>

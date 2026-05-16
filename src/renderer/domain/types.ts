@@ -47,6 +47,7 @@ export type ComposeImageAttachment = {
 export type ComposeWorkspaceFileMention = {
   id: string;
   path: string;
+  kind?: "file" | "directory";
 };
 
 export type ThreadHistoryItem = {

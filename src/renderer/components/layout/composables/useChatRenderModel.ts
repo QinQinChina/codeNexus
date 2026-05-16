@@ -1,20 +1,29 @@
 import { computed, ref, watch } from "vue";
-import type { TimelineEventItem } from "../../domain/types";
+import type { TimelineEventItem } from "../../../domain/types";
 import {
   buildTimelineRenderNodes,
   type TimelineRenderNode,
   type ReasoningBlockNode,
-} from "../../features/timeline/renderModel/buildTimelineNodes";
-import { isLocalUserEvent, isMarkdownEvent } from "../../features/timeline/renderModel/formatters";
-import { useRuntimeStore } from "../../stores/runtime.store";
-import { extractWebSearchTimelineItem } from "../../features/timeline/webSearch";
-import { buildImageToolItemFromProtocolItem } from "../../features/timeline/imageToolRender";
-import { buildDynamicToolTimelineItemFromProtocolItem } from "../../domain/dynamicTools";
+} from "../../../features/timeline/renderModel/buildTimelineNodes";
+import { isLocalUserEvent, isMarkdownEvent } from "../../../features/timeline/renderModel/formatters";
+import { useRuntimeStore } from "../../../stores/runtime.store";
+import { useThreadStore } from "../../../stores/thread.store";
+import { extractWebSearchTimelineItem } from "../../../features/timeline/webSearch";
+import { buildImageToolItemFromProtocolItem } from "../../../features/timeline/imageToolRender";
+import { buildDynamicToolTimelineItemFromProtocolItem } from "../../../domain/dynamicTools";
+import { IMAGE_GENERATION_DYNAMIC_TOOL_NAME } from "../../../../shared/dynamicTools";
 import {
   buildGuardianApprovalReviewActivity,
   isGuardianApprovalReviewMethod,
-} from "../../features/guardian/guardianApprovalReview";
-import type { ChatRow, ChatRenderedRow, ChatWebSearchItem } from "./chat.types";
+} from "../../../features/guardian/guardianApprovalReview";
+import type {
+  ChatAuxActivityGroupRow,
+  ChatAuxActivityStatus,
+  ChatAuxiliaryRow,
+  ChatRow,
+  ChatRenderedRow,
+  ChatWebSearchItem,
+} from "../types/chat.types";
 
 const STREAM_NOTIFICATION_ACTIVITY_METHODS = new Set([
   "command/exec/outputDelta",
@@ -91,6 +100,121 @@ function extractUrlHost(value: string): string {
   return "";
 }
 
+function isLocalDynamicImageGenerationEvent(event: TimelineEventItem): boolean {
+  return String(event.id ?? "").startsWith("local:imageGeneration:");
+}
+
+function getLocalDynamicImageGenerationCallId(event: TimelineEventItem): string {
+  if (!isLocalDynamicImageGenerationEvent(event)) return "";
+  const item = ((event.params ?? {}) as any).item;
+  if (!item || typeof item !== "object" || Array.isArray(item)) return "";
+  return String(item.id ?? "").trim();
+}
+
+const AUX_ACTIVITY_KIND_ORDER = ["reasoning", "search", "command", "mcp", "tool", "activity"] as const;
+const AUX_ACTIVITY_KIND_LABELS: Record<(typeof AUX_ACTIVITY_KIND_ORDER)[number], string> = {
+  reasoning: "思考",
+  search: "搜索",
+  command: "命令",
+  mcp: "MCP",
+  tool: "工具",
+  activity: "活动",
+};
+
+function isAuxiliaryRow(row: ChatRow): row is ChatAuxiliaryRow {
+  return (
+    row.kind === "activity" ||
+    row.kind === "imageTool" ||
+    row.kind === "dynamicTool" ||
+    row.kind === "webSearch" ||
+    row.kind === "reasoningBlock" ||
+    row.kind === "commandAction" ||
+    row.kind === "commandRead" ||
+    row.kind === "commandList" ||
+    row.kind === "commandSearch" ||
+    row.kind === "mcpResourceRead" ||
+    row.kind === "mcpToolGroup"
+  );
+}
+
+function auxActivityKind(row: ChatAuxiliaryRow): (typeof AUX_ACTIVITY_KIND_ORDER)[number] {
+  if (row.kind === "reasoningBlock") return "reasoning";
+  if (row.kind === "webSearch") return "search";
+  if (
+    row.kind === "commandAction" ||
+    row.kind === "commandRead" ||
+    row.kind === "commandList" ||
+    row.kind === "commandSearch"
+  ) {
+    return "command";
+  }
+  if (row.kind === "mcpResourceRead" || row.kind === "mcpToolGroup") return "mcp";
+  if (row.kind === "imageTool" || row.kind === "dynamicTool") return "tool";
+  return "activity";
+}
+
+function rowIsRunning(row: ChatAuxiliaryRow): boolean {
+  if (row.kind === "activity") {
+    return row.tone === "running";
+  }
+  if (row.kind === "webSearch") return row.item.status === "running";
+  if (row.kind === "imageTool") {
+    return row.item.status === "running";
+  }
+  if (row.kind === "dynamicTool") {
+    return row.item.status === "running" || row.item.status === "awaitingApproval";
+  }
+  if (row.kind === "mcpToolGroup") {
+    return row.group.stats.running > 0;
+  }
+  if (row.kind === "mcpResourceRead") {
+    return row.item.status === "running";
+  }
+  if (row.kind === "commandAction") {
+    const status = row.item.item.status;
+    return status === "running";
+  }
+  if (row.kind === "commandRead" || row.kind === "commandList" || row.kind === "commandSearch") {
+    const status = row.item.status;
+    return status === "running";
+  }
+  return false;
+}
+
+function mergeAuxActivityStatus(items: ChatAuxiliaryRow[]): ChatAuxActivityStatus {
+  if (items.some((item) => rowIsRunning(item))) return "running";
+  return "completed";
+}
+
+function buildAuxActivityGroup(params: {
+  items: ChatAuxiliaryRow[];
+  groupIndex: number;
+  defaultCollapsed: boolean;
+}): ChatAuxActivityGroupRow {
+  const counts = new Map<string, number>();
+  for (const item of params.items) {
+    const kind = auxActivityKind(item);
+    counts.set(kind, (counts.get(kind) ?? 0) + 1);
+  }
+  const summaryItems = AUX_ACTIVITY_KIND_ORDER.flatMap((key) => {
+    const count = counts.get(key) ?? 0;
+    return count > 0 ? [{ key, label: AUX_ACTIVITY_KIND_LABELS[key], count }] : [];
+  });
+  const summaryText = summaryItems.map((item) => `${item.label} ${item.count}`).join(" · ");
+  const first = params.items[0];
+  const status = mergeAuxActivityStatus(params.items);
+  return {
+    id: `aux:${params.groupIndex}:${first?.id ?? "empty"}`,
+    turnKey: first?.turnKey ?? "",
+    kind: "auxActivityGroup",
+    items: [...params.items],
+    summaryItems,
+    summaryText: summaryText || `活动 ${params.items.length}`,
+    status,
+    defaultCollapsed: params.defaultCollapsed,
+  };
+}
+
 export function useChatRenderModel(
   contentEvents: () => TimelineEventItem[],
   workspaceRoot: () => string,
@@ -98,6 +222,7 @@ export function useChatRenderModel(
   onLayoutChange?: () => void
 ) {
   const runtimeStore = useRuntimeStore();
+  const threadStore = useThreadStore();
 
   const toWebSearchChatItem = (event: TimelineEventItem): ChatWebSearchItem | null => {
     const normalized = extractWebSearchTimelineItem(event);
@@ -159,6 +284,11 @@ export function useChatRenderModel(
   const buildChatRowsFromNodes = (nodes: TimelineRenderNode[], threadKeyFallback: string) => {
     const rows: ChatRow[] = [];
     const rowIndexById = new Map<string, number>();
+    const localImageGenerationCallIds = new Set(
+      nodes
+        .map((node) => (node.kind === "event" ? getLocalDynamicImageGenerationCallId(node.event) : ""))
+        .filter(Boolean)
+    );
     const pushRow = (row: ChatRow) => {
       rowIndexById.set(row.id, rows.length);
       rows.push(row);
@@ -239,6 +369,12 @@ export function useChatRenderModel(
           if (type === "dynamicToolCall") {
             const dynamicToolItem = buildDynamicToolTimelineItemFromProtocolItem(item);
             if (dynamicToolItem) {
+              if (
+                dynamicToolItem.toolName === IMAGE_GENERATION_DYNAMIC_TOOL_NAME &&
+                localImageGenerationCallIds.has(dynamicToolItem.callId)
+              ) {
+                continue;
+              }
               upsertRow({
                 id: `dyntool:${dynamicToolItem.callId}`,
                 turnKey,
@@ -249,7 +385,7 @@ export function useChatRenderModel(
             }
             continue;
           }
-          if (type === "imageView" || type === "imageGeneration") {
+          if (type === "imageView" || (type === "imageGeneration" && isLocalDynamicImageGenerationEvent(e))) {
             const imageToolItem = buildImageToolItemFromProtocolItem(item, e.method);
             if (imageToolItem) {
               upsertRow({
@@ -327,7 +463,7 @@ export function useChatRenderModel(
     return rows;
   };
 
-  const chatRows = computed<ChatRow[]>(() => {
+  const baseChatRows = computed<ChatRow[]>(() => {
     const threadKey = String(runtimeStore.timelineKey ?? "__app__").trim() || "__app__";
     const nodes = buildTimelineRenderNodes({
       events: contentEvents(),
@@ -337,6 +473,51 @@ export function useChatRenderModel(
       mcpToolDefinitions: mcpToolDefinitions(),
     });
     return buildChatRowsFromNodes(nodes, threadKey);
+  });
+
+  const chatRows = computed<ChatRow[]>(() => {
+    const rows = baseChatRows.value;
+    const grouped: ChatRow[] = [];
+    let pending: ChatAuxiliaryRow[] = [];
+    let groupIndex = 0;
+    const activeTurnKey = (() => {
+      const tid = String(runtimeStore.currentThreadId ?? "").trim();
+      const activeTurnId = tid ? String(threadStore.activeTurnIdByThread.get(tid) ?? "").trim() : "";
+      return activeTurnId ? `turn:${activeTurnId}` : "";
+    })();
+    const currentThreadRunning = (() => {
+      const tid = String(runtimeStore.currentThreadId ?? "").trim();
+      return Boolean(tid && threadStore.runningThreadIds.has(tid));
+    })();
+
+    const flushPending = (interruptedByMainContent: boolean) => {
+      if (pending.length === 0) return;
+      const groupStatus = mergeAuxActivityStatus(pending);
+      const matchesActiveTurn = Boolean(activeTurnKey && pending.some((row) => row.turnKey === activeTurnKey));
+      const shouldStayOpen =
+        !interruptedByMainContent &&
+        (groupStatus === "running" || (currentThreadRunning && matchesActiveTurn));
+      grouped.push(
+        buildAuxActivityGroup({
+          items: pending,
+          groupIndex,
+          defaultCollapsed: !shouldStayOpen,
+        })
+      );
+      groupIndex += 1;
+      pending = [];
+    };
+
+    for (const row of rows) {
+      if (isAuxiliaryRow(row)) {
+        pending.push(row);
+        continue;
+      }
+      flushPending(true);
+      grouped.push(row);
+    }
+    flushPending(false);
+    return grouped;
   });
 
   const chatRenderedRows = computed<ChatRenderedRow[]>(() => chatRows.value);
@@ -359,8 +540,8 @@ export function useChatRenderModel(
   const reasoningAutoCollapseCandidateIds = computed<string[]>(() => {
     const seen = new Set<string>(),
       candidates = new Set<string>();
-    for (let idx = chatRows.value.length - 1; idx >= 0; idx -= 1) {
-      const r = chatRows.value[idx];
+    for (let idx = baseChatRows.value.length - 1; idx >= 0; idx -= 1) {
+      const r = baseChatRows.value[idx];
       if (!r.turnKey) continue;
       if (r.kind === "reasoningBlock") {
         if (seen.has(r.turnKey)) {

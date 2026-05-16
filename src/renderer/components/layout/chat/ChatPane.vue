@@ -1,14 +1,16 @@
 <template>
   <div class="chat-pane flex flex-col">
-    <div v-if="handoffDiagnosticsBanner" class="chat-row chat-row--activity flex min-w-0 m-0">
+    <div v-if="handoffDiagnosticsBanner" :class="CHAT_ROW_ACTIVITY_CLASS">
       <div class="chat-activity-line inline-flex w-full max-w-full items-center gap-2.5 px-2.5 py-0.5 text-xs dim">
         <span
+          v-if="handoffDiagnosticsBanner.tone !== 'running'"
           class="chat-activity-dot h-1.5 w-1.5 flex-none rounded-full bg-[var(--ui-activity-dot-bg)] shadow-[var(--ui-activity-dot-shadow)]"
           :class="activityDotClass(handoffDiagnosticsBanner.tone)"
           aria-hidden="true"
         ></span>
         <span class="mono whitespace-nowrap">交接记录</span>
-        <span>{{ handoffDiagnosticsBanner.text }}</span>
+        <ExecutionWaveText v-if="handoffDiagnosticsBanner.tone === 'running'" :text="handoffDiagnosticsBanner.text" />
+        <span v-else>{{ handoffDiagnosticsBanner.text }}</span>
       </div>
     </div>
 
@@ -33,6 +35,7 @@
         :handleUserBubbleClick="onUserBubbleClick"
         :isHistoryRewriteAnchor="isHistoryRewriteAnchor"
         :handlePreviewImage="onPreviewImage"
+        :handleLayoutChange="onLayoutChange"
         :getMarkdownEventHtml="getMarkdownEventHtml"
         :isReasoningOpen="isReasoningOpen"
         :setReasoningOpen="setReasoningOpen"
@@ -55,7 +58,7 @@
 
     <div
       v-if="trailingContextCompactionEvent"
-      class="chat-row chat-row--tail chat-row--context-compaction flex min-w-0 m-0"
+      :class="[CHAT_ROW_BASE_CLASS, 'chat-row--tail', 'chat-row--context-compaction']"
     >
       <div
         class="chat-context-compaction-line flex w-full max-w-full items-center justify-center px-2.5 py-0.5 text-center"
@@ -75,7 +78,7 @@
 
     <div
       v-if="showTrailingThinkingEvent && trailingThinkingEvent"
-      class="chat-row chat-row--tail chat-row--thinking flex min-w-0 m-0"
+      :class="[CHAT_ROW_BASE_CLASS, 'chat-row--tail', 'chat-row--thinking']"
     >
       <div class="chat-thinking-line flex w-full max-w-full items-center justify-start pr-2.5">
         <WaveText class="mono dim" :text="trailingThinkingEvent.paramsText" />
@@ -148,27 +151,30 @@ import { computed, ref } from "vue";
 import { Download, RotateCcw, X, ZoomIn, ZoomOut } from "lucide-vue-next";
 import ChatTimelineViewport from "./ChatTimelineViewport.vue";
 import ChatRowRenderer from "./ChatRowRenderer.vue";
-import WaveText from "../ui/WaveText.vue";
+import { chatActivityToneClass } from "./chatStyle";
+import { CHAT_ROW_ACTIVITY_CLASS, CHAT_ROW_BASE_CLASS } from "./chatPresentation";
+import ExecutionWaveText from "../../ui/ExecutionWaveText.vue";
+import WaveText from "../../ui/WaveText.vue";
 
-import type { TimelineEventItem } from "../../domain/types";
-import { useAppShellStore } from "../../stores/appShell.store";
-import { useMcpResourceStore } from "../../stores/mcpResource.store";
-import { useMcpStore } from "../../stores/mcp.store";
-import { useRuntimeStore } from "../../stores/runtime.store";
-import { useModelCatalogStore } from "../../stores/modelCatalog.store";
-import { useViewPrefsStore } from "../../stores/viewPrefs.store";
-import { useAgentMarkdownRenderer } from "../../features/timeline/useAgentMarkdownRenderer";
-import { buildMcpToolDefinitionIndex } from "../../features/timeline/renderModel/buildTimelineNodes";
-import { buildModelPickerOptions } from "../../../shared/modelCatalog";
+import type { TimelineEventItem } from "../../../domain/types";
+import { useAppShellStore } from "../../../stores/appShell.store";
+import { useMcpResourceStore } from "../../../stores/mcpResource.store";
+import { useMcpStore } from "../../../stores/mcp.store";
+import { useRuntimeStore } from "../../../stores/runtime.store";
+import { useModelCatalogStore } from "../../../stores/modelCatalog.store";
+import { useViewPrefsStore } from "../../../stores/viewPrefs.store";
+import { useAgentMarkdownRenderer } from "../../../features/timeline/useAgentMarkdownRenderer";
+import { buildMcpToolDefinitionIndex } from "../../../features/timeline/renderModel/buildTimelineNodes";
+import { buildModelPickerOptions } from "../../../../shared/modelCatalog";
 
-import { useChatTimeline } from "./useChatTimeline";
-import { usePlanExecution } from "./usePlanExecution";
-import { useImageLightbox } from "./useImageLightbox";
-import { useChatLayout } from "./useChatLayout";
-import { useChatMessageParts } from "./useChatMessageParts";
-import { useChatRenderModel } from "./useChatRenderModel";
-import type { McpResourceReadNode } from "../../features/timeline/renderModel/buildTimelineNodes";
-import type { McpToolItem } from "../timeline/cards/McpToolCardContent.vue";
+import { useChatTimeline } from "../composables/useChatTimeline";
+import { usePlanExecution } from "../composables/usePlanExecution";
+import { useImageLightbox } from "../composables/useImageLightbox";
+import { useChatLayout } from "../composables/useChatLayout";
+import { useChatMessageParts } from "../composables/useChatMessageParts";
+import { useChatRenderModel } from "../composables/useChatRenderModel";
+import type { McpResourceReadNode } from "../../../features/timeline/renderModel/buildTimelineNodes";
+import type { McpToolItem } from "../../timeline/cards/McpToolCardContent.vue";
 
 const props = defineProps<{
   contentEvents: TimelineEventItem[];
@@ -254,11 +260,8 @@ const {
   onImageLightboxPointerMove,
   finishImageLightboxDrag,
   downloadImageLightboxImage,
+  onPreviewImage,
 } = useImageLightbox();
-
-const onPreviewImage = () => {
-  appShellStore.openImageWorkbench();
-};
 
 // --- 辅助逻辑 ---
 const commandFilesOpenById = ref(new Map<string, boolean>());
@@ -305,13 +308,7 @@ const onOpenRelatedMcpResource = (item: McpToolItem) => {
   });
 };
 
-const activityDotClass = (tone?: string) => {
-  if (tone === "running") return "is-running";
-  if (tone === "ok") return "is-ok";
-  if (tone === "error") return "is-error";
-  if (tone === "warn") return "is-warn";
-  return "";
-};
+const activityDotClass = chatActivityToneClass;
 
 // 计划工具条选项
 const reasoningEffortOptions = [
@@ -329,70 +326,3 @@ const modelOptions = computed(() =>
   buildModelPickerOptions({ customIds: modelCatalogStore.customIds, current: runtimeStore.model })
 );
 </script>
-
-<style scoped>
-.chat-pane {
-  --chat-row-gap-body: 4px;
-  --chat-row-gap-command: 2px;
-  --chat-row-gap-activity: 2px;
-  --chat-row-gap-mixed: 4px;
-  --chat-row-gap-tail: 1.5px;
-}
-
-.chat-row--tail {
-  margin-top: var(--chat-row-gap-tail);
-}
-
-.chat-pane :deep(.chat-activity-dot.is-ok) {
-  background: var(--success);
-}
-
-.chat-pane :deep(.chat-activity-dot.is-error) {
-  background: var(--danger);
-}
-
-.chat-pane :deep(.chat-activity-dot.is-warn) {
-  background: var(--warning);
-}
-
-.chat-pane :deep(.chat-activity-dot.is-running) {
-  background: var(--accent);
-  position: relative;
-}
-
-.chat-pane :deep(.chat-activity-dot.is-running::after) {
-  content: "";
-  position: absolute;
-  inset: -5px;
-  border-radius: 999px;
-  pointer-events: none;
-  opacity: 0;
-  transform: scale(0.75);
-  box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 22%, transparent);
-  animation: chatActivityDotPulse 1.2s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .chat-pane :deep(.chat-activity-dot.is-running::after) {
-    animation: none;
-  }
-}
-
-@keyframes chatActivityDotPulse {
-  0% {
-    opacity: 0;
-    transform: scale(0.72);
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 22%, transparent);
-  }
-  55% {
-    opacity: 1;
-    transform: scale(1);
-    box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 22%, transparent);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1.08);
-    box-shadow: 0 0 0 10px color-mix(in srgb, var(--accent) 18%, transparent);
-  }
-}
-</style>

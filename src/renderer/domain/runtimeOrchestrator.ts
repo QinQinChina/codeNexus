@@ -113,6 +113,11 @@ import {
   hasThreadStartConfigOverridesForModel,
   type ThreadStartConfigOverrides,
 } from "../../shared/modelToolFeatureOverrides";
+import {
+  BUILTIN_DYNAMIC_TOOL_NAMES,
+  IMAGE_GENERATION_DYNAMIC_TOOL_DEVELOPER_INSTRUCTIONS,
+  buildBuiltinDynamicToolSpecs,
+} from "../../shared/dynamicTools";
 import { buildNewThreadComposeSeed } from "../../shared/newThreadComposeSeed";
 import {
   codexMcpServerSpecToConfigValue,
@@ -356,6 +361,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     const configOverrides = buildThreadStartConfigOverridesForModel(model);
     const approvalPolicy = normalizeApprovalPolicy(configStore.draft.approvalPolicy);
     const approvalsReviewer = normalizeApprovalsReviewer(configStore.draft.approvalsReviewer);
+    const dynamicTools = buildBuiltinDynamicToolSpecs(BUILTIN_DYNAMIC_TOOL_NAMES) as ThreadStartParams["dynamicTools"];
     return {
       configOverrides,
       params: {
@@ -365,6 +371,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         approvalsReviewer: approvalsReviewer as ThreadStartParams["approvalsReviewer"],
         sandbox: sandboxKebabFromUi(normalizeSandboxMode(args.sandboxMode)),
         ...(configOverrides ? { config: configOverrides } : {}),
+        ...(dynamicTools && dynamicTools.length > 0 ? { dynamicTools } : {}),
+        developerInstructions: IMAGE_GENERATION_DYNAMIC_TOOL_DEVELOPER_INSTRUCTIONS,
         experimentalRawEvents: false,
         persistExtendedHistory: true,
       },
@@ -2177,24 +2185,22 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         });
         return { ok: true, threadId: nextThreadId };
       } catch (error) {
-        return { ok: false, error: readErrorMessage(error) || "无法创建 Spark 会话" };
+        return { ok: false, error: readErrorMessage(error) || "无法创建已禁用官方图片生成的会话" };
       }
     }
 
-    if (!resumedThreadIds.has(threadId)) {
-      const resumed = await resumeThreadWithModelToolConfig({
-        threadId,
-        threadWorkspace: args.threadWorkspace,
-        threadServerId: args.threadServerId,
-        model,
-        configOverrides,
-      });
-      if (resumed && hasThreadModelToolConfigForModel(threadId, model)) return { ok: true, threadId };
-    }
+    const resumed = await resumeThreadWithModelToolConfig({
+      threadId,
+      threadWorkspace: args.threadWorkspace,
+      threadServerId: args.threadServerId,
+      model,
+      configOverrides,
+    });
+    if (resumed && hasThreadModelToolConfigForModel(threadId, model)) return { ok: true, threadId };
 
     return {
       ok: false,
-      error: "当前会话创建时未关闭 image_generation；请新建一个 Spark 会话后再发送。",
+      error: "当前会话无法关闭官方 image_generation；请新建会话后再发送。",
     };
   };
 
@@ -2816,7 +2822,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       model: runtimeStore.model,
     });
     if (!compatibility.ok) {
-      showToast({ kind: "warn", title: "Spark 会话需要新建", message: compatibility.error });
+      showToast({ kind: "warn", title: "会话需要新建", message: compatibility.error });
       pushEvent("turn:error", compatibility.error, { threadId, level: "error" });
       return;
     }

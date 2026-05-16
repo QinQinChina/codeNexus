@@ -1,9 +1,9 @@
 import { computed } from "vue";
-import type { TimelineEventItem } from "../../domain/types";
-import { buildComposeDraftFromStructuredText, buildStructuredTextSegments } from "../../domain/composeFileMentions";
-import { basenameFromPath } from "../../domain/workspaceFiles";
-import { useRuntimeStore } from "../../stores/runtime.store";
-import { useWorkspaceFilesStore } from "../../stores/workspaceFiles.store";
+import type { TimelineEventItem } from "../../../domain/types";
+import { buildComposeDraftFromStructuredText, buildStructuredTextSegments } from "../../../domain/composeFileMentions";
+import { basenameFromPath } from "../../../domain/workspaceFiles";
+import { useRuntimeStore } from "../../../stores/runtime.store";
+import { useWorkspaceFilesStore } from "../../../stores/workspaceFiles.store";
 import type {
   ChatUserMessageSnapshot,
   ChatUserMessagePart,
@@ -12,7 +12,7 @@ import type {
   ThumbLoadErrorPayload,
   ImageToolItemWithImages,
   ImageToolImageEntry,
-} from "./chat.types";
+} from "../types/chat.types";
 
 export function useChatMessageParts(hiddenImageIds: () => Set<string>, onLayoutChange?: () => void) {
   const runtimeStore = useRuntimeStore();

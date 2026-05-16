@@ -17,6 +17,7 @@
         :streamUpdateCount="item.streamUpdateCount"
         :lastPatchUpdatedAt="item.lastPatchUpdatedAt"
         :settledAt="item.settledAt"
+        :wrapDiffLines="false"
       />
     </div>
   </div>

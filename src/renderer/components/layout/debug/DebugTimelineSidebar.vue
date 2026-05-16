@@ -18,11 +18,11 @@
 
 <script setup lang="ts">
 import { computed, onMounted, watch } from "vue";
-import TimelinePane from "./TimelinePane.vue";
-import type { TimelineEventItem } from "../../domain/types";
-import { useDebugTimelineStore } from "../../stores/debugTimeline.store";
-import { useRuntimeStore } from "../../stores/runtime.store";
-import { useTimelineStore } from "../../stores/timeline.store";
+import TimelinePane from "../chat/TimelinePane.vue";
+import type { TimelineEventItem } from "../../../domain/types";
+import { useDebugTimelineStore } from "../../../stores/debugTimeline.store";
+import { useRuntimeStore } from "../../../stores/runtime.store";
+import { useTimelineStore } from "../../../stores/timeline.store";
 
 const runtimeStore = useRuntimeStore();
 const timelineStore = useTimelineStore();

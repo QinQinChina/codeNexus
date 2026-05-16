@@ -1,5 +1,5 @@
 <template>
-  <div class="chat-row chat-row--user flex min-w-0 m-0">
+  <div :class="[CHAT_ROW_BASE_CLASS, 'chat-row--user']">
     <div
       class="chat-bubble chat-bubble-user w-full max-w-full min-w-0 cursor-pointer rounded-[4px] border border-[color:var(--bubble-user-border)] bg-[var(--bubble-user-bg)] bg-clip-padding px-3 py-2.5 shadow-[var(--bubble-shadow)] transition-[transform,box-shadow,border-color] hover:-translate-y-[1px] hover:shadow-md hover:border-[var(--border-accent)]"
       :class="
@@ -54,6 +54,7 @@
 <script setup lang="ts">
 import LazyImageThumb from "../ui/LazyImageThumb.vue";
 import type { TimelineEventItem } from "../../domain/types";
+import { CHAT_ROW_BASE_CLASS } from "../layout/chat/chatPresentation";
 
 defineProps<{
   event: TimelineEventItem;

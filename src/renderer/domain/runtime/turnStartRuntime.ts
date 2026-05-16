@@ -3,6 +3,7 @@ import { sandboxPolicyFromUi } from "../../shared/sandboxPolicy";
 import { showToast } from "../../ui/toast";
 import type { TurnStartParams } from "../../../generated/codex-app-server/v2/TurnStartParams";
 import type { UserInput as CodexUserInput } from "../../../generated/codex-app-server/v2/UserInput";
+import { IMAGE_GENERATION_DYNAMIC_TOOL_DEVELOPER_INSTRUCTIONS } from "../../../shared/dynamicTools";
 import type { UserTurnInput } from "../types";
 import {
   normalizeApprovalPolicy,
@@ -103,7 +104,7 @@ export function createTurnStartRuntime(deps: TurnStartRuntimeDeps): TurnStartRun
           settings: {
             model: requestedModel,
             reasoning_effort: requestedEffort,
-            developer_instructions: null,
+            developer_instructions: wantsPlan ? null : IMAGE_GENERATION_DYNAMIC_TOOL_DEVELOPER_INSTRUCTIONS,
           },
         }
       : null;

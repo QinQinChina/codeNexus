@@ -1,24 +1,24 @@
 <template>
   <div class="chat-tool-wrap command-activity-wrap w-full max-w-full min-w-0">
-    <article class="command-activity" :class="activityClass" :aria-busy="isRunning" tabindex="0">
-      <div class="command-activity-line">
-        <span class="command-activity-icon-wrap" aria-hidden="true">
-          <FileText v-if="kind === 'read'" class="command-activity-icon" />
-          <ListTree v-else-if="kind === 'list'" class="command-activity-icon" />
-          <Search v-else class="command-activity-icon" />
+    <article class="chat-inline-activity command-activity" :class="activityClass" :aria-busy="isRunning" tabindex="0">
+      <div class="chat-inline-activity__line chat-inline-activity__line--compact command-activity-line">
+        <span class="chat-inline-activity__icon command-activity-icon-wrap" aria-hidden="true">
+          <FileText v-if="kind === 'read'" class="chat-inline-activity__svg command-activity-icon" />
+          <ListTree v-else-if="kind === 'list'" class="chat-inline-activity__svg command-activity-icon" />
+          <Search v-else class="chat-inline-activity__svg command-activity-icon" />
         </span>
 
-        <WaveText
+        <ExecutionWaveText
           v-if="isRunning"
-          class="command-activity-text"
+          class="chat-inline-activity__text command-activity-text"
           color="var(--accent)"
           :text="activityText"
           :cycle-max-chars="128"
         />
-        <span v-else class="command-activity-text">
+        <span v-else class="chat-inline-activity__text command-activity-text">
           {{ activityText }}
         </span>
-        <span v-if="metaText" class="command-activity-meta mono">{{ metaText }}</span>
+        <span v-if="metaText" class="chat-inline-activity__meta command-activity-meta mono">{{ metaText }}</span>
       </div>
     </article>
   </div>
@@ -27,7 +27,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { FileText, ListTree, Search } from "lucide-vue-next";
-import WaveText from "../../ui/WaveText.vue";
+import ExecutionWaveText from "../../ui/ExecutionWaveText.vue";
 import type {
   CommandListNode,
   CommandReadNode,
@@ -93,105 +93,3 @@ const activityClass = computed(() => ({
   "is-search": props.kind === "search",
 }));
 </script>
-
-<style scoped>
-:global(.timeline-pane--chat .chat-tool-wrap > .command-activity) {
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-:global(:root[data-theme="light"] .timeline-pane--chat .chat-tool-wrap > .command-activity) {
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.command-activity {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  padding: 1px 2px;
-  color: var(--text-muted);
-  outline: none;
-}
-
-.command-activity-line {
-  display: inline-flex;
-  justify-self: start;
-  width: auto;
-  max-width: 100%;
-  min-width: 0;
-  min-height: 20px;
-  align-items: center;
-  gap: 5px;
-  border-radius: 5px;
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.command-activity:focus-visible .command-activity-line {
-  outline: 1px solid color-mix(in srgb, var(--border-accent) 66%, transparent);
-  outline-offset: 3px;
-}
-
-.command-activity-icon-wrap {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
-  color: color-mix(in srgb, var(--text-muted) 78%, var(--text) 22%);
-}
-
-.command-activity.is-running .command-activity-icon-wrap {
-  color: color-mix(in srgb, var(--text) 78%, var(--text-muted) 22%);
-}
-
-.command-activity-icon {
-  width: 14px;
-  height: 14px;
-  stroke-width: 2.1;
-}
-
-.command-activity-text {
-  display: block;
-  flex: 1 1 auto;
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-  overflow-wrap: normal !important;
-  text-overflow: ellipsis;
-  white-space: nowrap !important;
-  word-break: normal !important;
-}
-
-.command-activity-meta,
-.command-activity-time {
-  flex: none;
-  color: color-mix(in srgb, var(--text-muted) 72%, transparent);
-  font-size: 11px;
-  line-height: 1;
-}
-
-@media (max-width: 640px) {
-  .command-activity-line {
-    align-items: center;
-    gap: 6px;
-  }
-
-  .command-activity-wave {
-    max-width: 100%;
-  }
-
-  .command-activity-meta {
-    display: none;
-  }
-}
-</style>

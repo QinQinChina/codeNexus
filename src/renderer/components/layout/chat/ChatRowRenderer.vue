@@ -36,6 +36,59 @@
 
   <ChatSystemRow v-else-if="renderedRow.kind === 'system'" :text="renderedRow.text" />
 
+  <ChatAuxActivityGroup
+    v-else-if="renderedRow.kind === 'auxActivityGroup'"
+    :id="renderedRow.id"
+    :items="renderedRow.items"
+    :summaryItems="renderedRow.summaryItems"
+    :summaryText="renderedRow.summaryText"
+    :status="renderedRow.status"
+    :defaultCollapsed="renderedRow.defaultCollapsed"
+    @layout-change="handleLayoutChange?.()"
+  >
+    <template #default="{ item }">
+      <ChatRowRenderer
+        :renderedRow="item"
+        :workspaceRoot="workspaceRoot"
+        :viewPrefs="viewPrefs"
+        :assistantPlanMessageFormat="assistantPlanMessageFormat"
+        :planExecStateByEventId="planExecStateByEventId"
+        :modelOptions="modelOptions as any"
+        :isTurnRunning="isTurnRunning"
+        :reasoningEffortOptions="reasoningEffortOptions as any"
+        :sandboxModeOptions="sandboxModeOptions as any"
+        :turnPlanForPlanDeltaEvent="turnPlanForPlanDeltaEvent"
+        :userMessageParts="userMessageParts"
+        :userMessageImageCount="userMessageImageCount"
+        :visibleUserMessageImageEntries="visibleUserMessageImageEntries"
+        :visibleImageToolEntries="visibleImageToolEntries"
+        :handleThumbLoadError="handleThumbLoadError"
+        :handleUserFileTokenClick="handleUserFileTokenClick"
+        :handleUserBubbleClick="handleUserBubbleClick"
+        :isHistoryRewriteAnchor="isHistoryRewriteAnchor"
+        :handlePreviewImage="handlePreviewImage"
+        :handleLayoutChange="handleLayoutChange"
+        :getMarkdownEventHtml="getMarkdownEventHtml"
+        :isReasoningOpen="isReasoningOpen"
+        :setReasoningOpen="setReasoningOpen"
+        :isCommandFilesOpen="isCommandFilesOpen"
+        :toggleCommandFilesOpen="toggleCommandFilesOpen"
+        :isMcpToolGroupOpen="isMcpToolGroupOpen"
+        :onMcpToolGroupToggle="onMcpToolGroupToggle"
+        :isMcpToolItemDetailOpen="isMcpToolItemDetailOpen"
+        :onMcpToolItemDetailToggle="onMcpToolItemDetailToggle"
+        :isMcpResourceOpen="isMcpResourceOpen"
+        :setMcpResourceOpen="setMcpResourceOpen"
+        :openMcpResourceInPanel="openMcpResourceInPanel"
+        :onOpenRelatedMcpResource="onOpenRelatedMcpResource"
+        :executePlanFromPlanDelta="executePlanFromPlanDelta"
+        :updatePlanExecModel="updatePlanExecModel"
+        :updatePlanExecReasoningEffort="updatePlanExecReasoningEffort"
+        :updatePlanExecSandboxMode="updatePlanExecSandboxMode"
+      />
+    </template>
+  </ChatAuxActivityGroup>
+
   <ChatActivityRow
     v-else-if="renderedRow.kind === 'activity'"
     :text="renderedRow.text"
@@ -51,16 +104,16 @@
     :workspaceRoot="workspaceRoot"
     @load-error="handleThumbLoadError"
     @preview="handlePreviewImage($event)"
-    class="chat-row chat-row--tool flex min-w-0 m-0"
+    :class="CHAT_ROW_TOOL_CLASS"
   />
 
   <ChatWebSearchCard
     v-else-if="renderedRow.kind === 'webSearch'"
     :item="(renderedRow as any).item"
-    class="chat-row chat-row--tool flex min-w-0 m-0"
+    :class="CHAT_ROW_TOOL_CLASS"
   />
 
-  <div v-else-if="renderedRow.kind === 'dynamicTool'" class="chat-row chat-row--tool flex min-w-0 m-0">
+  <div v-else-if="renderedRow.kind === 'dynamicTool'" :class="CHAT_ROW_TOOL_CLASS">
     <div class="chat-tool-wrap w-full max-w-full min-w-0">
       <DynamicToolCallCardContent
         class="dynamic-tool-chat-card w-full rounded-xl border border-[var(--ui-code-border)] bg-[var(--ui-code-bg)] p-3"
@@ -78,7 +131,7 @@
     @toggle="(next) => setReasoningOpen((renderedRow as any).item, next)"
   />
 
-  <div v-else-if="renderedRow.kind === 'fileChange'" class="chat-row chat-row--tool flex min-w-0 m-0">
+  <div v-else-if="renderedRow.kind === 'fileChange'" :class="CHAT_ROW_TOOL_CLASS">
     <ChatFileChangeCard
       :item="(renderedRow as any).item"
       :renderableFiles="fileChangeRenderableFiles((renderedRow as any).item)"
@@ -96,22 +149,22 @@
     :isFilesOpen="isCommandFilesOpen((renderedRow as any).item.id)"
     :renderLimit="COMMAND_FILES_RENDER_LIMIT"
     @toggle-files="toggleCommandFilesOpen((renderedRow as any).item.id)"
-    class="chat-row chat-row--activity flex min-w-0 m-0"
+    :class="CHAT_ROW_ACTIVITY_CLASS"
   />
 
-  <div v-else-if="renderedRow.kind === 'commandRead'" class="chat-row chat-row--tool flex min-w-0 m-0">
+  <div v-else-if="renderedRow.kind === 'commandRead'" :class="CHAT_ROW_TOOL_CLASS">
     <CommandReadActivityRow :item="(renderedRow as any).item" />
   </div>
 
-  <div v-else-if="renderedRow.kind === 'commandList'" class="chat-row chat-row--tool flex min-w-0 m-0">
+  <div v-else-if="renderedRow.kind === 'commandList'" :class="CHAT_ROW_TOOL_CLASS">
     <CommandListActivityRow :item="(renderedRow as any).item" />
   </div>
 
-  <div v-else-if="renderedRow.kind === 'commandSearch'" class="chat-row chat-row--tool flex min-w-0 m-0">
+  <div v-else-if="renderedRow.kind === 'commandSearch'" :class="CHAT_ROW_TOOL_CLASS">
     <CommandSearchActivityRow :item="(renderedRow as any).item" />
   </div>
 
-  <div v-else-if="renderedRow.kind === 'mcpResourceRead'" class="chat-row chat-row--tool flex min-w-0 m-0">
+  <div v-else-if="renderedRow.kind === 'mcpResourceRead'" :class="CHAT_ROW_TOOL_CLASS">
     <div class="chat-tool-wrap w-full max-w-full min-w-0">
       <McpResourceReadCardContent
         :open="isMcpResourceOpen((renderedRow as any).item.id)"
@@ -122,7 +175,7 @@
     </div>
   </div>
 
-  <div v-else-if="renderedRow.kind === 'mcpToolGroup'" class="chat-row chat-row--tool flex min-w-0 m-0">
+  <div v-else-if="renderedRow.kind === 'mcpToolGroup'" :class="CHAT_ROW_TOOL_CLASS">
     <ChatSshToolActivity v-if="isSshMcpToolGroup((renderedRow as any).group)" :group="(renderedRow as any).group" />
     <div v-else class="chat-tool-wrap w-full max-w-full min-w-0">
       <McpToolCardContent
@@ -148,21 +201,24 @@
 
 <script setup lang="ts">
 import { defineAsyncComponent, defineComponent, h } from "vue";
-import ChatUserMessage from "../chat/ChatUserMessage.vue";
-import ChatAssistantMessage from "../chat/ChatAssistantMessage.vue";
-import ChatActivityRow from "../chat/ChatActivityRow.vue";
-import ChatReasoningBlock from "../chat/ChatReasoningBlock.vue";
-import ChatSystemRow from "../chat/ChatSystemRow.vue";
+import ChatUserMessage from "../../chat/ChatUserMessage.vue";
+import ChatAssistantMessage from "../../chat/ChatAssistantMessage.vue";
+import ChatActivityRow from "../../chat/ChatActivityRow.vue";
+import ChatAuxActivityGroup from "../../chat/ChatAuxActivityGroup.vue";
+import ChatReasoningBlock from "../../chat/ChatReasoningBlock.vue";
+import ChatSystemRow from "../../chat/ChatSystemRow.vue";
+import { CHAT_ROW_ACTIVITY_CLASS, CHAT_ROW_TOOL_CLASS } from "./chatPresentation";
+import { chatActivityToneClass, chatSandboxToneClass } from "./chatStyle";
 
-import type { TimelineEventItem, TurnPlanState } from "../../domain/types";
-import { tryParseStructuredFinalAnswerV1 } from "../../domain/structuredFinalAnswer";
-import { renderMarkdownToSafeHtml } from "../../features/timeline/markdownRenderer";
-import { useMarkdownRendererRefresh } from "../../features/timeline/useMarkdownRendererRefresh";
+import type { TimelineEventItem, TurnPlanState } from "../../../domain/types";
+import { tryParseStructuredFinalAnswerV1 } from "../../../domain/structuredFinalAnswer";
+import { renderMarkdownToSafeHtml } from "../../../features/timeline/markdownRenderer";
+import { useMarkdownRendererRefresh } from "../../../features/timeline/useMarkdownRendererRefresh";
 import type {
   FileChangeNode,
   McpResourceReadNode,
   McpToolGroupNode,
-} from "../../features/timeline/renderModel/buildTimelineNodes";
+} from "../../../features/timeline/renderModel/buildTimelineNodes";
 import {
   fileChangeDiffMetaText,
   fileChangeEventClass,
@@ -179,9 +235,9 @@ import {
   mcpToolItemMetricsText,
   mcpToolItemStatusText,
   mcpToolItemTitle,
-} from "../../features/timeline/renderModel/formatters";
-import type { SandboxMode } from "../../stores/runtime.store";
-import type { McpToolItem } from "../timeline/cards/McpToolCardContent.vue";
+} from "../../../features/timeline/renderModel/formatters";
+import type { SandboxMode } from "../../../stores/runtime.store";
+import type { McpToolItem } from "../../timeline/cards/McpToolCardContent.vue";
 import type {
   ChatImageEntry,
   ChatRenderedRow,
@@ -189,7 +245,9 @@ import type {
   ImagePreviewPayload,
   PlanDeltaExecUiState,
   ThumbLoadErrorPayload,
-} from "./chat.types";
+} from "../types/chat.types";
+
+defineOptions({ name: "ChatRowRenderer" });
 
 type OptionInput = string | { value: string; label: string; disabled?: boolean };
 type AnyFn = (...args: any[]) => any;
@@ -209,57 +267,57 @@ const AsyncTimelineCardLoading = defineComponent({
 });
 
 const ChatImageToolCard = defineAsyncComponent({
-  loader: () => import("../chat/ChatImageToolCard.vue"),
+  loader: () => import("../../chat/ChatImageToolCard.vue"),
   loadingComponent: AsyncTimelineCardLoading,
   delay: 120,
 });
 const ChatWebSearchCard = defineAsyncComponent({
-  loader: () => import("../chat/ChatWebSearchCard.vue"),
+  loader: () => import("../../chat/ChatWebSearchCard.vue"),
   loadingComponent: AsyncTimelineCardLoading,
   delay: 120,
 });
 const DynamicToolCallCardContent = defineAsyncComponent({
-  loader: () => import("../timeline/cards/DynamicToolCallCardContent.vue"),
+  loader: () => import("../../timeline/cards/DynamicToolCallCardContent.vue"),
   loadingComponent: AsyncTimelineCardLoading,
   delay: 120,
 });
 const ChatSshToolActivity = defineAsyncComponent({
-  loader: () => import("../chat/ChatSshToolActivity.vue"),
+  loader: () => import("../../chat/ChatSshToolActivity.vue"),
   loadingComponent: AsyncTimelineCardLoading,
   delay: 120,
 });
 const ChatFileChangeCard = defineAsyncComponent({
-  loader: () => import("../chat/ChatFileChangeCard.vue"),
+  loader: () => import("../../chat/ChatFileChangeCard.vue"),
   loadingComponent: AsyncTimelineCardLoading,
   delay: 120,
 });
 const ChatCommandActionRow = defineAsyncComponent({
-  loader: () => import("../chat/ChatCommandActionRow.vue"),
+  loader: () => import("../../chat/ChatCommandActionRow.vue"),
   loadingComponent: AsyncTimelineCardLoading,
   delay: 120,
 });
 const CommandReadActivityRow = defineAsyncComponent({
-  loader: () => import("../timeline/activities/CommandReadActivityRow.vue"),
+  loader: () => import("../../timeline/activities/CommandReadActivityRow.vue"),
   loadingComponent: AsyncTimelineCardLoading,
   delay: 120,
 });
 const CommandListActivityRow = defineAsyncComponent({
-  loader: () => import("../timeline/activities/CommandListActivityRow.vue"),
+  loader: () => import("../../timeline/activities/CommandListActivityRow.vue"),
   loadingComponent: AsyncTimelineCardLoading,
   delay: 120,
 });
 const CommandSearchActivityRow = defineAsyncComponent({
-  loader: () => import("../timeline/activities/CommandSearchActivityRow.vue"),
+  loader: () => import("../../timeline/activities/CommandSearchActivityRow.vue"),
   loadingComponent: AsyncTimelineCardLoading,
   delay: 120,
 });
 const McpResourceReadCardContent = defineAsyncComponent({
-  loader: () => import("../timeline/cards/McpResourceReadCardContent.vue"),
+  loader: () => import("../../timeline/cards/McpResourceReadCardContent.vue"),
   loadingComponent: AsyncTimelineCardLoading,
   delay: 120,
 });
 const McpToolCardContent = defineAsyncComponent({
-  loader: () => import("../timeline/cards/McpToolCardContent.vue"),
+  loader: () => import("../../timeline/cards/McpToolCardContent.vue"),
   loadingComponent: AsyncTimelineCardLoading,
   delay: 120,
 });
@@ -293,9 +351,10 @@ defineProps<{
   handleUserBubbleClick: (event: TimelineEventItem) => void;
   isHistoryRewriteAnchor: (event: TimelineEventItem) => boolean;
   handlePreviewImage: (payload: ImagePreviewPayload) => void;
+  handleLayoutChange?: () => void;
   getMarkdownEventHtml: (event: TimelineEventItem) => string;
-  isReasoningOpen: (id: string) => boolean;
-  setReasoningOpen: (id: string, open: boolean) => void;
+  isReasoningOpen: AnyFn;
+  setReasoningOpen: AnyFn;
   isCommandFilesOpen: (nodeId: string) => boolean;
   toggleCommandFilesOpen: (nodeId: string) => void;
   isMcpToolGroupOpen: (id: string) => boolean;
@@ -329,18 +388,8 @@ const toReasoningHtml = (text: string) => {
   return html;
 };
 
-const activityDotClass = (tone?: string) => {
-  if (tone === "running") return "is-running";
-  if (tone === "ok") return "is-ok";
-  if (tone === "error") return "is-error";
-  if (tone === "warn") return "is-warn";
-  return "";
-};
-const sandboxSelectClass = (mode: string) => {
-  if (mode === "read-only") return "border-[var(--border-success)] bg-[var(--bg-success-soft)]";
-  if (mode === "workspace-write") return "border-[var(--border-warning)] bg-[var(--bg-warning-soft)]";
-  return "border-[var(--border-danger)] bg-[var(--bg-danger-soft)]";
-};
+const activityDotClass = chatActivityToneClass;
+const sandboxSelectClass = chatSandboxToneClass;
 </script>
 
 <style scoped>
