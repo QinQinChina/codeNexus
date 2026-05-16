@@ -148,25 +148,6 @@
 
             <section class="global-config-guide-entry global-config-local-entry">
               <div class="guide-entry-text">
-                <div class="guide-entry-title">文件树图标</div>
-                <div class="guide-entry-desc">选择工作区文件树图标主题，立即生效。</div>
-              </div>
-              <div class="typography-controls">
-                <label class="typography-row">
-                  <span class="typography-label dim">主题</span>
-                  <SelectDropdown
-                    id="sel-workspace-file-icon-theme"
-                    class="context-input mono"
-                    :modelValue="appShellStore.workspaceFileIconTheme"
-                    :options="workspaceFileIconThemeOptions"
-                    @update:modelValue="onWorkspaceFileIconThemeChanged"
-                  />
-                </label>
-              </div>
-            </section>
-
-            <section class="global-config-guide-entry global-config-local-entry">
-              <div class="guide-entry-text">
                 <div class="guide-entry-title">AI 最终答复格式</div>
                 <div class="guide-entry-desc">仅在执行（agent/default）模式生效；计划（plan）模式保持原有输出。</div>
               </div>
@@ -570,23 +551,23 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { RotateCw } from "lucide-vue-next";
-import SelectDropdown from "../ui/SelectDropdown.vue";
-import { getRuntimeOrchestrator } from "../../domain/runtimeOrchestrator";
-import { actionModal, confirmModal } from "../../ui/modal";
-import { useRuntimeStore } from "../../stores/runtime.store";
-import { useAppShellStore } from "../../stores/appShell.store";
-import { useConfigStore } from "../../stores/config.store";
-import { useConfigRequirementsStore } from "../../stores/configRequirements.store";
+import SelectDropdown from "../../ui/SelectDropdown.vue";
+import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
+import { actionModal, confirmModal } from "../../../ui/modal";
+import { useRuntimeStore } from "../../../stores/runtime.store";
+import { useAppShellStore } from "../../../stores/appShell.store";
+import { useConfigStore } from "../../../stores/config.store";
+import { useConfigRequirementsStore } from "../../../stores/configRequirements.store";
 import {
   GLOBAL_BACKGROUND_FIT_MODE_OPTIONS,
   getGlobalBackgroundStyleTokens,
   useGlobalAppearanceStore,
-} from "../../stores/globalAppearance.store";
+} from "../../../stores/globalAppearance.store";
 import {
   UI_FONT_FAMILY_PRESET_OPTIONS,
   UI_FONT_SIZE_PRESET_OPTIONS,
   useTypographyStore,
-} from "../../stores/typography.store";
+} from "../../../stores/typography.store";
 import {
   OFFICIAL_APPROVALS_REVIEWER_OPTIONS,
   OFFICIAL_APPROVAL_POLICY_OPTIONS,
@@ -594,18 +575,17 @@ import {
   OFFICIAL_REASONING_SUMMARY_OPTIONS,
   OFFICIAL_SANDBOX_MODE_OPTIONS,
   createDefaultGlobalConfigDraft,
-} from "../../domain/serverInterop";
-import type { GlobalConfigDraft } from "../../domain/types";
-import { useModelCatalogStore } from "../../stores/modelCatalog.store";
+} from "../../../domain/serverInterop";
+import type { GlobalConfigDraft } from "../../../domain/types";
+import { useModelCatalogStore } from "../../../stores/modelCatalog.store";
 import {
   DEFAULT_GLOBAL_SURFACE_OPACITY_PERCENT,
   type AssistantFinalMessageFormat,
   type AssistantPlanMessageFormat,
   type GlobalBackgroundFitMode,
-  type UiWorkspaceFileIconTheme,
-} from "../../../shared/localSettings";
-import { buildModelPickerOptions, normalizeModelId } from "../../../shared/modelCatalog";
-import { CN_MODEL_PRESETS } from "../../../shared/modelPresets";
+} from "../../../../shared/localSettings";
+import { buildModelPickerOptions, normalizeModelId } from "../../../../shared/modelCatalog";
+import { CN_MODEL_PRESETS } from "../../../../shared/modelPresets";
 
 const runtime = getRuntimeOrchestrator();
 const runtimeStore = useRuntimeStore();
@@ -624,10 +604,6 @@ const currentGlobalAppearance = computed(() => globalAppearanceStore.appearance)
 const globalBackgroundFitModeOptions = GLOBAL_BACKGROUND_FIT_MODE_OPTIONS;
 const uiFontFamilyPresetOptions = UI_FONT_FAMILY_PRESET_OPTIONS;
 const uiFontSizePresetOptions = UI_FONT_SIZE_PRESET_OPTIONS;
-const workspaceFileIconThemeOptions: Array<{ value: UiWorkspaceFileIconTheme; label: string }> = [
-  { value: "lucide", label: "Lucide（内置）" },
-  { value: "vscode-icons", label: "VSCode Icons" },
-];
 const globalAppearanceDescription = computed(() => {
   if (currentGlobalAppearance.value.backgroundImageRelativePath) {
     return "当前应用已设置全局背景图，图片保存在本机应用数据目录。";
@@ -792,10 +768,6 @@ const onUiFontFamilyPresetChanged = (next: string) => {
 
 const onUiFontSizePresetChanged = (next: string) => {
   typographyStore.setFontSizePreset(next);
-};
-
-const onWorkspaceFileIconThemeChanged = (next: string) => {
-  appShellStore.setWorkspaceFileIconTheme(next);
 };
 
 const onImportGlobalBackground = async () => {

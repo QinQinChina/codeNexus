@@ -11,5 +11,3 @@
 <script setup lang="ts">
 import ThreadHistoryPane from "./left-sidebar/ThreadHistoryPane.vue";
 </script>
-
-<style scoped></style>

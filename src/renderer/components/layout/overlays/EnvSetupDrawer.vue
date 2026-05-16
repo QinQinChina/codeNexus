@@ -85,9 +85,9 @@ codex --version</pre
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
-import { useAppShellStore } from "../../stores/appShell.store";
-import { codexDesktop } from "../../api/codexDesktopClient";
-import type { CodexDiagnosticsResult } from "../../../shared/ipc/contracts";
+import { useAppShellStore } from "../../../stores/appShell.store";
+import { codexDesktop } from "../../../api/codexDesktopClient";
+import type { CodexDiagnosticsResult } from "../../../../shared/ipc/contracts";
 
 type DiagItem = { ok: boolean; details?: string };
 

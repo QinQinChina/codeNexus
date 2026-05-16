@@ -270,7 +270,16 @@
     justify-content: center;
     min-height: 96px;
     padding: 10px 12px 12px;
-    overflow: hidden;
+    overflow: auto;
+    cursor: grab;
+    touch-action: none;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .agent-mermaid-viewport.is-dragging {
+    cursor: grabbing;
+    user-select: none;
   }
 
   .agent-mermaid-render {
@@ -326,9 +335,10 @@
     align-items: center;
     justify-content: center;
     padding: 16px;
-    overflow: auto;
+    overflow: hidden;
     cursor: grab;
     touch-action: none;
+    user-select: none;
   }
 
   .agent-mermaid-lightbox-render.is-dragging {
@@ -336,7 +346,21 @@
     user-select: none;
   }
 
-  .agent-mermaid-lightbox-render svg {
+  .agent-mermaid-lightbox-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform-origin: center center;
+    will-change: transform;
+    transition: transform 80ms ease-out;
+    pointer-events: none;
+  }
+
+  .agent-mermaid-lightbox-render.is-dragging .agent-mermaid-lightbox-content {
+    transition: none;
+  }
+
+  .agent-mermaid-lightbox-content svg {
     display: block;
     margin: 0 auto;
   }

@@ -119,7 +119,11 @@ const approvalMenuOpen = ref(false);
 
 const hasWorkspace = computed(() => Boolean(String(runtimeStore.workspacePath ?? "").trim()));
 const filesPaneVisible = computed(
-  () => hasWorkspace.value && !appShellStore.settingsOpen && appShellStore.mainView === "chat" && appShellStore.filesSidebarVisible
+  () =>
+    hasWorkspace.value &&
+    !appShellStore.settingsOpen &&
+    appShellStore.mainView === "chat" &&
+    appShellStore.filesSidebarVisible
 );
 const threadPaneTitle = computed(() => {
   if (appShellStore.settingsOpen) return "设置页中暂不显示线程面板";
@@ -169,61 +173,3 @@ function onOpenSettings() {
   appShellStore.openSettings("global");
 }
 </script>
-
-<style scoped>
-.topbar-right-stack {
-  grid-column: 3;
-  justify-self: end;
-  display: inline-flex;
-  align-items: center;
-}
-
-.topbar-controls--sleek {
-  gap: 6px;
-}
-
-.topbar-menu-anchor--approval {
-  margin-left: 2px;
-}
-
-.topbar-mainview-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px;
-  border: 1px solid var(--topbar-control-border, var(--topbar-border));
-  border-radius: 8px;
-  background: var(--topbar-control-bg, var(--topbar-bg));
-  -webkit-app-region: no-drag;
-}
-
-.topbar-mainview-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 72px;
-  height: 26px;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  font-size: 12px;
-  line-height: 1;
-  padding: 0 10px;
-  color: inherit;
-}
-
-.topbar-mainview-btn.is-active {
-  border-color: color-mix(in srgb, var(--accent) 38%, var(--topbar-border) 62%);
-  background: color-mix(in srgb, var(--topbar-active-bg, var(--accent)) 72%, transparent);
-}
-
-.topbar-mainview-icon {
-  width: 14px;
-  height: 14px;
-}
-
-.topbar-control-divider {
-  width: 1px;
-  height: 18px;
-  background: color-mix(in srgb, var(--topbar-border) 78%, transparent);
-}
-</style>

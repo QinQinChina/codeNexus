@@ -3,7 +3,7 @@
     <div class="bottom-bar__left"></div>
 
     <div class="bottom-bar__right">
-      <TopBarCodexProfileSwitch class="bottom-bar__profile-switch" />
+      <CodexProfileSwitch class="bottom-bar__profile-switch" />
 
       <div class="bottom-bar__conn mono" :class="connectionStateClass" :title="connectionTitleText">
         <span class="bottom-bar__conn-icon" aria-hidden="true">
@@ -21,7 +21,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import TopBarCodexProfileSwitch from "./topbar/TopBarCodexProfileSwitch.vue";
+import CodexProfileSwitch from "./controls/CodexProfileSwitch.vue";
 import { useAppShellStore } from "../../stores/appShell.store";
 
 const appShellStore = useAppShellStore();
@@ -119,17 +119,17 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--panel-bg, var(--surface-1)) 88%, transparent);
 }
 
-.bottom-bar .bottom-bar__profile-switch :deep(.topbar-profile-select) {
+.bottom-bar .bottom-bar__profile-switch :deep(.codex-profile-switch__select) {
   min-width: 130px;
   max-width: min(260px, 26vw);
   height: 22px;
 }
 
-.bottom-bar .bottom-bar__profile-switch :deep(.topbar-profile-empty) {
+.bottom-bar .bottom-bar__profile-switch :deep(.codex-profile-switch__empty) {
   height: 22px;
 }
 
-.bottom-bar .bottom-bar__profile-switch :deep(.topbar-profile-settings) {
+.bottom-bar .bottom-bar__profile-switch :deep(.codex-profile-switch__settings) {
   width: 24px;
   min-width: 24px;
   height: 22px;

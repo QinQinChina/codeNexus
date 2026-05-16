@@ -179,17 +179,6 @@
   --composer-option-bg-accent-mix: 16%;
   --composer-option-border-base-mix: 62%;
   --composer-option-border-accent-mix: 38%;
-
-  --ui-empty-hero-bg: linear-gradient(
-    135deg,
-    var(--accent) 0%,
-    color-mix(in srgb, var(--accent) 62%, var(--warning) 38%) 100%
-  );
-  --ui-empty-hero-text: var(--theme-seed-accent-contrast);
-  --ui-empty-primary-bg: var(--accent);
-  --ui-empty-primary-text: var(--theme-seed-accent-contrast);
-  --ui-empty-primary-shadow: rgb(from var(--accent) r g b / 0.25);
-  --ui-empty-primary-shadow-hover: rgb(from var(--accent) r g b / 0.4);
 }
 
 :root[data-theme="light"] {
@@ -229,7 +218,6 @@
   --composer-plan-bg: var(--surface-2);
   --composer-shell-plan-bg: var(--composer-plan-bg);
   --ui-timeline-card-bg: var(--surface-2);
-  --ui-empty-hero-bg: var(--accent);
   --diff-add-bg: color-mix(in srgb, var(--success) 24%, var(--bg) 76%);
   --diff-del-bg: color-mix(in srgb, var(--danger) 24%, var(--bg) 76%);
 }

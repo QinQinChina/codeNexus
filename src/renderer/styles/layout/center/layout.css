@@ -157,6 +157,7 @@
 .timeline-pane--chat {
   --timeline-inline-pad: 12px;
   --timeline-scrollbar-gutter-w: 11px;
+  --timeline-bottom-occluder-bg: color-mix(in srgb, var(--bg) 92%, var(--theme-seed-canvas-deep) 8%);
   --chat-column-w: min(
     calc(100cqw - (var(--timeline-inline-pad) * 2) - (var(--timeline-scrollbar-gutter-w) * 2)),
     var(--chat-content-max-w)
@@ -165,6 +166,18 @@
   padding: 0;
   gap: 0;
   background: color-mix(in srgb, var(--bg) 92%, var(--theme-seed-canvas-deep) 8%);
+}
+
+.timeline-pane--chat::after {
+  position: absolute;
+  z-index: 20;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: var(--composer-dock-space, 120px);
+  pointer-events: none;
+  background: var(--timeline-bottom-occluder-bg);
+  content: "";
 }
 
 .timeline-pane--chat #timeline,
@@ -219,42 +232,6 @@
   transform: translateX(-50%);
 }
 
-.timeline-pane--chat .chat-row--assistant,
-.timeline-pane--chat .chat-row--tool,
-.timeline-pane--chat .chat-row--activity,
-.timeline-pane--chat .chat-row--system {
-  border-radius: 10px;
-}
-
-.timeline-pane--chat .chat-assistant-message,
-.timeline-pane--chat .chat-activity-line,
-.timeline-pane--chat .chat-system-line,
-.timeline-pane--chat .chat-tool-wrap > * {
-  border-color: color-mix(in srgb, var(--border) 74%, var(--accent) 16%);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--surface-2) 58%, transparent),
-    color-mix(in srgb, var(--surface-1) 88%, transparent)
-  );
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 5%, transparent);
-}
-
-.timeline-pane--chat .chat-tool-wrap > .reasoning-summary-event {
-  border: 0;
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
-}
-
-.timeline-pane--chat .chat-system-line.chat-system-line--error {
-  border-color: color-mix(in srgb, var(--border-danger) 90%, var(--border) 10%);
-  background: color-mix(in srgb, var(--bg-danger-soft) 82%, var(--surface-1) 18%);
-  color: color-mix(in srgb, var(--fg-danger) 86%, var(--text) 14%);
-  box-shadow:
-    inset 3px 0 0 color-mix(in srgb, var(--danger) 72%, transparent),
-    inset 0 1px 0 color-mix(in srgb, var(--text) 5%, transparent);
-}
-
 .timeline-pane--chat .plan-summary {
   width: min(100%, var(--chat-content-max-w));
   margin-left: auto;
@@ -274,6 +251,7 @@
 
 /* === Low-glare light workbench tuning === */
 :root[data-theme="light"] .timeline-pane--chat {
+  --timeline-bottom-occluder-bg: var(--chat-pane-bg);
   background: var(--chat-pane-bg);
 }
 
@@ -282,35 +260,6 @@
   border: 0;
   background: transparent;
   box-shadow: none;
-}
-
-:root[data-theme="light"] .timeline-pane--chat .chat-assistant-message,
-:root[data-theme="light"] .timeline-pane--chat .chat-activity-line,
-:root[data-theme="light"] .timeline-pane--chat .chat-system-line,
-:root[data-theme="light"] .timeline-pane--chat .chat-tool-wrap > * {
-  border-color: color-mix(in srgb, var(--light-border) 78%, var(--accent) 12%);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--light-elevated-bg) 82%, transparent),
-    color-mix(in srgb, var(--light-panel-bg) 94%, transparent)
-  );
-  box-shadow: inset 0 1px 0 rgb(from var(--light-elevated-bg) r g b / 0.82);
-}
-
-:root[data-theme="light"] .timeline-pane--chat .chat-tool-wrap > .reasoning-summary-event {
-  border: 0;
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
-}
-
-:root[data-theme="light"] .timeline-pane--chat .chat-system-line.chat-system-line--error {
-  border-color: color-mix(in srgb, var(--border-danger) 84%, var(--light-border) 16%);
-  background: color-mix(in srgb, var(--bg-danger-soft) 72%, var(--light-elevated-bg) 28%);
-  color: color-mix(in srgb, var(--fg-danger) 88%, var(--light-text) 12%);
-  box-shadow:
-    inset 3px 0 0 color-mix(in srgb, var(--danger) 68%, transparent),
-    inset 0 1px 0 rgb(from var(--light-elevated-bg) r g b / 0.82);
 }
 
 :root[data-theme="light"] .timeline-pane--chat .plan-summary {

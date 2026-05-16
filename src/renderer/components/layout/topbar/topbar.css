@@ -1,9 +1,32 @@
+/* Top bar component layer: concrete subcomponents and menu surfaces. */
+
+.topbar-right-stack {
+  grid-column: 3;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+}
+
+.topbar-right-stack .btn-icon svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2;
+}
+
+.topbar-controls--sleek {
+  gap: 6px;
+}
+
 .topbar-menu-anchor {
   position: relative;
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
   -webkit-app-region: no-drag;
+}
+
+.topbar-menu-anchor--approval {
+  margin-left: 2px;
 }
 
 .topbar-approval-trigger {
@@ -14,7 +37,7 @@
 .topbar button.topbar-approval-button {
   width: 28px;
   min-width: 28px;
-  height: 24px;
+  height: 26px;
   padding: 0;
 }
 
@@ -24,15 +47,7 @@
   stroke-width: 2.15;
 }
 
-.topbar-left {
-  grid-column: 1;
-  justify-self: start;
-  min-width: 0;
-  gap: 10px;
-}
-
 .topbar button.topbar-workspace-select {
-  -webkit-app-region: no-drag;
   min-width: 0;
   max-width: clamp(126px, 20vw, 220px);
   display: inline-flex;
@@ -55,8 +70,46 @@
   white-space: nowrap;
 }
 
-.topbar-controls {
-  overflow: visible;
+.topbar-mainview-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--tb-control-border);
+  border-radius: var(--tb-radius);
+  background: var(--tb-control-bg);
+  -webkit-app-region: no-drag;
+}
+
+.topbar-mainview-btn {
+  min-width: 72px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--tb-radius-sm);
+  color: inherit;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.topbar-mainview-btn.is-active {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--tb-line) 62%);
+  background: color-mix(in srgb, var(--topbar-active-bg, var(--accent)) 72%, transparent);
+}
+
+.topbar-mainview-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.topbar-control-divider {
+  width: 1px;
+  height: 18px;
+  background: color-mix(in srgb, var(--tb-line) 78%, transparent);
 }
 
 .topbar .control-group-actions {
@@ -69,24 +122,24 @@
   min-width: 52px;
   height: 28px;
   padding: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--tb-control-border) 76%, transparent);
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--topbar-control-border, var(--topbar-border)) 76%, transparent);
-  background: color-mix(in srgb, var(--topbar-control-bg, var(--topbar-bg)) 86%, var(--surface-2) 14%);
+  background: color-mix(in srgb, var(--tb-control-bg) 86%, var(--surface-2) 14%);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, white 12%, transparent),
     inset 0 -1px 0 color-mix(in srgb, var(--topbar-text) 7%, transparent),
     0 6px 14px rgb(from var(--ui-shadow-source) r g b / 0.13);
-  overflow: hidden;
-  -webkit-app-region: no-drag;
   transition:
     transform 150ms cubic-bezier(0.22, 1, 0.36, 1),
     border-color 150ms ease,
     box-shadow 180ms ease;
+  -webkit-app-region: no-drag;
 }
 
 .topbar button.topbar-theme-switch.is-dark {
-  border-color: color-mix(in srgb, var(--accent) 36%, var(--topbar-control-border, var(--topbar-border)) 64%);
-  background: color-mix(in srgb, var(--topbar-control-bg, var(--topbar-bg)) 74%, var(--accent) 26%);
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--tb-control-border) 64%);
+  background: color-mix(in srgb, var(--tb-control-bg) 74%, var(--accent) 26%);
 }
 
 .topbar button.topbar-theme-switch .topbar-theme-switch-track {
@@ -95,12 +148,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-radius: inherit;
   padding: 0 7px;
+  border-radius: inherit;
   background: linear-gradient(
     90deg,
     color-mix(in srgb, var(--surface-1) 72%, white 8%),
-    color-mix(in srgb, var(--topbar-control-bg, var(--topbar-bg)) 80%, var(--accent) 20%)
+    color-mix(in srgb, var(--tb-control-bg) 80%, var(--accent) 20%)
   );
   box-shadow: inset 0 1px 2px rgb(from var(--ui-shadow-source) r g b / 0.16);
   pointer-events: none;
@@ -109,7 +162,7 @@
 
 .topbar button.topbar-theme-switch:hover:not(:disabled) {
   transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--topbar-control-border, var(--topbar-border)) 58%, var(--accent) 42%);
+  border-color: color-mix(in srgb, var(--tb-control-border) 58%, var(--accent) 42%);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, white 14%, transparent),
     inset 0 -1px 0 color-mix(in srgb, var(--topbar-text) 7%, transparent),
@@ -123,15 +176,15 @@
 .topbar button.topbar-theme-switch:focus-visible {
   outline: none;
   box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--focus-ring, var(--accent-soft)) 84%, transparent),
+    var(--tb-focus),
     inset 0 1px 0 color-mix(in srgb, white 14%, transparent),
     inset 0 -1px 0 color-mix(in srgb, var(--topbar-text) 7%, transparent),
     0 9px 16px rgb(from var(--ui-shadow-source) r g b / 0.17);
 }
 
 .topbar button.topbar-theme-switch:disabled {
-  opacity: 0.56;
   cursor: not-allowed;
+  opacity: 0.56;
 }
 
 .topbar button.topbar-theme-switch .topbar-theme-switch-thumb {
@@ -178,9 +231,9 @@
 .topbar button.topbar-theme-switch .topbar-theme-switch-rail-icon {
   width: 12px;
   height: 12px;
-  stroke-width: 2;
   color: color-mix(in srgb, var(--topbar-text) 54%, transparent);
   opacity: 0.58;
+  stroke-width: 2;
   transition:
     opacity 180ms ease,
     color 180ms ease;
@@ -207,23 +260,31 @@
   -webkit-app-region: no-drag;
 }
 
+.topbar-menu-shell--workspace,
+.topbar-menu-shell--tools,
+.topbar-menu-shell--turn-diff,
+.topbar-menu-shell--approval {
+  left: 0;
+}
+
 .topbar-menu-shell--more {
   right: 0;
   width: min(320px, calc(100vw - 24px));
 }
 
+.topbar-menu-shell--workspace {
+  width: min(360px, calc(100vw - 24px));
+}
+
 .topbar-menu-shell--tools {
-  left: 0;
   width: min(380px, calc(100vw - 24px));
 }
 
 .topbar-menu-shell--turn-diff {
-  left: 0;
   width: min(420px, calc(100vw - 24px));
 }
 
 .topbar-menu-shell--approval {
-  left: 0;
   width: min(460px, calc(100vw - 24px));
 }
 
@@ -234,10 +295,10 @@
 }
 
 .topbar-menu--more {
-  padding: 0;
   gap: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  padding: 0;
   background: var(--topbar-dropdown-bg-solid, var(--surface-1));
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -248,15 +309,131 @@
   gap: 8px;
 }
 
-/* More menu (root): tighter density + stronger button affordance */
+.topbar-menu-heading {
+  color: var(--topbar-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.topbar-menu-note {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.topbar-menu-divider {
+  height: 1px;
+  background: color-mix(in srgb, var(--topbar-dropdown-border, var(--floating-border)) 72%, transparent);
+}
+
+.topbar button.topbar-menu-item {
+  min-width: 0;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--tb-radius-sm);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  -webkit-app-region: no-drag;
+}
+
+.topbar button.topbar-menu-item:hover:not(:disabled),
+.topbar button.topbar-menu-item.is-selected {
+  border-color: color-mix(in srgb, var(--topbar-dropdown-border, var(--floating-border)) 74%, transparent);
+  background: var(
+    --floating-item-bg-hover,
+    color-mix(in srgb, var(--button-bg-hover, var(--button-bg, var(--surface-1))) 94%, transparent)
+  );
+}
+
+.topbar button.topbar-menu-item.is-disabled,
+.topbar button.topbar-menu-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.topbar-menu-item-icon {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: var(--tb-radius-sm);
+  background: color-mix(in srgb, var(--floating-item-bg, var(--button-bg, var(--surface-1))) 84%, transparent);
+  color: var(--topbar-text);
+}
+
+.topbar-menu-item-icon svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.1;
+}
+
+.topbar-menu-item-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  flex: 1 1 auto;
+}
+
+.topbar-menu-item-title {
+  color: var(--topbar-dropdown-text, var(--text));
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.topbar-menu-item-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.topbar-menu-item-meta {
+  color: color-mix(in srgb, var(--topbar-dropdown-text, var(--text)) 58%, transparent);
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.topbar-menu-item-chevron {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  color: color-mix(in srgb, var(--topbar-dropdown-text, var(--text)) 56%, transparent);
+  stroke-width: 2.2;
+  transition:
+    transform 150ms ease,
+    color 150ms ease;
+}
+
+.topbar button.topbar-menu-item--nav:hover:not(:disabled) .topbar-menu-item-chevron {
+  color: var(--topbar-dropdown-text, var(--text));
+  transform: translateX(1px);
+}
+
+.topbar-menu-item-check {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--border-accent, var(--accent-soft));
+}
+
 .topbar-menu--more .topbar-more-panel--root .topbar-menu-section {
   gap: 4px;
 }
 
 .topbar-menu--more .topbar-more-panel--root button.topbar-menu-item {
   min-height: 36px;
-  padding: 6px 10px;
   gap: 9px;
+  padding: 6px 10px;
   border-color: color-mix(in srgb, var(--topbar-dropdown-border, var(--floating-border)) 68%, transparent);
   background: color-mix(in srgb, var(--floating-item-bg, var(--button-bg, var(--surface-1))) 84%, transparent);
   box-shadow: inset 0 1px 0 color-mix(in srgb, white 6%, transparent);
@@ -269,14 +446,14 @@
 
 .topbar-menu--more .topbar-more-panel--root button.topbar-menu-item:hover:not(:disabled),
 .topbar-menu--more .topbar-more-panel--root button.topbar-menu-item.is-selected {
-  background: var(
-    --floating-item-bg-hover,
-    color-mix(in srgb, var(--button-bg-hover, var(--button-bg, var(--surface-1))) 94%, transparent)
-  );
   border-color: color-mix(
     in srgb,
     var(--topbar-dropdown-border, var(--floating-border)) 78%,
     var(--border-accent, var(--floating-border)) 22%
+  );
+  background: var(
+    --floating-item-bg-hover,
+    color-mix(in srgb, var(--button-bg-hover, var(--button-bg, var(--surface-1))) 94%, transparent)
   );
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, white 8%, transparent),
@@ -290,7 +467,7 @@
 .topbar-menu--more .topbar-more-panel--root button.topbar-menu-item:focus-visible {
   outline: none;
   box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent),
+    var(--tb-focus),
     inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
 }
 
@@ -315,8 +492,8 @@
   min-width: 0;
   display: grid;
   gap: 10px;
-  padding: 12px;
   box-sizing: border-box;
+  padding: 12px;
   transition:
     transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
     opacity 180ms ease;
@@ -367,10 +544,10 @@
 }
 
 .topbar-more-detail-title {
+  color: var(--topbar-dropdown-text, var(--text));
   font-size: 12px;
   font-weight: 700;
   line-height: 1.2;
-  color: var(--topbar-dropdown-text, var(--text));
 }
 
 .topbar-more-counter {
@@ -387,8 +564,8 @@
   align-items: center;
   gap: 6px;
   padding: 0 10px;
-  border-radius: 4px;
   border: 1px solid color-mix(in srgb, var(--topbar-dropdown-border, var(--floating-border)) 72%, transparent);
+  border-radius: var(--tb-radius-sm);
   background: color-mix(in srgb, var(--floating-item-bg, var(--button-bg, var(--surface-1))) 84%, transparent);
   color: var(--topbar-dropdown-text, var(--text));
 }
@@ -408,8 +585,8 @@
 .topbar-more-back svg {
   width: 14px;
   height: 14px;
-  stroke-width: 2.2;
   flex: 0 0 auto;
+  stroke-width: 2.2;
 }
 
 .topbar-more-back span {
@@ -418,121 +595,125 @@
   white-space: nowrap;
 }
 
-.topbar-menu-heading {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--topbar-text-muted);
-}
-
-.topbar-menu-note {
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--text-muted);
-}
-
-.topbar-menu-divider {
-  height: 1px;
-  background: color-mix(in srgb, var(--topbar-dropdown-border, var(--floating-border)) 72%, transparent);
-}
-
-.topbar button.topbar-menu-item {
+.topbar-pill {
   min-width: 0;
-  min-height: 42px;
-  display: flex;
+  height: 30px;
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
-  border-radius: 4px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: inherit;
-  text-align: left;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--tb-control-border);
+  border-radius: var(--tb-radius);
+  background: var(--tb-control-bg);
+  color: var(--topbar-text);
   -webkit-app-region: no-drag;
 }
 
-.topbar button.topbar-menu-item:hover:not(:disabled),
-.topbar button.topbar-menu-item.is-selected {
-  background: var(
-    --floating-item-bg-hover,
-    color-mix(in srgb, var(--button-bg-hover, var(--button-bg, var(--surface-1))) 94%, transparent)
-  );
-  border-color: color-mix(in srgb, var(--topbar-dropdown-border, var(--floating-border)) 74%, transparent);
+.topbar-pill:hover:not(:disabled),
+.topbar-pill.is-active {
+  border-color: var(--tb-control-border-hover);
+  background: var(--tb-control-hover);
 }
 
-.topbar button.topbar-menu-item.is-disabled,
-.topbar button.topbar-menu-item:disabled {
-  opacity: 0.48;
-  cursor: not-allowed;
-}
-
-.topbar-menu-item-icon {
-  width: 28px;
-  height: 28px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--floating-item-bg, var(--button-bg, var(--surface-1))) 84%, transparent);
-  color: var(--topbar-text);
-  flex: 0 0 auto;
-}
-
-.topbar-menu-item-icon svg {
-  width: 15px;
-  height: 15px;
-  stroke-width: 2.1;
-}
-
-.topbar-menu-item-copy {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-  flex: 1 1 auto;
-}
-
-.topbar-menu-item-end {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  flex: 0 0 auto;
-}
-
-.topbar-menu-item-meta {
-  font-size: 11px;
+.topbar-pill-caption {
+  color: var(--topbar-text-muted);
+  font-size: 10px;
+  font-weight: 700;
   line-height: 1;
-  color: color-mix(in srgb, var(--topbar-dropdown-text, var(--text)) 58%, transparent);
-  white-space: nowrap;
 }
 
-.topbar-menu-item-chevron {
+.topbar-pill-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.topbar-pill-caret {
   width: 14px;
   height: 14px;
+  flex: 0 0 auto;
+  color: var(--topbar-text-muted);
   stroke-width: 2.2;
-  color: color-mix(in srgb, var(--topbar-dropdown-text, var(--text)) 56%, transparent);
+}
+
+.workspace-menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.workspace-menu-select {
   flex: 0 0 auto;
+}
+
+.workspace-path-inline {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--topbar-dropdown-border, var(--floating-border)) 66%, transparent);
+  border-radius: var(--tb-radius-sm);
+  background: color-mix(in srgb, var(--floating-item-bg, var(--button-bg, var(--surface-1))) 78%, transparent);
+  font-size: 11px;
+}
+
+.topbar-single-switch {
+  position: relative;
+  min-width: 74px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  border: 1px solid var(--tb-control-border);
+  border-radius: var(--tb-radius);
+  background: var(--tb-control-bg);
+  -webkit-app-region: no-drag;
+}
+
+.topbar-single-switch-thumb {
+  position: absolute;
+  inset: 3px;
+  border-radius: var(--tb-radius-sm);
+  background: transparent;
   transition:
-    transform 150ms ease,
-    color 150ms ease;
+    background-color 150ms ease,
+    box-shadow 150ms ease;
 }
 
-.topbar button.topbar-menu-item--nav:hover:not(:disabled) .topbar-menu-item-chevron {
-  transform: translateX(1px);
-  color: var(--topbar-dropdown-text, var(--text));
+.topbar-single-switch.is-open .topbar-single-switch-thumb {
+  background: var(--topbar-btn-active-bg);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent);
 }
 
-.topbar-menu-item-title {
+.topbar-single-switch-option {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+}
+
+.topbar-single-switch-option svg {
+  width: 14px;
+  height: 14px;
+}
+
+.topbar-right-switch-label {
   font-size: 12px;
-  font-weight: 600;
-  color: var(--topbar-dropdown-text, var(--text));
-}
-
-.topbar-menu-item-check {
-  width: 16px;
-  height: 16px;
-  color: var(--border-accent, var(--accent-soft));
-  flex: 0 0 auto;
+  font-weight: 650;
+  line-height: 1;
 }
 
 .dynamic-tools-section-head {
@@ -562,8 +743,8 @@
 }
 
 .dynamic-tools-list .dynamic-tools-row:first-child {
-  border-top: 0;
   padding-top: 0;
+  border-top: 0;
 }
 
 .dynamic-tools-copy {
@@ -573,28 +754,28 @@
 }
 
 .dynamic-tools-title-row {
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 0;
 }
 
 .dynamic-tools-title {
+  color: var(--topbar-dropdown-text, var(--text));
   font-size: 12px;
   font-weight: 600;
-  color: var(--topbar-dropdown-text, var(--text));
 }
 
 .dynamic-tools-desc {
+  color: color-mix(in srgb, var(--topbar-dropdown-text, var(--text)) 58%, transparent);
   font-size: 11px;
   line-height: 1.35;
-  color: color-mix(in srgb, var(--topbar-dropdown-text, var(--text)) 58%, transparent);
 }
 
 .dynamic-tools-badge {
   padding: 2px 6px;
-  border-radius: 3px;
   border: 1px solid var(--border-warning);
+  border-radius: 3px;
   background: var(--bg-warning-soft);
   color: var(--fg-warning);
   font-size: 10px;
@@ -614,20 +795,20 @@
 .dynamic-tools-switch-input {
   position: absolute;
   inset: 0;
-  opacity: 0;
-  cursor: pointer;
   margin: 0;
+  cursor: pointer;
+  opacity: 0;
 }
 
 .dynamic-tools-switch-track {
   width: 42px;
   height: 24px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface-2) 72%, var(--border) 28%);
-  border: 1px solid var(--border);
   display: inline-flex;
   align-items: center;
   padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-2) 72%, var(--border) 28%);
   transition:
     background-color 0.15s ease,
     border-color 0.15s ease;
@@ -643,8 +824,8 @@
 }
 
 .dynamic-tools-switch-input:checked + .dynamic-tools-switch-track {
-  background: color-mix(in srgb, var(--success) 30%, transparent);
   border-color: var(--border-success);
+  background: color-mix(in srgb, var(--success) 30%, transparent);
 }
 
 .dynamic-tools-switch-input:checked + .dynamic-tools-switch-track .dynamic-tools-switch-thumb {
@@ -677,6 +858,9 @@
   .topbar button.topbar-theme-switch .topbar-theme-switch-track,
   .topbar button.topbar-theme-switch .topbar-theme-switch-thumb,
   .topbar button.topbar-theme-switch .topbar-theme-switch-rail-icon,
+  .topbar-more-panel,
+  .topbar-single-switch-thumb,
+  .topbar-menu-item-chevron,
   .dynamic-tools-switch-track,
   .dynamic-tools-switch-thumb {
     transition: none;

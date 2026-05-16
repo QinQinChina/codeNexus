@@ -147,13 +147,6 @@ export const useAppShellStore = defineStore("appShell", {
       if (!shouldSave) return;
       void patchUserLocalSettings({ ui: { assistantPlanMessageFormat: normalized } });
     },
-    setWorkspaceFileIconTheme(next: unknown, opts?: { save?: boolean }) {
-      const shouldSave = opts?.save ?? true;
-      const normalized = normalizeUiWorkspaceFileIconTheme(next);
-      this.workspaceFileIconTheme = normalized;
-      if (!shouldSave) return;
-      void patchUserLocalSettings({ ui: { workspaceFileIconTheme: normalized } });
-    },
     setGlobalConfigDrawerOpen(next: boolean) {
       this.globalConfigDrawerOpen = Boolean(next);
     },

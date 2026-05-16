@@ -2,74 +2,27 @@
   <div
     class="center-empty-state flex flex-col w-full max-w-[860px] mx-auto pt-[8vh] pb-10 px-6 max-[1500px]:max-w-[720px] max-[1500px]:pt-[6vh] animate-enter-pop"
   >
-    <!-- 欢迎头部区域 -->
-    <div
-      v-if="mode === 'default' && !loading"
-      class="flex flex-col items-center text-center mb-12 animate-enter-slide-up"
-    >
-      <div
-        class="w-16 h-16 mb-5 rounded-2xl bg-[image:var(--ui-empty-hero-bg)] shadow-lg shadow-[color:var(--ui-empty-primary-shadow)] flex items-center justify-center text-[color:var(--ui-empty-hero-text)]"
-      >
-        <Sparkles class="w-8 h-8" aria-hidden="true" />
-      </div>
-      <h1 class="text-[28px] max-[1500px]:text-[24px] font-bold text-[var(--text)] tracking-tight mb-2">
-        有什么我可以帮你的？
-      </h1>
-      <p class="text-sm max-[1500px]:text-[13px] text-[var(--text-muted)] mb-8">
-        选择一个历史记录继续，或开启全新的探讨
-      </p>
-
-      <button
-        id="btn-center-empty-create-thread"
-        type="button"
-        class="flex items-center gap-2 h-12 max-[1500px]:h-11 px-8 max-[1500px]:px-6 rounded-full bg-[var(--ui-empty-primary-bg)] text-[color:var(--ui-empty-primary-text)] text-[15px] max-[1500px]:text-[14px] font-medium shadow-md shadow-[color:var(--ui-empty-primary-shadow)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[color:var(--ui-empty-primary-shadow-hover)] hover:brightness-110 active:scale-[0.97] active:translate-y-0 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--accent)]/30"
-        @click="$emit('create-thread')"
-      >
-        <MessageSquarePlus class="w-5 h-5 max-[1500px]:w-4 max-[1500px]:h-4" />
-        <span>创建新对话</span>
-      </button>
-    </div>
-
-    <!-- 加载中 -->
     <div v-if="loading" class="mono dim flex w-full items-center justify-center gap-3 my-12">
       <span class="running-indicator is-muted" aria-hidden="true"></span>
       <span class="text-sm">正在读取时空记忆...</span>
     </div>
 
     <template v-else>
-      <!-- 线程创建中 -->
-      <div v-if="mode === 'pendingThread'" class="center-empty-pending flex flex-col items-center gap-4 my-10">
-        <PendingThreadArt class="center-empty-pending-art w-[240px] max-[1500px]:w-[200px]" />
-        <div
-          class="flex items-center justify-center gap-2 bg-[var(--surface-2)] px-4 py-2 rounded-full border border-[var(--border)]"
-        >
-          <LoadingDots class="mono dim text-[13px]" baseText="正在构建线程上下文" :intervalMs="350" :maxDots="3" />
+      <div v-if="mode === 'pendingThread'" class="center-thread-create-state" role="status" aria-live="polite">
+        <span class="running-indicator is-accent center-thread-create-state__spinner" aria-hidden="true"></span>
+        <div class="center-thread-create-state__copy">
+          <LoadingDots
+            class="center-thread-create-state__title"
+            baseText="正在创建线程"
+            :intervalMs="360"
+            :maxDots="3"
+            as="div"
+            ariaLabel="正在创建线程"
+          />
+          <div class="center-thread-create-state__meta">初始化工作区和模型上下文</div>
         </div>
       </div>
 
-      <!-- 空线程已创建 -->
-      <div
-        v-else-if="mode === 'emptyThread'"
-        class="center-empty-pending flex flex-col items-center gap-5 my-10 animate-enter-fade"
-      >
-        <PendingThreadArt class="center-empty-pending-art w-[240px] max-[1500px]:w-[200px]" />
-        <div class="flex flex-col items-center gap-4">
-          <div
-            class="mono dim text-[13px] bg-[var(--surface-2)] px-4 py-1.5 rounded-full border border-[var(--border)]"
-          >
-            ⚡ 线程就绪
-          </div>
-          <button
-            type="button"
-            class="flex items-center gap-2 h-10 px-6 rounded-full bg-[var(--surface-1)] text-[var(--text)] border border-[var(--border)] font-medium shadow-sm transition-all duration-200 hover:-translate-y-[1px] hover:shadow-md hover:border-[var(--border-accent)] hover:text-[var(--accent)] active:scale-[0.97]"
-            @click="$emit('start-chat')"
-          >
-            开始对话
-          </button>
-        </div>
-      </div>
-
-      <!-- 历史对话网格 -->
       <div
         v-else-if="historyItems.length > 0"
         class="center-empty-history w-full animate-enter-slide-up"
@@ -84,7 +37,6 @@
           >
         </div>
 
-        <!-- 改为漂亮的 2 列 Grid 布局 -->
         <div class="grid grid-cols-2 gap-3 max-[1500px]:gap-2.5">
           <button
             v-for="(item, index) in historyItems"
@@ -113,19 +65,83 @@
 
 <script setup lang="ts">
 import type { ThreadHistoryItem } from "../../domain/types";
-import PendingThreadArt from "../ui/PendingThreadArt.vue";
 import LoadingDots from "../ui/LoadingDots.vue";
-import { Sparkles, MessageSquarePlus, History, MessageSquareText } from "lucide-vue-next";
+import { History, MessageSquareText } from "lucide-vue-next";
 
 defineProps<{
   loading: boolean;
   historyItems: ThreadHistoryItem[];
-  mode: "default" | "pendingThread" | "emptyThread";
+  mode: "default" | "pendingThread";
 }>();
 
 defineEmits<{
-  (event: "create-thread"): void;
-  (event: "start-chat"): void;
   (event: "switch-thread", threadId: string): void;
 }>();
 </script>
+
+<style scoped>
+.center-thread-create-state {
+  width: min(100%, 360px);
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin: 10vh auto 0;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, var(--accent) 18%);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-2) 88%, transparent);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--theme-seed-shadow-source) 14%, transparent);
+  animation: center-thread-create-enter 160ms ease-out both;
+}
+
+.center-thread-create-state__spinner {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+}
+
+.center-thread-create-state__copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.center-thread-create-state__title {
+  min-width: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.center-thread-create-state__meta {
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes center-thread-create-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 4px, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .center-thread-create-state {
+    animation: none;
+  }
+}
+</style>

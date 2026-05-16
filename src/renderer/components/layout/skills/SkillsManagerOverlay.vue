@@ -31,11 +31,11 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { Blocks } from "lucide-vue-next";
 import SkillsList from "./SkillsList.vue";
-import { getRuntimeOrchestrator } from "../../domain/runtimeOrchestrator";
-import { useRuntimeStore } from "../../stores/runtime.store";
-import { useSkillsStore } from "../../stores/skills.store";
-import { useSkillsUiStore } from "../../stores/skillsUi.store";
-import type { SkillState } from "../../domain/types";
+import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
+import { useRuntimeStore } from "../../../stores/runtime.store";
+import { useSkillsStore } from "../../../stores/skills.store";
+import { useSkillsUiStore } from "../../../stores/skillsUi.store";
+import type { SkillState } from "../../../domain/types";
 
 const runtime = getRuntimeOrchestrator();
 const runtimeStore = useRuntimeStore();

@@ -4,7 +4,12 @@ export const WORKSPACE_FILE_DRAG_MIME = "application/x-through-workspace-file";
 
 export type DraggedWorkspaceFile = {
   path: string;
+  kind?: "file" | "directory";
 };
+
+function normalizeDraggedWorkspaceFileKind(value: unknown): DraggedWorkspaceFile["kind"] {
+  return value === "directory" ? "directory" : value === "file" ? "file" : undefined;
+}
 
 function normalizeDraggedWorkspaceFile(value: unknown): DraggedWorkspaceFile | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -13,25 +18,31 @@ function normalizeDraggedWorkspaceFile(value: unknown): DraggedWorkspaceFile | n
   if (!path) return null;
   return {
     path,
+    kind: normalizeDraggedWorkspaceFileKind(record.kind),
   };
 }
 
-export function buildDraggedWorkspaceFile(pathValue: string): DraggedWorkspaceFile | null {
+export function buildDraggedWorkspaceFile(
+  pathValue: string,
+  options?: { kind?: DraggedWorkspaceFile["kind"] }
+): DraggedWorkspaceFile | null {
   const path = normalizeAbsoluteFsPath(pathValue);
   if (!path) return null;
   return {
     path,
+    kind: normalizeDraggedWorkspaceFileKind(options?.kind),
   };
 }
 
 export function writeWorkspaceFileDragData(
   dataTransfer: DataTransfer | null,
-  pathValue: string
+  pathValue: string,
+  options?: { kind?: DraggedWorkspaceFile["kind"] }
 ): DraggedWorkspaceFile | null {
-  const payload = buildDraggedWorkspaceFile(pathValue);
+  const payload = buildDraggedWorkspaceFile(pathValue, options);
   if (!payload || !dataTransfer) return payload;
   dataTransfer.effectAllowed = "copy";
-  dataTransfer.setData(WORKSPACE_FILE_DRAG_MIME, payload.path);
+  dataTransfer.setData(WORKSPACE_FILE_DRAG_MIME, JSON.stringify(payload));
   dataTransfer.setData("text/plain", payload.path);
   return payload;
 }

@@ -76,8 +76,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { ChevronDown } from "lucide-vue-next";
-import type { SkillState } from "../../domain/types";
-import { useSkillsUiStore } from "../../stores/skillsUi.store";
+import type { SkillState } from "../../../domain/types";
+import { useSkillsUiStore } from "../../../stores/skillsUi.store";
 
 const props = withDefaults(
   defineProps<{

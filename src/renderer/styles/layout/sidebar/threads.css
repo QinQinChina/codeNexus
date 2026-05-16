@@ -1,38 +1,73 @@
+/* Thread sidebar module.
+   Ordered by surface: controls, search, groups, rows, states. */
+
+.lsb-nav-row,
+.lsb-icon-btn,
+.lsb-search,
+.lsb-badge,
+.lsb-head-badge,
+.lsb-thread-item,
+.lsb-thread-title-input,
+.lsb-empty {
+  border: 1px solid var(--lsb-control-border);
+  border-radius: var(--lsb-radius);
+  background: var(--lsb-control-bg);
+}
+
+.lsb-nav-row,
+.lsb-icon-btn,
+.lsb-search-clear,
+.lsb-thread-item,
+.lsb-group-head-toggle,
+.lsb-thread-attention-btn {
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease,
+    transform 120ms ease,
+    opacity 140ms ease;
+}
+
 .lsb-nav-row {
   width: 100%;
   min-height: 36px;
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--left-rail-divider-strong) 76%, transparent);
-  background: color-mix(in srgb, var(--lsb-surface-color) 76%, transparent);
-  color: var(--text);
+  padding: 0 10px;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 10px;
+  justify-content: center;
+  gap: 9px;
+  color: var(--lsb-text);
   cursor: pointer;
-  box-shadow: none;
-  transition:
-    border-color 140ms ease,
-    background 140ms ease,
-    color 140ms ease,
-    transform 120ms ease;
 }
 
 .lsb-nav-row:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--border-accent, var(--accent-soft)) 36%, var(--left-rail-divider-strong) 64%);
-  background: var(--left-rail-section-hover);
+  border-color: var(--lsb-control-border-hover);
+  background: var(--lsb-control-bg-hover);
 }
 
-.lsb-nav-row:active:not(:disabled) {
-  transform: translateY(0.5px) scale(0.99);
+.lsb-nav-row:active:not(:disabled),
+.lsb-icon-btn:active:not(:disabled) {
+  transform: translateY(0.5px);
+}
+
+.lsb-nav-row:focus-visible,
+.lsb-icon-btn:focus-visible,
+.lsb-search-clear:focus-visible,
+.lsb-thread-item:focus-visible,
+.lsb-group-head-toggle:focus-visible,
+.lsb-thread-attention-btn:focus-visible,
+.lsb-thread-title-input:focus-visible {
+  outline: none;
+  box-shadow: var(--lsb-focus);
 }
 
 .lsb-nav-icon {
   width: 16px;
   height: 16px;
-  stroke-width: 2.2;
-  color: var(--text-muted);
   flex: 0 0 auto;
+  color: var(--lsb-text);
+  stroke-width: 2.2;
 }
 
 .lsb-nav-text {
@@ -40,12 +75,17 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: inherit;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 760;
+  line-height: 1.2;
+  letter-spacing: 0;
 }
 
 .lsb-nav-row--workspace {
-  justify-content: center;
+  width: auto;
+  justify-self: center;
+  padding-inline: 14px;
 }
 
 .lsb-thread-toolbar {
@@ -53,70 +93,50 @@
 }
 
 .lsb-thread-create-btn {
-  justify-content: center;
   flex: 1 1 auto;
   width: auto;
   min-width: 0;
-  border-color: color-mix(in srgb, var(--accent) 34%, var(--left-rail-divider-strong) 66%);
-  background: color-mix(in srgb, var(--accent) 14%, var(--lsb-surface-color) 86%);
+  border-color: color-mix(in srgb, var(--lsb-accent) 38%, var(--lsb-control-border) 62%);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--lsb-surface-raised) 88%, transparent),
+      color-mix(in srgb, var(--lsb-surface-active) 92%, transparent)
+    ),
+    var(--lsb-surface-active);
 }
 
-.lsb-thread-refresh-btn,
 .lsb-icon-btn {
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
   padding: 0;
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--left-rail-divider-strong) 76%, transparent);
-  background: color-mix(in srgb, var(--lsb-surface-color) 76%, transparent);
-  color: var(--text-muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  color: var(--lsb-muted);
   cursor: pointer;
 }
 
 .lsb-icon-btn:hover:not(:disabled) {
-  color: var(--text);
-  border-color: color-mix(in srgb, var(--accent) 34%, var(--left-rail-divider-strong) 66%);
-  background: var(--left-rail-section-hover);
+  color: var(--lsb-text);
+  border-color: var(--lsb-control-border-hover);
+  background: var(--lsb-control-bg-hover);
+}
+
+.lsb-icon-btn:disabled {
+  cursor: default;
+  opacity: 0.62;
 }
 
 .lsb-icon-btn svg {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   stroke-width: 2.2;
 }
 
-.lsb-section-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.lsb-scroll {
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 10px 5px 14px;
-  display: grid;
-  gap: 8px;
-  align-content: start;
-}
-
-.lsb-pane-subtitle {
-  padding: 0 10px 8px;
-  font-size: 11px;
-  line-height: 1.35;
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .lsb-head-badges {
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
@@ -127,151 +147,147 @@
 .lsb-head-badge,
 .lsb-badge {
   flex: 0 0 auto;
-  min-height: 22px;
-  padding: 0 8px;
-  border-radius: 6px;
-  border: 1px solid color-mix(in srgb, var(--left-rail-divider-strong) 72%, transparent);
-  background: color-mix(in srgb, var(--lsb-surface-color) 88%, transparent);
-  font-size: 11px;
-  font-weight: 650;
-  line-height: 20px;
-  color: var(--text-muted);
+  min-height: 21px;
+  padding: 0 7px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  color: var(--lsb-muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 19px;
   white-space: nowrap;
+  letter-spacing: 0;
 }
 
 .lsb-head-badge.is-accent,
 .lsb-badge.is-main {
-  border-color: color-mix(in srgb, var(--border-accent, var(--accent-soft)) 44%, transparent);
-  background: var(--left-rail-section-active);
-  color: color-mix(in srgb, var(--text) 94%, transparent);
+  border-color: color-mix(in srgb, var(--lsb-accent) 42%, transparent);
+  background: color-mix(in srgb, var(--lsb-accent) 12%, var(--lsb-control-bg) 88%);
+  color: color-mix(in srgb, var(--lsb-text) 94%, var(--lsb-accent) 6%);
 }
 
 .lsb-head-badge.is-success {
-  border-color: var(--border-success);
-  background: var(--bg-success-soft);
-  color: var(--fg-success);
+  border-color: color-mix(in srgb, var(--success) 42%, transparent);
+  background: color-mix(in srgb, var(--success) 13%, var(--lsb-control-bg) 87%);
+  color: var(--fg-success, var(--success));
 }
 
 .lsb-search {
   width: 100%;
-  min-height: 40px;
+  min-height: 36px;
+  padding: 0 9px;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 10px;
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--left-rail-divider-strong) 72%, transparent);
-  background: color-mix(in srgb, var(--lsb-surface-color) 88%, transparent);
-  transition:
-    border-color 140ms ease,
-    box-shadow 140ms ease;
 }
 
 .lsb-search:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 48%, transparent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 16%, transparent);
+  border-color: var(--lsb-control-border-hover);
+  box-shadow: var(--lsb-focus);
 }
 
 .lsb-search-icon {
-  width: 14px;
-  height: 14px;
-  stroke-width: 2.2;
-  color: color-mix(in srgb, var(--text-muted) 74%, transparent);
+  width: 15px;
+  height: 15px;
   flex: 0 0 auto;
+  color: var(--lsb-muted);
+  stroke-width: 2.2;
 }
 
 .lsb-search-input {
   width: 100%;
   min-width: 0;
   border: 0;
+  outline: 0;
   background: transparent;
-  outline: none;
-  color: var(--text);
+  color: var(--lsb-text);
   font-size: 12px;
+  font-weight: 620;
   line-height: 1.25;
 }
 
 .lsb-search-input::placeholder {
-  color: color-mix(in srgb, var(--text-muted) 66%, transparent);
+  color: color-mix(in srgb, var(--lsb-muted) 72%, transparent);
 }
 
 .lsb-search-clear {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
   padding: 0;
-  border-radius: 6px;
   border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-muted);
+  border-radius: var(--lsb-radius-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  background: transparent;
+  color: var(--lsb-muted);
   cursor: pointer;
 }
 
 .lsb-search-clear:hover:not(:disabled) {
-  background: var(--left-rail-section-hover);
-  color: var(--text);
+  background: var(--lsb-surface-hover);
+  color: var(--lsb-text);
 }
 
 .lsb-search-clear svg {
   width: 14px;
   height: 14px;
-  stroke-width: 2.4;
+  stroke-width: 2.3;
 }
 
 .lsb-thread-groups,
 .lsb-group-body {
+  min-width: 0;
   display: grid;
-  gap: 8px;
+  gap: 7px;
 }
 
 .lsb-empty {
   padding: 12px;
-  border-radius: 8px;
-  border: 1px dashed color-mix(in srgb, var(--left-rail-divider-strong) 88%, transparent);
-  background: color-mix(in srgb, var(--lsb-surface-color) var(--lsb-body-mix), transparent);
-  color: var(--text-muted);
-}
-
-.lsb-thread-empty {
   display: grid;
   gap: 10px;
   align-content: start;
+  color: var(--lsb-muted);
   text-align: center;
+  border-style: dashed;
+  background: color-mix(in srgb, var(--lsb-control-bg) 82%, transparent);
+}
+
+.lsb-thread-empty {
+  min-height: 88px;
 }
 
 .lsb-section {
+  min-width: 0;
   display: grid;
   gap: 6px;
-  min-width: 0;
 }
 
 .lsb-group-head {
+  min-width: 0;
+  min-height: 30px;
+  padding: 0 2px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  min-height: 30px;
-  padding: 0 8px;
-  border-radius: 8px;
-  color: var(--text-muted);
+  color: var(--lsb-muted);
 }
 
 .lsb-group-head-toggle {
   width: 100%;
   border: 0;
+  border-radius: var(--lsb-radius-sm);
   background: transparent;
   cursor: pointer;
   text-align: left;
 }
 
 .lsb-group-head-toggle:hover {
-  background: var(--left-rail-section-hover);
-  color: var(--text);
+  color: var(--lsb-text);
+  background: var(--lsb-surface-hover);
 }
 
 .lsb-group-head-left {
@@ -286,6 +302,7 @@
   width: 15px;
   height: 15px;
   flex: 0 0 auto;
+  color: currentColor;
 }
 
 .lsb-chevron {
@@ -301,8 +318,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: currentColor;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 720;
+  line-height: 1.2;
+  letter-spacing: 0;
 }
 
 .lsb-thread-row {
@@ -318,43 +338,45 @@
 }
 
 .lsb-thread-toggle-spacer {
-  width: 0;
+  width: calc(var(--lsb-thread-depth, 0) * 12px);
   height: 1px;
 }
 
 .lsb-thread-item {
   position: relative;
   min-width: 0;
-  min-height: 52px;
+  min-height: 48px;
+  padding: 8px 8px 8px 11px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
-  padding: 8px 8px 8px 12px;
-  border-radius: 8px;
-  border: 1px solid transparent;
+  gap: 9px;
+  color: var(--lsb-text);
   background: transparent;
-  color: var(--text);
+  border-color: transparent;
   cursor: pointer;
-  transition:
-    border-color 140ms ease,
-    background 140ms ease,
-    box-shadow 140ms ease;
-}
-
-.lsb-thread-row.active .lsb-thread-item {
-  border-color: color-mix(in srgb, var(--accent) 52%, transparent);
-  background: color-mix(in srgb, var(--accent) 13%, var(--lsb-surface-color) 87%);
-  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .lsb-thread-item:hover {
-  border-color: color-mix(in srgb, var(--accent) 26%, transparent);
-  background: var(--left-rail-section-hover);
+  border-color: color-mix(in srgb, var(--lsb-accent) 24%, transparent);
+  background: var(--lsb-surface-hover);
+}
+
+.lsb-thread-row.active .lsb-thread-item {
+  border-color: color-mix(in srgb, var(--lsb-accent) 48%, transparent);
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--lsb-accent) 13%, transparent),
+      color-mix(in srgb, var(--lsb-surface-active) 92%, transparent)
+    ),
+    var(--lsb-surface-active);
+  box-shadow: var(--lsb-active-shadow);
 }
 
 .lsb-thread-title {
   min-width: 0;
+  overflow: hidden;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -367,26 +389,35 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: color-mix(in srgb, var(--lsb-text) 88%, var(--lsb-muted) 12%);
   font-size: 13px;
-  font-weight: 620;
+  font-weight: 660;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.lsb-thread-row.active .lsb-thread-title-text {
+  color: var(--lsb-text);
+  font-weight: 760;
 }
 
 .lsb-thread-title-input {
   min-width: 0;
   width: 100%;
-  border: 1px solid var(--border-accent);
-  border-radius: 6px;
-  background: var(--input-bg);
-  color: var(--input-text);
-  padding: 4px 6px;
-  outline: none;
+  min-height: 28px;
+  padding: 4px 7px;
+  outline: 0;
+  color: var(--input-text, var(--lsb-text));
+  background: var(--input-bg, var(--lsb-bg-strong));
 }
 
 .lsb-thread-right {
-  display: inline-flex;
+  min-width: max-content;
+  display: inline-grid;
+  grid-template-columns: 16px minmax(24px, auto) 24px;
   align-items: center;
-  gap: 7px;
-  color: var(--text-muted);
+  gap: 6px;
+  color: var(--lsb-muted);
 }
 
 .lsb-thread-status {
@@ -410,22 +441,44 @@
 }
 
 .lsb-thread-attention-btn {
-  border: 0;
-  background: transparent;
+  width: 18px;
+  height: 18px;
   padding: 0;
+  border: 0;
+  border-radius: var(--lsb-radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
   color: inherit;
+  cursor: pointer;
+}
+
+.lsb-thread-attention-btn:hover {
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
 }
 
 .lsb-thread-time {
+  overflow: hidden;
+  color: var(--lsb-muted);
   font-size: 11px;
+  font-weight: 650;
+  line-height: 1;
+  text-align: right;
   white-space: nowrap;
 }
 
 .lsb-delete {
-  width: 17px;
-  height: 17px;
+  width: 24px;
+  height: 24px;
   min-width: 24px;
+  border-radius: var(--lsb-radius-sm);
   opacity: 0;
+}
+
+.lsb-delete svg {
+  width: 13px;
+  height: 13px;
 }
 
 .lsb-thread-item:hover .lsb-delete,
@@ -447,223 +500,34 @@
   }
 }
 
+@media (max-width: 1500px) {
+  .lsb-thread-item {
+    min-height: 46px;
+  }
+
+  .lsb-nav-row,
+  .lsb-icon-btn,
+  .lsb-search {
+    min-height: 34px;
+  }
+
+  .lsb-icon-btn {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lsb-nav-row,
+  .lsb-icon-btn,
+  .lsb-search-clear,
   .lsb-thread-item,
-  .lsb-chevron {
-    transition: none;
-  }
-
+  .lsb-group-head-toggle,
+  .lsb-thread-attention-btn,
+  .lsb-chevron,
   .spin {
+    transition: none;
     animation: none;
   }
-}
-
-/* Reference restoration: thread list density, teal selection, and dark controls. */
-.lsb-pane-frame[data-pane="threads"] .lsb-nav-row {
-  min-height: 36px;
-  border-radius: 7px;
-  border: 1px solid color-mix(in srgb, var(--lsb-reference-accent) 34%, var(--border) 66%);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--lsb-reference-surface-strong) 76%, transparent),
-    color-mix(in srgb, var(--lsb-reference-surface) 84%, transparent)
-  );
-  color: var(--lsb-reference-text);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--text) 12%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--lsb-reference-accent) 8%, transparent),
-    0 8px 18px color-mix(in srgb, var(--shadow-color) 14%, transparent);
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-thread-create-btn {
-  justify-content: center;
-  min-height: 36px;
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-nav-icon {
-  width: 16px;
-  height: 16px;
-  color: var(--lsb-reference-text);
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-nav-text {
-  color: var(--lsb-reference-text);
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-thread-refresh-btn,
-.lsb-pane-frame[data-pane="threads"] .lsb-icon-btn {
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  border-radius: 7px;
-  border: 1px solid var(--lsb-reference-control-border);
-  background: var(--lsb-reference-control-bg);
-  color: var(--lsb-reference-muted);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 5%, transparent);
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-thread-refresh-btn svg {
-  width: 17px;
-  height: 17px;
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-search {
-  min-height: 34px;
-  padding: 0 10px;
-  border-radius: 7px;
-  border: 1px solid var(--lsb-reference-control-border);
-  background: color-mix(in srgb, var(--lsb-reference-control-bg) 86%, transparent);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 4%, transparent);
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-search-icon {
-  width: 16px;
-  height: 16px;
-  color: var(--lsb-reference-muted);
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-search-input {
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-scroll {
-  padding: 6px 14px 20px;
-  gap: 8px;
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-thread-groups,
-.lsb-pane-frame[data-pane="threads"] .lsb-group-body {
-  gap: 6px;
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-section {
-  gap: 6px;
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-group-head {
-  min-height: 30px;
-  padding: 0 0;
-  border-radius: 8px;
-  color: var(--lsb-reference-muted);
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-group-head-toggle:hover {
-  background: transparent;
-  color: var(--text);
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-group-head-left {
-  gap: 8px;
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-group-icon,
-.lsb-pane-frame[data-pane="threads"] .lsb-chevron {
-  width: 15px;
-  height: 15px;
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-group-icon {
-  color: var(--lsb-reference-muted);
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-section:has(.lsb-thread-row.active) .lsb-group-icon {
-  color: var(--lsb-reference-accent);
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-group-title {
-  color: var(--lsb-reference-muted);
-  font-size: 14px;
-  font-weight: 760;
-  letter-spacing: -0.02em;
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-thread-row-shell {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-thread-toggle-spacer {
-  display: none;
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-thread-item {
-  min-height: 38px;
-  padding: 7px 10px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text);
-  gap: 10px;
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-thread-row.active .lsb-thread-item {
-  border-color: color-mix(in srgb, var(--lsb-reference-accent) 50%, transparent);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--lsb-reference-surface-strong) 70%, transparent),
-    color-mix(in srgb, var(--lsb-reference-surface) 78%, transparent)
-  );
-  box-shadow:
-    inset 3px 0 0 var(--lsb-reference-accent),
-    0 0 0 1px color-mix(in srgb, var(--lsb-reference-accent) 8%, transparent);
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-thread-item:hover {
-  border-color: color-mix(in srgb, var(--lsb-reference-accent) 24%, transparent);
-  background: color-mix(in srgb, var(--lsb-reference-accent) 8%, transparent);
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-thread-title-text {
-  color: var(--lsb-reference-muted);
-  font-size: 14px;
-  font-weight: 760;
-  letter-spacing: -0.025em;
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-thread-row.active .lsb-thread-title-text {
-  color: var(--lsb-reference-text);
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-thread-right {
-  gap: 7px;
-  color: var(--lsb-reference-muted);
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-thread-time {
-  min-width: 24px;
-  color: var(--lsb-reference-muted);
-  font-size: 12px;
-  font-weight: 760;
-  text-align: right;
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-delete {
-  width: 17px;
-  height: 17px;
-  min-width: 24px;
-  color: var(--lsb-reference-muted);
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-head-badge,
-.lsb-pane-frame[data-pane="threads"] .lsb-badge {
-  min-height: 24px;
-  padding: 0 9px;
-  border-radius: 8px;
-  border-color: var(--lsb-reference-control-border);
-  background: var(--lsb-reference-control-bg);
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 780;
-}
-
-.lsb-pane-frame[data-pane="threads"] .lsb-head-badge.is-success {
-  border-color: color-mix(in srgb, var(--lsb-reference-accent) 20%, transparent);
-  background: color-mix(in srgb, var(--lsb-reference-accent) 14%, var(--surface-1) 86%);
-  color: var(--text);
 }

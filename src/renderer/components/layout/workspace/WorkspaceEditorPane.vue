@@ -92,16 +92,16 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import type { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { ChevronRight, FileText, X } from "lucide-vue-next";
-import { basenameFromPath } from "../../domain/workspaceFiles";
-import { normalizeAbsoluteFsPath } from "../../domain/workspacePath";
-import { useWorkspaceFilesStore } from "../../stores/workspaceFiles.store";
+import { basenameFromPath } from "../../../domain/workspaceFiles";
+import { normalizeAbsoluteFsPath } from "../../../domain/workspacePath";
+import { useWorkspaceFilesStore } from "../../../stores/workspaceFiles.store";
 import {
   createWorkspaceEditorState,
   getLanguageDisplayNameForPath,
   getCachedLanguageSupportForPath,
   loadLanguageSupportForPath,
   reconfigureWorkspaceEditorLanguage,
-} from "../../ui/codeEditor";
+} from "../../../ui/codeEditor";
 
 const workspaceFilesStore = useWorkspaceFilesStore();
 const editorHostRef = ref<HTMLDivElement | null>(null);

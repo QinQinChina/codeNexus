@@ -23,9 +23,11 @@
         class="workspace-editor-pane-host"
         :class="{ 'is-compact': isEditorCompact }"
       />
-      <DebugTimelineSidebar v-if="showDebugSidebar" class="files-pane-host" />
-      <ImageSettingsSidebar v-else-if="showImageSettingsSidebar" class="files-pane-host" />
-      <WorkspaceFilesSidebar v-else-if="showFilesSidebar" class="files-pane-host" />
+      <Transition name="side-pane-switch" mode="out-in">
+        <DebugTimelineSidebar v-if="showDebugSidebar" key="debug" class="files-pane-host" />
+        <ImageSettingsSidebar v-else-if="showImageSettingsSidebar" key="image-settings" class="files-pane-host" />
+        <WorkspaceFilesSidebar v-else-if="showFilesSidebar" key="files" class="files-pane-host" />
+      </Transition>
 
       <div
         v-if="!settingsOpen && showLeftSidebar"
@@ -249,6 +251,7 @@ const leftSashAriaLabel = computed(() => {
 const mainClass = computed(() => ({
   "has-editor": !settingsOpen.value && showEditorPane.value,
   "has-files-sidebar": showFilesSidebar.value || showDebugSidebar.value || showImageSettingsSidebar.value,
+  "has-image-sidebar": showImageSettingsSidebar.value,
   "has-settings": settingsOpen.value,
 }));
 

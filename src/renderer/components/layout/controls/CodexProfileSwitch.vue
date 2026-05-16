@@ -1,10 +1,10 @@
 <template>
-  <div class="topbar-profile-switch" :title="switchTitle">
-    <Bot class="topbar-profile-icon" aria-hidden="true" />
+  <div class="codex-profile-switch" :title="switchTitle">
+    <Bot class="codex-profile-switch__icon" aria-hidden="true" />
     <SelectDropdown
       v-if="profilesStore.profiles.length > 0"
-      id="topbar-codex-profile-select"
-      class="topbar-profile-select"
+      id="codex-profile-select"
+      class="codex-profile-switch__select"
       :modelValue="selectedValue"
       :options="profileOptions"
       :disabled="selectDisabled"
@@ -12,10 +12,13 @@
       :minPopoverWidth="220"
       @update:modelValue="onSelectProfile"
     />
-    <button v-else class="topbar-profile-empty" type="button" @click="openProfileSettings">
-      模型配置
-    </button>
-    <button class="btn-icon topbar-profile-settings" type="button" title="管理模型配置" @click="openProfileSettings">
+    <button v-else class="codex-profile-switch__empty" type="button" @click="openProfileSettings">模型配置</button>
+    <button
+      class="btn-icon codex-profile-switch__settings"
+      type="button"
+      title="管理模型配置"
+      @click="openProfileSettings"
+    >
       <Settings2 aria-hidden="true" />
     </button>
   </div>
@@ -75,7 +78,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.topbar-profile-switch {
+.codex-profile-switch {
   min-width: 0;
   width: min(420px, 100%);
   display: inline-flex;
@@ -84,20 +87,20 @@ onMounted(() => {
   gap: 6px;
   padding: 2px 3px 2px 8px;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--topbar-border) 70%, transparent);
-  background: color-mix(in srgb, var(--topbar-control-bg, var(--topbar-bg)) 86%, transparent);
+  border: 1px solid color-mix(in srgb, var(--panel-border, var(--border)) 70%, transparent);
+  background: color-mix(in srgb, var(--panel-bg, var(--surface-1)) 86%, transparent);
   -webkit-app-region: no-drag;
 }
 
-.topbar-profile-icon {
+.codex-profile-switch__icon {
   width: 15px;
   height: 15px;
   stroke-width: 2.1;
-  color: var(--topbar-text-muted);
+  color: var(--text-muted);
   flex: 0 0 auto;
 }
 
-.topbar-profile-select {
+.codex-profile-switch__select {
   min-width: 160px;
   max-width: min(300px, 36vw);
   height: 26px;
@@ -105,34 +108,34 @@ onMounted(() => {
   border-radius: 5px;
   border-color: transparent;
   background: transparent;
-  color: var(--topbar-text);
+  color: var(--text);
 }
 
-.topbar-profile-empty {
+.codex-profile-switch__empty {
   min-width: 94px;
   height: 26px;
   border-radius: 5px;
-  color: var(--topbar-text);
+  color: var(--text);
 }
 
-.topbar-profile-settings {
+.codex-profile-switch__settings {
   width: 26px;
   min-width: 26px;
   height: 24px;
   border-radius: 5px;
 }
 
-.topbar-profile-settings :deep(svg) {
+.codex-profile-switch__settings :deep(svg) {
   width: 14px;
   height: 14px;
 }
 
 @media (max-width: 860px) {
-  .topbar-profile-switch {
+  .codex-profile-switch {
     max-width: 240px;
   }
 
-  .topbar-profile-select {
+  .codex-profile-switch__select {
     max-width: 170px;
   }
 }

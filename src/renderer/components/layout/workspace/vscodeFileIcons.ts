@@ -1,26 +1,4 @@
-<template>
-  <template v-if="theme === 'vscode-icons'">
-    <Icon
-      :icon="vscodeIcon"
-      class="workspace-file-tree-row__icon workspace-file-tree-row__icon--vscode"
-      aria-hidden="true"
-    />
-  </template>
-  <template v-else-if="isDirectory">
-    <FolderOpen
-      v-if="isExpanded"
-      class="workspace-file-tree-row__icon workspace-file-tree-row__icon--folder"
-      aria-hidden="true"
-    />
-    <Folder v-else class="workspace-file-tree-row__icon workspace-file-tree-row__icon--folder" aria-hidden="true" />
-  </template>
-  <FileText v-else class="workspace-file-tree-row__icon workspace-file-tree-row__icon--file" aria-hidden="true" />
-</template>
-
-<script setup lang="ts">
-import { computed } from "vue";
-import { FileText, Folder, FolderOpen } from "lucide-vue-next";
-import { Icon, type IconifyIcon } from "@iconify/vue";
+import type { IconifyIcon } from "@iconify/vue";
 import defaultFileIcon from "@iconify/icons-vscode-icons/default-file";
 import defaultFolderIcon from "@iconify/icons-vscode-icons/default-folder";
 import defaultFolderOpenedIcon from "@iconify/icons-vscode-icons/default-folder-opened";
@@ -59,19 +37,6 @@ import fileTypeVueIcon from "@iconify/icons-vscode-icons/file-type-vue";
 import fileTypeXmlIcon from "@iconify/icons-vscode-icons/file-type-xml";
 import fileTypeYamlIcon from "@iconify/icons-vscode-icons/file-type-yaml";
 import fileTypeZipIcon from "@iconify/icons-vscode-icons/file-type-zip";
-import type { UiWorkspaceFileIconTheme } from "../../../shared/localSettings";
-
-const props = withDefaults(
-  defineProps<{
-    path: string;
-    isDirectory: boolean;
-    isExpanded?: boolean;
-    theme: UiWorkspaceFileIconTheme;
-  }>(),
-  {
-    isExpanded: false,
-  }
-);
 
 const FILE_NAME_ICONS: Record<string, IconifyIcon> = {
   ".dockerignore": fileTypeDockerIcon,
@@ -155,8 +120,10 @@ function resolveVscodeFileIcon(pathValue: string): IconifyIcon {
   return EXTENSION_ICONS[extension] ?? defaultFileIcon;
 }
 
-const vscodeIcon = computed(() => {
-  if (props.isDirectory) return props.isExpanded ? defaultFolderOpenedIcon : defaultFolderIcon;
-  return resolveVscodeFileIcon(props.path);
-});
-</script>
+export function resolveVscodeEntryIcon(
+  pathValue: string,
+  options: { isDirectory: boolean; isExpanded?: boolean }
+): IconifyIcon {
+  if (options.isDirectory) return options.isExpanded ? defaultFolderOpenedIcon : defaultFolderIcon;
+  return resolveVscodeFileIcon(pathValue);
+}

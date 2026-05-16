@@ -22,14 +22,15 @@
                   :style="treeRowStyle(row)"
                   type="button"
                   role="treeitem"
-                  :draggable="!row.isDirectory"
+                  draggable="true"
                   :aria-level="row.depth + 1"
                   :aria-expanded="row.isDirectory ? String(row.isExpanded) : undefined"
                   :aria-selected="row.isActiveFile || row.isSelectedDirectory ? 'true' : 'false'"
-                  :title="row.isDirectory ? row.path : `${row.path}\n拖到聊天输入框可选择文件`"
+                  :title="`${row.path}\n拖到聊天输入框可选择${row.isDirectory ? '文件夹' : '文件'}`"
                   :data-tree-path="row.path"
                   @click="onOpenTreeRow(row)"
                   @dragstart="onTreeRowDragStart(row, $event)"
+                  @dragend="onTreeRowDragEnd"
                 >
                   <ChevronRight
                     v-if="row.isDirectory"
@@ -46,7 +47,6 @@
                     :path="row.path"
                     :isDirectory="row.isDirectory"
                     :isExpanded="row.isExpanded"
-                    :theme="appShellStore.workspaceFileIconTheme"
                   />
                   <span class="workspace-file-tree-row__label">{{ row.label }}</span>
                   <span v-if="row.isLoading" class="workspace-file-tree-row__meta">加载中</span>
@@ -76,15 +76,14 @@
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { ChevronRight } from "lucide-vue-next";
 import WorkspaceTreeEntryIcon from "./WorkspaceTreeEntryIcon.vue";
-import { useAppShellStore } from "../../stores/appShell.store";
-import { useWorkspaceFilesStore } from "../../stores/workspaceFiles.store";
-import { basenameFromPath } from "../../domain/workspaceFiles";
-import { normalizeAbsoluteFsPath } from "../../domain/workspacePath";
-import { writeWorkspaceFileDragData } from "../../domain/workspaceFileDrag";
+import { useWorkspaceFilesStore } from "../../../stores/workspaceFiles.store";
+import { basenameFromPath } from "../../../domain/workspaceFiles";
+import { normalizeAbsoluteFsPath } from "../../../domain/workspacePath";
+import { writeWorkspaceFileDragData } from "../../../domain/workspaceFileDrag";
 
-const appShellStore = useAppShellStore();
 const workspaceFilesStore = useWorkspaceFilesStore();
 const treeSurfaceRef = ref<HTMLElement | null>(null);
+const draggingTreePath = ref("");
 
 type TreeRow =
   | {
@@ -190,6 +189,7 @@ const treeRowClass = (row: Extract<TreeRow, { kind: "entry" }>) => {
     "is-file": !row.isDirectory,
     "is-active-file": row.isActiveFile,
     "is-selected-directory": row.isSelectedDirectory,
+    "is-drag-source": draggingTreePath.value === normalizeAbsoluteFsPath(row.path),
   };
 };
 
@@ -214,11 +214,14 @@ const onOpenTreeRow = (row: Extract<TreeRow, { kind: "entry" }>) => {
 };
 
 const onTreeRowDragStart = (row: Extract<TreeRow, { kind: "entry" }>, event: DragEvent) => {
-  if (row.isDirectory) {
-    event.preventDefault();
-    return;
-  }
-  writeWorkspaceFileDragData(event.dataTransfer, row.path);
+  draggingTreePath.value = normalizeAbsoluteFsPath(row.path);
+  writeWorkspaceFileDragData(event.dataTransfer, row.path, {
+    kind: row.isDirectory ? "directory" : "file",
+  });
+};
+
+const onTreeRowDragEnd = () => {
+  draggingTreePath.value = "";
 };
 
 function scrollActiveRowIntoView() {

@@ -182,8 +182,6 @@
   --ui-editor-green: color-mix(in srgb, var(--success) 82%, white 18%);
   --ui-editor-purple: color-mix(in srgb, var(--accent) 58%, var(--danger) 42%);
   --ui-editor-red: color-mix(in srgb, var(--danger) 88%, white 12%);
-  --ui-art-a: color-mix(in srgb, var(--accent) 44%, var(--success) 56%);
-  --ui-art-b: color-mix(in srgb, var(--accent) 48%, var(--danger) 52%);
 }
 
 :root[data-tone="light"] {

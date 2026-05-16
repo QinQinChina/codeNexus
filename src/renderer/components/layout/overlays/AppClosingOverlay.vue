@@ -75,13 +75,13 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { CheckCircle2 } from "lucide-vue-next";
-import type { AppClosingStep } from "../../../shared/ipc";
-import type { PlanStepState, TimelineEventItem, TurnPlanState } from "../../domain/types";
-import { isLocalThinkingEvent } from "../../features/timeline/renderModel/formatters";
-import { useAppClosingStore } from "../../stores/appClosing.store";
-import { useRuntimeStore } from "../../stores/runtime.store";
-import { useThreadStore } from "../../stores/thread.store";
-import { useTimelineStore } from "../../stores/timeline.store";
+import type { AppClosingStep } from "../../../../shared/ipc";
+import type { PlanStepState, TimelineEventItem, TurnPlanState } from "../../../domain/types";
+import { isLocalThinkingEvent } from "../../../features/timeline/renderModel/formatters";
+import { useAppClosingStore } from "../../../stores/appClosing.store";
+import { useRuntimeStore } from "../../../stores/runtime.store";
+import { useThreadStore } from "../../../stores/thread.store";
+import { useTimelineStore } from "../../../stores/timeline.store";
 
 const appClosingStore = useAppClosingStore();
 const runtimeStore = useRuntimeStore();

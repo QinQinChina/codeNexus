@@ -1,18 +1,32 @@
+/* Top bar foundation: shell, topbar-scoped controls, dropdown base, attention states. */
+
 .topbar {
+  --tb-line: var(--topbar-border);
+  --tb-line-strong: color-mix(in srgb, var(--topbar-border) 78%, var(--topbar-text) 10%);
+  --tb-bg: var(--topbar-bg);
+  --tb-bg-raised: color-mix(in srgb, var(--topbar-bg) 90%, var(--surface-1, var(--topbar-bg)) 10%);
+  --tb-control-bg: var(--topbar-control-bg, color-mix(in srgb, var(--topbar-bg) 84%, transparent));
+  --tb-control-hover: var(--topbar-hover-bg);
+  --tb-control-active: var(--topbar-active-bg);
+  --tb-control-border: var(--topbar-control-border, var(--topbar-border));
+  --tb-control-border-hover: color-mix(in srgb, var(--accent) 38%, var(--tb-control-border) 62%);
+  --tb-radius: 7px;
+  --tb-radius-sm: 5px;
+  --tb-focus: 0 0 0 2px color-mix(in srgb, var(--focus-ring, var(--accent-soft)) 84%, transparent);
   display: grid;
   align-items: center;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
   height: var(--topbar-h);
   padding: 0 calc(var(--topbar-px) + var(--window-controls-pad)) 0 var(--topbar-px);
-  border-bottom: 1px solid var(--topbar-border);
+  border-bottom: 1px solid var(--tb-line);
   background:
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--topbar-bg) 92%, var(--surface-1, var(--topbar-bg)) 8%),
-      color-mix(in srgb, var(--topbar-bg) 82%, var(--surface-2, var(--topbar-bg)) 18%)
+      color-mix(in srgb, var(--tb-bg-raised) 96%, transparent),
+      color-mix(in srgb, var(--tb-bg) 86%, var(--surface-2, var(--tb-bg)) 14%)
     ),
-    var(--topbar-bg);
+    var(--tb-bg);
   color: var(--topbar-text);
   -webkit-app-region: drag;
 }
@@ -21,68 +35,142 @@
   border-bottom-color: transparent;
 }
 
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.topbar button,
+.topbar a,
+.topbar input,
+.topbar select,
+.topbar textarea,
+.topbar-controls,
+.topbar .control-group {
+  -webkit-app-region: no-drag;
+}
+
+.topbar .dim {
+  color: var(--topbar-text-muted);
+}
+
+.topbar button {
+  min-width: 0;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--tb-radius-sm);
+  background: transparent;
+  color: var(--topbar-text);
+  letter-spacing: 0;
+}
+
+.topbar button:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--tb-control-hover);
+}
+
+.topbar button:active:not(:disabled) {
+  transform: translateY(0);
+  background: var(--tb-control-active);
+}
+
+.topbar button:focus-visible {
+  outline: none;
+  box-shadow: var(--tb-focus);
+}
+
+.topbar .btn-mini {
+  height: 26px;
+  padding: 0 9px;
+  border-radius: var(--tb-radius-sm);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.topbar .btn-icon {
+  width: 28px;
+  min-width: 28px;
+  height: 26px;
+  padding: 0;
+  border-radius: var(--tb-radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--topbar-text);
+}
+
+.topbar .btn-icon.is-active {
+  border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+  background: var(--topbar-btn-active-bg);
+  color: var(--topbar-btn-active-text);
+}
+
+.topbar .btn-icon:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--tb-control-hover);
+}
+
+.topbar .btn-icon.danger:hover:not(:disabled),
+.topbar .btn-icon.danger:active:not(:disabled) {
+  background: var(--bg-danger-soft);
+  color: var(--fg-danger);
+}
+
+.topbar .btn-icon svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.1;
+}
+
+.topbar-left {
+  grid-column: 1;
+  justify-self: start;
+  min-width: 0;
+  gap: 10px;
+}
+
+.topbar-controls {
+  grid-column: 3;
+  justify-self: end;
+  min-width: 0;
+  margin-left: 0;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: nowrap;
+  overflow: visible;
+}
+
+.topbar .control-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .topbar-dropdown {
   -webkit-app-region: no-drag;
   padding: var(--floating-padding);
-  border: 1px solid color-mix(in srgb, var(--topbar-dropdown-border, var(--floating-border)) 86%, transparent);
-  border-radius: var(--floating-radius);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--topbar-dropdown-bg, var(--panel-bg, var(--surface-1))) 94%, transparent),
-    color-mix(in srgb, var(--topbar-dropdown-bg, var(--card-bg, var(--surface-1))) 86%, transparent)
-  );
-  color: var(--topbar-dropdown-text);
-  color-scheme: var(--topbar-color-scheme, light);
   max-height: var(--topbar-dropdown-max-h);
   overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--topbar-dropdown-border, var(--floating-border)) 86%, transparent);
+  border-radius: var(--floating-radius);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--topbar-dropdown-bg, var(--panel-bg, var(--surface-1))) 94%, transparent),
+      color-mix(in srgb, var(--topbar-dropdown-bg, var(--card-bg, var(--surface-1))) 86%, transparent)
+    ),
+    var(--topbar-dropdown-bg-solid, var(--surface-1));
+  color: var(--topbar-dropdown-text);
+  color-scheme: var(--topbar-color-scheme, light);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--topbar-dropdown-text, var(--text)) 6%, transparent),
     0 0 0 1px color-mix(in srgb, var(--topbar-dropdown-border, var(--floating-border)) 10%, transparent);
   backdrop-filter: var(--floating-backdrop-filter);
   -webkit-backdrop-filter: var(--floating-backdrop-filter);
-}
-
-.topbar-dropdown-shell {
-  -webkit-app-region: no-drag;
-  position: absolute;
-  left: auto;
-  right: calc(var(--topbar-px) + var(--window-controls-pad));
-  top: calc(var(--topbar-h) + 10px);
-  width: var(--topbar-dropdown-w);
-  overflow: hidden;
-  border-radius: var(--floating-radius);
-  filter: drop-shadow(var(--topbar-dropdown-shadow, 0 16px 32px rgb(from var(--text) r g b / 0.12)));
-}
-
-.topbar-drop-enter-active,
-.topbar-drop-leave-active {
-  overflow: hidden;
-  transition:
-    max-height calc(var(--floating-enter-duration) + 20ms) var(--floating-enter-ease),
-    opacity var(--floating-enter-duration) var(--floating-exit-ease),
-    transform var(--floating-enter-duration) var(--floating-enter-ease);
-  will-change: max-height, opacity, transform;
-}
-
-.topbar-drop-enter-from,
-.topbar-drop-leave-to {
-  max-height: 0;
-  opacity: 0;
-  transform: translateY(-10px) scale(0.986);
-}
-
-.topbar-drop-enter-to,
-.topbar-drop-leave-from {
-  max-height: var(--topbar-dropdown-max-h);
-  opacity: 1;
-  transform: translateY(0);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .topbar-drop-enter-active,
-  .topbar-drop-leave-active {
-    transition: none;
-  }
 }
 
 .topbar-dropdown .btn-mini {
@@ -150,12 +238,12 @@
 }
 
 .skills-panel-title-text {
-  font-size: 13px;
-  font-weight: 650;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 13px;
+  font-weight: 650;
 }
 
 .skills-panel-title-subtext {
@@ -192,92 +280,6 @@
 .topbar-dropdown .skill-info-label {
   color: color-mix(in srgb, var(--topbar-dropdown-text, var(--text)) 56%, transparent);
 }
-.topbar button,
-.topbar a,
-.topbar input,
-.topbar select,
-.topbar textarea,
-.topbar-controls,
-.control-group {
-  -webkit-app-region: no-drag;
-}
-
-.topbar .dim {
-  color: var(--topbar-text-muted);
-}
-
-.topbar .control-group {
-  padding: 0 2px;
-  border: 0;
-  background: transparent;
-  border-radius: 0;
-  gap: 2px;
-}
-
-.topbar .control-group + .control-group {
-  margin-left: 0;
-  padding-left: 4px;
-  border-left: 1px solid var(--topbar-border);
-}
-
-.topbar button {
-  height: 24px;
-  padding: 0 8px;
-  border-radius: 2px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--topbar-text);
-}
-
-.topbar button:hover:not(:disabled) {
-  border-color: transparent;
-  background: var(--topbar-hover-bg);
-}
-
-.topbar button:active:not(:disabled) {
-  transform: translateY(0);
-  background: var(--topbar-active-bg);
-}
-
-.topbar .btn-mini {
-  height: 24px;
-  padding: 0 8px;
-  font-size: 12px;
-  border-radius: 2px;
-}
-
-.topbar .btn-icon {
-  width: 28px;
-  height: 24px;
-  border-radius: 2px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--topbar-text);
-}
-
-.topbar .btn-icon.is-active {
-  background: var(--topbar-btn-active-bg);
-  color: var(--topbar-btn-active-text);
-}
-
-.topbar .btn-icon:hover:not(:disabled) {
-  border-color: transparent;
-  background: var(--topbar-hover-bg);
-}
-
-.topbar .btn-icon.danger:hover:not(:disabled) {
-  background: var(--bg-danger-soft);
-}
-
-.topbar .btn-icon.danger:active:not(:disabled) {
-  background: var(--bg-danger-soft);
-}
-
-.topbar .btn-icon svg {
-  width: 16px;
-  height: 16px;
-  stroke-width: 2.1;
-}
 
 .attn-dot {
   width: 8px;
@@ -306,7 +308,7 @@
   border-color: color-mix(in srgb, var(--border-danger) 58%, transparent);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--bg-danger-soft) 72%, transparent), transparent),
-    var(--topbar-hover-bg);
+    var(--tb-control-hover);
 }
 
 .topbar .btn-icon.has-approval-dot::before,
@@ -322,6 +324,7 @@
 }
 
 .topbar .btn-icon.has-approval-dot::before {
+  z-index: 1;
   background: radial-gradient(
     circle,
     color-mix(in srgb, var(--border-danger-hover) 72%, white) 0%,
@@ -331,7 +334,6 @@
   box-shadow:
     0 0 0 2px var(--bg-danger-soft),
     0 0 14px rgb(from var(--danger) r g b / 0.34);
-  z-index: 1;
 }
 
 .topbar .btn-icon.has-approval-dot::after {
@@ -339,36 +341,6 @@
   transform: scale(1);
   opacity: 0;
   animation: attn-dot-beacon 1.8s cubic-bezier(0.2, 0, 0, 1) infinite;
-}
-
-@keyframes attn-breathe-danger {
-  0%,
-  100% {
-    box-shadow:
-      inset 0 0 0 1px color-mix(in srgb, var(--border-danger) 84%, transparent),
-      0 0 0 0 rgb(from var(--danger) r g b / 0),
-      0 8px 18px rgb(from var(--danger) r g b / 0.08);
-  }
-  50% {
-    box-shadow:
-      inset 0 0 0 1px var(--border-danger-hover),
-      0 0 0 5px color-mix(in srgb, var(--bg-danger-soft-hover) 88%, transparent),
-      0 10px 22px rgb(from var(--danger) r g b / 0.12);
-  }
-}
-
-@keyframes attn-dot-beacon {
-  0% {
-    transform: scale(0.9);
-    opacity: 0;
-  }
-  20% {
-    opacity: 0.52;
-  }
-  100% {
-    transform: scale(2.35);
-    opacity: 0;
-  }
 }
 
 .attn-breathe {
@@ -379,7 +351,7 @@
   border-color: var(--border-danger-hover);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--bg-danger-soft) 80%, transparent), transparent),
-    var(--topbar-hover-bg);
+    var(--tb-control-hover);
 }
 
 .topbar .btn-icon.attn-breathe:hover:not(:disabled) {
@@ -400,162 +372,47 @@
   color: color-mix(in srgb, var(--text) 78%, var(--fg-danger));
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .attn-breathe {
-    animation: none;
+@keyframes attn-breathe-danger {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--border-danger) 84%, transparent),
+      0 0 0 0 rgb(from var(--danger) r g b / 0),
+      0 8px 18px rgb(from var(--danger) r g b / 0.08);
   }
 
-  .topbar .btn-icon.has-approval-dot::after {
-    animation: none;
+  50% {
+    box-shadow:
+      inset 0 0 0 1px var(--border-danger-hover),
+      0 0 0 5px color-mix(in srgb, var(--bg-danger-soft-hover) 88%, transparent),
+      0 10px 22px rgb(from var(--danger) r g b / 0.12);
+  }
+}
+
+@keyframes attn-dot-beacon {
+  0% {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 0.52;
+  }
+
+  100% {
+    transform: scale(2.35);
     opacity: 0;
   }
 }
 
-.topbar-left {
-  grid-column: 1;
-  justify-self: start;
-  min-width: 0;
-  gap: 8px;
+@media (prefers-reduced-motion: reduce) {
+  .attn-breathe,
+  .topbar .btn-icon.has-approval-dot::after {
+    animation: none;
+  }
 }
 
-.row {
-  display: flex;
-  align-items: center;
-}
-
-.topbar-controls {
-  grid-column: 3;
-  justify-self: end;
-  min-width: 0;
-  margin-left: 0;
-  justify-content: flex-end;
-  gap: 2px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-}
-
-.topbar-center {
-  grid-column: 2;
-  justify-self: stretch;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.topbar-primary {
-  position: relative;
-  width: min(520px, 100%);
-  min-width: 0;
-  display: flex;
-  align-items: center;
-}
-
-.topbar .topbar-primary-btn {
-  width: 100%;
-  height: 32px;
-  border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--topbar-border) 68%, transparent);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--topbar-control-bg, var(--topbar-bg)) 82%, transparent),
-    color-mix(in srgb, var(--topbar-bg) 90%, transparent)
-  );
-  color: var(--topbar-text);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 0 36px 0 14px;
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 10%, transparent),
-    0 10px 24px color-mix(in srgb, rgb(from var(--text) r g b / 0.18) 10%, transparent);
-  transition:
-    background 150ms ease,
-    border-color 150ms ease,
-    box-shadow 180ms ease,
-    transform 120ms ease;
-}
-
-.topbar .topbar-primary-btn:hover:not(:disabled) {
-  border-color: color-mix(
-    in srgb,
-    var(--border-accent, var(--accent-soft, var(--topbar-border))) 34%,
-    var(--topbar-border) 66%
-  );
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--topbar-control-bg, var(--topbar-bg)) 90%, transparent),
-    color-mix(in srgb, var(--topbar-bg) 94%, transparent)
-  );
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 12%, transparent),
-    0 12px 28px color-mix(in srgb, rgb(from var(--text) r g b / 0.18) 14%, transparent);
-  transform: translateY(-0.5px);
-}
-
-.topbar .topbar-primary-btn:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.topbar-primary-icon {
-  width: 16px;
-  height: 16px;
-  stroke-width: 2.2;
-  color: var(--topbar-text-muted);
-  flex: 0 0 auto;
-}
-
-.topbar-primary-text {
-  min-width: 0;
-  font-size: 13px;
-  font-weight: 650;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.topbar-primary-refresh {
-  position: absolute;
-  top: 50%;
-  right: 4px;
-  transform: translateY(-50%);
-  width: 28px;
-  height: 28px;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--topbar-text);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.topbar-primary-refresh svg {
-  width: 16px;
-  height: 16px;
-  stroke-width: 2.1;
-}
-
-.topbar .topbar-primary-refresh:hover:not(:disabled) {
-  border-color: transparent;
-  background: var(--topbar-hover-bg);
-}
-
-.topbar .topbar-primary-refresh:active:not(:disabled) {
-  background: var(--topbar-active-bg);
-}
-
-.control-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px;
-  border-radius: 4px;
-  border: 1px solid var(--topbar-control-border);
-  background: var(--topbar-control-bg);
-}
-
+/* Shared app control baseline. Kept here to preserve current import order. */
 button,
 select,
 textarea {
@@ -571,12 +428,12 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background-image: none;
-  background-color: var(--button-bg);
-  border: 1px solid var(--button-border);
-  color: var(--button-text);
   padding: 0 12px;
+  border: 1px solid var(--button-border);
   border-radius: 3px;
+  background-color: var(--button-bg);
+  background-image: none;
+  color: var(--button-text);
   cursor: pointer;
   transition:
     border-color 0.15s ease,
@@ -585,9 +442,9 @@ button {
 }
 
 button:hover:not(:disabled) {
-  background-image: none;
   border-color: var(--button-border-hover);
   background-color: var(--button-bg-hover);
+  background-image: none;
   color: var(--button-text-hover, var(--button-text));
 }
 
@@ -596,18 +453,18 @@ button:active:not(:disabled) {
 }
 
 button:disabled {
-  opacity: 0.5;
   cursor: not-allowed;
+  opacity: 0.5;
 }
 
 select {
   min-width: 190px;
   padding: 0 10px;
-  border-radius: 3px;
   border: 1px solid var(--input-border, var(--border));
-  color: var(--input-text, var(--text));
+  border-radius: 3px;
   background-color: var(--input-bg);
   background-image: none;
+  color: var(--input-text, var(--text));
 }
 
 button:focus-visible,

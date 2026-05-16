@@ -50,10 +50,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { Blocks } from "lucide-vue-next";
-import { getRuntimeOrchestrator } from "../../domain/runtimeOrchestrator";
-import { useRuntimeStore } from "../../stores/runtime.store";
-import { useSkillsStore } from "../../stores/skills.store";
-import type { SkillState } from "../../domain/types";
+import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
+import { useRuntimeStore } from "../../../stores/runtime.store";
+import { useSkillsStore } from "../../../stores/skills.store";
+import type { SkillState } from "../../../domain/types";
 import SkillsList from "./SkillsList.vue";
 
 const emit = defineEmits<{

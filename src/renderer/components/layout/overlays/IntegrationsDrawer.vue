@@ -325,24 +325,24 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
-import { codexDesktop } from "../../api/codexDesktopClient";
-import McpResourcePanel from "../mcp/McpResourcePanel.vue";
-import DetailDisclosure from "../ui/DetailDisclosure.vue";
-import SkillsList from "./SkillsList.vue";
-import { getRuntimeOrchestrator } from "../../domain/runtimeOrchestrator";
-import { useRuntimeStore } from "../../stores/runtime.store";
-import { useAppShellStore } from "../../stores/appShell.store";
-import { useSkillsStore } from "../../stores/skills.store";
-import { useSkillsUiStore } from "../../stores/skillsUi.store";
-import { useMcpStore } from "../../stores/mcp.store";
-import { useMcpResourceStore } from "../../stores/mcpResource.store";
-import { useCodexSkillRootsStore } from "../../stores/codexSkillRoots.store";
-import type { McpServerState, SkillState } from "../../domain/types";
+import { codexDesktop } from "../../../api/codexDesktopClient";
+import McpResourcePanel from "../../mcp/McpResourcePanel.vue";
+import DetailDisclosure from "../../ui/DetailDisclosure.vue";
+import SkillsList from "../skills/SkillsList.vue";
+import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
+import { useRuntimeStore } from "../../../stores/runtime.store";
+import { useAppShellStore } from "../../../stores/appShell.store";
+import { useSkillsStore } from "../../../stores/skills.store";
+import { useSkillsUiStore } from "../../../stores/skillsUi.store";
+import { useMcpStore } from "../../../stores/mcp.store";
+import { useMcpResourceStore } from "../../../stores/mcpResource.store";
+import { useCodexSkillRootsStore } from "../../../stores/codexSkillRoots.store";
+import type { McpServerState, SkillState } from "../../../domain/types";
 import {
   normalizeCodexMcpServerId,
   type CodexMcpServerConfig,
   type CodexMcpTransport,
-} from "../../../shared/codexMcp";
+} from "../../../../shared/codexMcp";
 
 const runtime = getRuntimeOrchestrator();
 const runtimeStore = useRuntimeStore();
