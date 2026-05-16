@@ -6,6 +6,8 @@ import type {
 export type ServerRequestMethod = OfficialServerRequestMethod;
 export type ServerNotificationMethod = OfficialServerNotificationMethod;
 
+type AssertNever<T extends never> = T;
+
 export const SERVER_REQUEST_METHODS: readonly ServerRequestMethod[] = [
   "item/commandExecution/requestApproval",
   "item/fileChange/requestApproval",
@@ -27,6 +29,8 @@ export const SERVER_NOTIFICATION_METHODS: readonly ServerNotificationMethod[] = 
   "thread/closed",
   "skills/changed",
   "thread/name/updated",
+  "thread/goal/updated",
+  "thread/goal/cleared",
   "thread/tokenUsage/updated",
   "turn/started",
   "hook/started",
@@ -42,6 +46,8 @@ export const SERVER_NOTIFICATION_METHODS: readonly ServerNotificationMethod[] = 
   "item/agentMessage/delta",
   "item/plan/delta",
   "command/exec/outputDelta",
+  "process/outputDelta",
+  "process/exited",
   "item/commandExecution/outputDelta",
   "item/commandExecution/terminalInteraction",
   "item/fileChange/outputDelta",
@@ -53,6 +59,7 @@ export const SERVER_NOTIFICATION_METHODS: readonly ServerNotificationMethod[] = 
   "account/updated",
   "account/rateLimits/updated",
   "app/list/updated",
+  "remoteControl/status/changed",
   "externalAgentConfig/import/completed",
   "fs/changed",
   "item/reasoning/summaryTextDelta",
@@ -79,6 +86,16 @@ export const SERVER_NOTIFICATION_METHODS: readonly ServerNotificationMethod[] = 
   "windowsSandbox/setupCompleted",
   "account/login/completed",
 ];
+
+type MissingServerRequestMethods = Exclude<ServerRequestMethod, (typeof SERVER_REQUEST_METHODS)[number]>;
+type ExtraServerRequestMethods = Exclude<(typeof SERVER_REQUEST_METHODS)[number], ServerRequestMethod>;
+type MissingServerNotificationMethods = Exclude<ServerNotificationMethod, (typeof SERVER_NOTIFICATION_METHODS)[number]>;
+type ExtraServerNotificationMethods = Exclude<(typeof SERVER_NOTIFICATION_METHODS)[number], ServerNotificationMethod>;
+
+type _AssertNoMissingServerRequestMethods = AssertNever<MissingServerRequestMethods>;
+type _AssertNoExtraServerRequestMethods = AssertNever<ExtraServerRequestMethods>;
+type _AssertNoMissingServerNotificationMethods = AssertNever<MissingServerNotificationMethods>;
+type _AssertNoExtraServerNotificationMethods = AssertNever<ExtraServerNotificationMethods>;
 
 const SERVER_REQUEST_METHOD_SET = new Set<string>(SERVER_REQUEST_METHODS);
 const SERVER_NOTIFICATION_METHOD_SET = new Set<string>(SERVER_NOTIFICATION_METHODS);

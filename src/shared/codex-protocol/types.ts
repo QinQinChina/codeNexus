@@ -16,9 +16,6 @@ import type { CancelLoginAccountResponse } from "../../generated/codex-app-serve
 import type { ConfigReadResponse } from "../../generated/codex-app-server/v2/ConfigReadResponse";
 import type { ConfigRequirementsReadResponse } from "../../generated/codex-app-server/v2/ConfigRequirementsReadResponse";
 import type { ConfigWriteResponse } from "../../generated/codex-app-server/v2/ConfigWriteResponse";
-import type { DeviceKeyCreateResponse } from "../../generated/codex-app-server/v2/DeviceKeyCreateResponse";
-import type { DeviceKeyPublicResponse } from "../../generated/codex-app-server/v2/DeviceKeyPublicResponse";
-import type { DeviceKeySignResponse } from "../../generated/codex-app-server/v2/DeviceKeySignResponse";
 import type { ExperimentalFeatureEnablementSetResponse } from "../../generated/codex-app-server/v2/ExperimentalFeatureEnablementSetResponse";
 import type { ListMcpServerStatusResponse } from "../../generated/codex-app-server/v2/ListMcpServerStatusResponse";
 import type { AppsListResponse } from "../../generated/codex-app-server/v2/AppsListResponse";
@@ -42,21 +39,33 @@ import type { ExternalAgentConfigImportResponse } from "../../generated/codex-ap
 import type { FeedbackUploadResponse } from "../../generated/codex-app-server/v2/FeedbackUploadResponse";
 import type { GetAccountRateLimitsResponse } from "../../generated/codex-app-server/v2/GetAccountRateLimitsResponse";
 import type { GetAccountResponse } from "../../generated/codex-app-server/v2/GetAccountResponse";
+import type { HooksListResponse } from "../../generated/codex-app-server/v2/HooksListResponse";
 import type { LoginAccountResponse } from "../../generated/codex-app-server/v2/LoginAccountResponse";
 import type { LogoutAccountResponse } from "../../generated/codex-app-server/v2/LogoutAccountResponse";
 import type { MarketplaceAddResponse } from "../../generated/codex-app-server/v2/MarketplaceAddResponse";
 import type { MarketplaceRemoveResponse } from "../../generated/codex-app-server/v2/MarketplaceRemoveResponse";
+import type { MarketplaceUpgradeResponse } from "../../generated/codex-app-server/v2/MarketplaceUpgradeResponse";
 import type { MemoryResetResponse } from "../../generated/codex-app-server/v2/MemoryResetResponse";
 import type { McpServerOauthLoginResponse } from "../../generated/codex-app-server/v2/McpServerOauthLoginResponse";
 import type { McpResourceReadResponse } from "../../generated/codex-app-server/v2/McpResourceReadResponse";
 import type { McpServerRefreshResponse } from "../../generated/codex-app-server/v2/McpServerRefreshResponse";
 import type { McpServerToolCallResponse } from "../../generated/codex-app-server/v2/McpServerToolCallResponse";
 import type { ModelListResponse } from "../../generated/codex-app-server/v2/ModelListResponse";
+import type { ModelProviderCapabilitiesReadResponse } from "../../generated/codex-app-server/v2/ModelProviderCapabilitiesReadResponse";
 import type { MockExperimentalMethodResponse } from "../../generated/codex-app-server/v2/MockExperimentalMethodResponse";
 import type { PluginInstallResponse } from "../../generated/codex-app-server/v2/PluginInstallResponse";
 import type { PluginListResponse } from "../../generated/codex-app-server/v2/PluginListResponse";
 import type { PluginReadResponse } from "../../generated/codex-app-server/v2/PluginReadResponse";
+import type { PluginShareDeleteResponse } from "../../generated/codex-app-server/v2/PluginShareDeleteResponse";
+import type { PluginShareListResponse } from "../../generated/codex-app-server/v2/PluginShareListResponse";
+import type { PluginShareSaveResponse } from "../../generated/codex-app-server/v2/PluginShareSaveResponse";
+import type { PluginShareUpdateTargetsResponse } from "../../generated/codex-app-server/v2/PluginShareUpdateTargetsResponse";
+import type { PluginSkillReadResponse } from "../../generated/codex-app-server/v2/PluginSkillReadResponse";
 import type { PluginUninstallResponse } from "../../generated/codex-app-server/v2/PluginUninstallResponse";
+import type { ProcessKillResponse } from "../../generated/codex-app-server/v2/ProcessKillResponse";
+import type { ProcessResizePtyResponse } from "../../generated/codex-app-server/v2/ProcessResizePtyResponse";
+import type { ProcessSpawnResponse } from "../../generated/codex-app-server/v2/ProcessSpawnResponse";
+import type { ProcessWriteStdinResponse } from "../../generated/codex-app-server/v2/ProcessWriteStdinResponse";
 import type { ReviewStartResponse } from "../../generated/codex-app-server/v2/ReviewStartResponse";
 import type { SendAddCreditsNudgeEmailResponse } from "../../generated/codex-app-server/v2/SendAddCreditsNudgeEmailResponse";
 import type { SkillsConfigWriteResponse } from "../../generated/codex-app-server/v2/SkillsConfigWriteResponse";
@@ -67,6 +76,9 @@ import type { ThreadBackgroundTerminalsCleanResponse } from "../../generated/cod
 import type { ThreadCompactStartResponse } from "../../generated/codex-app-server/v2/ThreadCompactStartResponse";
 import type { ThreadDecrementElicitationResponse } from "../../generated/codex-app-server/v2/ThreadDecrementElicitationResponse";
 import type { ThreadForkResponse } from "../../generated/codex-app-server/v2/ThreadForkResponse";
+import type { ThreadGoalClearResponse } from "../../generated/codex-app-server/v2/ThreadGoalClearResponse";
+import type { ThreadGoalGetResponse } from "../../generated/codex-app-server/v2/ThreadGoalGetResponse";
+import type { ThreadGoalSetResponse } from "../../generated/codex-app-server/v2/ThreadGoalSetResponse";
 import type { ThreadIncrementElicitationResponse } from "../../generated/codex-app-server/v2/ThreadIncrementElicitationResponse";
 import type { ThreadInjectItemsResponse } from "../../generated/codex-app-server/v2/ThreadInjectItemsResponse";
 import type { ThreadListResponse } from "../../generated/codex-app-server/v2/ThreadListResponse";
@@ -84,15 +96,19 @@ import type { ThreadRollbackResponse } from "../../generated/codex-app-server/v2
 import type { ThreadSetNameResponse } from "../../generated/codex-app-server/v2/ThreadSetNameResponse";
 import type { ThreadShellCommandResponse } from "../../generated/codex-app-server/v2/ThreadShellCommandResponse";
 import type { ThreadStartResponse } from "../../generated/codex-app-server/v2/ThreadStartResponse";
+import type { ThreadTurnsItemsListResponse } from "../../generated/codex-app-server/v2/ThreadTurnsItemsListResponse";
 import type { ThreadTurnsListResponse } from "../../generated/codex-app-server/v2/ThreadTurnsListResponse";
 import type { ThreadUnarchiveResponse } from "../../generated/codex-app-server/v2/ThreadUnarchiveResponse";
 import type { ThreadUnsubscribeResponse } from "../../generated/codex-app-server/v2/ThreadUnsubscribeResponse";
 import type { TurnInterruptResponse } from "../../generated/codex-app-server/v2/TurnInterruptResponse";
 import type { TurnStartResponse } from "../../generated/codex-app-server/v2/TurnStartResponse";
 import type { TurnSteerResponse } from "../../generated/codex-app-server/v2/TurnSteerResponse";
+import type { WindowsSandboxReadinessResponse } from "../../generated/codex-app-server/v2/WindowsSandboxReadinessResponse";
 import type { WindowsSandboxSetupStartResponse } from "../../generated/codex-app-server/v2/WindowsSandboxSetupStartResponse";
 
 export type JsonRpcId = number | string;
+
+type AssertNever<T extends never> = T;
 
 type OfficialCodexRpcResultMap = {
   initialize: InitializeResponse;
@@ -111,6 +127,9 @@ type OfficialCodexRpcResultMap = {
   "thread/loaded/list": ThreadLoadedListResponse;
   "thread/increment_elicitation": ThreadIncrementElicitationResponse;
   "thread/decrement_elicitation": ThreadDecrementElicitationResponse;
+  "thread/goal/set": ThreadGoalSetResponse;
+  "thread/goal/get": ThreadGoalGetResponse;
+  "thread/goal/clear": ThreadGoalClearResponse;
   "thread/rollback": ThreadRollbackResponse;
   "thread/compact/start": ThreadCompactStartResponse;
   "thread/shellCommand": ThreadShellCommandResponse;
@@ -129,18 +148,23 @@ type OfficialCodexRpcResultMap = {
   "config/batchWrite": ConfigWriteResponse;
   "configRequirements/read": ConfigRequirementsReadResponse;
   "skills/list": SkillsListResponse;
+  "hooks/list": HooksListResponse;
   "skills/config/write": SkillsConfigWriteResponse;
   "marketplace/add": MarketplaceAddResponse;
   "marketplace/remove": MarketplaceRemoveResponse;
+  "marketplace/upgrade": MarketplaceUpgradeResponse;
   "plugin/list": PluginListResponse;
   "plugin/read": PluginReadResponse;
+  "plugin/skill/read": PluginSkillReadResponse;
+  "plugin/share/save": PluginShareSaveResponse;
+  "plugin/share/updateTargets": PluginShareUpdateTargetsResponse;
+  "plugin/share/list": PluginShareListResponse;
+  "plugin/share/delete": PluginShareDeleteResponse;
   "plugin/install": PluginInstallResponse;
   "plugin/uninstall": PluginUninstallResponse;
   "app/list": AppsListResponse;
-  "device/key/create": DeviceKeyCreateResponse;
-  "device/key/public": DeviceKeyPublicResponse;
-  "device/key/sign": DeviceKeySignResponse;
   "model/list": ModelListResponse;
+  "modelProvider/capabilities/read": ModelProviderCapabilitiesReadResponse;
   "experimentalFeature/list": ExperimentalFeatureListResponse;
   "experimentalFeature/enablement/set": ExperimentalFeatureEnablementSetResponse;
   "collaborationMode/list": CollaborationModeListResponse;
@@ -157,6 +181,10 @@ type OfficialCodexRpcResultMap = {
   "command/exec/write": CommandExecWriteResponse;
   "command/exec/terminate": CommandExecTerminateResponse;
   "command/exec/resize": CommandExecResizeResponse;
+  "process/spawn": ProcessSpawnResponse;
+  "process/writeStdin": ProcessWriteStdinResponse;
+  "process/kill": ProcessKillResponse;
+  "process/resizePty": ProcessResizePtyResponse;
   "fs/readFile": FsReadFileResponse;
   "fs/writeFile": FsWriteFileResponse;
   "fs/createDirectory": FsCreateDirectoryResponse;
@@ -175,6 +203,7 @@ type OfficialCodexRpcResultMap = {
   getAuthStatus: GetAuthStatusResponse;
   "mock/experimentalMethod": MockExperimentalMethodResponse;
   "windowsSandbox/setupStart": WindowsSandboxSetupStartResponse;
+  "windowsSandbox/readiness": WindowsSandboxReadinessResponse;
   "account/login/start": LoginAccountResponse;
   "account/login/cancel": CancelLoginAccountResponse;
   "account/logout": LogoutAccountResponse;
@@ -182,6 +211,7 @@ type OfficialCodexRpcResultMap = {
   "account/sendAddCreditsNudgeEmail": SendAddCreditsNudgeEmailResponse;
   "account/read": GetAccountResponse;
   "thread/turns/list": ThreadTurnsListResponse;
+  "thread/turns/items/list": ThreadTurnsItemsListResponse;
   "thread/inject_items": ThreadInjectItemsResponse;
 };
 
@@ -194,6 +224,11 @@ export type OfficialCodexServerRequest = ServerRequest;
 export type OfficialCodexServerNotification = ServerNotification;
 export type CodexServerRequestMessage = { kind: "request" } & ServerRequest;
 export type CodexServerNotificationMessage = { kind: "notification" } & ServerNotification;
+
+type MissingCodexRpcResultMethods = Exclude<CodexOfficialRpcMethod, keyof OfficialCodexRpcResultMap>;
+type ExtraCodexRpcResultMethods = Exclude<keyof OfficialCodexRpcResultMap, CodexOfficialRpcMethod>;
+type _AssertNoMissingCodexRpcResultMethods = AssertNever<MissingCodexRpcResultMethods>;
+type _AssertNoExtraCodexRpcResultMethods = AssertNever<ExtraCodexRpcResultMethods>;
 
 export type CodexRpcParams<M extends string> = M extends CodexOfficialRpcMethod
   ? Extract<ClientRequest, { method: M }> extends { params: infer P }
