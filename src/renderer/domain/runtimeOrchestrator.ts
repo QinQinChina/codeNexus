@@ -148,6 +148,7 @@ const HISTORY_REPLAY_TURN_SEGMENTS = 4;
 const TIMELINE_MAX_VISIBLE_TURNS = 16;
 const THREAD_METADATA_PAGE_SIZE = 200;
 const THREAD_CONTENT_CACHE_TTL_MS = 2000;
+const MCP_STATUS_REFRESH_DEBOUNCE_MS = 250;
 
 type ReplayBatchResult = {
   loaded: number;
@@ -314,6 +315,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   let latestSwitchThreadSeq = 0;
   const skillsSnapshotByWorkspace = new Map<string, SkillsSnapshot>();
   const mcpSnapshotByWorkspace = new Map<string, McpSnapshot>();
+  const mcpStatusRefreshTimersByWorkspace = new Map<string, ReturnType<typeof setTimeout>>();
+  const mcpStartupFailureToastKeys = new Set<string>();
   let globalConfigAutoLoadAttempted = false;
   const disposers: Array<() => void> = [];
 
@@ -1718,6 +1721,86 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       } else {
         mcpStore.setLoadState("error", msg);
         mcpStore.setStatusText("加载失败");
+      }
+    }
+  };
+
+  const scheduleMcpStatusRefresh = (workspacePathValue: string) => {
+    const workspace = normalizeWorkspacePath(workspacePathValue);
+    if (!workspace) return;
+    const existing = mcpStatusRefreshTimersByWorkspace.get(workspace);
+    if (existing) clearTimeout(existing);
+    const timer = setTimeout(() => {
+      mcpStatusRefreshTimersByWorkspace.delete(workspace);
+      if (normalizeWorkspacePath(runtimeStore.workspacePath) !== workspace) return;
+      if (!getServerIdForWorkspace(workspace)) return;
+      void refreshMcp();
+    }, MCP_STATUS_REFRESH_DEBOUNCE_MS);
+    mcpStatusRefreshTimersByWorkspace.set(workspace, timer);
+  };
+
+  const applyMcpStartupStatusNotification = (args: {
+    workspace: string;
+    name: string;
+    status: string;
+    error: string;
+  }) => {
+    const workspace = normalizeWorkspacePath(args.workspace);
+    const name = String(args.name ?? "").trim();
+    const status = String(args.status ?? "").trim();
+    const error = String(args.error ?? "").trim();
+    if (!workspace || !name || normalizeWorkspacePath(runtimeStore.workspacePath) !== workspace) return;
+
+    const current = mcpStore.servers;
+    const next = current.map((server) => {
+      if (server.id !== name) return server;
+      if (status === "starting") return { ...server, state: "connecting" as const, message: "启动中…" };
+      if (status === "ready") return { ...server, state: "connected" as const, message: server.message };
+      if (status === "failed") return { ...server, state: "error" as const, message: error || "failed" };
+      if (status === "cancelled") return { ...server, state: "error" as const, message: error || "cancelled" };
+      return server;
+    });
+
+    if (!next.some((server) => server.id === name)) {
+      next.push({
+        id: name,
+        enabled: true,
+        state:
+          status === "starting"
+            ? "connecting"
+            : status === "ready"
+              ? "connected"
+              : status === "failed" || status === "cancelled"
+                ? "error"
+                : "unknown",
+        message:
+          status === "starting"
+            ? "启动中…"
+            : status === "failed"
+              ? error || "failed"
+              : status === "cancelled"
+                ? error || "cancelled"
+                : undefined,
+        tools: [],
+        resources: [],
+        resourceTemplates: [],
+      });
+      next.sort((a, b) => a.id.localeCompare(b.id));
+    }
+
+    mcpStore.setServers(next);
+    mcpStore.setLoadState("ready");
+    mcpStore.setStatusText(next.length === 0 ? "暂无 MCP 配置" : `共 ${next.length} 个 MCP 服务器`);
+
+    if (status === "failed" || status === "cancelled") {
+      const toastKey = `${workspace}:${name}:${status}:${error}`;
+      if (!mcpStartupFailureToastKeys.has(toastKey)) {
+        mcpStartupFailureToastKeys.add(toastKey);
+        showToast({
+          kind: "error",
+          title: status === "failed" ? "MCP 启动失败" : "MCP 启动已取消",
+          message: error ? `${name}：${error}` : name,
+        });
       }
     }
   };
@@ -3717,6 +3800,37 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
           return;
         }
 
+        if (msg.method === "skills/changed") {
+          const eventServerId = normalizeWorkspacePath(payload?.serverId ?? "");
+          const workspace = normalizeWorkspacePath(
+            workspaceByServerId.get(eventServerId) ??
+              (eventServerId && eventServerId === runtimeStore.serverId ? runtimeStore.workspacePath : "")
+          );
+          if (workspace) invalidateSkillsSnapshot(workspace);
+          if (workspace && normalizeWorkspacePath(runtimeStore.workspacePath) === workspace) void refreshSkills(true);
+          return;
+        }
+
+        if (msg.method === "mcpServer/startupStatus/updated") {
+          const eventServerId = normalizeWorkspacePath(payload?.serverId ?? "");
+          const workspace = normalizeWorkspacePath(
+            workspaceByServerId.get(eventServerId) ??
+              (eventServerId && eventServerId === runtimeStore.serverId ? runtimeStore.workspacePath : "")
+          );
+          const params = (msg.params ?? {}) as Record<string, unknown>;
+          const name = String(params.name ?? "").trim();
+          const status = String(params.status ?? "").trim();
+          const error = String(params.error ?? "").trim();
+          if (workspace) {
+            invalidateMcpSnapshot(workspace);
+            applyMcpStartupStatusNotification({ workspace, name, status, error });
+            if (status === "ready" || status === "failed" || status === "cancelled") {
+              scheduleMcpStatusRefresh(workspace);
+            }
+          }
+          return;
+        }
+
         if (msg.method === "mcpServer/oauthLogin/completed") {
           const eventServerId = normalizeWorkspacePath(payload?.serverId ?? "");
           const workspace = normalizeWorkspacePath(workspaceByServerId.get(eventServerId) ?? "");
@@ -3785,6 +3899,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       try {
         runtimeStore.flushPendingComposeStateSaves();
       } catch {}
+      for (const timer of mcpStatusRefreshTimersByWorkspace.values()) clearTimeout(timer);
+      mcpStatusRefreshTimersByWorkspace.clear();
       for (const dispose of disposers) {
         try {
           dispose();

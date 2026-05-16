@@ -468,6 +468,10 @@ export function installEventPipeline(pinia: Pinia) {
         ? resolveId(threadStore.activeTurnIdByThread.get(effectiveThreadId))
         : "";
     const paramsText = toPrettyJson(params);
+    // Skills/MCP startup updates drive the integrations panel, not chat timeline content.
+    if (n.method === "skills/changed" || n.method === "mcpServer/startupStatus/updated") {
+      return;
+    }
     // 提取代理消息相关 ID
     const agentItemType = lifecycleItem?.type ?? "";
     const agentItemId = resolveId(lifecycleItem?.id, n.itemId);
