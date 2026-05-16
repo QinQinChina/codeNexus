@@ -65,14 +65,14 @@
       <span class="flex-none text-[var(--text-muted)]">{{ streamCountText }}</span>
     </div>
 
-    <div class="px-1.5 pb-1.5">
+    <div v-if="shouldShowDiffBody" class="px-1.5 pb-1.5">
       <UnifiedDiffViewer
-        v-if="file && file.diffText.trim()"
+        v-if="shouldShowDiffViewer && file"
         :diffText="file.diffText"
         :diffKey="file.pathAbs"
         :filePathHint="file.pathRelTo || file.pathRel || file.pathAbsTo || file.pathAbs"
         :fileKind="file.kind"
-        :maxHeightClass="diffMaxHeightClass"
+        maxHeightClass="max-h-[340px]"
         :wrapLines="wrapDiffLines"
         ariaLabel="diff-view"
       />
@@ -80,8 +80,7 @@
         v-else
         class="mono rounded-[4px] border border-[var(--ui-code-border)] bg-[var(--ui-code-bg)] p-1.5 text-[11px] text-[var(--ui-code-text-muted)]"
       >
-        <ExecutionWaveText v-if="isRunning" class="mono" text="正在修改文件…" />
-        <template v-else>{{ emptyText }}</template>
+        <ExecutionWaveText class="mono" text="正在修改文件…" />
       </div>
     </div>
   </div>
@@ -171,7 +170,13 @@ const isDiffExpanded = ref(false);
 
 const hasDiff = computed(() => Boolean(props.file?.diffText?.trim()));
 
-const diffMaxHeightClass = computed(() => (isDiffExpanded.value ? "max-h-[340px]" : "max-h-[150px]"));
+const isRunning = computed(() => Boolean(props.isRunning));
+
+const shouldShowDiffViewer = computed(() => hasDiff.value && isDiffExpanded.value);
+
+const shouldShowStreamingPlaceholder = computed(() => !hasDiff.value && isRunning.value);
+
+const shouldShowDiffBody = computed(() => shouldShowDiffViewer.value || shouldShowStreamingPlaceholder.value);
 
 const streamMetaText = computed(() => {
   if (props.isRunning) {
@@ -181,13 +186,6 @@ const streamMetaText = computed(() => {
   if (props.streamUpdateCount > 0 && props.statusText !== "已完成") return `${props.streamUpdateCount} 次更新`;
   return "";
 });
-
-const emptyText = computed(() => {
-  if (!props.file) return props.statusText === "进行中" ? "等待结构化文件变更内容…" : "暂无结构化文件变更内容";
-  return "暂无 diff 内容";
-});
-
-const isRunning = computed(() => Boolean(props.isRunning));
 
 const modeClass = computed(() => (props.mode === "chat" ? "file-change-card--chat" : "file-change-card--timeline"));
 

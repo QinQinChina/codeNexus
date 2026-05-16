@@ -1,4 +1,7 @@
 import type { McpResourceParameterEntry, McpServerState, TimelineEventItem } from "../../../domain/types";
+import type { FileUpdateChange } from "../../../../generated/codex-app-server/v2/FileUpdateChange";
+import type { PatchApplyStatus } from "../../../../generated/codex-app-server/v2/PatchApplyStatus";
+import type { PatchChangeKind } from "../../../../generated/codex-app-server/v2/PatchChangeKind";
 import { safeJsonStringify } from "../../../utils/safeJson";
 import {
   parseMcpResourceReadEvent,
@@ -993,38 +996,48 @@ const toWorkspaceRelativePath = (pathValue: string, workspaceRootValue: string):
   return path.slice(workspaceRoot.length).replace(/^\\+/, "") || ".";
 };
 
+const toPatchChangeKind = (raw: unknown): PatchChangeKind | null => {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const type = (raw as { type?: unknown }).type;
+  if (type === "add") return { type };
+  if (type === "delete") return { type };
+  if (type === "update") {
+    const movePathRaw = (raw as { move_path?: unknown }).move_path;
+    return { type, move_path: typeof movePathRaw === "string" ? movePathRaw : null };
+  }
+  return null;
+};
+
 const resolveFileChangeKind = (raw: unknown): FileChangeKind => {
-  const kindValue = raw && typeof raw === "object" ? (raw as any).type : raw;
-  const movePath = raw && typeof raw === "object" ? String((raw as any).move_path ?? "").trim() : "";
-  const normalized = String(kindValue ?? "")
-    .trim()
-    .toLowerCase();
-  if (!normalized) return "unknown";
-  if (movePath && normalized === "update") return "rename";
-  if (/(add|create|new)/.test(normalized)) return "add";
-  if (/(mod|edit|update|change)/.test(normalized)) return "modify";
-  if (/(del|remove)/.test(normalized)) return "delete";
-  if (/(rename|move)/.test(normalized)) return "rename";
-  if (normalized === "delete") return "delete";
-  if (normalized === "add") return "add";
-  if (normalized === "modify") return "modify";
-  if (normalized === "rename") return "rename";
+  const kind = toPatchChangeKind(raw);
+  if (!kind) return "unknown";
+  if (kind.type === "add") return "add";
+  if (kind.type === "delete") return "delete";
+  if (kind.type === "update") return String(kind.move_path ?? "").trim() ? "rename" : "modify";
   return "unknown";
 };
 
+const resolveFileChangeMovePath = (raw: unknown): string => {
+  const kind = toPatchChangeKind(raw);
+  if (kind?.type !== "update") return "";
+  return normalizeFsPath(String(kind.move_path ?? ""));
+};
+
+const toPatchApplyStatus = (raw: unknown): PatchApplyStatus | "" => {
+  if (raw === "inProgress" || raw === "completed" || raw === "failed" || raw === "declined") return raw;
+  return "";
+};
+
 const resolveFileChangeStatusFromRaw = (
-  statusRaw: string,
+  statusRaw: PatchApplyStatus | "",
   method: "item/started" | "item/completed" | "item/fileChange/patchUpdated",
   hasError: boolean
 ): FileChangeStatus => {
   if (hasError) return "failed";
-  const normalized = String(statusRaw ?? "")
-    .trim()
-    .toLowerCase();
-  if (/(declined|denied|declin|cancel|abort)/.test(normalized)) return "declined";
-  if (/(fail|error|timeout)/.test(normalized)) return "failed";
-  if (/(complete|success|done|succeed|finished)/.test(normalized)) return "completed";
-  if (/(inprogress|running|start|pending|queued)/.test(normalized)) return "running";
+  if (statusRaw === "declined") return "declined";
+  if (statusRaw === "failed") return "failed";
+  if (statusRaw === "completed") return "completed";
+  if (statusRaw === "inProgress") return "running";
   if (method === "item/started") return "running";
   if (method === "item/fileChange/patchUpdated") return "running";
   if (method === "item/completed") return "completed";
@@ -1035,10 +1048,29 @@ type ParsedFileChangeEvent = {
   itemId: string;
   turnId: string;
   method: "item/started" | "item/completed" | "item/fileChange/patchUpdated";
-  statusRaw: string;
+  statusRaw: PatchApplyStatus | "";
   changes: Array<{ pathAbs: string; pathAbsTo: string | null; kind: FileChangeKind; diffText: string }>;
   createdAt: number;
   hasError: boolean;
+};
+
+const parseOfficialFileUpdateChanges = (
+  changesRaw: unknown
+): Array<{ pathAbs: string; pathAbsTo: string | null; kind: FileChangeKind; diffText: string }> => {
+  if (!Array.isArray(changesRaw)) return [];
+  const changes: Array<{ pathAbs: string; pathAbsTo: string | null; kind: FileChangeKind; diffText: string }> = [];
+  for (const rawChange of changesRaw) {
+    if (!rawChange || typeof rawChange !== "object" || Array.isArray(rawChange)) continue;
+    const change = rawChange as Partial<FileUpdateChange>;
+    const pathAbs = normalizeFsPath(String(change.path ?? ""));
+    if (!pathAbs) continue;
+    const kindRaw = change.kind;
+    const kind = resolveFileChangeKind(kindRaw);
+    const pathAbsTo = resolveFileChangeMovePath(kindRaw);
+    const diffText = typeof change.diff === "string" ? change.diff : "";
+    changes.push({ pathAbs, pathAbsTo: pathAbsTo.trim() ? pathAbsTo : null, kind, diffText });
+  }
+  return changes;
 };
 
 const parseFileChangeEvent = (event: TimelineEventItem): ParsedFileChangeEvent | null => {
@@ -1049,25 +1081,12 @@ const parseFileChangeEvent = (event: TimelineEventItem): ParsedFileChangeEvent |
     const itemId = String(payload.itemId ?? "").trim();
     if (!itemId) return null;
     const turnId = String(payload.turnId ?? event.turnId ?? "").trim() || "unknown";
-    const changesRaw = Array.isArray(payload.changes) ? payload.changes : [];
-    const changes: Array<{ pathAbs: string; pathAbsTo: string | null; kind: FileChangeKind; diffText: string }> = [];
-    for (const change of changesRaw) {
-      if (!change || typeof change !== "object") continue;
-      const pathAbs = normalizeFsPath(String((change as any).path ?? ""));
-      if (!pathAbs) continue;
-      const kindRaw = (change as any).kind;
-      const kind = resolveFileChangeKind(kindRaw);
-      const pathAbsTo =
-        kindRaw && typeof kindRaw === "object" ? normalizeFsPath(String((kindRaw as any).move_path ?? "")) : "";
-      const diffText = typeof (change as any).diff === "string" ? (change as any).diff : "";
-      changes.push({ pathAbs, pathAbsTo: pathAbsTo.trim() ? pathAbsTo : null, kind, diffText });
-    }
     return {
       itemId,
       turnId,
       method: event.method,
-      statusRaw: "running",
-      changes,
+      statusRaw: "inProgress",
+      changes: parseOfficialFileUpdateChanges(payload.changes),
       createdAt: event.createdAt,
       hasError: false,
     };
@@ -1076,36 +1095,19 @@ const parseFileChangeEvent = (event: TimelineEventItem): ParsedFileChangeEvent |
   if (event.method !== "item/started" && event.method !== "item/completed") return null;
   const item = payload.item;
   if (!item || typeof item !== "object") return null;
-  const itemType = String((item as any).type ?? "")
-    .trim()
-    .toLowerCase();
-  if (itemType !== "filechange") return null;
+  if ((item as { type?: unknown }).type !== "fileChange") return null;
   const itemId = String((item as any).id ?? payload.itemId ?? "").trim();
   if (!itemId) return null;
   const turnId = String(payload.turnId ?? event.turnId ?? "").trim() || "unknown";
-  const statusRaw = String((item as any).status ?? payload.status ?? "").trim();
+  const statusRaw = toPatchApplyStatus((item as any).status ?? payload.status);
   const hasError = Boolean((item as any).error ?? payload.error);
-
-  const changesRaw = Array.isArray((item as any).changes) ? (item as any).changes : [];
-  const changes: Array<{ pathAbs: string; pathAbsTo: string | null; kind: FileChangeKind; diffText: string }> = [];
-  for (const change of changesRaw) {
-    if (!change || typeof change !== "object") continue;
-    const pathAbs = normalizeFsPath(String((change as any).path ?? ""));
-    if (!pathAbs) continue;
-    const kindRaw = (change as any).kind;
-    const kind = resolveFileChangeKind(kindRaw);
-    const pathAbsTo =
-      kindRaw && typeof kindRaw === "object" ? normalizeFsPath(String((kindRaw as any).move_path ?? "")) : "";
-    const diffText = typeof (change as any).diff === "string" ? (change as any).diff : "";
-    changes.push({ pathAbs, pathAbsTo: pathAbsTo.trim() ? pathAbsTo : null, kind, diffText });
-  }
 
   return {
     itemId,
     turnId,
     method: event.method,
     statusRaw,
-    changes,
+    changes: parseOfficialFileUpdateChanges((item as any).changes),
     createdAt: event.createdAt,
     hasError,
   };

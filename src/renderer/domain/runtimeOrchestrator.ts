@@ -149,6 +149,7 @@ const TIMELINE_MAX_VISIBLE_TURNS = 16;
 const THREAD_METADATA_PAGE_SIZE = 200;
 const THREAD_CONTENT_CACHE_TTL_MS = 2000;
 const MCP_STATUS_REFRESH_DEBOUNCE_MS = 250;
+const SKILLS_REFRESH_DEBOUNCE_MS = 250;
 
 type ReplayBatchResult = {
   loaded: number;
@@ -315,6 +316,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   let latestSwitchThreadSeq = 0;
   const skillsSnapshotByWorkspace = new Map<string, SkillsSnapshot>();
   const mcpSnapshotByWorkspace = new Map<string, McpSnapshot>();
+  const skillsRefreshTimersByWorkspace = new Map<string, ReturnType<typeof setTimeout>>();
   const mcpStatusRefreshTimersByWorkspace = new Map<string, ReturnType<typeof setTimeout>>();
   const mcpStartupFailureToastKeys = new Set<string>();
   let globalConfigAutoLoadAttempted = false;
@@ -1600,6 +1602,20 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     }
   };
 
+  const scheduleSkillsRefresh = (workspacePathValue: string) => {
+    const workspace = normalizeWorkspacePath(workspacePathValue);
+    if (!workspace) return;
+    const existing = skillsRefreshTimersByWorkspace.get(workspace);
+    if (existing) clearTimeout(existing);
+    const timer = setTimeout(() => {
+      skillsRefreshTimersByWorkspace.delete(workspace);
+      if (normalizeWorkspacePath(runtimeStore.workspacePath) !== workspace) return;
+      if (!getServerIdForWorkspace(workspace)) return;
+      void refreshSkills(true);
+    }, SKILLS_REFRESH_DEBOUNCE_MS);
+    skillsRefreshTimersByWorkspace.set(workspace, timer);
+  };
+
   const toggleSkill = async (skillPath: string, enabled: boolean) => {
     const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
     if (!getServerIdForWorkspace(workspace)) return;
@@ -1755,7 +1771,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     const next = current.map((server) => {
       if (server.id !== name) return server;
       if (status === "starting") return { ...server, state: "connecting" as const, message: "启动中…" };
-      if (status === "ready") return { ...server, state: "connected" as const, message: server.message };
+      if (status === "ready") return { ...server, state: "connected" as const, message: undefined };
       if (status === "failed") return { ...server, state: "error" as const, message: error || "failed" };
       if (status === "cancelled") return { ...server, state: "error" as const, message: error || "cancelled" };
       return server;
@@ -3807,7 +3823,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
               (eventServerId && eventServerId === runtimeStore.serverId ? runtimeStore.workspacePath : "")
           );
           if (workspace) invalidateSkillsSnapshot(workspace);
-          if (workspace && normalizeWorkspacePath(runtimeStore.workspacePath) === workspace) void refreshSkills(true);
+          if (workspace && normalizeWorkspacePath(runtimeStore.workspacePath) === workspace) scheduleSkillsRefresh(workspace);
           return;
         }
 
@@ -3899,6 +3915,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       try {
         runtimeStore.flushPendingComposeStateSaves();
       } catch {}
+      for (const timer of skillsRefreshTimersByWorkspace.values()) clearTimeout(timer);
+      skillsRefreshTimersByWorkspace.clear();
       for (const timer of mcpStatusRefreshTimersByWorkspace.values()) clearTimeout(timer);
       mcpStatusRefreshTimersByWorkspace.clear();
       for (const dispose of disposers) {

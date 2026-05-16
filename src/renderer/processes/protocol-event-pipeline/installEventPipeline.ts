@@ -112,6 +112,15 @@ const THINKING_GAP_MS = 900;
 const THINKING_SETTLE_MS = 450;
 const CONTEXT_COMPACTION_SETTLE_MS = 1800;
 
+const HIDDEN_OFFICIAL_NOTIFICATION_METHODS = new Set<OfficialCodexServerNotification["method"]>([
+  "item/fileChange/outputDelta",
+  "process/outputDelta",
+  "process/exited",
+  "remoteControl/status/changed",
+  "thread/goal/updated",
+  "thread/goal/cleared",
+]);
+
 // 思考阶段提示文本
 const THINKING_PHASE_BODY_TEXT: Record<ThinkingPhase, string> = {
   queued: "请求已提交，等待模型调度。",
@@ -467,11 +476,33 @@ export function installEventPipeline(pinia: Pinia) {
       effectiveThreadId && effectiveThreadId !== "__app__"
         ? resolveId(threadStore.activeTurnIdByThread.get(effectiveThreadId))
         : "";
-    const paramsText = toPrettyJson(params);
     // Skills/MCP startup updates drive the integrations panel, not chat timeline content.
     if (n.method === "skills/changed" || n.method === "mcpServer/startupStatus/updated") {
       return;
     }
+    const paramsText = toPrettyJson(params);
+
+    if (HIDDEN_OFFICIAL_NOTIFICATION_METHODS.has(n.method)) {
+      if (n.method === "item/fileChange/outputDelta") {
+        appendDebugLog("event-pipeline", "ignore-deprecated-file-change-output-delta", {
+          threadId: effectiveThreadId,
+          turnId: rawTurnId || null,
+          itemId: n.itemId || null,
+        });
+      }
+      if (runtimeStore.timelineDebugEnabled) {
+        debugTimelineStore.appendEvent({
+          threadId: effectiveThreadId,
+          method: n.method,
+          paramsText,
+          params,
+          turnId: rawTurnId || undefined,
+          hidden: true,
+        });
+      }
+      return;
+    }
+
     // 提取代理消息相关 ID
     const agentItemType = lifecycleItem?.type ?? "";
     const agentItemId = resolveId(lifecycleItem?.id, n.itemId);
@@ -736,8 +767,6 @@ export function installEventPipeline(pinia: Pinia) {
       return;
     }
 
-    // 不再处理 fileChange outputDelta：它是 apply_patch 回显日志，噪声大且不稳定。
-    // turn/diff/updated 仅用于回滚/侧边栏摘要，不写入时间线 UI。
     if (n.method === "item/completed" && userItemType === "plan") {
       const params = n.params;
       const finalText = params.item.type === "plan" ? String(params.item.text) : "";

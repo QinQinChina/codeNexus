@@ -581,10 +581,6 @@ async function readAuxNotificationsForThread(
     : Math.max(baseTailBytes, 24_000_000);
 
   const run = async (tailBytes: number) => {
-    const outputDeltaByKey = new Map<
-      string,
-      { id: string; ts: number; params: any; paramsText?: string; parts: string[] }
-    >();
     const turnDiffByKey = new Map<string, { id: string; ts: number; params: any; paramsText?: string }>();
     const events: { ts: number; seq: number; event: HistoryThreadEvent }[] = [];
     let seq = 0;
@@ -627,32 +623,6 @@ async function readAuxNotificationsForThread(
         if (!method) continue;
 
         if (method === "item/fileChange/outputDelta") {
-          const key = `${turnId || "unknown"}:${itemId || "unknown"}`;
-          const existing = outputDeltaByKey.get(key);
-          const deltaText =
-            typeof record.delta === "string"
-              ? record.delta
-              : typeof (params as any)?.delta === "string"
-                ? (params as any).delta
-                : "";
-
-          if (existing) {
-            existing.ts = Math.max(existing.ts, ts);
-            if (deltaText) existing.parts.push(deltaText);
-            continue;
-          }
-
-          const streamId = `aux:stream:item/fileChange/outputDelta:${tid}:${turnId || "unknown"}:${itemId || "unknown"}`;
-          outputDeltaByKey.set(key, {
-            id: streamId,
-            ts,
-            params:
-              params && typeof params === "object"
-                ? { ...(params as any) }
-                : { threadId: tid, turnId, itemId, delta: "" },
-            paramsText,
-            parts: deltaText ? [deltaText] : [],
-          });
           continue;
         }
 
@@ -688,31 +658,6 @@ async function readAuxNotificationsForThread(
           },
         });
       }
-    }
-
-    // 聚合输出流：每个 (turnId, itemId) 合并成一个 outputDelta 事件，避免回放时产生海量条目。
-    for (const agg of outputDeltaByKey.values()) {
-      const delta = agg.parts.join("");
-      if (agg.params && typeof agg.params === "object") {
-        (agg.params as any).delta = delta;
-      }
-      seq += 1;
-      const payload: AuxNotificationPayload = {
-        id: agg.id,
-        method: "item/fileChange/outputDelta",
-        params: agg.params,
-        paramsText: agg.paramsText,
-      };
-      events.push({
-        ts: agg.ts,
-        seq,
-        event: {
-          lineNo: 0,
-          timestamp: String(agg.ts),
-          type: "aux_notification",
-          payload,
-        },
-      });
     }
 
     // 聚合 turn diff：每个 turn 仅保留最后一个快照，匹配实时 upsert 行为。
