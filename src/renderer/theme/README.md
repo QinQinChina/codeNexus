@@ -36,7 +36,7 @@ Older stored names such as `windsurf`, `aurora`, and `moss` currently normalize 
 
 - Seed tokens define raw palette values only.
 - Global semantic tokens define meaning shared across the product, such as `--accent`, `--surface-1`, `--fg-danger`.
-- Component tokens define decisions for a UI region, such as `--composer-bg`, `--topbar-bg`, `--ui-empty-primary-bg`.
+- Component tokens define decisions for a UI region, such as `--composer-bg`, `--topbar-bg`, and `--chat-pane-bg`.
 - Vue files should use semantic or component tokens, not raw color utilities such as hard-coded purple/white values.
 
 ## Background Opacity

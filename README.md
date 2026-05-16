@@ -10,7 +10,7 @@
 | 当前定位 | ✅ 线程对话、时间线、工作区、Settings（Workspace Team 模式已下线） |
 | 技术栈   | `Electron`、`Vue 3`、`Pinia`、`TypeScript`                         |
 | 官方属性 | ❌ 不是 OpenAI 官方产品                                            |
-| 平台支持 | ✅ 优先支持 Windows，Linux 仅保留少量兼容代码，macOS 未承诺        |
+| 平台支持 | ✅ 仅支持 Windows 10/11                                            |
 
 ## 当前能力
 

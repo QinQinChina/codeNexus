@@ -13,7 +13,6 @@
 | `DetailDisclosure.vue`     | 详情展开                |
 | `LazyImageThumb.vue`       | 图片缩略图懒加载        |
 | `LoadingDots.vue`          | 加载点动画              |
-| `PendingThreadArt.vue`     | 空态 / 等待态插画       |
 | `SelectDropdown.vue`       | 下拉选择                |
 | `WaterBallProgress.vue`    | 水球进度条              |
 | `WaveText.vue`             | 动效文字                |
