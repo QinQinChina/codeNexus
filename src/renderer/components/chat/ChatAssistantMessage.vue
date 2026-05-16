@@ -12,7 +12,12 @@
         class="chat-bubble-body min-w-0"
         :rawText="event.paramsText"
       />
-      <AgentMarkdownContent v-else class="chat-bubble-body agent-markdown-body min-w-0" :html="markdownHtml" />
+      <AgentMarkdownContent
+        v-else
+        class="chat-bubble-body agent-markdown-body min-w-0"
+        :html="markdownHtml"
+        :streaming="isStreaming"
+      />
       <div
         v-if="event.method === 'item/plan/delta' && execState"
         class="plan-delta-actions mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-[var(--border)] pt-2.5"
@@ -108,6 +113,7 @@ defineProps<{
   turnPlan: TurnPlanState | null;
   isStructuredFinalAnswer: boolean;
   markdownHtml: string;
+  isStreaming: boolean;
   execState: PlanDeltaExecUiState | null;
   modelOptions: OptionInput[];
   isTurnRunning: boolean;

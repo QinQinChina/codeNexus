@@ -22,6 +22,7 @@
     :turnPlan="turnPlanForPlanDeltaEvent(renderedRow.event)"
     :isStructuredFinalAnswer="Boolean(tryParseStructuredFinalAnswerV1(renderedRow.event.paramsText))"
     :markdownHtml="getMarkdownEventHtml(renderedRow.event)"
+    :isStreaming="isEventStreaming(renderedRow.event)"
     :execState="planExecStateByEventId[renderedRow.event.id] ?? null"
     :modelOptions="modelOptions as any"
     :isTurnRunning="isTurnRunning"
@@ -58,6 +59,7 @@
         :reasoningEffortOptions="reasoningEffortOptions as any"
         :sandboxModeOptions="sandboxModeOptions as any"
         :turnPlanForPlanDeltaEvent="turnPlanForPlanDeltaEvent"
+        :isEventStreaming="isEventStreaming"
         :userMessageParts="userMessageParts"
         :userMessageImageCount="userMessageImageCount"
         :visibleUserMessageImageEntries="visibleUserMessageImageEntries"
@@ -342,6 +344,7 @@ defineProps<{
   reasoningEffortOptions: OptionInput[];
   sandboxModeOptions: OptionInput[];
   turnPlanForPlanDeltaEvent: (event: TimelineEventItem) => TurnPlanState | null;
+  isEventStreaming: (event: TimelineEventItem) => boolean;
   userMessageParts: (event: TimelineEventItem) => ChatUserMessagePart[];
   userMessageImageCount: (event: TimelineEventItem) => number;
   visibleUserMessageImageEntries: (event: TimelineEventItem) => ChatImageEntry[];

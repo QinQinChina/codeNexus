@@ -38,7 +38,10 @@
               :workspaceRoot="workspaceRoot"
               :trailingThinkingEvent="trailingThinkingEvent"
               :trailingContextCompactionEvent="trailingContextCompactionEvent"
+              :timelineKey="timelineKey"
+              :scrollElement="timelineRef"
               :onLayoutChange="onPaneLayoutChange"
+              :onViewportAdapterChange="setTimelineViewportAdapter"
             />
           </div>
 
@@ -192,6 +195,7 @@ import {
   SkillsManagerOverlay,
 } from "../asyncViews";
 import { useTimelineScrollController } from "./composables/useTimelineScrollController";
+import type { TimelineViewportAdapter } from "./chat/timelineScrollPolicy";
 import { hasMeaningfulComposeText, stripComposeFileTokenChars } from "../../domain/composeFileMentions";
 import { getRuntimeOrchestrator } from "../../domain/runtimeOrchestrator";
 import type {
@@ -255,6 +259,7 @@ const skillsUiStore = useSkillsUiStore();
 
 const centerContentRef = ref<HTMLElement | null>(null);
 const timelineRef = ref<HTMLDivElement | null>(null);
+const timelineViewportAdapter = ref<TimelineViewportAdapter | null>(null);
 const composerPanelRef = ref<HTMLDivElement | null>(null);
 const composerInputRef = ref<HTMLDivElement | null>(null);
 const composerImageInputRef = ref<HTMLInputElement | null>(null);
@@ -376,6 +381,7 @@ const timelineScrollController = useTimelineScrollController({
   activeTurnId: activeTimelineTurnId,
   isTimelineLoading,
   loadOlderHistoryTurns: (threadId) => runtime.loadOlderHistoryTurns(threadId),
+  viewportAdapter: timelineViewportAdapter,
 });
 const {
   hasTopEdgeFade,
@@ -388,6 +394,11 @@ const {
   observeTimelineElement,
 } = timelineScrollController;
 const emptyStateHistoryItems = computed<ThreadHistoryItem[]>(() => threadStore.threadHistory.slice(0, 8));
+
+function setTimelineViewportAdapter(adapter: TimelineViewportAdapter | null) {
+  timelineViewportAdapter.value = adapter;
+}
+
 const shouldShowComposerPanel = computed(() => {
   if (skillsUiStore.managerOpen) return false;
   return true;

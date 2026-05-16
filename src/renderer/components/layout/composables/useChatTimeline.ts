@@ -20,8 +20,16 @@ export function useChatTimeline() {
     return threadStore.turnPlanForTurn(threadId, turnId);
   };
 
+  const isEventTurnRunning = (event: TimelineEventItem): boolean => {
+    const threadId = String(event?.threadId ?? runtimeStore.currentThreadId ?? "").trim();
+    const turnId = String(event?.turnId ?? "").trim();
+    if (!threadId || !turnId) return false;
+    return threadStore.runningThreadIds.has(threadId) && threadStore.activeTurnIdByThread.get(threadId) === turnId;
+  };
+
   return {
     isTurnRunning,
     turnPlanForPlanDeltaEvent,
+    isEventTurnRunning,
   };
 }

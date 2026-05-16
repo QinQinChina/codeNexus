@@ -8,6 +8,19 @@ export type TimelineViewportSnapshot = {
   clientHeight: number;
 };
 
+export type TimelineVisibleRowAnchor = {
+  rowId: string;
+  topOffsetPx: number;
+};
+
+export type TimelineViewportAdapter = {
+  captureVisibleAnchor: () => TimelineVisibleRowAnchor | null;
+  restoreVisibleAnchor: (anchor: TimelineVisibleRowAnchor) => boolean;
+  scrollToBottom: (behavior?: ScrollBehavior) => void;
+  getScrollMetrics: () => TimelineViewportSnapshot;
+  notifyLayoutChange: () => void;
+};
+
 export type TimelineScrollIntent = { kind: "preserve-position" } | { kind: "scroll-to-bottom" };
 
 export type TimelineScrollReason = "stream-update" | "layout-change" | "turn-changed" | "explicit-bottom";

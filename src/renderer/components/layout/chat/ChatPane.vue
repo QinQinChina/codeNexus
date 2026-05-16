@@ -14,7 +14,14 @@
       </div>
     </div>
 
-    <ChatTimelineViewport :rows="chatRenderedRows" :onLayoutChange="onLayoutChange" #default="{ row: renderedRow }">
+    <ChatTimelineViewport
+      :rows="chatRenderedRows"
+      :timelineKey="timelineKey"
+      :scrollElement="scrollElement"
+      :onLayoutChange="onLayoutChange"
+      :onViewportAdapterChange="onViewportAdapterChange"
+      #default="{ row: renderedRow }"
+    >
       <ChatRowRenderer
         :renderedRow="renderedRow"
         :workspaceRoot="workspaceRoot"
@@ -26,6 +33,7 @@
         :reasoningEffortOptions="reasoningEffortOptions as any"
         :sandboxModeOptions="sandboxModeOptions as any"
         :turnPlanForPlanDeltaEvent="turnPlanForPlanDeltaEvent"
+        :isEventStreaming="isEventTurnRunning"
         :userMessageParts="userMessageParts"
         :userMessageImageCount="userMessageImageCount"
         :visibleUserMessageImageEntries="visibleUserMessageImageEntries"
@@ -125,7 +133,12 @@
               <button class="composer-lightbox-action" type="button" title="重置视图" @click="resetImageLightboxView">
                 <RotateCcw aria-hidden="true" />
               </button>
-              <button class="composer-lightbox-action" type="button" title="下载图片" @click="downloadImageLightboxImage">
+              <button
+                class="composer-lightbox-action"
+                type="button"
+                title="下载图片"
+                @click="downloadImageLightboxImage"
+              >
                 <Download aria-hidden="true" />
               </button>
               <button
@@ -157,6 +170,7 @@ import ExecutionWaveText from "../../ui/ExecutionWaveText.vue";
 import WaveText from "../../ui/WaveText.vue";
 
 import type { TimelineEventItem } from "../../../domain/types";
+import type { TimelineViewportAdapter } from "./timelineScrollPolicy";
 import { useAppShellStore } from "../../../stores/appShell.store";
 import { useMcpResourceStore } from "../../../stores/mcpResource.store";
 import { useMcpStore } from "../../../stores/mcp.store";
@@ -181,7 +195,10 @@ const props = defineProps<{
   workspaceRoot: string;
   trailingThinkingEvent: TimelineEventItem | null;
   trailingContextCompactionEvent: TimelineEventItem | null;
+  timelineKey: string;
+  scrollElement: HTMLElement | null;
   onLayoutChange?: () => void;
+  onViewportAdapterChange?: (adapter: TimelineViewportAdapter | null) => void;
 }>();
 
 const appShellStore = useAppShellStore();
@@ -195,7 +212,7 @@ const { getMarkdownEventHtml } = useAgentMarkdownRenderer({ key: () => runtimeSt
 const mcpToolDefinitions = computed(() => buildMcpToolDefinitionIndex(mcpStore.servers));
 
 // 1. 基础时间线与状态逻辑
-const { isTurnRunning, turnPlanForPlanDeltaEvent } = useChatTimeline();
+const { isTurnRunning, turnPlanForPlanDeltaEvent, isEventTurnRunning } = useChatTimeline();
 
 // 2. 布局与 Handoff 诊断逻辑
 const { hiddenImageIds, handoffDiagnosticsBanner } = useChatLayout();

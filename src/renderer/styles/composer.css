@@ -1087,8 +1087,7 @@ textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-
   isolation: isolate;
   transition:
     border-color 160ms ease,
-    background-color 160ms ease,
-    outline-color 160ms ease;
+    background-color 160ms ease;
 }
 
 .composer-shell.is-agent {
@@ -1099,20 +1098,6 @@ textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-
 .composer-shell.is-plan {
   border-color: var(--composer-plan-border);
   background: var(--composer-plan-bg);
-}
-
-.composer-shell.is-agent.is-focused,
-.composer-shell.is-agent:focus-within {
-  border-color: var(--composer-agent-focus-border);
-  outline: 3px solid var(--composer-agent-focus-ring);
-  outline-offset: 0;
-}
-
-.composer-shell.is-plan.is-focused,
-.composer-shell.is-plan:focus-within {
-  border-color: var(--composer-plan-focus-border);
-  outline: 3px solid var(--composer-plan-focus-ring);
-  outline-offset: 0;
 }
 
 .composer-shell.is-workspace-file-drag-over {

@@ -24,7 +24,9 @@
         <div class="composer-lightbox-stage agent-mermaid-lightbox-stage" @click.self="closeMermaidLightbox">
           <div ref="lightboxPanelRef" class="agent-mermaid-lightbox-panel" tabindex="-1">
             <div class="agent-mermaid-lightbox-toolbar">
-              <span class="agent-mermaid-lightbox-status">Mermaid 图预览 · {{ Math.round(lightboxUserZoom * 100) }}%</span>
+              <span class="agent-mermaid-lightbox-status"
+                >Mermaid 图预览 · {{ Math.round(lightboxUserZoom * 100) }}%</span
+              >
               <button
                 type="button"
                 class="agent-mermaid-lightbox-copy"
@@ -88,6 +90,7 @@ defineOptions({
 
 const props = defineProps<{
   html: string;
+  streaming?: boolean;
 }>();
 
 const rootRef = ref<HTMLElement | null>(null);
@@ -138,6 +141,8 @@ let mermaidFailureByKey = new Map<string, string>();
 let mermaidSourceByKey = new Map<string, string>();
 let codeCopyResetTimerByButton = new Map<HTMLButtonElement, ReturnType<typeof setTimeout>>();
 const isInViewport = ref(true);
+let lastRenderedPlainText = "";
+let hasRenderedHtmlOnce = false;
 
 let lightboxDragPointerId: number | null = null;
 let lightboxDragStartClientX = 0;
@@ -610,6 +615,64 @@ function clearMermaidFailures() {
   mermaidFailureByKey.clear();
 }
 
+function hasStreamingTextForbiddenAncestor(node: Node): boolean {
+  let current = node.parentElement;
+  while (current) {
+    const tag = current.tagName;
+    if (tag === "CODE" || tag === "PRE" || tag === "A" || tag === "SVG" || tag === "BUTTON") return true;
+    if (current.classList.contains("agent-mermaid-block")) return true;
+    current = current.parentElement;
+  }
+  return false;
+}
+
+function wrapStreamingTextNode(node: Text, startOffset: number) {
+  const value = String(node.nodeValue ?? "");
+  if (!value) return;
+  const start = Math.max(0, Math.min(value.length, startOffset));
+  if (start >= value.length) return;
+
+  const fragment = document.createDocumentFragment();
+  const prefix = value.slice(0, start);
+  const animatedText = value.slice(start);
+  if (prefix) fragment.append(document.createTextNode(prefix));
+
+  const span = document.createElement("span");
+  span.className = "agent-streaming-text-enter";
+  span.textContent = animatedText;
+  fragment.append(span);
+
+  node.parentNode?.replaceChild(fragment, node);
+}
+
+function markStreamingTextTail(root: HTMLElement, tailStartOffset: number) {
+  if (typeof document === "undefined") return;
+  if (typeof NodeFilter === "undefined") return;
+  const tailStart = Math.max(0, Math.round(tailStartOffset));
+  let textOffset = 0;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const targets: Array<{ node: Text; startOffset: number }> = [];
+
+  while (true) {
+    const node = walker.nextNode();
+    if (!node) break;
+    if (!(node instanceof Text)) continue;
+    const value = String(node.nodeValue ?? "");
+    const length = value.length;
+    if (length <= 0) continue;
+
+    const nodeStart = textOffset;
+    const nodeEnd = nodeStart + length;
+    textOffset = nodeEnd;
+
+    if (nodeEnd <= tailStart) continue;
+    if (hasStreamingTextForbiddenAncestor(node)) continue;
+    targets.push({ node, startOffset: Math.max(0, tailStart - nodeStart) });
+  }
+
+  for (const target of targets) wrapStreamingTextNode(target.node, target.startOffset);
+}
+
 function syncRenderedHtml() {
   const host = rootRef.value;
   if (!host) return;
@@ -619,6 +682,12 @@ function syncRenderedHtml() {
   // Keep diagram SVG blocks stable while the parent HTML updates (streaming output).
   const template = document.createElement("div");
   template.innerHTML = props.html;
+  const nextPlainText = String(template.textContent ?? "");
+  const shouldAnimateStreamingTail =
+    Boolean(props.streaming) &&
+    hasRenderedHtmlOnce &&
+    nextPlainText.length > lastRenderedPlainText.length &&
+    nextPlainText.startsWith(lastRenderedPlainText);
 
   const nextFrozenMermaidBlocks = new Map<string, HTMLElement>();
   const nextMermaidFailures = new Map<string, string>();
@@ -654,7 +723,13 @@ function syncRenderedHtml() {
     }
   }
 
+  if (shouldAnimateStreamingTail) {
+    markStreamingTextTail(template, lastRenderedPlainText.length);
+  }
+
   host.replaceChildren(...Array.from(template.childNodes));
+  lastRenderedPlainText = nextPlainText;
+  hasRenderedHtmlOnce = true;
   frozenMermaidBlocks = nextFrozenMermaidBlocks;
   mermaidFailureByKey = nextMermaidFailures;
   mermaidSourceByKey = nextMermaidSources;

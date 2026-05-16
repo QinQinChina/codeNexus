@@ -5,6 +5,8 @@ import {
   restorePrependScrollTop,
   snapshotTimelineViewport,
   type TimelineViewportSnapshot,
+  type TimelineVisibleRowAnchor,
+  type TimelineViewportAdapter,
 } from "../chat/timelineScrollPolicy";
 import { CHAT_TIMELINE_ROW_SELECTOR } from "../chat/chatPresentation";
 
@@ -15,6 +17,7 @@ type UseTimelineScrollControllerOptions = {
   activeTurnId: ComputedRef<string>;
   isTimelineLoading: ComputedRef<boolean>;
   loadOlderHistoryTurns: (threadId: string) => Promise<boolean>;
+  viewportAdapter?: Ref<TimelineViewportAdapter | null>;
   edgeFadeThresholdPx?: number;
   loadOlderTriggerPx?: number;
 };
@@ -22,11 +25,6 @@ type UseTimelineScrollControllerOptions = {
 const DEFAULT_EDGE_FADE_THRESHOLD_PX = 1;
 const DEFAULT_LOAD_OLDER_TRIGGER_PX = 24;
 const LAYOUT_SCROLL_HEIGHT_EPSILON_PX = 2;
-
-type VisibleRowAnchor = {
-  rowId: string;
-  topOffsetPx: number;
-};
 
 export function useTimelineScrollController(options: UseTimelineScrollControllerOptions) {
   const hasTopEdgeFade = ref(false);
@@ -50,6 +48,8 @@ export function useTimelineScrollController(options: UseTimelineScrollController
   let timelineResizeObserver: ResizeObserver | null = null;
 
   function captureViewport(): TimelineViewportSnapshot | null {
+    const adapterMetrics = options.viewportAdapter?.value?.getScrollMetrics();
+    if (adapterMetrics) return adapterMetrics;
     const element = options.timelineRef.value;
     return element ? snapshotTimelineViewport(element) : null;
   }
@@ -58,7 +58,9 @@ export function useTimelineScrollController(options: UseTimelineScrollController
     return Array.from(element.querySelectorAll<HTMLElement>(CHAT_TIMELINE_ROW_SELECTOR));
   }
 
-  function captureVisibleRowAnchor(element: HTMLElement): VisibleRowAnchor | null {
+  function captureVisibleRowAnchor(element: HTMLElement): TimelineVisibleRowAnchor | null {
+    const adapterAnchor = options.viewportAdapter?.value?.captureVisibleAnchor();
+    if (adapterAnchor) return adapterAnchor;
     const timelineRect = element.getBoundingClientRect();
     for (const row of timelineRows(element)) {
       const rowId = String(row.dataset.rowId ?? "").trim();
@@ -74,7 +76,8 @@ export function useTimelineScrollController(options: UseTimelineScrollController
     return null;
   }
 
-  function restoreVisibleRowAnchor(element: HTMLElement, anchor: VisibleRowAnchor): boolean {
+  function restoreVisibleRowAnchor(element: HTMLElement, anchor: TimelineVisibleRowAnchor): boolean {
+    if (options.viewportAdapter?.value?.restoreVisibleAnchor(anchor)) return true;
     const row = timelineRows(element).find((item) => String(item.dataset.rowId ?? "") === anchor.rowId);
     if (!row) return false;
     const timelineRect = element.getBoundingClientRect();
@@ -125,6 +128,12 @@ export function useTimelineScrollController(options: UseTimelineScrollController
   }
 
   function scrollTimelineToBottom(behavior: ScrollBehavior = "auto") {
+    const adapter = options.viewportAdapter?.value;
+    if (adapter) {
+      adapter.scrollToBottom(behavior);
+      scheduleTimelineViewportStateUpdate();
+      return;
+    }
     const element = options.timelineRef.value;
     if (!element) return;
     element.scrollTo({ top: element.scrollHeight, behavior });
@@ -275,6 +284,7 @@ export function useTimelineScrollController(options: UseTimelineScrollController
 
     pendingOlderHistoryThreadId.value = threadId;
     const before = snapshotTimelineViewport(element);
+    const beforeAnchor = options.viewportAdapter?.value?.captureVisibleAnchor() ?? null;
 
     try {
       const loaded = await options.loadOlderHistoryTurns(threadId);
@@ -286,7 +296,8 @@ export function useTimelineScrollController(options: UseTimelineScrollController
       const nextElement = options.timelineRef.value;
       if (!nextElement) return;
       const after = snapshotTimelineViewport(nextElement);
-      nextElement.scrollTop = restorePrependScrollTop(before, after);
+      const restored = beforeAnchor ? options.viewportAdapter?.value?.restoreVisibleAnchor(beforeAnchor) : false;
+      if (!restored) nextElement.scrollTop = restorePrependScrollTop(before, after);
       lastTimelineScrollTop = Math.max(0, nextElement.scrollTop);
       updateTimelineViewportState();
     } finally {
