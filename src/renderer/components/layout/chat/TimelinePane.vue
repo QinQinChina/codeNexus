@@ -184,6 +184,31 @@
         class="body agent-markdown-body mt-1 text-[var(--text-muted)]"
         :html="toReasoningHtml(node.item.text)"
       />
+      <Collapsible
+        v-if="node.item.rawText"
+        class="reasoning-raw mt-2 w-full"
+        :open="isRawReasoningOpen(node.item)"
+        @update:open="(next) => setRawReasoningOpen(node.item, next)"
+      >
+        <template #trigger="{ triggerProps, open }">
+          <div
+            class="reasoning-raw-trigger inline-flex max-w-full items-center gap-1.5 rounded-[4px] border border-[var(--ui-well-border)] bg-[var(--ui-well-bg)] px-2 py-1 text-[11px] text-[var(--text-muted)] cursor-pointer select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--border-warning-hover)] focus-visible:outline-offset-2"
+            v-bind="triggerProps"
+          >
+            <span class="min-w-0 truncate">原始推理</span>
+            <span class="mono dim whitespace-nowrap">{{ rawReasoningCountText(node.item) }}</span>
+            <ChevronDown
+              class="h-3 w-3 flex-none opacity-80 transition-transform duration-150 [stroke-width:2.4]"
+              :class="{ 'rotate-180': open }"
+              aria-hidden="true"
+            />
+          </div>
+        </template>
+        <pre
+          class="reasoning-raw-body app-scrollbar m-0 mt-1.5 max-h-[280px] overflow-auto rounded-[4px] border border-[var(--ui-code-border)] bg-[var(--ui-code-bg)] p-2.5 text-[12px] leading-[1.5] text-[var(--ui-code-text)] whitespace-pre-wrap [overflow-wrap:anywhere] break-words mono"
+          >{{ node.item.rawText }}</pre
+        >
+      </Collapsible>
     </Collapsible>
 
     <template v-else-if="node.kind === 'fileChange'">
@@ -407,6 +432,7 @@ const timelineNodes = computed<TimelineRenderNode[]>(() => {
 const expandedEventDebugIds = ref(new Set<string>());
 const expandedDebugEventIds = ref(new Set<string>());
 const reasoningOpenById = ref(new Map<string, boolean>());
+const rawReasoningOpenById = ref(new Map<string, boolean>());
 const commandFilesOpenById = ref(new Map<string, boolean>());
 const COMMAND_FILES_RENDER_LIMIT = 1000;
 
@@ -481,6 +507,24 @@ function setReasoningOpen(block: ReasoningBlockNode, nextOpen: boolean) {
   reasoningOpenById.value.set(id, Boolean(nextOpen));
   props.onLayoutChange?.();
 }
+
+const isRawReasoningOpen = (block: ReasoningBlockNode) => {
+  const id = String(block?.id ?? "").trim();
+  if (!id) return false;
+  return rawReasoningOpenById.value.get(id) ?? false;
+};
+
+function setRawReasoningOpen(block: ReasoningBlockNode, nextOpen: boolean) {
+  const id = String(block?.id ?? "").trim();
+  if (!id) return;
+  rawReasoningOpenById.value.set(id, Boolean(nextOpen));
+  props.onLayoutChange?.();
+}
+
+const rawReasoningCountText = (block: ReasoningBlockNode) => {
+  const count = Math.max(0, Math.round(Number(block?.rawContentCount) || 0));
+  return count > 1 ? `${count} 段` : "1 段";
+};
 
 const isCommandFilesOpen = (nodeId: string) => commandFilesOpenById.value.get(String(nodeId ?? "")) ?? false;
 

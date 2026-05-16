@@ -104,6 +104,14 @@ function toReasoningSummaryTexts(value: unknown): string[] {
   return texts;
 }
 
+// 提取原始推理正文分片
+function toReasoningRawContentTexts(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((part) => (typeof part === "string" ? part : ""))
+    .filter((part) => part.trim().length > 0);
+}
+
 // 思考阶段类型
 type ThinkingPhase = "queued" | "preparing" | "reasoning" | "streaming" | "waiting_more" | "completed" | "failed";
 
@@ -424,6 +432,20 @@ export function installEventPipeline(pinia: Pinia) {
     return id;
   };
 
+  // 解析原始推理正文事件 ID
+  const _resolveReasoningRawTextEventId = (params: {
+    threadId: string;
+    turnId: string;
+    itemId: string;
+    contentIndex: number;
+  }) => {
+    const threadId = String(params.threadId ?? "").trim();
+    const turnId = String(params.turnId ?? "").trim() || "unknown";
+    const itemId = String(params.itemId ?? "").trim() || "unknown";
+    const contentIndex = Number.isFinite(params.contentIndex) ? Math.max(0, Math.round(params.contentIndex)) : 0;
+    return `notif:item/reasoning/textDelta:${threadId}:${turnId}:${itemId}:${contentIndex}`;
+  };
+
   // 生成回合键
   const toTurnKey = (serverId: string | undefined, turnId: string) =>
     `${String(serverId ?? "").trim() || "unknown"}:${turnId}`;
@@ -585,20 +607,30 @@ export function installEventPipeline(pinia: Pinia) {
         paramsText,
         params,
       });
-      // 不 return：仍让后续逻辑把该事件写入 timeline/debug store。
+      if (runtimeStore.timelineDebugEnabled) {
+        debugTimelineStore.appendEvent({
+          threadId: effectiveThreadId,
+          method: n.method,
+          paramsText,
+          params,
+          turnId: fileTurnId || undefined,
+          hidden: true,
+        });
+      }
+      // 不 return：仍让后续逻辑把该事件写入 timeline store。
     }
 
-    // 忽略用户消息的生命周期回声（由本地输入事件渲染）
     if (n.method === "item/fileChange/patchUpdated") {
       const fileTurnId = resolveId(paramsRecord.turnId, rawTurnId, activeTurnId);
       const fileItemId = resolveId(paramsRecord.itemId, n.itemId);
       const changesCount = Array.isArray(paramsRecord.changes) ? paramsRecord.changes.length : 0;
+      const debugParamsText = `patch updated: ${changesCount} files`;
       const patchEventId = `notif:item/fileChange/patchUpdated:${effectiveThreadId}:${fileTurnId || "unknown"}:${fileItemId || "unknown"}`;
       timelineStore.upsertEvent({
         threadId: effectiveThreadId,
         id: patchEventId,
         method: n.method,
-        paramsText: `patch updated: ${changesCount} files`,
+        paramsText: debugParamsText,
         params,
         turnId: fileTurnId || undefined,
       });
@@ -609,9 +641,19 @@ export function installEventPipeline(pinia: Pinia) {
         threadId: effectiveThreadId,
         turnId: fileTurnId || null,
         itemId: fileItemId || null,
-        paramsText: `patch updated: ${changesCount} files`,
+        paramsText: debugParamsText,
         params,
       });
+      if (runtimeStore.timelineDebugEnabled) {
+        debugTimelineStore.appendEvent({
+          threadId: effectiveThreadId,
+          method: n.method,
+          paramsText: debugParamsText,
+          params,
+          turnId: fileTurnId || undefined,
+          hidden: true,
+        });
+      }
       return;
     }
 
@@ -894,23 +936,66 @@ export function installEventPipeline(pinia: Pinia) {
 
     if (n.method === "item/reasoning/textDelta") {
       const params = n.params;
-      // 该通知可能是高频流式（甚至包含敏感内容）。
-      // 若不拦截，会走到底部默认 appendEvent，导致时间线被 delta 灌爆并触发裁剪，影响聊天内容展示与性能。
+      const deltaText = params.delta;
+      const contentIndexRaw = toFiniteNumber(params.contentIndex);
+      const contentIndex = contentIndexRaw == null ? 0 : Math.max(0, Math.round(contentIndexRaw));
+      const resolvedItemId = _resolveReasoningItemId({
+        threadId: effectiveThreadId,
+        turnId: reasoningTurnId,
+        itemId: reasoningItemId,
+      });
+      const effectiveItemId = resolvedItemId || reasoningItemId;
       if (effectiveThreadId !== "__app__" && reasoningTurnId) {
-        const itemId = resolveId(params.itemId, reasoningItemId);
+        const itemId = resolveId(params.itemId, effectiveItemId);
         if (itemId) {
           _rememberReasoningItemId({ threadId: effectiveThreadId, turnId: reasoningTurnId, itemId });
         }
+        if (itemId) {
+          const rawTextEventId = _resolveReasoningRawTextEventId({
+            threadId: effectiveThreadId,
+            turnId: reasoningTurnId,
+            itemId,
+            contentIndex,
+          });
+          const rawTextParams = {
+            ...params,
+            threadId: effectiveThreadId,
+            turnId: reasoningTurnId || params.turnId,
+            itemId,
+            contentIndex,
+            item: { id: itemId, type: "reasoning" },
+          };
+          if (deltaText) {
+            timelineStore.appendToEvent({
+              threadId: effectiveThreadId,
+              id: rawTextEventId,
+              method: "item/reasoning/textDelta",
+              chunk: deltaText,
+              params: rawTextParams,
+              turnId: reasoningTurnId || undefined,
+            });
+          } else {
+            timelineStore.upsertEvent({
+              threadId: effectiveThreadId,
+              id: rawTextEventId,
+              method: "item/reasoning/textDelta",
+              paramsText,
+              params: rawTextParams,
+              turnId: reasoningTurnId || undefined,
+            });
+          }
+        }
         markThinkingOutputStreaming(effectiveThreadId, reasoningTurnId);
       }
-      // 暂不将 raw reasoning text 写入时间线主流（避免噪音/泄露），仅用于驱动“思考/生成中”状态。
+      // raw reasoning 进入 render model 后会被合并进 reasoningBlock 的默认折叠区，不直接作为普通事件展示。
       return;
     }
 
     if (n.method === "item/completed" && reasoningItemType === "reasoning") {
       const params = n.params;
       const summaryTexts = params.item.type === "reasoning" ? toReasoningSummaryTexts(params.item.summary) : [];
-      if (summaryTexts.length === 0) return;
+      const rawContentTexts = params.item.type === "reasoning" ? toReasoningRawContentTexts(params.item.content) : [];
+      if (summaryTexts.length === 0 && rawContentTexts.length === 0) return;
       const resolvedItemId = _resolveReasoningItemId({
         threadId: effectiveThreadId,
         turnId: reasoningTurnId,
@@ -941,6 +1026,31 @@ export function installEventPipeline(pinia: Pinia) {
           method: "item/reasoning/summaryTextDelta",
           paramsText: summaryTexts[i],
           params: reasoningParams,
+          turnId: reasoningTurnId || undefined,
+        });
+      }
+      for (let i = 0; i < rawContentTexts.length; i += 1) {
+        const rawTextEventId = _resolveReasoningRawTextEventId({
+          threadId: effectiveThreadId,
+          turnId: reasoningTurnId,
+          itemId: effectiveItemId,
+          contentIndex: i,
+        });
+        const rawTextParams = {
+          ...params,
+          threadId: effectiveThreadId,
+          turnId: reasoningTurnId || params.turnId,
+          itemId: effectiveItemId,
+          contentIndex: i,
+          item: { id: effectiveItemId, type: "reasoning" },
+          final: true,
+        };
+        timelineStore.upsertEvent({
+          threadId: effectiveThreadId,
+          id: rawTextEventId,
+          method: "item/reasoning/textDelta",
+          paramsText: rawContentTexts[i],
+          params: rawTextParams,
           turnId: reasoningTurnId || undefined,
         });
       }

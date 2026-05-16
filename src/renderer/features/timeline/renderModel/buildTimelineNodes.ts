@@ -194,6 +194,9 @@ export type ReasoningBlockNode = {
   openDefault: boolean;
   paragraphCount: number;
   text: string;
+  rawContent: string[];
+  rawText: string;
+  rawContentCount: number;
 };
 
 export type McpResourceReadContentPreview = ParsedMcpResourceReadContent;
@@ -1192,6 +1195,7 @@ const parseCommandExecutionEvent = (event: TimelineEventItem): ParsedCommandEven
 type ParsedReasoningSummaryEvent = {
   threadId: string;
   turnId: string;
+  itemId: string;
   summaryIndex: number;
   sectionText: string;
   createdAt: number;
@@ -1203,6 +1207,7 @@ const parseReasoningSummaryEvent = (event: TimelineEventItem): ParsedReasoningSu
 
   const threadId = String(payload.threadId ?? event.threadId ?? "").trim();
   const turnId = String(payload.turnId ?? event.turnId ?? "").trim() || "unknown";
+  const itemId = String(payload.itemId ?? payload.item?.id ?? "").trim();
   if (!threadId) return null;
 
   const summaryIndexRaw = payload.summaryIndex;
@@ -1212,8 +1217,41 @@ const parseReasoningSummaryEvent = (event: TimelineEventItem): ParsedReasoningSu
   return {
     threadId,
     turnId,
+    itemId,
     summaryIndex,
     sectionText: String(event.paramsText ?? ""),
+    createdAt: event.createdAt,
+  };
+};
+
+type ParsedReasoningRawTextEvent = {
+  threadId: string;
+  turnId: string;
+  itemId: string;
+  contentIndex: number;
+  rawText: string;
+  createdAt: number;
+};
+
+const parseReasoningRawTextEvent = (event: TimelineEventItem): ParsedReasoningRawTextEvent | null => {
+  if (event.method !== "item/reasoning/textDelta") return null;
+  const payload = toEventParamsObject(event) ?? {};
+
+  const threadId = String(payload.threadId ?? event.threadId ?? "").trim();
+  const turnId = String(payload.turnId ?? event.turnId ?? "").trim() || "unknown";
+  const itemId = String(payload.itemId ?? payload.item?.id ?? "").trim();
+  if (!threadId || !itemId) return null;
+
+  const contentIndexRaw = payload.contentIndex;
+  const contentIndexNum = toNumberOrNull(contentIndexRaw);
+  const contentIndex = contentIndexNum == null ? 0 : Math.max(0, Math.round(contentIndexNum));
+
+  return {
+    threadId,
+    turnId,
+    itemId,
+    contentIndex,
+    rawText: String(event.paramsText ?? ""),
     createdAt: event.createdAt,
   };
 };
@@ -1494,17 +1532,20 @@ type FileChangeAccumulator = {
 type ReasoningBlockAccumulator = {
   id: string;
   turnId: string;
+  itemId: string;
   firstIndex: number;
   firstCreatedAt: number;
   lastCreatedAt: number;
   openDefault: boolean;
   sectionTexts: Map<number, string>;
+  rawContentTexts: Map<number, string>;
 };
 
 type ReasoningTurnAccumulator = {
   nextOrdinal: number;
   activeBlockId: string | null;
   blocks: ReasoningBlockAccumulator[];
+  blockIdByItemId: Map<string, string>;
 };
 
 const ensureCommandGroupItemStatus = (item: CommandGroupItem): CommandGroupItemStatus => {
@@ -1603,6 +1644,64 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
   const toReasoningBlockId = (turnId: string, ordinal: number) =>
     `reasonblk:${params.timelineKey}:${turnId}:${ordinal}`;
 
+  const createReasoningTurnAccumulator = (): ReasoningTurnAccumulator => ({
+    nextOrdinal: 1,
+    activeBlockId: null,
+    blocks: [],
+    blockIdByItemId: new Map<string, string>(),
+  });
+
+  const getOrCreateReasoningTurn = (threadId: string, turnId: string) => {
+    const turnKey = toReasoningTurnKey(threadId, turnId);
+    const existing = reasoningTurnsByKey.get(turnKey);
+    if (existing) return existing;
+    const created = createReasoningTurnAccumulator();
+    reasoningTurnsByKey.set(turnKey, created);
+    return created;
+  };
+
+  const getOrCreateReasoningBlock = (params: {
+    turn: ReasoningTurnAccumulator;
+    turnId: string;
+    itemId: string;
+    index: number;
+    createdAt: number;
+    startNewWhenUnbound: boolean;
+  }): ReasoningBlockAccumulator => {
+    const itemId = String(params.itemId ?? "").trim();
+    const existingItemBlockId = itemId ? params.turn.blockIdByItemId.get(itemId) : "";
+    const existingItemBlock = existingItemBlockId
+      ? (params.turn.blocks.find((block) => block.id === existingItemBlockId) ?? null)
+      : null;
+    if (existingItemBlock) {
+      params.turn.activeBlockId = existingItemBlock.id;
+      return existingItemBlock;
+    }
+
+    if (!itemId && params.turn.activeBlockId && !params.startNewWhenUnbound) {
+      const activeBlock = params.turn.blocks.find((block) => block.id === params.turn.activeBlockId) ?? null;
+      if (activeBlock) return activeBlock;
+    }
+
+    const id = toReasoningBlockId(params.turnId, params.turn.nextOrdinal);
+    params.turn.nextOrdinal += 1;
+    const block: ReasoningBlockAccumulator = {
+      id,
+      turnId: params.turnId,
+      itemId,
+      firstIndex: params.index,
+      firstCreatedAt: params.createdAt,
+      lastCreatedAt: params.createdAt,
+      openDefault: true,
+      sectionTexts: new Map<number, string>(),
+      rawContentTexts: new Map<number, string>(),
+    };
+    params.turn.blocks.push(block);
+    params.turn.activeBlockId = id;
+    if (itemId) params.turn.blockIdByItemId.set(itemId, id);
+    return block;
+  };
+
   const collapseActiveReasoningBlock = (threadId: string, turnId: string) => {
     const key = toReasoningTurnKey(threadId, turnId);
     const turn = reasoningTurnsByKey.get(key);
@@ -1616,50 +1715,40 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
 
     const reasoningEvent = parseReasoningSummaryEvent(event);
     if (reasoningEvent) {
-      const turnKey = toReasoningTurnKey(reasoningEvent.threadId, reasoningEvent.turnId);
-      const turn = reasoningTurnsByKey.get(turnKey) ?? { nextOrdinal: 1, activeBlockId: null, blocks: [] };
-      reasoningTurnsByKey.set(turnKey, turn);
-
-      const shouldStartNewBlock = reasoningEvent.summaryIndex === 0;
-      let block: ReasoningBlockAccumulator | null = null;
-      if (!turn.activeBlockId || shouldStartNewBlock) {
-        const id = toReasoningBlockId(reasoningEvent.turnId, turn.nextOrdinal);
-        turn.nextOrdinal += 1;
-        block = {
-          id,
-          turnId: reasoningEvent.turnId,
-          firstIndex: index,
-          firstCreatedAt: reasoningEvent.createdAt,
-          lastCreatedAt: reasoningEvent.createdAt,
-          openDefault: true,
-          sectionTexts: new Map<number, string>(),
-        };
-        turn.blocks.push(block);
-        turn.activeBlockId = id;
-      } else {
-        block = turn.blocks.find((b) => b.id === turn.activeBlockId) ?? null;
-        if (!block) {
-          const id = toReasoningBlockId(reasoningEvent.turnId, turn.nextOrdinal);
-          turn.nextOrdinal += 1;
-          block = {
-            id,
-            turnId: reasoningEvent.turnId,
-            firstIndex: index,
-            firstCreatedAt: reasoningEvent.createdAt,
-            lastCreatedAt: reasoningEvent.createdAt,
-            openDefault: true,
-            sectionTexts: new Map<number, string>(),
-          };
-          turn.blocks.push(block);
-          turn.activeBlockId = id;
-        }
-      }
+      const turn = getOrCreateReasoningTurn(reasoningEvent.threadId, reasoningEvent.turnId);
+      const block = getOrCreateReasoningBlock({
+        turn,
+        turnId: reasoningEvent.turnId,
+        itemId: reasoningEvent.itemId,
+        index,
+        createdAt: reasoningEvent.createdAt,
+        startNewWhenUnbound: reasoningEvent.summaryIndex === 0,
+      });
 
       const sectionText = String(reasoningEvent.sectionText ?? "");
       if (sectionText.trim()) {
         block.sectionTexts.set(reasoningEvent.summaryIndex, sectionText);
       }
       block.lastCreatedAt = Math.max(block.lastCreatedAt, reasoningEvent.createdAt);
+      continue;
+    }
+
+    const reasoningRawTextEvent = parseReasoningRawTextEvent(event);
+    if (reasoningRawTextEvent) {
+      const turn = getOrCreateReasoningTurn(reasoningRawTextEvent.threadId, reasoningRawTextEvent.turnId);
+      const block = getOrCreateReasoningBlock({
+        turn,
+        turnId: reasoningRawTextEvent.turnId,
+        itemId: reasoningRawTextEvent.itemId,
+        index,
+        createdAt: reasoningRawTextEvent.createdAt,
+        startNewWhenUnbound: false,
+      });
+      const rawText = String(reasoningRawTextEvent.rawText ?? "");
+      if (rawText.trim()) {
+        block.rawContentTexts.set(reasoningRawTextEvent.contentIndex, rawText);
+      }
+      block.lastCreatedAt = Math.max(block.lastCreatedAt, reasoningRawTextEvent.createdAt);
       continue;
     }
 
@@ -1969,10 +2058,14 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
       createdAt: number;
       id: string;
       turnId: string;
+      itemId: string;
       lastCreatedAt: number;
       openDefault: boolean;
       paragraphCount: number;
       text: string;
+      rawContent: string[];
+      rawText: string;
+      rawContentCount: number;
     }
   >();
 
@@ -1984,18 +2077,28 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
         .map(([, value]) => String(value ?? ""))
         .filter((value) => value.trim().length > 0);
       const text = sectionTexts.join("\n\n");
+      const orderedRawContent = [...block.rawContentTexts.entries()].sort((a, b) => a[0] - b[0]);
+      const rawContent = orderedRawContent
+        .map(([, value]) => String(value ?? ""))
+        .filter((value) => value.trim().length > 0);
+      const rawText = rawContent.join("\n\n");
       const bucket = Math.floor(createdAt / 1000);
-      const sig = `${block.turnId}:${bucket}:${normalizeWhitespace(text).slice(0, 600)}`;
+      const sigText = normalizeWhitespace(text || rawText).slice(0, 600);
+      const sig = `${block.turnId}:${block.itemId || bucket}:${bucket}:${sigText}`;
 
       const candidate = {
         index: block.firstIndex,
         createdAt,
         id: block.id,
         turnId: block.turnId,
+        itemId: block.itemId,
         lastCreatedAt: block.lastCreatedAt,
         openDefault: block.openDefault,
         paragraphCount: sectionTexts.length,
         text,
+        rawContent,
+        rawText,
+        rawContentCount: rawContent.length,
       };
 
       const existing = reasoningBlocksBySignature.get(sig);
@@ -2005,8 +2108,8 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
       }
 
       // 选择“信息更完整”的那条；并保留更早的 index/createdAt 以保持排序稳定。
-      const existingScore = existing.paragraphCount * 10 + existing.text.length;
-      const candidateScore = candidate.paragraphCount * 10 + candidate.text.length;
+      const existingScore = existing.paragraphCount * 10 + existing.text.length + existing.rawText.length;
+      const candidateScore = candidate.paragraphCount * 10 + candidate.text.length + candidate.rawText.length;
       const keep = candidateScore > existingScore ? candidate : existing;
       const merged = {
         ...keep,
@@ -2035,6 +2138,9 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
           openDefault: block.openDefault,
           paragraphCount: block.paragraphCount,
           text: block.text,
+          rawContent: block.rawContent,
+          rawText: block.rawText,
+          rawContentCount: block.rawContentCount,
         },
       },
     });

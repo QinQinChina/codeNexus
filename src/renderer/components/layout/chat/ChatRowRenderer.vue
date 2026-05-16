@@ -130,6 +130,8 @@
     :title="(renderedRow as any).item.title || '思考'"
     :durationText="reasoningDurationText((renderedRow as any).item.durationMs)"
     :html="toReasoningHtml((renderedRow as any).item.text)"
+    :rawText="(renderedRow as any).item.rawText"
+    :rawContentCount="(renderedRow as any).item.rawContentCount"
     @toggle="(next) => setReasoningOpen((renderedRow as any).item, next)"
   />
 

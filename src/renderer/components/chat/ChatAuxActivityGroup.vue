@@ -79,7 +79,7 @@ const titleText = computed(() => (props.status === "running" ? "正在处理辅�
 
 const statusText = computed(() => {
   if (props.status === "running") return "进行中";
-  return "已收起";
+  return open.value ? "已展开" : "已收起";
 });
 
 const activityClass = computed(() => ({
