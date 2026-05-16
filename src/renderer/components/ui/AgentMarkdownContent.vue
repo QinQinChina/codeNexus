@@ -41,7 +41,7 @@
               ref="lightboxRenderRef"
               class="agent-mermaid-lightbox-render app-scrollbar"
               :class="{ 'is-dragging': lightboxIsDragging }"
-              title="左键拖动平移 · 滚轮缩放"
+              v-tooltip="'左键拖动平移 · 滚轮缩放'"
               @pointerdown="onMermaidLightboxPointerDown"
               @pointermove="onMermaidLightboxPointerMove"
               @pointerup="onMermaidLightboxPointerUp"
@@ -91,6 +91,8 @@ defineOptions({
 const props = defineProps<{
   html: string;
   streaming?: boolean;
+  animateTextGrowth?: boolean;
+  suppressTextEnterAnimations?: boolean;
 }>();
 
 const rootRef = ref<HTMLElement | null>(null);
@@ -688,7 +690,9 @@ function syncRenderedHtml() {
     hasRenderedHtmlOnce &&
     nextPlainText.length > lastRenderedPlainText.length &&
     nextPlainText.startsWith(lastRenderedPlainText);
-  const shouldAnimateStreamingTail = Boolean(props.streaming) && (canAnimateInitialText || canAnimateGrowingText);
+  const textEnterAnimationsEnabled =
+    !props.suppressTextEnterAnimations && (Boolean(props.streaming) || Boolean(props.animateTextGrowth));
+  const shouldAnimateStreamingTail = textEnterAnimationsEnabled && (canAnimateInitialText || canAnimateGrowingText);
 
   const nextFrozenMermaidBlocks = new Map<string, HTMLElement>();
   const nextMermaidFailures = new Map<string, string>();

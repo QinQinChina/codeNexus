@@ -23,6 +23,7 @@
     :isStructuredFinalAnswer="Boolean(tryParseStructuredFinalAnswerV1(renderedRow.event.paramsText))"
     :markdownHtml="getMarkdownEventHtml(renderedRow.event)"
     :isStreaming="isEventStreaming(renderedRow.event)"
+    :suppressTextEnterAnimations="suppressTextEnterAnimations"
     :execState="planExecStateByEventId[renderedRow.event.id] ?? null"
     :modelOptions="modelOptions as any"
     :isTurnRunning="isTurnRunning"
@@ -60,6 +61,7 @@
         :sandboxModeOptions="sandboxModeOptions as any"
         :turnPlanForPlanDeltaEvent="turnPlanForPlanDeltaEvent"
         :isEventStreaming="isEventStreaming"
+        :suppressTextEnterAnimations="suppressTextEnterAnimations"
         :userMessageParts="userMessageParts"
         :userMessageImageCount="userMessageImageCount"
         :visibleUserMessageImageEntries="visibleUserMessageImageEntries"
@@ -127,7 +129,7 @@
   <ChatReasoningBlock
     v-else-if="renderedRow.kind === 'reasoningBlock'"
     :isOpen="isReasoningOpen((renderedRow as any).item)"
-    :title="(renderedRow as any).item.title || '思考'"
+    :summaryTitle="(renderedRow as any).item.title || '思考'"
     :durationText="reasoningDurationText((renderedRow as any).item.durationMs)"
     :html="toReasoningHtml((renderedRow as any).item.text)"
     :rawText="(renderedRow as any).item.rawText"
@@ -347,6 +349,7 @@ defineProps<{
   sandboxModeOptions: OptionInput[];
   turnPlanForPlanDeltaEvent: (event: TimelineEventItem) => TurnPlanState | null;
   isEventStreaming: (event: TimelineEventItem) => boolean;
+  suppressTextEnterAnimations?: boolean;
   userMessageParts: (event: TimelineEventItem) => ChatUserMessagePart[];
   userMessageImageCount: (event: TimelineEventItem) => number;
   visibleUserMessageImageEntries: (event: TimelineEventItem) => ChatImageEntry[];

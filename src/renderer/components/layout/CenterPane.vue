@@ -34,6 +34,7 @@
               :trailingContextCompactionEvent="trailingContextCompactionEvent"
               :timelineKey="timelineKey"
               :scrollElement="timelineRef"
+              :suppressTextEnterAnimations="suppressTextEnterAnimations"
               :onLayoutChange="onPaneLayoutChange"
               :onViewportAdapterChange="setTimelineViewportAdapter"
             />
@@ -47,7 +48,7 @@
             type="button"
             aria-haspopup="dialog"
             :aria-expanded="queuePopoverVisible ? 'true' : 'false'"
-            title="查看排队消息"
+            v-tooltip="'查看排队消息'"
             @pointerenter="onQueuePopoverPointerEnter"
             @pointerleave="onQueuePopoverPointerLeave"
           >
@@ -261,12 +262,15 @@ const queuePopoverPlacement = ref<PopoverPlacement | null>(null);
 const slashPopoverPlacement = ref<PopoverPlacement | null>(null);
 const composerDockHeightPx = ref(0);
 const centerContentWidthPx = ref(0);
+const suppressTextEnterAnimations = ref(true);
 const COMPOSER_DOCK_FALLBACK_HEIGHT_PX = 84;
 const COMPOSER_DOCK_BOTTOM_INSET_PX = 14;
 const COMPOSER_DOCK_GAP_PX = 8;
 const TIMELINE_EDGE_FADE_PX = 15;
 let pendingQueuePopoverPlacementRafId: number | null = null;
 let pendingSlashPopoverPlacementRafId: number | null = null;
+let releaseTextEnterAnimationsSeq = 0;
+let releaseTextEnterAnimationsRafIds: number[] = [];
 let queuePopoverResizeObserver: ResizeObserver | null = null;
 let slashPopoverResizeObserver: ResizeObserver | null = null;
 let composerResizeObserver: ResizeObserver | null = null;
@@ -382,6 +386,39 @@ const emptyStateHistoryItems = computed<ThreadHistoryItem[]>(() => threadStore.t
 
 function setTimelineViewportAdapter(adapter: TimelineViewportAdapter | null) {
   timelineViewportAdapter.value = adapter;
+}
+
+function cancelScheduledTextEnterAnimationRelease() {
+  releaseTextEnterAnimationsSeq += 1;
+  for (const id of releaseTextEnterAnimationsRafIds) cancelAnimationFrame(id);
+  releaseTextEnterAnimationsRafIds = [];
+}
+
+function allowTextEnterAnimationsForLiveOutput() {
+  cancelScheduledTextEnterAnimationRelease();
+  suppressTextEnterAnimations.value = false;
+}
+
+function scheduleTextEnterAnimationReleaseAfterHistoryRender() {
+  cancelScheduledTextEnterAnimationRelease();
+  if (isTimelineLoading.value || contentTimelineEvents.value.length === 0) return;
+  const seq = releaseTextEnterAnimationsSeq;
+  void nextTick(() => {
+    if (seq !== releaseTextEnterAnimationsSeq) return;
+    if (isTimelineLoading.value || contentTimelineEvents.value.length === 0) return;
+    const firstRafId = requestAnimationFrame(() => {
+      releaseTextEnterAnimationsRafIds = releaseTextEnterAnimationsRafIds.filter((id) => id !== firstRafId);
+      if (seq !== releaseTextEnterAnimationsSeq) return;
+      const secondRafId = requestAnimationFrame(() => {
+        releaseTextEnterAnimationsRafIds = releaseTextEnterAnimationsRafIds.filter((id) => id !== secondRafId);
+        if (seq !== releaseTextEnterAnimationsSeq) return;
+        if (isTimelineLoading.value || contentTimelineEvents.value.length === 0) return;
+        suppressTextEnterAnimations.value = false;
+      });
+      releaseTextEnterAnimationsRafIds.push(secondRafId);
+    });
+    releaseTextEnterAnimationsRafIds.push(firstRafId);
+  });
 }
 
 const shouldShowComposerPanel = computed(() => {
@@ -1231,6 +1268,7 @@ function onComposerKeydown(event: KeyboardEvent) {
 
 async function onSendClick() {
   if (sendDisabled.value) return;
+  allowTextEnterAnimationsForLiveOutput();
   await runtime.send();
   await nextTick();
   resizeComposerInput();
@@ -1251,6 +1289,7 @@ async function onEditQueuedMessage(messageId: string) {
 }
 
 async function onSendQueuedMessageNow(messageId: string) {
+  allowTextEnterAnimationsForLiveOutput();
   await runtime.sendQueuedMessageNow(messageId);
   closeQueuePopover();
   forceFollowBottom("queue-send-now");
@@ -1334,9 +1373,32 @@ watch(
 watch(
   () => runtimeStore.timelineKey,
   () => {
+    suppressTextEnterAnimations.value = true;
+    scheduleTextEnterAnimationReleaseAfterHistoryRender();
     closeQueuePopover();
     queuePopoverPlacement.value = null;
     slashPopoverPlacement.value = null;
+  },
+  { flush: "pre" }
+);
+
+watch(
+  isTimelineLoading,
+  (loading) => {
+    if (loading) {
+      suppressTextEnterAnimations.value = true;
+      cancelScheduledTextEnterAnimationRelease();
+      return;
+    }
+    scheduleTextEnterAnimationReleaseAfterHistoryRender();
+  },
+  { flush: "pre" }
+);
+
+watch(
+  () => contentTimelineEvents.value.length,
+  () => {
+    if (suppressTextEnterAnimations.value) scheduleTextEnterAnimationReleaseAfterHistoryRender();
   },
   { flush: "post" }
 );
@@ -1426,6 +1488,7 @@ watch(
 onMounted(() => {
   resizeComposerInput();
   measureCenterContentWidth();
+  scheduleTextEnterAnimationReleaseAfterHistoryRender();
   void nextTick(() => {
     observeComposerPanelSize();
   });
@@ -1449,6 +1512,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("keydown", onComposeLightboxWindowKeydown, true);
   if (pendingQueuePopoverPlacementRafId != null) cancelAnimationFrame(pendingQueuePopoverPlacementRafId);
   if (pendingSlashPopoverPlacementRafId != null) cancelAnimationFrame(pendingSlashPopoverPlacementRafId);
+  cancelScheduledTextEnterAnimationRelease();
   clearPendingQueuePopoverClose();
   if (centerContentResizeObserver) {
     centerContentResizeObserver.disconnect();

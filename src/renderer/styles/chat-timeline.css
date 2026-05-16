@@ -861,7 +861,7 @@
 
 .timeline-pane--chat .agent-markdown-body .agent-streaming-text-enter {
   display: inline;
-  animation: chat-streaming-text-enter 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: chat-streaming-text-enter 1s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes chat-streaming-text-enter {

@@ -34,6 +34,7 @@
         :sandboxModeOptions="sandboxModeOptions as any"
         :turnPlanForPlanDeltaEvent="turnPlanForPlanDeltaEvent"
         :isEventStreaming="isEventTurnRunning"
+        :suppressTextEnterAnimations="suppressTextEnterAnimations"
         :userMessageParts="userMessageParts"
         :userMessageImageCount="userMessageImageCount"
         :visibleUserMessageImageEntries="visibleUserMessageImageEntries"
@@ -122,21 +123,21 @@
                 draggable="false"
               />
             </div>
-            <div class="composer-lightbox-toolbar" @pointerdown.stop @click.stop>
+            <div class="composer-lightbox-toolbar app-scrollbar" @pointerdown.stop @click.stop>
               <span class="composer-lightbox-zoom mono">{{ Math.round(imageLightboxZoom * 100) }}%</span>
-              <button class="composer-lightbox-action" type="button" title="缩小" @click="zoomImageLightboxOut">
+              <button class="composer-lightbox-action" type="button" v-tooltip="'缩小'" @click="zoomImageLightboxOut">
                 <ZoomOut aria-hidden="true" />
               </button>
-              <button class="composer-lightbox-action" type="button" title="放大" @click="zoomImageLightboxIn">
+              <button class="composer-lightbox-action" type="button" v-tooltip="'放大'" @click="zoomImageLightboxIn">
                 <ZoomIn aria-hidden="true" />
               </button>
-              <button class="composer-lightbox-action" type="button" title="重置视图" @click="resetImageLightboxView">
+              <button class="composer-lightbox-action" type="button" v-tooltip="'重置视图'" @click="resetImageLightboxView">
                 <RotateCcw aria-hidden="true" />
               </button>
               <button
                 class="composer-lightbox-action"
                 type="button"
-                title="下载图片"
+                v-tooltip="'下载图片'"
                 @click="downloadImageLightboxImage"
               >
                 <Download aria-hidden="true" />
@@ -145,7 +146,7 @@
                 ref="imageLightboxCloseButtonRef"
                 class="composer-lightbox-action composer-lightbox-action--close"
                 type="button"
-                title="关闭"
+                v-tooltip="'关闭'"
                 @click="closeImageLightbox"
               >
                 <X aria-hidden="true" />
@@ -197,6 +198,7 @@ const props = defineProps<{
   trailingContextCompactionEvent: TimelineEventItem | null;
   timelineKey: string;
   scrollElement: HTMLElement | null;
+  suppressTextEnterAnimations?: boolean;
   onLayoutChange?: () => void;
   onViewportAdapterChange?: (adapter: TimelineViewportAdapter | null) => void;
 }>();
