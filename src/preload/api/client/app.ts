@@ -24,6 +24,8 @@ export function createAppApi(ipcRenderer: IpcRenderer): CodexDesktopApi["app"] {
     appendFileChangeLog: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appFileChangeLogAppend, args),
     // 读取剪贴板图片：把当前剪贴板内容转成可预览数据。
     readClipboardImageDataUrl: () => ipcRenderer.invoke(IPC_APP_CHANNELS.appReadClipboardImageDataUrl),
+    // 写入剪贴板图片：用于一键复制生成结果。
+    writeClipboardImageFromPath: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appWriteClipboardImageFromPath, args),
     // 读取图片文件：用于附件预览和图片工具。
     readImageFileDataUrl: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appReadImageFileDataUrl, args),
     // 生成图片：调用主进程的图片生成能力。
@@ -33,6 +35,11 @@ export function createAppApi(ipcRenderer: IpcRenderer): CodexDesktopApi["app"] {
     // 删除图片生成历史：同步清理安全范围内的生成文件。
     deleteImageGenerationHistory: (args) =>
       ipcRenderer.invoke(IPC_APP_CHANNELS.appImageGenerationHistoryDelete, args),
+    listImageGenerationTasks: () => ipcRenderer.invoke(IPC_APP_CHANNELS.appImageGenerationTaskList),
+    submitImageGenerationTask: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appImageGenerationTaskSubmit, args),
+    cancelImageGenerationTask: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appImageGenerationTaskCancel, args),
+    deleteImageGenerationTask: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appImageGenerationTaskDelete, args),
+    retryImageGenerationTask: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appImageGenerationTaskRetry, args),
     // 导入背景图：从文件系统选择并应用背景。
     importBackgroundImage: () => ipcRenderer.invoke(IPC_APP_CHANNELS.appImportBackgroundImage),
     // 清除背景图：恢复默认背景设置。

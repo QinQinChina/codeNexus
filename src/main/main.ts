@@ -4,12 +4,14 @@ import { join } from "node:path";
 import { IPC_APP_CHANNELS, IPC_EVENT_CHANNELS, type AppClosingStep, type AppWindowClosingState } from "../shared/ipc";
 import { HistoryStore, type HistoryThread } from "./historyStore";
 import { registerAllHandlers } from "./ipc/handlers";
+import { generateImagesWithSettings } from "./ipc/handlers/app.handlers";
 import { RuntimeThreadStateTracker } from "./runtimeThreadStateTracker";
 import { HistoryService } from "./services/HistoryService";
 import { CodexServerManager } from "./services/CodexServerManager";
 import { CodexProfileService } from "./services/CodexProfileService";
 import { CodexSkillRootsService } from "./services/CodexSkillRootsService";
 import { ImageGenerationHistoryService } from "./services/ImageGenerationHistoryService";
+import { ImageGenerationTaskService } from "./services/ImageGenerationTaskService";
 import { LocalSettingsService } from "./services/LocalSettingsService";
 import { RemoteStateSyncService } from "./services/RemoteStateSyncService";
 import { CacheRegistryService } from "./services/CacheRegistryService";
@@ -146,15 +148,18 @@ app
     }
 
     const historyCachePath = join(app.getPath("userData"), "thread-history-cache.json");
-    const generatedImagesDir = join(app.getPath("userData"), "generated-images");
     const historyStore = new HistoryStore(historyCachePath);
     const historyService = new HistoryService(historyStore);
     const localSettingsService = new LocalSettingsService(join(app.getPath("userData"), "user-settings.json"));
     const codexProfileService = new CodexProfileService(join(app.getPath("userData"), "codex-profiles.json"));
     const codexSkillRootsService = new CodexSkillRootsService(join(app.getPath("userData"), "codex-skill-roots.json"));
     const imageGenerationHistoryService = new ImageGenerationHistoryService(
-      join(app.getPath("userData"), "image-generation-history.json"),
-      generatedImagesDir
+      join(app.getPath("userData"), "image-generation-history.json")
+    );
+    const imageGenerationTaskService = new ImageGenerationTaskService(
+      join(app.getPath("userData"), "image-generation-tasks.json"),
+      (args, signal) => generateImagesWithSettings(localSettingsService, imageGenerationHistoryService, args, signal),
+      2
     );
     const threadTaskService = new ThreadTaskService(join(app.getPath("userData"), "thread-tasks.json"));
     const threadArtifactService = new ThreadArtifactService(join(app.getPath("userData"), "thread-artifacts.json"));
@@ -243,6 +248,7 @@ app
       codexProfileService,
       codexSkillRootsService,
       imageGenerationHistoryService,
+      imageGenerationTaskService,
       remoteSyncService: remoteStateSyncService,
       cacheRegistryService,
     });

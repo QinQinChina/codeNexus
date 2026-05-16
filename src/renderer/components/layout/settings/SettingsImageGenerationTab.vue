@@ -10,7 +10,7 @@
     <div class="settings-card-body">
       <div class="settings-grid">
         <label class="settings-row">
-            <span class="context-label dim">启用</span>
+          <span class="context-label dim">启用</span>
           <div class="settings-inline">
             <input id="chk-image-generation-enabled" v-model="draft.enabled" type="checkbox" :disabled="saving" />
             <span class="dim mono">{{ draft.enabled ? "enabled" : "disabled" }}</span>
@@ -395,86 +395,3 @@ async function onSave() {
   }
 }
 </script>
-
-<style scoped>
-.settings-card {
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  background: color-mix(in srgb, var(--surface-1) 86%, transparent);
-  box-shadow: 0 8px 22px color-mix(in srgb, rgb(from var(--ui-shadow-source) r g b / 0.5) 12%, transparent);
-  overflow: hidden;
-}
-
-.settings-card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 12px 12px 10px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--surface-1) 92%, transparent),
-    color-mix(in srgb, var(--surface-1) 76%, transparent)
-  );
-}
-
-.settings-card-title {
-  font-weight: 650;
-  letter-spacing: 0.2px;
-}
-
-.settings-card-body {
-  padding: 12px;
-}
-
-.settings-grid {
-  display: grid;
-  gap: 10px;
-}
-
-.settings-row {
-  display: grid;
-  grid-template-columns: 88px minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-}
-
-.settings-inline {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.status-panel {
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  background: color-mix(in srgb, var(--surface-1) 78%, transparent);
-  display: grid;
-  gap: 6px;
-}
-
-.status-panel.is-ready {
-  border-color: color-mix(in srgb, var(--success) 42%, var(--border));
-}
-
-.status-panel.is-disabled {
-  border-color: color-mix(in srgb, var(--ui-well-border) 82%, var(--border));
-}
-
-.status-row {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  gap: 10px;
-  align-items: center;
-}
-
-.status-row > .mono:last-child {
-  min-width: 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-</style>

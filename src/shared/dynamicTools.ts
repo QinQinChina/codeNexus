@@ -11,14 +11,19 @@ export type BuiltinDynamicToolDefinition = {
 
 export const IMAGE_GENERATION_DYNAMIC_TOOL_NAMESPACE = "codenexus";
 export const IMAGE_GENERATION_DYNAMIC_TOOL_NAME: BuiltinDynamicToolName = "image_generate";
+export const IMAGE_GENERATION_DYNAMIC_TOOL_DEVELOPER_INSTRUCTIONS = [
+  "For every user request to create, draw, render, or generate an image, call the codenexus.image_generate dynamic tool.",
+  "If the user's current message includes image attachments, codenexus.image_generate automatically uses those attachments as reference images for image editing.",
+  "Do not call image_gen, image_generation, or any official built-in image generation tool.",
+  "If codenexus.image_generate is unavailable, explain that image generation is unavailable instead of using another image tool.",
+].join("\n");
 
 export const BUILTIN_DYNAMIC_TOOL_DEFINITIONS: Record<BuiltinDynamicToolName, BuiltinDynamicToolDefinition> = {
   image_generate: {
     namespace: IMAGE_GENERATION_DYNAMIC_TOOL_NAMESPACE,
     name: IMAGE_GENERATION_DYNAMIC_TOOL_NAME,
     label: "生成图片",
-    description:
-      "Generate an image only when the user explicitly asks to create, draw, or render an image. Rewrite the user's request into a complete visual prompt before calling.",
+    description: `${IMAGE_GENERATION_DYNAMIC_TOOL_DEVELOPER_INSTRUCTIONS} Rewrite the user's request into a complete visual prompt before calling. When image attachments are present in the current user message, they are supplied automatically as reference images; do not include image bytes or paths in the tool arguments.`,
     requiresApproval: false,
     inputSchema: {
       type: "object",

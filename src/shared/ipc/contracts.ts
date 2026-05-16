@@ -548,6 +548,52 @@ export type ImageGenerationHistoryDeleteResult = {
   items: ImageGenerationHistoryItem[];
 };
 
+export type ImageGenerationTaskStatus = "queued" | "running" | "succeeded" | "failed" | "canceled";
+
+export type ImageGenerationTaskItem = {
+  id: string;
+  createdAt: number;
+  updatedAt: number;
+  startedAt: number | null;
+  completedAt: number | null;
+  status: ImageGenerationTaskStatus;
+  args: ImageGenerationGenerateArgs;
+  historyId: string | null;
+  result: ImageGenerationGenerateResult | null;
+  errorText: string | null;
+  retryOf: string | null;
+  attempt: number;
+};
+
+export type ImageGenerationTaskListResult = {
+  tasks: ImageGenerationTaskItem[];
+};
+
+export type ImageGenerationTaskSubmitResult = {
+  ok: true;
+  task: ImageGenerationTaskItem;
+  tasks: ImageGenerationTaskItem[];
+};
+
+export type ImageGenerationTaskCancelResult = {
+  ok: true;
+  canceled: boolean;
+  task: ImageGenerationTaskItem | null;
+  tasks: ImageGenerationTaskItem[];
+};
+
+export type ImageGenerationTaskDeleteResult = {
+  ok: true;
+  deleted: boolean;
+  tasks: ImageGenerationTaskItem[];
+};
+
+export type ImageGenerationTaskRetryResult = {
+  ok: true;
+  task: ImageGenerationTaskItem;
+  tasks: ImageGenerationTaskItem[];
+};
+
 export type LocalSettingsSnapshot = {
   path: string;
   exists: boolean;
@@ -602,12 +648,18 @@ export type CodexDesktopAppApi = {
   showSystemNotification(args: SystemNotificationShowArgs): Promise<SystemNotificationShowResult>;
   appendFileChangeLog(args: { record: unknown }): Promise<{ ok: true; path: string }>;
   readClipboardImageDataUrl(): Promise<{ ok: true; dataUrl: string | null }>;
+  writeClipboardImageFromPath(args: { path: string }): Promise<{ ok: true }>;
   readImageFileDataUrl(args: { path: string }): Promise<{ ok: true; dataUrl: string }>;
   importBackgroundImage(): Promise<ImportBackgroundImageResult>;
   clearBackgroundImage(): Promise<{ ok: true }>;
   generateImage(args: ImageGenerationGenerateArgs): Promise<ImageGenerationGenerateResult>;
   listImageGenerationHistory(): Promise<ImageGenerationHistoryListResult>;
   deleteImageGenerationHistory(args: { id: string }): Promise<ImageGenerationHistoryDeleteResult>;
+  listImageGenerationTasks(): Promise<ImageGenerationTaskListResult>;
+  submitImageGenerationTask(args: ImageGenerationGenerateArgs): Promise<ImageGenerationTaskSubmitResult>;
+  cancelImageGenerationTask(args: { id: string }): Promise<ImageGenerationTaskCancelResult>;
+  deleteImageGenerationTask(args: { id: string }): Promise<ImageGenerationTaskDeleteResult>;
+  retryImageGenerationTask(args: { id: string }): Promise<ImageGenerationTaskRetryResult>;
   readCodexProfiles(): Promise<CodexProviderProfilesSnapshot>;
   upsertCodexProfile(args: { profile: CodexProviderProfileInput }): Promise<CodexProviderProfilesMutationResult>;
   deleteCodexProfile(args: { id: string }): Promise<CodexProviderProfilesMutationResult>;
@@ -705,4 +757,4 @@ export type CodexDesktopApi = {
   history: CodexDesktopHistoryApi;
 };
 
-import type { CodexIncomingMessage, CodexNotifyArgs, CodexRpcArgs, CodexRpcResponse } from "../codex-protocol";
+import type { CodexIncomingMessage, CodexNotifyArgs, CodexRpcArgs, CodexRpcResponse } from "../codex-protocol/index";

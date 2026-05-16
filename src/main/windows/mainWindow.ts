@@ -13,7 +13,7 @@ export type MainWindowOptions = {
 };
 
 function resolveWindowIconPath(): string | undefined {
-  if (process.platform !== "win32" && process.platform !== "linux") return undefined;
+  if (process.platform !== "win32") return undefined;
 
   const candidates = app.isPackaged
     ? [join(process.resourcesPath, "icon.ico")]
@@ -23,8 +23,8 @@ function resolveWindowIconPath(): string | undefined {
 }
 
 export async function createMainWindow(opts: MainWindowOptions): Promise<BrowserWindow> {
-  // Windows/Linux 使用自定义标题栏（渲染层自绘 + IPC 控制窗口），不使用原生 caption buttons。
-  const useCustomTitlebar = process.platform === "win32" || process.platform === "linux";
+  // Windows 使用自定义标题栏（渲染层自绘 + IPC 控制窗口），不使用原生 caption buttons。
+  const useCustomTitlebar = process.platform === "win32";
 
   const initialLocalSettingsArg = `--codex-local-settings=${Buffer.from(JSON.stringify(opts.initialLocalSettingsSnapshot), "utf8").toString("base64url")}`;
   const windowIcon = resolveWindowIconPath();
@@ -52,6 +52,9 @@ export async function createMainWindow(opts: MainWindowOptions): Promise<Browser
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
+      // Windows 最小化后 Chromium 默认会节流/暂停后台页面的动画与定时器。
+      // 本应用会持续接收流式输出，若后台刷新被暂停，恢复窗口时会集中渲染积压内容并短暂卡死。
+      backgroundThrottling: false,
       additionalArguments: [initialLocalSettingsArg],
     },
   });

@@ -2,9 +2,17 @@ import { defineStore } from "pinia";
 import { codexDesktop } from "../api/codexDesktopClient";
 import { getCachedUserLocalSettings } from "../domain/localSettings";
 import { showToast } from "../ui/toast";
-import type { ImageGenerationHistoryItem } from "../../shared/ipc/contracts";
+import type { ImageGenerationGenerateArgs, ImageGenerationHistoryItem, ImageGenerationTaskItem } from "../../shared/ipc/contracts";
 
 export type ImageWorkbenchMode = "generate" | "edit";
+export type ImageWorkbenchHistoryStatus = "ready" | "pending" | "failed";
+export type ImageWorkbenchHistoryItem = ImageGenerationHistoryItem & {
+  workbenchStatus?: ImageWorkbenchHistoryStatus;
+  requestId?: string;
+  taskId?: string;
+  pendingImageCount?: number;
+  errorText?: string;
+};
 
 type ResultImage = {
   path: string;
@@ -46,6 +54,38 @@ function makeId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function logImageWorkbench(message: string, data?: Record<string, unknown>) {
+  console.info(`[ImageWorkbench] ${message}`, data ?? {});
+}
+
+function taskToHistoryItem(task: ImageGenerationTaskItem, model: string): ImageWorkbenchHistoryItem {
+  const args = task.args;
+  const inputImages = Array.isArray(args.inputImages) ? args.inputImages : [];
+  const mode: ImageWorkbenchMode = inputImages.length > 0 ? "edit" : "generate";
+  const pending = task.status === "queued" || task.status === "running";
+  return {
+    id: `task:${task.id}`,
+    requestId: `task:${task.id}`,
+    taskId: task.id,
+    workbenchStatus: pending ? "pending" : "failed",
+    pendingImageCount: Number(args.n) || 1,
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+    model,
+    prompt: args.prompt,
+    revisedPrompt: null,
+    mode,
+    size: args.size ?? null,
+    quality: args.quality ?? null,
+    outputFormat: args.outputFormat ?? null,
+    background: args.background ?? null,
+    moderation: args.moderation ?? null,
+    outputCompression: typeof args.outputCompression === "number" ? args.outputCompression : null,
+    images: [],
+    errorText: pending ? (task.status === "queued" ? "排队中" : "生成中") : task.errorText || "图片生成失败",
+  };
+}
+
 function initialSettings() {
   return getCachedUserLocalSettings().settings.imageGeneration;
 }
@@ -56,42 +96,66 @@ export const useImageWorkbenchStore = defineStore("imageWorkbench", {
   state: () => ({
     imageSettings: settings,
     prompt: "",
-    mode: "generate" as ImageWorkbenchMode,
-    count: Math.max(1, Math.min(4, settings.maxImages)),
-    size: settings.defaultSize || "1024x1024",
+    count: 1,
+    size: "auto",
     quality: settings.defaultQuality || "auto",
-    outputFormat: settings.outputFormat || "png",
-    background: settings.defaultBackground || "auto",
-    moderation: settings.defaultModeration || "auto",
+    outputFormat: "auto",
+    background: "auto",
+    moderation: "auto",
     outputCompression: settings.outputCompression ?? 100,
     inputImages: [] as InputImage[],
     maskDataUrl: null as string | null,
-    busy: false,
+    activeGenerationCount: 0,
     errorText: "",
     result: null as GenerateResult | null,
-    historyItems: [] as ImageGenerationHistoryItem[],
+    historyItems: [] as ImageWorkbenchHistoryItem[],
+    generationTasks: [] as ImageGenerationTaskItem[],
     selectedHistoryId: "" as string,
     historyLoading: false,
+    historyLoadSeq: 0,
     historyErrorText: "",
+    taskPollingTimer: null as number | null,
     dragActive: false,
+    missingConfigurationNoticeShown: false,
   }),
   getters: {
     configured(state) {
       return Boolean(state.imageSettings.enabled && state.imageSettings.baseUrl && state.imageSettings.apiKey);
     },
-    canGenerate(state): boolean {
-      const configured = Boolean(state.imageSettings.enabled && state.imageSettings.baseUrl && state.imageSettings.apiKey);
-      return Boolean(configured && state.prompt.trim() && (state.mode === "generate" || state.inputImages.length > 0));
+    busy(state): boolean {
+      return (
+        state.activeGenerationCount > 0 ||
+        state.generationTasks.some((task) => task.status === "queued" || task.status === "running")
+      );
     },
-    selectedHistoryItem(state): ImageGenerationHistoryItem | null {
+    canGenerate(state): boolean {
+      return Boolean(state.prompt.trim());
+    },
+    selectedHistoryItem(state): ImageWorkbenchHistoryItem | null {
       const id = String(state.selectedHistoryId ?? "").trim();
       if (!id) return null;
-      return state.historyItems.find((item) => item.id === id) ?? null;
+      const item = state.historyItems.find((entry) => entry.id === id) ?? null;
+      if (!item || item.workbenchStatus === "pending" || item.workbenchStatus === "failed") return null;
+      return item;
     },
   },
   actions: {
     syncSettingsFromCache() {
       this.imageSettings = getCachedUserLocalSettings().settings.imageGeneration;
+      if (this.configured) this.missingConfigurationNoticeShown = false;
+    },
+    notifyMissingConfigurationOnce() {
+      if (this.configured) {
+        this.missingConfigurationNoticeShown = false;
+        return;
+      }
+      if (this.missingConfigurationNoticeShown) return;
+      this.missingConfigurationNoticeShown = true;
+      showToast({
+        kind: "warn",
+        title: "图片生成尚未配置",
+        message: "请先在图片生成设置中填写服务地址、API Key 并启用功能。",
+      });
     },
     stopDrag() {
       this.dragActive = false;
@@ -100,7 +164,9 @@ export const useImageWorkbenchStore = defineStore("imageWorkbench", {
       this.maskDataUrl = null;
     },
     removeInputImage(id: string) {
-      this.inputImages = this.inputImages.filter((item) => item.id !== id);
+      const next = this.inputImages.filter((item) => item.id !== id);
+      this.inputImages = next;
+      if (next.length === 0) this.maskDataUrl = null;
     },
     async appendFiles(files: FileList | File[]) {
       const picked = Array.from(files).filter((file) => file.type.startsWith("image/")).slice(0, 4);
@@ -116,28 +182,105 @@ export const useImageWorkbenchStore = defineStore("imageWorkbench", {
       this.inputImages = next;
     },
     async setMaskFromFile(file: File) {
+      if (this.inputImages.length === 0) return;
       this.maskDataUrl = await readFileAsDataUrl(file);
     },
+    mergeHistoryAndTasks(historyItems: ImageGenerationHistoryItem[], tasks: ImageGenerationTaskItem[]) {
+      const model = this.imageSettings.model || "gpt-image-2";
+      const transient = tasks
+        .filter((task) => task.status !== "succeeded")
+        .map((task) => taskToHistoryItem(task, model));
+      this.historyItems = [...transient, ...(Array.isArray(historyItems) ? historyItems : [])];
+      this.activeGenerationCount = tasks.filter((task) => task.status === "queued" || task.status === "running").length;
+      if (this.selectedHistoryId && !this.historyItems.some((item) => item.id === this.selectedHistoryId)) {
+        this.selectedHistoryId = "";
+      }
+    },
+    async syncTasks() {
+      const startedAt = performance.now();
+      try {
+        const [taskRes, historyRes] = await Promise.all([
+          codexDesktop.app.listImageGenerationTasks(),
+          codexDesktop.app.listImageGenerationHistory(),
+        ]);
+        this.generationTasks = Array.isArray(taskRes.tasks) ? taskRes.tasks : [];
+        this.mergeHistoryAndTasks(Array.isArray(historyRes.items) ? historyRes.items : [], this.generationTasks);
+        if (this.activeGenerationCount > 0) this.startTaskPolling();
+        else this.stopTaskPolling();
+        logImageWorkbench("syncTasks ok", {
+          tasks: this.generationTasks.length,
+          history: Array.isArray(historyRes.items) ? historyRes.items.length : 0,
+          ms: Math.round(performance.now() - startedAt),
+        });
+      } catch (error: any) {
+        logImageWorkbench("syncTasks failed", { message: String(error?.message ?? error ?? "unknown error") });
+        throw error;
+      }
+    },
+    startTaskPolling() {
+      if (this.taskPollingTimer !== null || typeof window === "undefined") return;
+      this.taskPollingTimer = window.setInterval(() => {
+        void this.syncTasks().catch(() => undefined);
+      }, 1500);
+    },
+    stopTaskPolling() {
+      if (this.taskPollingTimer === null || typeof window === "undefined") return;
+      window.clearInterval(this.taskPollingTimer);
+      this.taskPollingTimer = null;
+    },
     async loadHistory() {
-      if (this.historyLoading) return;
+      const loadSeq = this.historyLoadSeq + 1;
+      this.historyLoadSeq = loadSeq;
       this.historyLoading = true;
       this.historyErrorText = "";
+      const startedAt = performance.now();
       try {
-        const res = await codexDesktop.app.listImageGenerationHistory();
-        this.historyItems = Array.isArray(res.items) ? res.items : [];
-        if (this.selectedHistoryId && !this.historyItems.some((item) => item.id === this.selectedHistoryId)) {
-          this.selectedHistoryId = "";
-        }
+        logImageWorkbench("loadHistory start", { seq: loadSeq });
+        const historyRes = await codexDesktop.app.listImageGenerationHistory();
+        if (loadSeq !== this.historyLoadSeq) return;
+        this.mergeHistoryAndTasks(Array.isArray(historyRes.items) ? historyRes.items : [], this.generationTasks);
+        this.historyLoading = false;
+        logImageWorkbench("history loaded", {
+          seq: loadSeq,
+          history: Array.isArray(historyRes.items) ? historyRes.items.length : 0,
+          ms: Math.round(performance.now() - startedAt),
+        });
+
+        void codexDesktop.app
+          .listImageGenerationTasks()
+          .then((taskRes) => {
+            if (loadSeq !== this.historyLoadSeq) return;
+            this.generationTasks = Array.isArray(taskRes.tasks) ? taskRes.tasks : [];
+            this.mergeHistoryAndTasks(Array.isArray(historyRes.items) ? historyRes.items : [], this.generationTasks);
+            if (this.activeGenerationCount > 0) this.startTaskPolling();
+            else this.stopTaskPolling();
+            logImageWorkbench("tasks merged", {
+              seq: loadSeq,
+              tasks: this.generationTasks.length,
+              active: this.activeGenerationCount,
+              ms: Math.round(performance.now() - startedAt),
+            });
+          })
+          .catch((error: any) => {
+            logImageWorkbench("task merge failed", {
+              seq: loadSeq,
+              message: String(error?.message ?? error ?? "unknown error"),
+            });
+          });
       } catch (error: any) {
+        if (loadSeq !== this.historyLoadSeq) return;
         this.historyErrorText = String(error?.message ?? error ?? "unknown error");
+        logImageWorkbench("loadHistory failed", { seq: loadSeq, message: this.historyErrorText });
         showToast({ kind: "error", title: "历史加载失败", message: this.historyErrorText });
       } finally {
-        this.historyLoading = false;
+        if (loadSeq === this.historyLoadSeq) this.historyLoading = false;
       }
     },
     selectHistoryItem(id: string) {
       const normalized = String(id ?? "").trim();
       if (!normalized) return;
+      const item = this.historyItems.find((entry) => entry.id === normalized);
+      if (!item || item.workbenchStatus === "pending" || item.workbenchStatus === "failed") return;
       this.selectedHistoryId = normalized;
     },
     backToHistory() {
@@ -146,45 +289,107 @@ export const useImageWorkbenchStore = defineStore("imageWorkbench", {
     async deleteHistoryItem(id: string) {
       const normalized = String(id ?? "").trim();
       if (!normalized) return;
+      const item = this.historyItems.find((entry) => entry.id === normalized);
+      if (item?.taskId && item.workbenchStatus !== undefined) {
+        const previousItems = this.historyItems;
+        const previousSelectedHistoryId = this.selectedHistoryId;
+        this.historyItems = this.historyItems.filter((entry) => entry.id !== normalized);
+        if (this.selectedHistoryId === normalized) this.selectedHistoryId = "";
+        try {
+          const res = await codexDesktop.app.deleteImageGenerationTask({ id: item.taskId });
+          this.generationTasks = Array.isArray(res.tasks) ? res.tasks : [];
+          await this.syncTasks();
+          if (res.deleted) showToast({ kind: "success", title: "已删除图片任务", message: "任务记录已更新。" });
+        } catch (error: any) {
+          this.historyItems = previousItems;
+          this.selectedHistoryId = previousSelectedHistoryId;
+          showToast({ kind: "error", title: "删除失败", message: String(error?.message ?? error ?? "unknown error") });
+          await this.loadHistory().catch(() => undefined);
+        }
+        return;
+      }
+      const previousItems = this.historyItems;
+      const previousSelectedHistoryId = this.selectedHistoryId;
+      this.historyItems = this.historyItems.filter((entry) => entry.id !== normalized);
+      if (this.selectedHistoryId === normalized) this.selectedHistoryId = "";
       try {
         const res = await codexDesktop.app.deleteImageGenerationHistory({ id: normalized });
-        this.historyItems = Array.isArray(res.items) ? res.items : [];
-        if (this.selectedHistoryId === normalized) this.selectedHistoryId = "";
-        if (res.deleted) showToast({ kind: "success", title: "已删除图片记录", message: "图片历史已更新。" });
+        this.mergeHistoryAndTasks(Array.isArray(res.items) ? res.items : [], this.generationTasks);
+        if (res.deleted) {
+          showToast({ kind: "success", title: "已删除图片记录", message: "图片历史已更新。" });
+        } else {
+          showToast({ kind: "error", title: "删除失败", message: "没有找到这条图片历史记录。" });
+          await this.loadHistory();
+        }
       } catch (error: any) {
+        this.historyItems = previousItems;
+        this.selectedHistoryId = previousSelectedHistoryId;
         const message = String(error?.message ?? error ?? "unknown error");
         showToast({ kind: "error", title: "删除失败", message });
+        await this.loadHistory().catch(() => undefined);
+      }
+    },
+    async cancelTask(id: string) {
+      const normalized = String(id ?? "").trim();
+      if (!normalized) return;
+      try {
+        const res = await codexDesktop.app.cancelImageGenerationTask({ id: normalized });
+        this.generationTasks = Array.isArray(res.tasks) ? res.tasks : [];
+        await this.syncTasks();
+        if (res.canceled) showToast({ kind: "success", title: "已取消图片任务", message: "任务状态已更新。" });
+      } catch (error: any) {
+        showToast({ kind: "error", title: "取消失败", message: String(error?.message ?? error ?? "unknown error") });
+      }
+    },
+    async retryTask(id: string) {
+      const normalized = String(id ?? "").trim();
+      if (!normalized) return;
+      try {
+        const res = await codexDesktop.app.retryImageGenerationTask({ id: normalized });
+        this.generationTasks = Array.isArray(res.tasks) ? res.tasks : [];
+        await this.syncTasks();
+        showToast({ kind: "success", title: "已重新加入队列", message: "图片生成任务将按队列执行。" });
+      } catch (error: any) {
+        showToast({ kind: "error", title: "重试失败", message: String(error?.message ?? error ?? "unknown error") });
       }
     },
     async generate() {
-      if (this.busy || !this.canGenerate) return;
+      this.syncSettingsFromCache();
+      if (!this.prompt.trim()) {
+        this.errorText = "请输入图片生成提示词。";
+        showToast({ kind: "error", title: "无法生成图片", message: this.errorText });
+        return;
+      }
+      if (!this.configured) {
+        this.errorText = "图片生成尚未配置，请先填写服务地址、API Key 并启用图片生成功能。";
+        showToast({ kind: "error", title: "无法生成图片", message: this.errorText });
+        return;
+      }
       this.errorText = "";
-      this.busy = true;
+      const inputImages = this.inputImages.map((item) => ({ dataUrl: item.dataUrl, name: item.name }));
+      const mode: ImageWorkbenchMode = inputImages.length > 0 ? "edit" : "generate";
+      const args: ImageGenerationGenerateArgs = {
+        prompt: this.prompt.trim(),
+        inputImages: mode === "edit" ? inputImages : null,
+        maskDataUrl: mode === "edit" ? this.maskDataUrl : null,
+        n: 1,
+        size: "auto",
+        quality: this.quality,
+        outputFormat: "auto",
+        background: "auto",
+        moderation: "auto",
+        outputCompression: sanitizeCompression(this.outputCompression),
+      };
+      this.selectedHistoryId = "";
       try {
-        const res = await codexDesktop.app.generateImage({
-          mode: this.mode,
-          prompt: this.prompt.trim(),
-          inputImages:
-            this.mode === "edit" ? this.inputImages.map((item) => ({ dataUrl: item.dataUrl, name: item.name })) : null,
-          maskDataUrl: this.mode === "edit" ? this.maskDataUrl : null,
-          n: this.count,
-          size: this.size,
-          quality: this.quality,
-          outputFormat: this.outputFormat,
-          background: this.background,
-          moderation: this.moderation,
-          outputCompression: sanitizeCompression(this.outputCompression),
-        } as any);
-        this.result = res as GenerateResult;
-        await this.loadHistory();
-        const historyId = String((res as any)?.historyId ?? "").trim();
-        if (historyId) this.selectedHistoryId = historyId;
-        showToast({ kind: "success", title: "生成完成", message: `返回 ${res.images.length} 张图片。` });
+        const res = await codexDesktop.app.submitImageGenerationTask(args);
+        this.generationTasks = Array.isArray(res.tasks) ? res.tasks : [];
+        await this.syncTasks();
+        this.startTaskPolling();
+        showToast({ kind: "success", title: "已加入图片生成队列", message: "任务将按并发限制自动执行。" });
       } catch (error: any) {
         this.errorText = String(error?.message ?? error ?? "unknown error");
-        showToast({ kind: "error", title: "生成失败", message: this.errorText });
-      } finally {
-        this.busy = false;
+        showToast({ kind: "error", title: "提交失败", message: this.errorText });
       }
     },
   },

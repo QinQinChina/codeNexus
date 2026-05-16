@@ -7,6 +7,7 @@ import type { LocalSettingsService } from "../../services/LocalSettingsService";
 import type { CodexProfileService } from "../../services/CodexProfileService";
 import type { CodexSkillRootsService } from "../../services/CodexSkillRootsService";
 import type { ImageGenerationHistoryService } from "../../services/ImageGenerationHistoryService";
+import type { ImageGenerationTaskService } from "../../services/ImageGenerationTaskService";
 import type { ThreadArtifactService } from "../../services/ThreadArtifactService";
 import type { ThreadTaskService } from "../../services/ThreadTaskService";
 import type { ThreadTitleOverrideService } from "../../services/ThreadTitleOverrideService";
@@ -37,6 +38,7 @@ export type IpcHandlersDeps = {
   codexProfileService: CodexProfileService;
   codexSkillRootsService: CodexSkillRootsService;
   imageGenerationHistoryService: ImageGenerationHistoryService;
+  imageGenerationTaskService: ImageGenerationTaskService;
   remoteSyncService: RemoteStateSyncService;
   cacheRegistryService: CacheRegistryService;
 };
@@ -48,6 +50,7 @@ export function registerAllHandlers(deps: IpcHandlersDeps) {
     codexProfileService: deps.codexProfileService,
     codexSkillRootsService: deps.codexSkillRootsService,
     imageGenerationHistoryService: deps.imageGenerationHistoryService,
+    imageGenerationTaskService: deps.imageGenerationTaskService,
     remoteSyncService: deps.remoteSyncService,
   });
   registerCodexHandlers({ serverManager: deps.serverManager, sendEvent: deps.sendCodexEvent });

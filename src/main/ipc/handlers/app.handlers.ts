@@ -17,6 +17,7 @@ import type { LocalSettingsService } from "../../services/LocalSettingsService";
 import type { CodexProfileService } from "../../services/CodexProfileService";
 import type { CodexSkillRootsService } from "../../services/CodexSkillRootsService";
 import type { ImageGenerationHistoryService } from "../../services/ImageGenerationHistoryService";
+import type { ImageGenerationTaskService } from "../../services/ImageGenerationTaskService";
 import type { RemoteStateSyncService } from "../../services/RemoteStateSyncService";
 import type { CodexProviderProfileInput } from "../../../shared/codexProfiles";
 
@@ -148,7 +149,7 @@ function imageMimeFromExt(extValue: unknown): string {
   return IMAGE_MIME_BY_EXT[ext] || "image/png";
 }
 
-function imageExtFromMime(mimeValue: unknown, fallbackFormat: string): string {
+function imageExtFromMime(mimeValue: unknown, fallbackFormat: unknown): string {
   const mime = String(mimeValue ?? "")
     .split(";")[0]
     .trim()
@@ -163,14 +164,22 @@ function imageExtFromMime(mimeValue: unknown, fallbackFormat: string): string {
   return ".png";
 }
 
-function normalizeImageOutputFormat(value: unknown, fallback: string): string {
+function normalizeImageOutputFormat(value: unknown, fallback: string): string | null {
   const text = String(value ?? "")
     .trim()
     .toLowerCase()
     .replace(/^\./, "");
+  if (text === "auto") return null;
   if (text === "jpg") return "jpeg";
   if (text === "jpeg" || text === "png" || text === "webp") return text;
-  return String(fallback || "png").trim() || "png";
+  const fallbackText = String(fallback || "png")
+    .trim()
+    .toLowerCase()
+    .replace(/^\./, "");
+  if (fallbackText === "auto") return null;
+  if (fallbackText === "jpg") return "jpeg";
+  if (fallbackText === "jpeg" || fallbackText === "png" || fallbackText === "webp") return fallbackText;
+  return "png";
 }
 
 function normalizeImageBackground(value: unknown, fallback: string): string {
@@ -247,13 +256,17 @@ async function readImageFileAsDataUrl(filePath: string): Promise<string> {
   return image.toDataURL();
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number, signal?: AbortSignal): Promise<Response> {
   const controller = new AbortController();
+  const abort = () => controller.abort();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  if (signal?.aborted) controller.abort();
+  signal?.addEventListener("abort", abort, { once: true });
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener("abort", abort);
   }
 }
 
@@ -306,10 +319,11 @@ function extractGeneratedImages(value: unknown): Array<{
   return out;
 }
 
-async function generateImagesWithSettings(
+export async function generateImagesWithSettings(
   localSettingsService: LocalSettingsService,
   imageGenerationHistoryService: ImageGenerationHistoryService,
-  args: ImageGenerationGenerateArgs
+  args: ImageGenerationGenerateArgs,
+  signal?: AbortSignal
 ) {
   const prompt = toNullableText(args?.prompt);
   if (!prompt) throw new Error("图片生成提示词不能为空。");
@@ -321,7 +335,6 @@ async function generateImagesWithSettings(
   if (!imageSettings.apiKey) throw new Error("图片生成 API Key 未配置。");
 
   const timeoutMs = toIntegerInRange(imageSettings.timeoutMs, 120_000, 10_000, 600_000);
-  const requestedMode = args?.mode === "edit" ? "edit" : "generate";
   const inputImages = Array.isArray(args?.inputImages)
     ? args.inputImages
         .map((item) => ({
@@ -330,7 +343,7 @@ async function generateImagesWithSettings(
         }))
         .filter((item): item is { dataUrl: string; name: string | null } => Boolean(item.dataUrl))
     : [];
-  const mode = requestedMode === "edit" && inputImages.length > 0 ? "edit" : "generate";
+  const mode = inputImages.length > 0 ? "edit" : "generate";
   const endpoint = normalizeImageEndpoint(imageSettings.baseUrl, mode === "edit" ? "edits" : "generations");
   const outputFormat = normalizeImageOutputFormat(args?.outputFormat, imageSettings.outputFormat);
   const n = Math.min(
@@ -378,9 +391,9 @@ async function generateImagesWithSettings(
           n,
           size,
           quality,
-          output_format: outputFormat,
           background,
           moderation,
+          ...(outputFormat ? { output_format: outputFormat } : {}),
           output_compression: outputFormat === "jpeg" || outputFormat === "webp" ? outputCompression : undefined,
         });
 
@@ -399,7 +412,8 @@ async function generateImagesWithSettings(
             },
       body: requestBody,
     },
-    timeoutMs
+    timeoutMs,
+    signal
   );
 
   if (!response.ok) {
@@ -424,7 +438,7 @@ async function generateImagesWithSettings(
     if (!buffer && image.url) {
       const imageUrl = normalizeHttpUrl(image.url);
       if (!imageUrl) throw new Error(`图片下载地址无效：${image.url}`);
-      const imageResponse = await fetchWithTimeout(imageUrl, { method: "GET" }, timeoutMs);
+      const imageResponse = await fetchWithTimeout(imageUrl, { method: "GET" }, timeoutMs, signal);
       if (!imageResponse.ok) {
         const body = await readErrorBody(imageResponse);
         throw new Error(`图片下载失败：HTTP ${imageResponse.status}${body ? ` ${body}` : ""}`);
@@ -570,6 +584,7 @@ export function registerAppHandlers(deps: {
   codexProfileService: CodexProfileService;
   codexSkillRootsService: CodexSkillRootsService;
   imageGenerationHistoryService: ImageGenerationHistoryService;
+  imageGenerationTaskService: ImageGenerationTaskService;
   remoteSyncService: RemoteStateSyncService;
 }) {
   const {
@@ -577,6 +592,7 @@ export function registerAppHandlers(deps: {
     codexProfileService,
     codexSkillRootsService,
     imageGenerationHistoryService,
+    imageGenerationTaskService,
     remoteSyncService,
   } = deps;
   const getWindowOrNull = (): BrowserWindow | null => {
@@ -843,6 +859,15 @@ export function registerAppHandlers(deps: {
     return { ok: true, dataUrl: image.toDataURL() };
   });
 
+  ipcMain.handle(IPC_APP_CHANNELS.appWriteClipboardImageFromPath, async (_evt, args: { path: string }) => {
+    const filePath = resolveLocalFilePath(args?.path ?? "");
+    if (!filePath) throw new Error("app:writeClipboardImageFromPath requires path");
+    const image = nativeImage.createFromPath(filePath);
+    if (image.isEmpty()) throw new Error("app:writeClipboardImageFromPath failed to load image");
+    clipboard.writeImage(image);
+    return { ok: true as const };
+  });
+
   ipcMain.handle(IPC_APP_CHANNELS.appReadImageFileDataUrl, async (_evt, args: { path: string }) => {
     const filePath = resolveLocalFilePath(args?.path ?? "");
     if (!filePath) throw new Error("app:readImageFileDataUrl requires path");
@@ -859,6 +884,30 @@ export function registerAppHandlers(deps: {
 
   ipcMain.handle(IPC_APP_CHANNELS.appImageGenerationHistoryDelete, async (_evt, args: { id: string }) => {
     const result = await imageGenerationHistoryService.delete(args?.id);
+    return { ok: true as const, ...result };
+  });
+
+  ipcMain.handle(IPC_APP_CHANNELS.appImageGenerationTaskList, async () => {
+    return { tasks: await imageGenerationTaskService.list() };
+  });
+
+  ipcMain.handle(IPC_APP_CHANNELS.appImageGenerationTaskSubmit, async (_evt, args: ImageGenerationGenerateArgs) => {
+    const result = await imageGenerationTaskService.submit(args);
+    return { ok: true as const, ...result };
+  });
+
+  ipcMain.handle(IPC_APP_CHANNELS.appImageGenerationTaskCancel, async (_evt, args: { id: string }) => {
+    const result = await imageGenerationTaskService.cancel(args?.id);
+    return { ok: true as const, ...result };
+  });
+
+  ipcMain.handle(IPC_APP_CHANNELS.appImageGenerationTaskDelete, async (_evt, args: { id: string }) => {
+    const result = await imageGenerationTaskService.delete(args?.id);
+    return { ok: true as const, ...result };
+  });
+
+  ipcMain.handle(IPC_APP_CHANNELS.appImageGenerationTaskRetry, async (_evt, args: { id: string }) => {
+    const result = await imageGenerationTaskService.retry(args?.id);
     return { ok: true as const, ...result };
   });
 

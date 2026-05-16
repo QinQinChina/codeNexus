@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import type { ImageGenerationHistoryItem } from "../../shared/ipc/contracts";
 
 type ImageGenerationHistoryState = {
@@ -31,15 +31,6 @@ function toNullableText(value: unknown): string | null {
 function toTimestamp(value: unknown): number {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? Math.round(n) : Date.now();
-}
-
-function isPathWithinDir(filePath: string, dirPath: string): boolean {
-  const file = resolve(String(filePath ?? ""));
-  const dir = resolve(String(dirPath ?? ""));
-  if (!file || !dir) return false;
-  if (file === dir) return true;
-  const rel = relative(dir, file);
-  return Boolean(rel) && !rel.startsWith("..") && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
 }
 
 function normalizeItem(value: unknown): ImageGenerationHistoryItem | null {
@@ -96,10 +87,7 @@ function normalizeState(value: unknown): ImageGenerationHistoryState {
 export class ImageGenerationHistoryService {
   private writeQueue: Promise<ImageGenerationHistoryState> = Promise.resolve({ version: 1, items: [] });
 
-  constructor(
-    private readonly filePath: string,
-    private readonly generatedImagesDir: string
-  ) {}
+  constructor(private readonly filePath: string) {}
 
   get path(): string {
     return this.filePath;
@@ -163,15 +151,6 @@ export class ImageGenerationHistoryService {
       });
     this.writeQueue = task;
     const state = await task;
-    const removedItem = removed as ImageGenerationHistoryItem | null;
-    if (removedItem) {
-      await Promise.all(
-        removedItem.images.map(async (image) => {
-          if (!isPathWithinDir(image.path, this.generatedImagesDir)) return;
-          await rm(image.path, { force: true }).catch(() => undefined);
-        })
-      );
-    }
-    return { deleted: Boolean(removedItem), items: state.items };
+    return { deleted: Boolean(removed), items: state.items };
   }
 }

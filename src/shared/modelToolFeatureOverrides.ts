@@ -1,10 +1,6 @@
 export type ThreadStartConfigOverrides = Record<string, boolean>;
 
-const IMAGE_GENERATION_UNSUPPORTED_MODEL_IDS = new Set(["gpt-5.3-codex-spark"]);
-
-export function buildThreadStartConfigOverridesForModel(model: unknown): ThreadStartConfigOverrides | null {
-  const modelId = String(model ?? "").trim();
-  if (!IMAGE_GENERATION_UNSUPPORTED_MODEL_IDS.has(modelId)) return null;
+export function buildThreadStartConfigOverridesForModel(_model: unknown): ThreadStartConfigOverrides | null {
   return {
     "features.image_generation": false,
   };

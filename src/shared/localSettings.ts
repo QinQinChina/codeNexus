@@ -41,7 +41,7 @@ export type GlobalBackgroundFitMode = "cover" | "contain" | "tile";
 export type MainView = "chat" | "image";
 export type UiFontFamilyPreset = "alibaba-puhuiti" | "source-han-sans-sc";
 export type UiFontSizePreset = "small" | "medium" | "large";
-export type UiWorkspaceFileIconTheme = "lucide" | "vscode-icons";
+export type UiWorkspaceFileIconTheme = "vscode-icons";
 export type AssistantFinalMessageFormat = "markdown" | "structured-json-v1";
 export type AssistantPlanMessageFormat = "markdown" | "plan-card-v1";
 
@@ -166,7 +166,7 @@ export const MIN_IMAGE_GENERATION_MAX_IMAGES = 1;
 export const MAX_IMAGE_GENERATION_MAX_IMAGES = 4;
 export const DEFAULT_UI_FONT_FAMILY_PRESET: UiFontFamilyPreset = "alibaba-puhuiti";
 export const DEFAULT_UI_FONT_SIZE_PRESET: UiFontSizePreset = "medium";
-export const DEFAULT_UI_WORKSPACE_FILE_ICON_THEME: UiWorkspaceFileIconTheme = "lucide";
+export const DEFAULT_UI_WORKSPACE_FILE_ICON_THEME: UiWorkspaceFileIconTheme = "vscode-icons";
 const UI_FONT_SIZE_ZOOM_FACTORS: Record<UiFontSizePreset, number> = {
   small: 0.92,
   medium: 1,
@@ -195,11 +195,7 @@ function normalizeUiFontSizePreset(value: unknown): UiFontSizePreset {
   return DEFAULT_UI_FONT_SIZE_PRESET;
 }
 
-export function normalizeUiWorkspaceFileIconTheme(value: unknown): UiWorkspaceFileIconTheme {
-  const raw = String(value ?? "")
-    .trim()
-    .toLowerCase();
-  if (raw === "vscode-icons") return "vscode-icons";
+export function normalizeUiWorkspaceFileIconTheme(_value: unknown): UiWorkspaceFileIconTheme {
   return DEFAULT_UI_WORKSPACE_FILE_ICON_THEME;
 }
 

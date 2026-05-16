@@ -4,7 +4,7 @@ import type {
   ChatImageToolItem,
   ImageToolStatus,
   LazyImageSourceKind,
-} from "../../components/layout/chat.types";
+} from "../../components/layout/types/chat.types";
 
 type SupportedImageProtocolItem =
   | {
@@ -21,14 +21,8 @@ type SupportedImageProtocolItem =
       results?: string[];
       savedPath?: string;
       savedPaths?: string[];
+      pendingImageCount?: number;
       errorText?: string;
-    }
-  | {
-      type: "image_generation_call";
-      id?: string;
-      status?: string;
-      revised_prompt?: string;
-      result?: string;
     };
 
 function toImageToolStatus(statusValue: unknown, eventMethod: string): ImageToolStatus {
@@ -90,6 +84,12 @@ function buildImageEntry(id: string, sourceValue: unknown, titleValue?: unknown)
   return { id, sourceKind, source, title };
 }
 
+function normalizePendingImageCount(value: unknown): number | undefined {
+  const count = Math.round(Number(value));
+  if (!Number.isFinite(count)) return undefined;
+  return Math.max(1, Math.min(4, count));
+}
+
 export function buildImageToolItemFromProtocolItem(item: unknown, eventMethod: string): ChatImageToolItem | null {
   if (!item || typeof item !== "object" || Array.isArray(item)) return null;
   const protocolItem = item as SupportedImageProtocolItem;
@@ -120,27 +120,21 @@ export function buildImageToolItemFromProtocolItem(item: unknown, eventMethod: s
     };
   }
 
-  if (type !== "imageGeneration" && type !== "image_generation_call") return null;
+  if (type !== "imageGeneration") return null;
 
-  const generationItem = protocolItem as
-    | Extract<SupportedImageProtocolItem, { type: "imageGeneration" }>
-    | Extract<SupportedImageProtocolItem, { type: "image_generation_call" }>;
+  const generationItem = protocolItem as Extract<SupportedImageProtocolItem, { type: "imageGeneration" }>;
   const statusText = String(generationItem.status ?? "").trim();
   const status = toImageToolStatus(statusText, eventMethod);
-  const revisedPrompt = String(
-    generationItem.type === "imageGeneration"
-      ? (generationItem.revisedPrompt ?? "")
-      : (generationItem.revised_prompt ?? "")
-  ).trim();
+  const revisedPrompt = String(generationItem.revisedPrompt ?? "").trim();
   const result = String(generationItem.result ?? "").trim();
   const resultValues = Array.isArray((generationItem as any).results)
     ? ((generationItem as any).results as unknown[]).map((value) => String(value ?? "").trim()).filter(Boolean)
     : [];
-  const savedPath = String(generationItem.type === "imageGeneration" ? (generationItem.savedPath ?? "") : "").trim();
-  const savedPaths =
-    generationItem.type === "imageGeneration" && Array.isArray((generationItem as any).savedPaths)
-      ? ((generationItem as any).savedPaths as unknown[]).map((value) => String(value ?? "").trim()).filter(Boolean)
-      : [];
+  const savedPath = String(generationItem.savedPath ?? "").trim();
+  const savedPaths = Array.isArray((generationItem as any).savedPaths)
+    ? ((generationItem as any).savedPaths as unknown[]).map((value) => String(value ?? "").trim()).filter(Boolean)
+    : [];
+  const pendingImageCount = normalizePendingImageCount((generationItem as any).pendingImageCount ?? (generationItem as any).n);
   const allSavedPaths = [...new Set([savedPath, ...savedPaths].filter(Boolean))];
   const resultSources =
     allSavedPaths.length > 0
@@ -164,6 +158,7 @@ export function buildImageToolItemFromProtocolItem(item: unknown, eventMethod: s
     itemType: "imageGeneration",
     title: "生成图片",
     status,
+    pendingImageCount,
     detailText: [
       statusText ? `status=${statusText}` : "",
       allSavedPaths.length > 0 ? allSavedPaths.map((path, index) => `savedPath[${index + 1}]=${path}`).join("\n") : "",

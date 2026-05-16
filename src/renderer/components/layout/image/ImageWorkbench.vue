@@ -1,17 +1,8 @@
 <template>
   <section class="image-workbench" aria-label="图片工作台">
-    <div v-if="!workbench.configured" class="image-workbench__notice">
-      <AlertTriangle class="image-workbench__notice-icon" aria-hidden="true" />
-      <div class="image-workbench__notice-body">
-        <div class="image-workbench__notice-title">图片生成尚未配置</div>
-        <div class="image-workbench__notice-text">先填写服务地址、API Key 和默认模型，然后再发起请求。</div>
-      </div>
-    </div>
-
-    <section class="image-workbench__stage" :class="{ 'is-history': !selectedHistoryItem && workbench.historyItems.length > 0 }">
+    <section ref="stageRef" class="image-workbench__stage app-scrollbar">
       <div class="image-workbench__stage-head">
         <span>{{ selectedHistoryItem ? "详情" : "历史记录" }}</span>
-        <span class="mono">{{ workbench.historyItems.length }} 次生成</span>
       </div>
 
       <div v-if="workbench.historyLoading && workbench.historyItems.length === 0" class="image-workbench__empty">
@@ -21,11 +12,11 @@
 
       <div v-else-if="selectedHistoryItem" class="image-workbench__result-stack">
         <div class="image-workbench__detail-bar">
-          <button class="btn-mini" type="button" @click="workbench.backToHistory">
+          <button class="btn-mini" type="button" @click="backToHistory">
             <ArrowLeft class="btn-mini__icon" aria-hidden="true" />
             <span>历史</span>
           </button>
-          <button class="btn-mini btn-mini--danger" type="button" @click="workbench.deleteHistoryItem(selectedHistoryItem.id)">
+          <button class="btn-mini btn-mini--danger" type="button" @click="deleteHistoryItem(selectedHistoryItem.id)">
             <Trash2 class="btn-mini__icon" aria-hidden="true" />
             <span>删除</span>
           </button>
@@ -43,6 +34,9 @@
               </button>
               <button class="image-workbench__tool" type="button" title="重置视图" @click="resetImageZoom(image.path)">
                 <RotateCcw aria-hidden="true" />
+              </button>
+              <button class="image-workbench__tool" type="button" title="复制图片" @click="copyImageToClipboard(image)">
+                <Copy aria-hidden="true" />
               </button>
               <button class="image-workbench__tool" type="button" title="下载图片" @click="downloadImage(image)">
                 <Download aria-hidden="true" />
@@ -64,121 +58,132 @@
               />
               <div v-else class="image-workbench__image-missing">图片不可用</div>
             </div>
-            <div class="image-workbench__result-meta">
-              <span class="mono">{{ image.mimeType }}</span>
-              <span class="mono image-workbench__path">{{ image.path }}</span>
-            </div>
           </article>
-        </div>
-
-        <div class="image-workbench__summary">
-          <div class="image-workbench__summary-row">
-            <span class="dim">模型</span>
-            <span class="mono">{{ selectedHistoryItem.model }}</span>
-          </div>
-          <div class="image-workbench__summary-row">
-            <span class="dim">提示词</span>
-            <span class="mono">{{ selectedHistoryItem.prompt }}</span>
-          </div>
-          <div v-if="selectedHistoryItem.revisedPrompt" class="image-workbench__summary-row">
-            <span class="dim">修订</span>
-            <span class="mono">{{ selectedHistoryItem.revisedPrompt }}</span>
-          </div>
-          <div class="image-workbench__summary-row">
-            <span class="dim">参数</span>
-            <span class="mono">{{ formatHistoryParams(selectedHistoryItem) }}</span>
-          </div>
-          <div class="image-workbench__summary-row">
-            <span class="dim">时间</span>
-            <span class="mono">{{ formatDateTime(selectedHistoryItem.createdAt) }}</span>
-          </div>
         </div>
       </div>
 
-      <div
-        v-else-if="workbench.historyItems.length > 0"
-        ref="historyScrollerRef"
-        class="image-workbench__history-scroll"
-        :class="{ 'is-dragging': historyDragState !== null }"
-        @pointerdown="onHistoryPointerDown"
-        @wheel="onHistoryWheel"
-      >
-        <div class="image-workbench__history-grid">
-        <article
-          v-for="item in workbench.historyItems"
-          :key="item.id"
-          class="image-workbench__history-card"
-          :class="{
-            'is-pending': isPendingHistoryItem(item),
-            'is-failed': isFailedHistoryItem(item),
-          }"
-          :role="isSelectableHistoryItem(item) ? 'button' : undefined"
-          :tabindex="isSelectableHistoryItem(item) ? 0 : -1"
-          :aria-busy="isPendingHistoryItem(item) ? 'true' : 'false'"
-          @click="onHistoryCardClick(item)"
-          @keydown.enter.prevent="onHistoryCardClick(item)"
-          @keydown.space.prevent="onHistoryCardClick(item)"
-        >
-          <div class="image-workbench__history-preview" :class="{ 'is-single': item.images.length === 1 }" :style="historyPreviewStyle(item)">
-            <template v-if="isPendingHistoryItem(item)">
-              <div v-for="n in historySkeletonTileCount(item)" :key="`${item.id}:pending:${n}`" class="image-workbench__history-skeleton">
-                <Loader2 class="image-workbench__history-skeleton-icon is-spinning" aria-hidden="true" />
+      <div v-else-if="workbench.historyItems.length > 0" class="image-workbench__history-groups">
+        <section v-for="group in historyGroups" :key="group.key" class="image-workbench__history-group">
+          <div class="image-workbench__history-group-title mono">{{ group.label }}</div>
+          <div class="image-workbench__history-grid app-scrollbar">
+            <article
+              v-for="item in group.items"
+              :key="item.id"
+              class="image-workbench__history-card"
+              :class="{
+                'is-pending': isPendingHistoryItem(item),
+                'is-failed': isFailedHistoryItem(item),
+              }"
+              :style="historyCardStyle(item)"
+              :role="isSelectableHistoryItem(item) ? 'button' : undefined"
+              :tabindex="isSelectableHistoryItem(item) ? 0 : -1"
+              :aria-busy="isPendingHistoryItem(item) ? 'true' : 'false'"
+              @click="onHistoryCardClick(item)"
+              @keydown.enter.prevent="onHistoryCardClick(item)"
+              @keydown.space.prevent="onHistoryCardClick(item)"
+            >
+              <div class="image-workbench__history-preview" :class="{ 'is-single': item.images.length === 1 }">
+                <template v-if="isPendingHistoryItem(item)">
+                  <div v-for="n in historySkeletonTileCount(item)" :key="`${item.id}:pending:${n}`" class="image-workbench__history-skeleton">
+                    <Loader2 class="image-workbench__history-skeleton-icon is-spinning" aria-hidden="true" />
+                  </div>
+                </template>
+                <template v-else-if="isFailedHistoryItem(item)">
+                  <div class="image-workbench__history-skeleton is-failed">
+                    <AlertTriangle class="image-workbench__history-skeleton-icon" aria-hidden="true" />
+                  </div>
+                </template>
+                <template v-else>
+                  <template v-for="(image, index) in item.images.slice(0, 4)" :key="image.path">
+                    <img
+                      v-if="imageDataUrlByPath[image.path]"
+                      :class="{ 'is-full': item.images.length === 1 && index === 0 }"
+                      :src="imageDataUrlByPath[image.path]"
+                      :alt="image.path"
+                      @load="onHistoryImageLoad(image.path, $event)"
+                    />
+                    <div v-else class="image-workbench__history-tile">
+                      <ImageIcon aria-hidden="true" />
+                    </div>
+                  </template>
+                </template>
               </div>
-            </template>
-            <template v-else-if="isFailedHistoryItem(item)">
-              <div class="image-workbench__history-skeleton is-failed">
-                <AlertTriangle class="image-workbench__history-skeleton-icon" aria-hidden="true" />
+              <div class="image-workbench__history-body">
+                <template v-if="isPendingHistoryItem(item)">
+                  <button
+                    v-if="item.taskId"
+                    class="image-workbench__history-action"
+                    type="button"
+                    aria-label="取消图片任务"
+                    title="取消图片任务"
+                    @click.stop="workbench.cancelTask(item.taskId)"
+                    @keydown.stop
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </button>
+                </template>
+                <template v-else-if="isFailedHistoryItem(item)">
+                  <AlertTriangle class="image-workbench__history-state-icon is-failed" aria-hidden="true" />
+                  <button
+                    v-if="item.taskId"
+                    class="image-workbench__history-action"
+                    type="button"
+                    aria-label="重试图片任务"
+                    title="重试图片任务"
+                    @click.stop="workbench.retryTask(item.taskId)"
+                    @keydown.stop
+                  >
+                    <RotateCcw aria-hidden="true" />
+                  </button>
+                  <button
+                    class="image-workbench__history-action is-danger"
+                    type="button"
+                    aria-label="删除失败记录"
+                    title="删除失败记录"
+                    @click.stop="deleteHistoryItem(item.id)"
+                    @keydown.stop
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </button>
+                </template>
+                <template v-else>
+                  <button
+                    v-if="item.images[0]"
+                    class="image-workbench__history-action"
+                    type="button"
+                    aria-label="复制图片"
+                    title="复制图片"
+                    @click.stop="copyImageToClipboard(item.images[0])"
+                    @keydown.stop
+                  >
+                    <Copy aria-hidden="true" />
+                  </button>
+                  <button
+                    v-if="item.images[0]"
+                    class="image-workbench__history-action"
+                    type="button"
+                    aria-label="下载图片"
+                    title="下载图片"
+                    @click.stop="downloadImage(item.images[0])"
+                    @keydown.stop
+                  >
+                    <Download aria-hidden="true" />
+                  </button>
+                  <button
+                    class="image-workbench__history-action is-danger"
+                    type="button"
+                    aria-label="删除图片历史"
+                    title="删除图片历史"
+                    @click.stop="deleteHistoryItem(item.id)"
+                    @keydown.stop
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </button>
+                </template>
               </div>
-            </template>
-            <template v-else>
-              <template v-for="(image, index) in item.images.slice(0, 4)" :key="image.path">
-                <img
-                  v-if="imageDataUrlByPath[image.path]"
-                  :class="{ 'is-full': item.images.length === 1 && index === 0 }"
-                  :src="imageDataUrlByPath[image.path]"
-                  :alt="image.path"
-                  @load="onHistoryImageLoad(image.path, $event)"
-                />
-                <div v-else class="image-workbench__history-tile">
-                  <ImageIcon aria-hidden="true" />
-                </div>
-              </template>
-            </template>
-          </div>
-          <div class="image-workbench__history-body">
-            <template v-if="isPendingHistoryItem(item)">
-              <div class="image-workbench__history-skeleton-line is-title"></div>
-              <div class="image-workbench__history-skeleton-line is-meta"></div>
-              <div class="image-workbench__history-skeleton-line is-model"></div>
-            </template>
-            <template v-else-if="isFailedHistoryItem(item)">
-              <div class="image-workbench__history-title is-failed">生成失败</div>
-              <div class="image-workbench__history-meta">
-                <span class="mono">等待重试</span>
-                <button
-                  class="btn-mini btn-mini--danger image-workbench__history-delete"
-                  type="button"
-                  aria-label="删除失败记录"
-                  title="删除失败记录"
-                  @click.stop="workbench.deleteHistoryItem(item.id)"
-                  @keydown.stop
-                >
-                  <Trash2 class="btn-mini__icon" aria-hidden="true" />
-                  <span>删除</span>
-                </button>
-              </div>
-              <div class="image-workbench__history-model mono">{{ item.errorText || "图片生成失败" }}</div>
-            </template>
-            <template v-else>
-              <div class="image-workbench__history-title">{{ item.prompt }}</div>
-              <div class="image-workbench__history-meta">
-                <span class="mono">{{ formatDateTime(item.createdAt) }}</span>
-                <span class="mono">{{ item.model }}</span>
-              </div>
-            </template>
-          </div>
-        </article>
-        </div>
+            </article>
+            </div>
+        </section>
       </div>
 
       <div v-else class="image-workbench__empty">
@@ -190,10 +195,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, onBeforeUnmount, ref, watch, type CSSProperties } from "vue";
+import { computed, nextTick, onBeforeMount, onBeforeUnmount, ref, watch, type CSSProperties } from "vue";
 import {
   AlertTriangle,
   ArrowLeft,
+  Copy,
   Download,
   Image as ImageIcon,
   Loader2,
@@ -202,12 +208,14 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-vue-next";
-import { codexDesktop } from "../../api/codexDesktopClient";
-import { useAppShellStore } from "../../stores/appShell.store";
-import { useImageWorkbenchStore } from "../../stores/imageWorkbench.store";
+import { codexDesktop } from "../../../api/codexDesktopClient";
+import { useAppShellStore } from "../../../stores/appShell.store";
+import { useImageWorkbenchStore } from "../../../stores/imageWorkbench.store";
+import { showToast } from "../../../ui/toast";
 
 const appShellStore = useAppShellStore();
 const workbench = useImageWorkbenchStore();
+const stageRef = ref<HTMLElement | null>(null);
 const imageZoomByPath = ref<Record<string, number>>({});
 const imageDataUrlByPath = ref<Record<string, string>>({});
 const imageDataUrlLoading = ref<Record<string, boolean>>({});
@@ -216,6 +224,9 @@ const imageNaturalSizeByPath = ref<Record<string, { width: number; height: numbe
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 6;
 const ZOOM_STEP = 1.18;
+const HISTORY_SINGLE_PREVIEW_MAX_HEIGHT_PX = 300;
+const HISTORY_SINGLE_CARD_MIN_WIDTH_PX = 160;
+const HISTORY_SINGLE_CARD_MAX_WIDTH_PX = 460;
 
 type WorkbenchImage = NonNullable<typeof workbench.selectedHistoryItem>["images"][number];
 type WorkbenchHistoryItem = (typeof workbench.historyItems)[number];
@@ -228,19 +239,10 @@ type ImageDragState = {
   startPanX: number;
   startPanY: number;
 };
-type HistoryDragState = {
-  pointerId: number;
-  startClientX: number;
-  startClientY: number;
-  startScrollLeft: number;
-  moved: boolean;
-};
 
 const imagePanByPath = ref<Record<string, ImagePanState>>({});
 const imageDragState = ref<ImageDragState | null>(null);
-const historyScrollerRef = ref<HTMLElement | null>(null);
-const historyDragState = ref<HistoryDragState | null>(null);
-const suppressHistoryClick = ref(false);
+const savedHistoryScroll = ref<{ top: number; gridLefts: number[] } | null>(null);
 
 function clampNumber(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return min;
@@ -320,75 +322,6 @@ function teardownImageDragListeners() {
   window.removeEventListener("pointercancel", onImagePointerUp);
 }
 
-function teardownHistoryDragListeners() {
-  window.removeEventListener("pointermove", onHistoryPointerMove);
-  window.removeEventListener("pointerup", onHistoryPointerUp);
-  window.removeEventListener("pointercancel", onHistoryPointerUp);
-}
-
-function onHistoryPointerDown(event: PointerEvent) {
-  if (event.button !== 0) return;
-  const target = event.target as HTMLElement | null;
-  if (target?.closest("button, a, input, textarea, select")) return;
-  const scroller = historyScrollerRef.value;
-  if (!scroller) return;
-
-  historyDragState.value = {
-    pointerId: event.pointerId,
-    startClientX: event.clientX,
-    startClientY: event.clientY,
-    startScrollLeft: scroller.scrollLeft,
-    moved: false,
-  };
-  suppressHistoryClick.value = false;
-
-  try {
-    scroller.setPointerCapture?.(event.pointerId);
-  } catch {}
-  window.addEventListener("pointermove", onHistoryPointerMove);
-  window.addEventListener("pointerup", onHistoryPointerUp);
-  window.addEventListener("pointercancel", onHistoryPointerUp);
-}
-
-function onHistoryPointerMove(event: PointerEvent) {
-  const state = historyDragState.value;
-  const scroller = historyScrollerRef.value;
-  if (!state || !scroller || event.pointerId !== state.pointerId) return;
-
-  const deltaX = event.clientX - state.startClientX;
-  const deltaY = event.clientY - state.startClientY;
-  if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
-    state.moved = true;
-    suppressHistoryClick.value = true;
-  }
-  scroller.scrollLeft = state.startScrollLeft - deltaX;
-  event.preventDefault();
-}
-
-function onHistoryPointerUp(event: PointerEvent) {
-  const state = historyDragState.value;
-  if (state && event.pointerId !== state.pointerId) return;
-  historyDragState.value = null;
-  teardownHistoryDragListeners();
-
-  if (state?.moved) {
-    window.setTimeout(() => {
-      suppressHistoryClick.value = false;
-    }, 0);
-  } else {
-    suppressHistoryClick.value = false;
-  }
-}
-
-function onHistoryWheel(event: WheelEvent) {
-  const scroller = historyScrollerRef.value;
-  if (!scroller) return;
-  const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-  if (!delta) return;
-  scroller.scrollLeft += delta;
-  event.preventDefault();
-}
-
 function onImagePointerDown(path: string, event: PointerEvent) {
   if (event.button !== 0) return;
   if (!imageDataUrlByPath.value[path]) return;
@@ -442,20 +375,33 @@ function downloadImage(image: WorkbenchImage) {
   link.remove();
 }
 
-function formatDateTime(value: number): string {
+async function copyImageToClipboard(image: WorkbenchImage) {
+  const path = String(image.path ?? "").trim();
+  if (!path) return;
+  try {
+    await codexDesktop.app.writeClipboardImageFromPath({ path });
+    showToast({ kind: "success", title: "已复制图片", message: "可以直接粘贴发送。" });
+  } catch (error: any) {
+    showToast({ kind: "error", title: "复制图片失败", message: String(error?.message ?? error ?? "") });
+  }
+}
+
+function getHistoryHourStart(value: number): number {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
+  if (Number.isNaN(date.getTime())) return 0;
+  date.setMinutes(0, 0, 0);
+  return date.getTime();
+}
+
+function formatHistoryHourLabel(value: number): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "时间未知";
   return date.toLocaleString("zh-CN", {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function formatHistoryParams(item: NonNullable<typeof workbench.selectedHistoryItem>): string {
-  const modeText = item.mode === "edit" ? "参考图生成" : "文本生成";
-  return [modeText, item.quality].filter(Boolean).join(" / ") || "auto";
 }
 
 function isPendingHistoryItem(item: WorkbenchHistoryItem): boolean {
@@ -476,24 +422,36 @@ function historySkeletonTileCount(item: WorkbenchHistoryItem): number {
   return Math.max(1, Math.min(4, Math.round(count)));
 }
 
-function parseImageSizeRatio(value: unknown): string | null {
+function parseImageSize(value: unknown): { width: number; height: number } | null {
   const text = String(value ?? "").trim();
   const match = text.match(/^(\d{2,5})\s*x\s*(\d{2,5})$/i);
   if (!match) return null;
   const width = Number(match[1]);
   const height = Number(match[2]);
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
-  return `${Math.round(width)} / ${Math.round(height)}`;
+  return { width: Math.round(width), height: Math.round(height) };
 }
 
-function historyPreviewStyle(item: WorkbenchHistoryItem): CSSProperties {
-  if (item.images.length !== 1) return {};
+function getSingleHistoryImageSize(item: WorkbenchHistoryItem): { width: number; height: number } | null {
+  if (item.images.length !== 1) return null;
   const path = String(item.images[0]?.path ?? "").trim();
   const naturalSize = path ? imageNaturalSizeByPath.value[path] : null;
-  const ratio = naturalSize
-    ? `${naturalSize.width} / ${naturalSize.height}`
-    : parseImageSizeRatio(item.size) ?? undefined;
-  return ratio ? ({ "--image-workbench-history-preview-ratio": ratio } as CSSProperties) : {};
+  return naturalSize ?? parseImageSize(item.size);
+}
+
+function historyCardStyle(item: WorkbenchHistoryItem): CSSProperties {
+  const imageSize = getSingleHistoryImageSize(item);
+  if (!imageSize) return {};
+  const ratio = imageSize.width / imageSize.height;
+  const cardWidth = clampNumber(
+    ratio * HISTORY_SINGLE_PREVIEW_MAX_HEIGHT_PX,
+    HISTORY_SINGLE_CARD_MIN_WIDTH_PX,
+    HISTORY_SINGLE_CARD_MAX_WIDTH_PX
+  );
+  return {
+    "--image-workbench-history-preview-ratio": `${imageSize.width} / ${imageSize.height}`,
+    "--image-workbench-history-card-width": `${Math.round(cardWidth)}px`,
+  } as CSSProperties;
 }
 
 function onHistoryImageLoad(path: string, event: Event) {
@@ -509,28 +467,110 @@ function onHistoryImageLoad(path: string, event: Event) {
 }
 
 function onHistoryCardClick(item: WorkbenchHistoryItem) {
-  if (suppressHistoryClick.value) return;
   if (isPendingHistoryItem(item) || isFailedHistoryItem(item)) return;
+  captureHistoryScroll();
   workbench.selectHistoryItem(item.id);
+}
+
+function captureHistoryScroll() {
+  const stage = stageRef.value;
+  if (!stage) return;
+  const grids = Array.from(stage.querySelectorAll<HTMLElement>(".image-workbench__history-grid"));
+  savedHistoryScroll.value = {
+    top: stage.scrollTop,
+    gridLefts: grids.map((grid) => grid.scrollLeft),
+  };
+}
+
+async function restoreHistoryScroll() {
+  const saved = savedHistoryScroll.value;
+  const stage = stageRef.value;
+  if (!saved || !stage) return;
+  await nextTick();
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  stage.scrollTop = saved.top;
+  const grids = Array.from(stage.querySelectorAll<HTMLElement>(".image-workbench__history-grid"));
+  grids.forEach((grid, index) => {
+    grid.scrollLeft = saved.gridLefts[index] ?? 0;
+  });
+}
+
+async function backToHistory() {
+  workbench.backToHistory();
+  await restoreHistoryScroll();
+}
+
+async function deleteHistoryItem(id: string) {
+  await workbench.deleteHistoryItem(id);
+  if (!selectedHistoryItem.value) await restoreHistoryScroll();
+}
+
+function pruneRecordByPaths<T>(record: Record<string, T>, allowedPaths: Set<string>): Record<string, T> {
+  const next: Record<string, T> = {};
+  for (const [path, value] of Object.entries(record)) {
+    if (allowedPaths.has(path)) next[path] = value;
+  }
+  return next;
 }
 
 async function ensureImageDataUrl(path: string) {
   const normalized = String(path ?? "").trim();
   if (!normalized || imageDataUrlByPath.value[normalized] || imageDataUrlLoading.value[normalized]) return;
+  if (!currentImagePathSet.value.has(normalized)) return;
   imageDataUrlLoading.value = { ...imageDataUrlLoading.value, [normalized]: true };
   try {
     const res = await codexDesktop.app.readImageFileDataUrl({ path: normalized });
+    if (!currentImagePathSet.value.has(normalized)) return;
     imageDataUrlByPath.value = { ...imageDataUrlByPath.value, [normalized]: res.dataUrl };
-  } catch {
-    imageDataUrlByPath.value = { ...imageDataUrlByPath.value, [normalized]: "" };
+  } catch (error: any) {
+    console.warn("[ImageWorkbench] read image failed", {
+      path: normalized,
+      message: String(error?.message ?? error ?? "unknown error"),
+    });
+    if (currentImagePathSet.value.has(normalized)) {
+      imageDataUrlByPath.value = { ...imageDataUrlByPath.value, [normalized]: "" };
+    }
   } finally {
-    imageDataUrlLoading.value = { ...imageDataUrlLoading.value, [normalized]: false };
+    if (currentImagePathSet.value.has(normalized)) {
+      imageDataUrlLoading.value = { ...imageDataUrlLoading.value, [normalized]: false };
+    } else {
+      const { [normalized]: _discarded, ...rest } = imageDataUrlLoading.value;
+      imageDataUrlLoading.value = rest;
+    }
   }
 }
 
 const selectedHistoryItem = computed(() => workbench.selectedHistoryItem);
+const currentHistoryImagePathsText = computed(() =>
+  workbench.historyItems.flatMap((item) => item.images.map((image) => image.path)).join("\n")
+);
+const currentImagePathSet = computed(() => new Set(currentHistoryImagePathsText.value.split("\n").filter(Boolean)));
+const historyGroups = computed(() => {
+  const groups = new Map<number, WorkbenchHistoryItem[]>();
+  const sorted = [...workbench.historyItems].sort((a, b) => Number(b.createdAt) - Number(a.createdAt));
+  for (const item of sorted) {
+    const hourStart = getHistoryHourStart(Number(item.createdAt));
+    const items = groups.get(hourStart) ?? [];
+    items.push(item);
+    groups.set(hourStart, items);
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => b - a)
+    .map(([hourStart, items]) => ({
+      key: String(hourStart),
+      label: formatHistoryHourLabel(hourStart),
+      items,
+    }));
+});
 
 onBeforeMount(() => {
+  workbench.syncSettingsFromCache();
+  workbench.notifyMissingConfigurationOnce();
+  console.info("[ImageWorkbench] mounted", {
+    history: workbench.historyItems.length,
+    tasks: workbench.generationTasks.length,
+    view: appShellStore.mainView,
+  });
   void workbench.loadHistory();
 });
 
@@ -539,6 +579,17 @@ watch(
   (open) => {
     if (open) return;
     workbench.syncSettingsFromCache();
+    workbench.notifyMissingConfigurationOnce();
+  }
+);
+
+watch(
+  () => appShellStore.mainView,
+  (view) => {
+    if (view !== "image") return;
+    workbench.syncSettingsFromCache();
+    workbench.notifyMissingConfigurationOnce();
+    void workbench.loadHistory();
   }
 );
 
@@ -548,10 +599,21 @@ watch(
     imageZoomByPath.value = {};
     imagePanByPath.value = {};
     imageDragState.value = null;
-    historyDragState.value = null;
     teardownImageDragListeners();
-    teardownHistoryDragListeners();
   }
+);
+
+watch(
+  currentHistoryImagePathsText,
+  (pathsText) => {
+    const allowedPaths = new Set(pathsText.split("\n").filter(Boolean));
+    imageDataUrlByPath.value = pruneRecordByPaths(imageDataUrlByPath.value, allowedPaths);
+    imageDataUrlLoading.value = pruneRecordByPaths(imageDataUrlLoading.value, allowedPaths);
+    imageNaturalSizeByPath.value = pruneRecordByPaths(imageNaturalSizeByPath.value, allowedPaths);
+    imageZoomByPath.value = pruneRecordByPaths(imageZoomByPath.value, allowedPaths);
+    imagePanByPath.value = pruneRecordByPaths(imagePanByPath.value, allowedPaths);
+  },
+  { immediate: true }
 );
 
 watch(
@@ -577,19 +639,14 @@ watch(
 onBeforeUnmount(() => {
   workbench.stopDrag();
   imageDragState.value = null;
-  historyDragState.value = null;
   teardownImageDragListeners();
-  teardownHistoryDragListeners();
 });
 </script>
 
 <style scoped>
 .image-workbench {
   display: grid;
-  grid-template-areas:
-    "notice"
-    "stage";
-  grid-template-rows: min-content minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 0;
   min-width: 0;
   min-height: 0;
@@ -597,46 +654,10 @@ onBeforeUnmount(() => {
   height: 100%;
   overflow: hidden;
   padding: 0 14px 18px;
-}
-
-.image-workbench__notice {
-  grid-area: notice;
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  padding: 10px 12px;
-  margin-bottom: 14px;
-  border: 1px solid color-mix(in srgb, var(--border-warning) 80%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--bg-warning-soft) 64%, transparent);
-}
-
-.image-workbench__notice-icon {
-  width: 18px;
-  height: 18px;
-  color: var(--warning);
-  flex: none;
-  margin-top: 1px;
-}
-
-.image-workbench__notice-body {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-
-.image-workbench__notice-title {
-  color: var(--text);
-  font-weight: 700;
-}
-
-.image-workbench__notice-text {
-  color: var(--text-muted);
-  font-size: 12px;
+  background: transparent;
 }
 
 .image-workbench__stage {
-  grid-area: stage;
   min-width: 0;
   min-height: 0;
   display: grid;
@@ -654,7 +675,6 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 700;
@@ -685,7 +705,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto auto auto;
+  grid-template-rows: auto auto;
   gap: 12px;
   overflow: visible;
 }
@@ -698,84 +718,57 @@ onBeforeUnmount(() => {
 }
 
 .btn-mini--danger {
-  color: var(--danger, #ef4444);
+  color: var(--fg-danger);
 }
 
 .btn-mini--danger:hover {
-  border-color: color-mix(in srgb, var(--danger, #ef4444) 48%, var(--border));
-  background: color-mix(in srgb, var(--danger, #ef4444) 10%, var(--bg));
+  border-color: color-mix(in srgb, var(--danger) 48%, var(--border));
+  background: color-mix(in srgb, var(--danger) 10%, var(--bg));
 }
 
-.image-workbench__summary {
-  display: grid;
-  gap: 6px;
-  border: 1px solid var(--ui-code-border);
-  border-radius: 8px;
-  background: var(--ui-code-bg);
-  padding: 10px;
-}
-
-.image-workbench__summary-row {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  gap: 10px;
-  align-items: start;
-  font-size: 12px;
-}
-
-.image-workbench__summary-row .mono {
+.image-workbench__history-groups {
   min-width: 0;
-  overflow-wrap: anywhere;
+  display: grid;
+  align-content: start;
+  gap: 16px;
 }
 
-.image-workbench__stage.is-history {
-  overflow: hidden;
-  padding-right: 0;
-}
-
-.image-workbench__history-scroll {
+.image-workbench__history-group {
   min-width: 0;
-  min-height: 0;
-  height: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 0 2px 16px 0;
-  cursor: grab;
-  scrollbar-gutter: stable;
-  touch-action: pan-x;
-  user-select: none;
-  overscroll-behavior-x: contain;
+  display: grid;
+  gap: 8px;
 }
 
-.image-workbench__history-scroll.is-dragging {
-  cursor: grabbing;
-}
-
-.image-workbench__history-scroll.is-dragging .image-workbench__history-card {
-  pointer-events: none;
+.image-workbench__history-group-title {
+  display: block;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .image-workbench__history-grid {
-  min-width: max-content;
-  height: 100%;
-  column-width: 250px;
-  column-gap: 12px;
-  column-fill: auto;
-  overflow: visible;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 8px;
+  overscroll-behavior-x: contain;
 }
 
 .image-workbench__history-card {
-  min-width: 0;
-  width: 100%;
-  display: grid;
-  grid-template-rows: minmax(180px, auto) minmax(72px, auto);
-  break-inside: avoid;
-  page-break-inside: avoid;
-  margin: 0 0 12px;
+  position: relative;
+  min-width: var(--image-workbench-history-card-width, 250px);
+  width: var(--image-workbench-history-card-width, 250px);
+  flex: 0 0 var(--image-workbench-history-card-width, 250px);
+  display: block;
+  margin: 0;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--ui-code-border) 86%, transparent);
   border-radius: 8px;
   background: color-mix(in srgb, var(--ui-code-bg) 92%, transparent);
+  box-shadow: none;
   cursor: pointer;
   transition:
     transform 140ms ease,
@@ -787,6 +780,7 @@ onBeforeUnmount(() => {
   transform: translateY(-1px);
   border-color: color-mix(in srgb, var(--accent) 44%, var(--ui-code-border));
   background: color-mix(in srgb, var(--accent) 5%, var(--ui-code-bg));
+  box-shadow: none;
 }
 
 .image-workbench__history-card.is-pending {
@@ -800,7 +794,7 @@ onBeforeUnmount(() => {
 }
 
 .image-workbench__history-card.is-failed {
-  border-color: color-mix(in srgb, var(--danger, #ef4444) 42%, var(--ui-code-border));
+  border-color: color-mix(in srgb, var(--danger) 42%, var(--ui-code-border));
   cursor: default;
 }
 
@@ -840,7 +834,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   min-height: 0;
   object-fit: contain;
-  background: color-mix(in srgb, var(--bg) 78%, #000 22%);
+  background: color-mix(in srgb, var(--bg) 78%, var(--theme-seed-canvas-deep) 22%);
 }
 
 .image-workbench__history-preview img.is-full {
@@ -899,8 +893,8 @@ onBeforeUnmount(() => {
 
 .image-workbench__history-skeleton.is-failed {
   grid-column: 1 / -1;
-  background: color-mix(in srgb, var(--danger, #ef4444) 10%, var(--surface-1));
-  color: var(--danger, #ef4444);
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface-1));
+  color: var(--fg-danger);
 }
 
 .image-workbench__history-skeleton.is-failed::after {
@@ -914,102 +908,56 @@ onBeforeUnmount(() => {
 }
 
 .image-workbench__history-body {
-  min-width: 0;
-  min-height: 72px;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  gap: 6px;
-  padding: 9px 10px;
-  border-top: 1px solid color-mix(in srgb, var(--ui-code-border) 70%, transparent);
-  background: color-mix(in srgb, var(--ui-code-bg) 96%, var(--bg));
-}
-
-.image-workbench__history-title {
-  min-width: 0;
-  min-height: 0;
-  display: -webkit-box;
-  line-clamp: 2;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.32;
-  overflow-wrap: anywhere;
-}
-
-.image-workbench__history-title.is-failed {
-  color: var(--danger, #ef4444);
-}
-
-.image-workbench__history-skeleton-line {
-  position: relative;
-  overflow: hidden;
-  height: 12px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface-1) 84%, var(--bg));
-}
-
-.image-workbench__history-skeleton-line::after {
-  content: "";
   position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    105deg,
-    transparent 0%,
-    transparent 34%,
-    color-mix(in srgb, var(--accent) 16%, transparent) 48%,
-    color-mix(in srgb, var(--text) 8%, transparent) 54%,
-    transparent 68%,
-    transparent 100%
-  );
-  transform: translate3d(-100%, 0, 0);
-  animation: image-workbench-shimmer 1.15s linear infinite;
-  will-change: transform;
-}
-
-.image-workbench__history-skeleton-line.is-title {
-  width: min(100%, 220px);
-  height: 14px;
-}
-
-.image-workbench__history-skeleton-line.is-meta {
-  width: 58%;
-}
-
-.image-workbench__history-skeleton-line.is-model {
-  width: 42%;
-}
-
-.image-workbench__history-meta {
+  inset: 10px 10px auto auto;
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+  pointer-events: none;
+}
+
+.image-workbench__history-state-icon,
+.image-workbench__history-action {
+  width: 29px;
+  height: 29px;
+  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--bg) 68%, transparent);
   color: var(--text-muted);
-  font-size: 11px;
+  pointer-events: auto;
+  backdrop-filter: blur(14px);
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    transform 150ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.image-workbench__history-meta span,
-.image-workbench__history-delete {
-  flex: 0 0 auto;
+.image-workbench__history-state-icon {
+  padding: 6px;
+  color: var(--accent);
 }
 
-.image-workbench__history-meta span {
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  border-radius: 999px;
-  padding: 2px 6px;
-  background: color-mix(in srgb, var(--bg) 52%, transparent);
+.image-workbench__history-state-icon.is-failed,
+.image-workbench__history-action.is-danger {
+  color: var(--fg-danger);
 }
 
-.image-workbench__history-model {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.image-workbench__history-action {
+  display: inline-grid;
+  place-items: center;
+}
+
+.image-workbench__history-action:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, currentColor 42%, var(--border));
+  background: color-mix(in srgb, currentColor 10%, var(--bg));
+}
+
+.image-workbench__history-action svg {
+  width: 14px;
+  height: 14px;
 }
 
 .image-workbench__result-grid {
@@ -1025,7 +973,7 @@ onBeforeUnmount(() => {
 .image-workbench__result {
   min-width: 0;
   display: grid;
-  grid-template-rows: auto minmax(180px, 1fr) auto;
+  grid-template-rows: auto minmax(180px, 1fr);
   overflow: hidden;
   border: 1px solid var(--ui-code-border);
   border-radius: 8px;
@@ -1089,11 +1037,11 @@ onBeforeUnmount(() => {
   place-items: center;
   overflow: hidden;
   background:
-    linear-gradient(45deg, color-mix(in srgb, var(--bg) 86%, #000 14%) 25%, transparent 25%),
-    linear-gradient(-45deg, color-mix(in srgb, var(--bg) 86%, #000 14%) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--bg) 86%, #000 14%) 75%),
-    linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--bg) 86%, #000 14%) 75%),
-    color-mix(in srgb, var(--bg) 72%, #000 28%);
+    linear-gradient(45deg, color-mix(in srgb, var(--bg) 86%, var(--theme-seed-canvas-deep) 14%) 25%, transparent 25%),
+    linear-gradient(-45deg, color-mix(in srgb, var(--bg) 86%, var(--theme-seed-canvas-deep) 14%) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--bg) 86%, var(--theme-seed-canvas-deep) 14%) 75%),
+    linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--bg) 86%, var(--theme-seed-canvas-deep) 14%) 75%),
+    color-mix(in srgb, var(--bg) 72%, var(--theme-seed-canvas-deep) 28%);
   background-position:
     0 0,
     0 8px,
@@ -1136,19 +1084,23 @@ onBeforeUnmount(() => {
   font-size: 12px;
 }
 
-.image-workbench__result-meta {
-  display: grid;
-  gap: 3px;
-  padding: 8px;
-  color: var(--text-muted);
-  font-size: 11px;
+@media (max-width: 980px) {
+  .image-workbench {
+    padding: 0 12px 14px;
+  }
+
+  .image-workbench__stage-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 
-.image-workbench__path {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+@media (prefers-reduced-motion: reduce) {
+  .image-workbench__history-card,
+  .image-workbench__history-action,
+  .image-workbench__result-viewport img {
+    transition: none;
+  }
 }
 
 .is-spinning {
@@ -1169,4 +1121,5 @@ onBeforeUnmount(() => {
     transform: translate3d(100%, 0, 0);
   }
 }
+
 </style>
