@@ -1,7 +1,7 @@
 <template>
   <aside class="workspace-editor-pane" aria-label="文件编辑器">
     <div class="workspace-editor-pane__surface">
-      <div class="workspace-editor-tabs" role="tablist" aria-label="已打开文件">
+      <div class="workspace-editor-tabs app-scrollbar" role="tablist" aria-label="已打开文件">
         <div
           v-for="tab in workspaceFilesStore.openTabs"
           :key="tab.path"
