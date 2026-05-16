@@ -1,10 +1,13 @@
 <template>
   <div
     class="lsb-thread-row"
-    :class="{
-      active: row.item.id === activeThreadId,
-      'invalid-workspace': isInvalidWorkspaceItem(row.item),
-    }"
+    :class="[
+      {
+        active: row.item.id === activeThreadId,
+        'invalid-workspace': isInvalidWorkspaceItem(row.item),
+      },
+      threadStatusClass,
+    ]"
   >
     <div class="lsb-thread-row-shell" :style="threadRowDepthStyle(row.depth)">
       <span class="lsb-thread-toggle-spacer" aria-hidden="true"></span>
@@ -13,11 +16,11 @@
         role="button"
         tabindex="0"
         :aria-label="threadAriaLabel(row)"
-        :title="threadItemHoverTitle(row)"
+        v-tooltip="threadItemHoverTitle(row)"
         @click="onRowClick"
         @keydown="onRowKeydown"
       >
-        <span class="lsb-thread-title" :title="displayTitle">
+        <span class="lsb-thread-title" v-tooltip="displayTitle">
           <LoadingDots
             v-if="isPendingThreadId(row.item.id)"
             class="lsb-thread-title-text"
@@ -45,33 +48,45 @@
           <span
             v-if="shouldShowUnpersistedBadge"
             class="lsb-badge is-main"
-            title="该线程尚未写入历史，发送第一条消息后会落盘"
+            v-tooltip="'该线程尚未写入历史，发送第一条消息后会落盘'"
             >临时</span
           >
-          <span v-if="shouldShowUserInputBadge(row.item.id)" class="lsb-badge" title="该线程有待回答计划问答"
+          <span
+            v-if="hasUserInputQuestion"
+            class="lsb-badge is-question"
+            v-tooltip="'该线程有待回答计划问答'"
             >问答</span
           >
-          <span v-if="agentNicknameBadge" class="lsb-badge" :title="`Agent：${row.item.agentNickname}`">{{
+          <span v-if="agentNicknameBadge" class="lsb-badge" v-tooltip="`Agent：${row.item.agentNickname}`">{{
             agentNicknameBadge
           }}</span>
           <span v-if="isInvalidWorkspaceItem(row.item)" class="lsb-badge">无效</span>
         </span>
 
         <span class="lsb-thread-right">
-          <span class="lsb-thread-status" :title="threadStatusTitle(row.item.id)">
-            <span v-if="runningThreadIds.has(row.item.id)" class="running-indicator is-muted" aria-hidden="true"></span>
+          <span class="lsb-thread-status" v-tooltip="visualThreadStatusTitle">
+            <MessageCircleQuestionMark
+              v-if="threadVisualStatus === 'question'"
+              class="lsb-thread-status-icon is-question"
+              aria-hidden="true"
+            />
+            <span
+              v-else-if="threadVisualStatus === 'running'"
+              class="running-indicator is-thread-running"
+              aria-hidden="true"
+            ></span>
             <button
-              v-else-if="shouldShowThreadAttention(row.item.id)"
+              v-else-if="threadVisualStatus === 'attention'"
               class="lsb-thread-attention-btn"
               type="button"
-              title="该线程有新完成"
+              v-tooltip="'该线程有新完成'"
               aria-label="清除提醒"
               @click.stop="emit('clear-thread-attention', row.item.id)"
             >
               <BellRing class="lsb-thread-status-icon is-attention" aria-hidden="true" />
             </button>
             <CheckCircle2
-              v-else-if="recentlyCompletedThreadIds.has(row.item.id)"
+              v-else-if="threadVisualStatus === 'completed'"
               class="lsb-thread-status-icon is-completed"
               aria-hidden="true"
             />
@@ -82,7 +97,7 @@
           <button
             class="lsb-icon-btn lsb-delete"
             type="button"
-            title="删除历史"
+            v-tooltip="'删除历史'"
             aria-label="删除历史"
             @click.stop="emit('delete-thread', row.item.id)"
           >
@@ -96,9 +111,11 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref } from "vue";
-import { BellRing, CheckCircle2, Trash2 } from "lucide-vue-next";
+import { BellRing, CheckCircle2, MessageCircleQuestionMark, Trash2 } from "lucide-vue-next";
 import { useThreadStore } from "../../../stores/thread.store";
 import LoadingDots from "../../ui/LoadingDots.vue";
+
+type ThreadVisualStatus = "question" | "running" | "attention" | "completed" | "idle";
 
 type ThreadRowItem = {
   item: {
@@ -148,6 +165,24 @@ const shouldShowUnpersistedBadge = computed(() => {
 
 const threadStore = useThreadStore();
 const displayTitle = computed(() => threadStore.displayThreadTitle(props.row.item.id, props.row.item.title));
+const threadId = computed(() => String(props.row.item.id ?? "").trim());
+const hasUserInputQuestion = computed(() => props.shouldShowUserInputBadge(threadId.value));
+const threadVisualStatus = computed<ThreadVisualStatus>(() => {
+  const tid = threadId.value;
+  if (!tid) return "idle";
+  if (hasUserInputQuestion.value) return "question";
+  if (props.runningThreadIds.has(tid)) return "running";
+  if (props.shouldShowThreadAttention(tid)) return "attention";
+  if (props.recentlyCompletedThreadIds.has(tid)) return "completed";
+  return "idle";
+});
+const threadStatusClass = computed(() =>
+  threadVisualStatus.value === "idle" ? "" : `is-status-${threadVisualStatus.value}`
+);
+const visualThreadStatusTitle = computed(() => {
+  if (threadVisualStatus.value === "question") return "待回答计划问答";
+  return props.threadStatusTitle(threadId.value);
+});
 
 const isRenaming = ref(false);
 const renameDraft = ref("");
