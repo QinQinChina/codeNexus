@@ -1083,11 +1083,14 @@ textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-
   background: var(--composer-shell-bg);
   color: var(--text);
   cursor: text;
-  box-shadow: none;
+  box-shadow: var(--composer-shell-shadow);
+  backdrop-filter: var(--composer-shell-backdrop);
+  -webkit-backdrop-filter: var(--composer-shell-backdrop);
   isolation: isolate;
   transition:
     border-color 160ms ease,
-    background-color 160ms ease;
+    background-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .composer-shell.is-agent {

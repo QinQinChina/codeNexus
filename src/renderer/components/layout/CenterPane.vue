@@ -262,8 +262,8 @@ const slashPopoverPlacement = ref<PopoverPlacement | null>(null);
 const composerDockHeightPx = ref(0);
 const centerContentWidthPx = ref(0);
 const COMPOSER_DOCK_FALLBACK_HEIGHT_PX = 84;
-const COMPOSER_DOCK_BOTTOM_INSET_PX = 10;
-const COMPOSER_DOCK_GAP_PX = 14;
+const COMPOSER_DOCK_BOTTOM_INSET_PX = 14;
+const COMPOSER_DOCK_GAP_PX = 8;
 const TIMELINE_EDGE_FADE_PX = 15;
 let pendingQueuePopoverPlacementRafId: number | null = null;
 let pendingSlashPopoverPlacementRafId: number | null = null;
@@ -406,6 +406,7 @@ const timelineViewportStyle = computed(
       "--timeline-edge-fade-top": hasTopEdgeFade.value ? `${TIMELINE_EDGE_FADE_PX}px` : "0px",
       "--timeline-edge-fade-bottom": hasBottomEdgeFade.value ? `${TIMELINE_EDGE_FADE_PX}px` : "0px",
       "--composer-dock-space": `${composerDockSpacePx.value}px`,
+      "--composer-dock-bottom-inset": `${COMPOSER_DOCK_BOTTOM_INSET_PX}px`,
     }) as Record<string, string>
 );
 const timelineStyle = computed(() => timelineViewportStyle.value);

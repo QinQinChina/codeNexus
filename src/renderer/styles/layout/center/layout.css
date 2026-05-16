@@ -171,12 +171,17 @@
 .timeline-pane--chat::after {
   position: absolute;
   z-index: 20;
-  right: 0;
+  right: var(--timeline-scrollbar-gutter-w);
   bottom: 0;
-  left: 0;
+  left: var(--timeline-scrollbar-gutter-w);
   height: var(--composer-dock-space, 120px);
   pointer-events: none;
-  background: var(--timeline-bottom-occluder-bg);
+  background: linear-gradient(
+    180deg,
+    transparent 0,
+    var(--timeline-bottom-occluder-bg) 22px,
+    var(--timeline-bottom-occluder-bg) 100%
+  );
   content: "";
 }
 
@@ -192,6 +197,7 @@
   background: transparent;
   box-shadow: none;
   padding: var(--timeline-inline-pad) var(--timeline-inline-pad) var(--composer-dock-space, 120px);
+  scroll-padding-bottom: var(--composer-dock-space, 120px);
   scrollbar-gutter: stable both-edges;
 }
 
@@ -215,7 +221,7 @@
 .timeline-pane--chat > .composer {
   position: absolute;
   left: 50%;
-  bottom: 10px;
+  bottom: var(--composer-dock-bottom-inset, 14px);
   z-index: 30;
   width: var(--chat-column-w);
   margin-left: 0;
