@@ -1,8 +1,6 @@
-import { computed } from "vue";
 import type { TimelineEventItem } from "../../../domain/types";
-import { buildComposeDraftFromStructuredText, buildStructuredTextSegments } from "../../../domain/composeFileMentions";
+import { buildStructuredTextSegments } from "../../../domain/composeFileMentions";
 import { basenameFromPath } from "../../../domain/workspaceFiles";
-import { useRuntimeStore } from "../../../stores/runtime.store";
 import { useWorkspaceFilesStore } from "../../../stores/workspaceFiles.store";
 import type {
   ChatUserMessageSnapshot,
@@ -15,7 +13,6 @@ import type {
 } from "../types/chat.types";
 
 export function useChatMessageParts(hiddenImageIds: () => Set<string>, onLayoutChange?: () => void) {
-  const runtimeStore = useRuntimeStore();
   const workspaceFilesStore = useWorkspaceFilesStore();
 
   const toRecord = (value: unknown): Record<string, unknown> | null =>
@@ -118,45 +115,6 @@ export function useChatMessageParts(hiddenImageIds: () => Set<string>, onLayoutC
     if (path) void workspaceFilesStore.openFile(path);
   };
 
-  const historyRewriteAnchorId = computed(() => {
-    if (!runtimeStore.historyRewriteActive || runtimeStore.historyRewriteSource !== "history") return "";
-    return String(runtimeStore.historyRewriteAnchorEventId ?? "").trim();
-  });
-
-  const isHistoryRewriteAnchor = (event: TimelineEventItem) => {
-    const id = historyRewriteAnchorId.value;
-    return !!id && String(event?.id ?? "").trim() === id;
-  };
-
-  const onUserBubbleClick = (event: TimelineEventItem) => {
-    if (window.getSelection?.()?.toString().trim()) return;
-    const anchorEventId = String(event?.id ?? "").trim();
-    const anchorTurnId = String(event?.turnId ?? "").trim();
-    if (!anchorEventId) return;
-    if (
-      runtimeStore.historyRewriteActive &&
-      historyRewriteAnchorId.value &&
-      anchorEventId === historyRewriteAnchorId.value
-    ) {
-      runtimeStore.cancelHistoryRewrite({ restoreDraft: true });
-      return;
-    }
-    const snapshot = getUserMessageSnapshot(event);
-    const draft = buildComposeDraftFromStructuredText(snapshot.text, snapshot.textElements, {
-      inferAbsolutePaths: true,
-      idPrefix: "history-file",
-    });
-    runtimeStore.startHistoryRewrite({
-      anchorEventId,
-      anchorTurnId,
-      prefillText:
-        draft.composeInput ||
-        snapshot.text ||
-        (snapshot.images.length + snapshot.localImages.length > 0 ? "" : String(event?.paramsText ?? "")),
-      prefillMentions: draft.composeFileMentions,
-    });
-  };
-
   return {
     userMessageParts,
     userMessageImageCount,
@@ -164,8 +122,6 @@ export function useChatMessageParts(hiddenImageIds: () => Set<string>, onLayoutC
     visibleImageToolEntries,
     onThumbLoadError,
     onUserFileTokenClick,
-    onUserBubbleClick,
-    isHistoryRewriteAnchor,
     getUserMessageSnapshot,
   };
 }

@@ -4,7 +4,6 @@
     class="lazy-image-thumb group relative inline-flex max-w-full items-center justify-center overflow-hidden rounded-[4px] border border-[var(--ui-code-border)] bg-[var(--ui-code-bg)] object-contain shadow-none transition-[border-color,background,opacity] duration-150 hover:border-[var(--ui-well-border-hover)] disabled:cursor-not-allowed disabled:opacity-60"
     type="button"
     :disabled="disabled"
-    v-tooltip="buttonTitle"
     @click="onPreviewClick"
   >
     <img
@@ -60,7 +59,6 @@ const emit = defineEmits<{
 
 const disabled = computed(() => Boolean(props.disabled));
 const altText = computed(() => String(props.previewTitle ?? "").trim() || "image");
-const buttonTitle = computed(() => String(props.previewTitle ?? props.source ?? "").trim() || "图片");
 
 const rootRef = ref<HTMLElement | null>(null);
 const localDataUrl = ref("");

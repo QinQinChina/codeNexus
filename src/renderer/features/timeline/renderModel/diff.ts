@@ -8,6 +8,13 @@ export type ParsedDiff = {
   isUnified: boolean;
 };
 
+export type DiffLineStats = {
+  add: number;
+  del: number;
+  lineCount: number;
+  structured: boolean;
+};
+
 const MAX_DIFF_LINES = 1400;
 const parsedDiffCache = new Map<string, ParsedDiff>();
 
@@ -83,6 +90,61 @@ export function getParsedDiffCached(diffText: string): ParsedDiff {
   const parsed = parseUnifiedDiffLines(key);
   parsedDiffCache.set(key, parsed);
   return parsed;
+}
+
+const countContentLines = (text: string): number => {
+  const normalized = String(text ?? "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\n$/, "");
+  if (!normalized.trim()) return 0;
+  return normalized.split("\n").length;
+};
+
+const countPatchPrefixedLines = (text: string): { add: number; del: number } => {
+  const rawLines = String(text ?? "").split(/\r?\n/);
+  const looksLikePatch = rawLines.some((line) => /^\*\*\* (Add|Delete|Update) File: /.test(line));
+  if (!looksLikePatch) return { add: 0, del: 0 };
+
+  let add = 0;
+  let del = 0;
+  for (const line of rawLines) {
+    if (line.startsWith("+") && !line.startsWith("+++")) add += 1;
+    else if (line.startsWith("-") && !line.startsWith("---")) del += 1;
+  }
+  return { add, del };
+};
+
+export function getDiffLineStats(diffText: string, fileKind = ""): DiffLineStats {
+  const text = String(diffText ?? "");
+  if (!text.trim()) return { add: 0, del: 0, lineCount: 0, structured: false };
+
+  const parsed = getParsedDiffCached(text);
+  let add = 0;
+  let del = 0;
+  for (const line of parsed.lines) {
+    if (line.kind === "add") add += 1;
+    else if (line.kind === "del") del += 1;
+  }
+
+  if (add > 0 || del > 0 || parsed.isUnified) {
+    return { add, del, lineCount: add + del, structured: true };
+  }
+
+  const patchStats = countPatchPrefixedLines(text);
+  if (patchStats.add > 0 || patchStats.del > 0) {
+    return {
+      add: patchStats.add,
+      del: patchStats.del,
+      lineCount: patchStats.add + patchStats.del,
+      structured: true,
+    };
+  }
+
+  const fallbackLineCount = countContentLines(text);
+  if (fileKind === "add") return { add: fallbackLineCount, del: 0, lineCount: fallbackLineCount, structured: false };
+  if (fileKind === "delete") return { add: 0, del: fallbackLineCount, lineCount: fallbackLineCount, structured: false };
+
+  return { add: 0, del: 0, lineCount: fallbackLineCount, structured: false };
 }
 
 export function getParsedDiffCacheStats(): { items: number; bytes: number; updatedAt: number } {

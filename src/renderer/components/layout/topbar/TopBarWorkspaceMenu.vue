@@ -6,7 +6,6 @@
     type="button"
     aria-haspopup="menu"
     :aria-expanded="props.open ? 'true' : 'false'"
-    v-tooltip="workspaceButtonTitle"
     @click.stop="emit('toggle')"
   >
     <span class="topbar-pill-caption">工作区</span>
@@ -26,7 +25,6 @@
             class="btn-mini workspace-menu-select"
             type="button"
             role="menuitem"
-            v-tooltip="workspaceMenuActionLabel"
             @click="onSelectWorkspace"
           >
             {{ workspaceMenuActionLabel }}
@@ -35,7 +33,6 @@
         <div
           class="workspace-path-inline mono"
           :class="{ dim: !runtimeStore.workspacePath }"
-          v-tooltip="runtimeStore.workspacePath || ''"
         >
           {{ runtimeStore.workspacePath || "未选择工作区" }}
         </div>
@@ -73,7 +70,6 @@ const workspaceName = computed(() => {
   return parts.at(-1) || pathValue;
 });
 
-const workspaceButtonTitle = computed(() => runtimeStore.workspacePath || "点击选择工作区");
 const workspaceMenuActionLabel = computed(() => (runtimeStore.workspacePath ? "更换工作区" : "选择工作区"));
 
 function onWorkspaceMenuAfterEnter() {

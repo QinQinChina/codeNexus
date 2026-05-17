@@ -17,6 +17,8 @@ export type TimelineViewportAdapter = {
   captureVisibleAnchor: () => TimelineVisibleRowAnchor | null;
   restoreVisibleAnchor: (anchor: TimelineVisibleRowAnchor) => boolean;
   scrollToBottom: (behavior?: ScrollBehavior) => void;
+  scrollRowToTop: (rowId: string, offsetPx?: number, behavior?: ScrollBehavior) => boolean;
+  scrollLastRowByKindToTop: (kind: string, offsetPx?: number, behavior?: ScrollBehavior) => boolean;
   getScrollMetrics: () => TimelineViewportSnapshot;
   notifyLayoutChange: () => void;
 };
@@ -47,7 +49,6 @@ export function resolveTimelineScrollIntent(params: {
   nextTurnId?: string;
 }): TimelineScrollIntent {
   if (params.reason === "explicit-bottom") return { kind: "scroll-to-bottom" };
-  if (params.reason === "turn-changed") return { kind: "scroll-to-bottom" };
   if (params.followState === "following") return { kind: "scroll-to-bottom" };
   return { kind: "preserve-position" };
 }

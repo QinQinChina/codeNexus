@@ -140,6 +140,60 @@ export function useTimelineScrollController(options: UseTimelineScrollController
     scheduleTimelineViewportStateUpdate();
   }
 
+  function scrollDomRowToTop(row: HTMLElement, offsetPx = 0, behavior: ScrollBehavior = "auto") {
+    const element = options.timelineRef.value;
+    if (!element) return false;
+    const timelineRect = element.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    const delta = rowRect.top - timelineRect.top - Math.max(0, Math.round(offsetPx));
+    const maxScrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
+    element.scrollTo({
+      top: Math.max(0, Math.min(maxScrollTop, element.scrollTop + delta)),
+      behavior,
+    });
+    lastTimelineScrollTop = Math.max(0, element.scrollTop);
+    scheduleTimelineViewportStateUpdate();
+    return true;
+  }
+
+  function scrollRowToTop(rowId: string, offsetPx = 0, behavior: ScrollBehavior = "auto") {
+    cancelPendingAutoScroll();
+    const id = String(rowId ?? "").trim();
+    if (!id) return false;
+    if (options.viewportAdapter?.value?.scrollRowToTop(id, offsetPx, behavior)) {
+      autoFollowEnabled.value = false;
+      scheduleTimelineViewportStateUpdate();
+      return true;
+    }
+    const element = options.timelineRef.value;
+    const row = element
+      ? timelineRows(element).find((item) => String(item.dataset.rowId ?? "").trim() === id)
+      : null;
+    const scrolled = row ? scrollDomRowToTop(row, offsetPx, behavior) : false;
+    if (scrolled) autoFollowEnabled.value = false;
+    return scrolled;
+  }
+
+  async function scrollLastRowByKindToTop(kind: string, offsetPx = 0, behavior: ScrollBehavior = "auto") {
+    cancelPendingAutoScroll();
+    await nextTick();
+    await waitForAnimationFrame();
+    const normalizedKind = String(kind ?? "").trim();
+    if (!normalizedKind) return false;
+    if (options.viewportAdapter?.value?.scrollLastRowByKindToTop(normalizedKind, offsetPx, behavior)) {
+      autoFollowEnabled.value = false;
+      scheduleTimelineViewportStateUpdate();
+      return true;
+    }
+    const element = options.timelineRef.value;
+    if (!element) return false;
+    const rows = timelineRows(element).filter((item) => String(item.dataset.rowKind ?? "").trim() === normalizedKind);
+    const row = rows[rows.length - 1] ?? null;
+    const scrolled = row ? scrollDomRowToTop(row, offsetPx, behavior) : false;
+    if (scrolled) autoFollowEnabled.value = false;
+    return scrolled;
+  }
+
   function scheduleAutoScrollToBottom() {
     cancelPendingAutoScroll();
     pendingAutoScrollRafId = requestAnimationFrame(() => {
@@ -156,6 +210,15 @@ export function useTimelineScrollController(options: UseTimelineScrollController
   function forceFollowBottom(_reason: string = "explicit-bottom") {
     autoFollowEnabled.value = true;
     scheduleAutoScrollToBottom();
+  }
+
+  function requestFollowBottom(_reason: string = "stream-update") {
+    const intent = resolveTimelineScrollIntent({
+      reason: "stream-update",
+      followState: autoFollowEnabled.value ? "following" : "detached",
+    });
+    if (intent.kind === "scroll-to-bottom") scheduleAutoScrollToBottom();
+    else scheduleTimelineViewportStateUpdate();
   }
 
   function waitForAnimationFrame() {
@@ -436,6 +499,9 @@ export function useTimelineScrollController(options: UseTimelineScrollController
     autoFollowEnabled,
     bumpTimelineLayoutRevision,
     forceFollowBottom,
+    requestFollowBottom,
+    scrollRowToTop,
+    scrollLastRowByKindToTop,
     notifyTimelineLayoutChange,
     onTimelineScroll,
     scheduleTimelineViewportStateUpdate,

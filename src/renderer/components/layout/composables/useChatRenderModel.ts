@@ -475,8 +475,44 @@ export function useChatRenderModel(
     return buildChatRowsFromNodes(nodes, threadKey);
   });
 
+  const rowsWithTokenUsageSummaries = computed<ChatRow[]>(() => {
+    const threadId = String(runtimeStore.timelineKey ?? runtimeStore.currentThreadId ?? "").trim();
+    if (!threadId || threadId === "__app__") return baseChatRows.value;
+    const completedByTurnId = new Map(
+      (threadStore.completedTurnsByThread.get(threadId) ?? []).map((entry) => [entry.turnId, entry])
+    );
+    if (completedByTurnId.size === 0) return baseChatRows.value;
+
+    const appendedTurnIds = new Set<string>();
+    const rows: ChatRow[] = [];
+    for (let index = 0; index < baseChatRows.value.length; index += 1) {
+      const row = baseChatRows.value[index];
+      rows.push(row);
+      if (!row.turnKey.startsWith("turn:")) continue;
+      if (baseChatRows.value[index + 1]?.turnKey === row.turnKey) continue;
+      const turnId = row.turnKey.slice("turn:".length).trim();
+      if (!turnId || appendedTurnIds.has(turnId)) continue;
+      const completed = completedByTurnId.get(turnId);
+      const usage = threadStore.tokenUsageForTurn(threadId, turnId);
+      if (!completed || !usage) continue;
+      appendedTurnIds.add(turnId);
+      rows.push({
+        id: `usage:${threadId}:${turnId}`,
+        turnKey: row.turnKey,
+        kind: "tokenUsageSummary",
+        item: {
+          threadId,
+          turnId,
+          completedAt: Number.isFinite(completed.completedAt) ? Number(completed.completedAt) : null,
+          usage,
+        },
+      });
+    }
+    return rows;
+  });
+
   const chatRows = computed<ChatRow[]>(() => {
-    const rows = baseChatRows.value;
+    const rows = rowsWithTokenUsageSummaries.value;
     const grouped: ChatRow[] = [];
     let pending: ChatAuxiliaryRow[] = [];
     let groupIndex = 0;

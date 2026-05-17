@@ -1,12 +1,6 @@
 :root {
   color-scheme: dark;
   --bg: var(--theme-seed-bg);
-  --page-bg-opacity: 1;
-  --page-shell-opacity-factor: 1;
-  --global-bg-image: none;
-  --global-bg-size: cover;
-  --global-bg-position: center center;
-  --global-bg-repeat: no-repeat;
   --page-bg-image: var(--theme-page-bg-image);
   --surface-1: var(--theme-seed-surface-1);
   --surface-2: var(--theme-seed-surface-2);
@@ -21,7 +15,6 @@
   --bottombar-h: 34px;
   --topbar-dropdown-max-h: min(26vh, 240px);
   --topbar-dropdown-w: clamp(320px, 34vw, 440px);
-  --topbar-bg: var(--surface-1);
   --topbar-border: rgb(from var(--ui-shadow-source) r g b / 0.1);
   --topbar-text: var(--text);
   --topbar-text-muted: rgb(from var(--text) r g b / 0.62);
@@ -124,6 +117,7 @@ body {
   color: var(--text);
   background: transparent;
   position: relative;
+  isolation: isolate;
   z-index: 0;
 }
 
@@ -131,18 +125,17 @@ body::before {
   content: "";
   position: fixed;
   inset: 0;
-  background-image: var(--global-bg-image), var(--page-bg-image);
-  background-position:
-    var(--global-bg-position),
-    center center;
-  background-size: var(--global-bg-size), cover;
-  background-repeat: var(--global-bg-repeat), no-repeat;
-  opacity: var(--page-bg-opacity);
+  background-image: var(--page-bg-image);
+  background-position: center center;
+  background-size: cover;
+  background-repeat: no-repeat;
   pointer-events: none;
-  z-index: -1;
+  z-index: 0;
 }
 
 #app {
+  position: relative;
+  z-index: 1;
   height: 100%;
   min-height: 0;
   min-width: 950px;

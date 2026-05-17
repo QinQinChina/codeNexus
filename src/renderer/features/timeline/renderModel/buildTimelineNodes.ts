@@ -9,6 +9,7 @@ import {
   type ParsedMcpResourceReadContent,
   type ParsedMcpResourceReadEvent,
 } from "./parsers/mcpResourceReadParser";
+import { getDiffLineStats } from "./diff";
 
 export type CommandGroupItemStatus = "running" | "completed" | "failed" | "unknown";
 export type CommandEventMethod =
@@ -1529,6 +1530,10 @@ type FileChangeAccumulator = {
   lastPatchUpdatedAt: number | null;
 };
 
+type FileChangeVisualAccumulator = Omit<FileChangeAccumulator, "filesByAbs"> & {
+  file: FileChangeFile;
+};
+
 type ReasoningBlockAccumulator = {
   id: string;
   turnId: string;
@@ -1590,6 +1595,52 @@ const mergeCommandGroupItemStatus = (current: CommandGroupItem, incoming: Comman
   const currentStatus = ensureCommandGroupItemStatus(current);
   const incomingStatus = ensureCommandGroupItemStatus(incoming);
   return commandStatusPriority(incomingStatus) > commandStatusPriority(currentStatus) ? incomingStatus : currentStatus;
+};
+
+const fileChangeStatusPriority = (status: FileChangeStatus): number => {
+  if (status === "failed" || status === "declined") return 4;
+  if (status === "completed") return 3;
+  if (status === "running") return 2;
+  return 1;
+};
+
+const mergeFileChangeStatus = (current: FileChangeStatus, incoming: FileChangeStatus): FileChangeStatus =>
+  fileChangeStatusPriority(incoming) > fileChangeStatusPriority(current) ? incoming : current;
+
+const fileChangePathSignature = (turnId: string, file: FileChangeFile): string => {
+  const from = normalizeFsPath(file.pathAbs || file.pathRel).toLowerCase();
+  const to = normalizeFsPath(file.pathAbsTo || file.pathRelTo || "").toLowerCase();
+  return `${turnId}:${from}:${to}`;
+};
+
+const fileChangeDiffScore = (file: FileChangeFile): number => {
+  const text = String(file.diffText ?? "");
+  if (!text.trim()) return 0;
+  const stats = getDiffLineStats(text, file.kind);
+  const changedLines = stats.add + stats.del;
+  if (changedLines > 0) return 1_000_000 + changedLines;
+  if (stats.structured) return 500_000 + stats.lineCount;
+  return stats.lineCount;
+};
+
+const mergeFileChangeFile = (current: FileChangeFile, incoming: FileChangeFile): FileChangeFile => {
+  const currentScore = fileChangeDiffScore(current);
+  const incomingScore = fileChangeDiffScore(incoming);
+  const keepDiffFromIncoming =
+    incomingScore > currentScore || (incomingScore === currentScore && incoming.updatedAt >= current.updatedAt);
+  const newest = incoming.updatedAt >= current.updatedAt ? incoming : current;
+  const bestDiff = keepDiffFromIncoming ? incoming : current;
+
+  return {
+    ...current,
+    pathAbs: newest.pathAbs || current.pathAbs,
+    pathRel: newest.pathRel || current.pathRel,
+    pathAbsTo: newest.pathAbsTo || current.pathAbsTo,
+    pathRelTo: newest.pathRelTo || current.pathRelTo,
+    kind: newest.kind !== "unknown" ? newest.kind : current.kind,
+    diffText: bestDiff.diffText || newest.diffText || current.diffText,
+    updatedAt: Math.max(current.updatedAt ?? 0, incoming.updatedAt ?? 0),
+  };
 };
 
 const ensureMcpToolCallStatus = (item: McpToolCallItem): McpToolCallStatus => {
@@ -2146,14 +2197,71 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
     });
   }
 
+  const fileChangeVisualItemsByPath = new Map<string, FileChangeVisualAccumulator>();
   for (const entry of fileChangeItemsByKey.values()) {
     const files = [...entry.filesByAbs.values()].sort(
       (a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0) || a.pathRel.localeCompare(b.pathRel)
     );
+
+    for (const file of files) {
+      const signature = fileChangePathSignature(entry.turnId, file);
+      const candidate: FileChangeVisualAccumulator = {
+        key: `${entry.key}:${file.pathAbs}`,
+        turnId: entry.turnId,
+        itemId: entry.itemId,
+        firstIndex: entry.firstIndex,
+        firstCreatedAt: entry.firstCreatedAt,
+        startedAt: entry.startedAt,
+        completedAt: entry.completedAt,
+        rawStatus: entry.rawStatus,
+        status: entry.status,
+        file,
+        streamUpdateCount: entry.streamUpdateCount,
+        lastPatchUpdatedAt: entry.lastPatchUpdatedAt,
+      };
+      const existing = fileChangeVisualItemsByPath.get(signature);
+      if (!existing) {
+        fileChangeVisualItemsByPath.set(signature, candidate);
+        continue;
+      }
+
+      const startedAt =
+        existing.startedAt == null
+          ? candidate.startedAt
+          : candidate.startedAt == null
+            ? existing.startedAt
+            : Math.min(existing.startedAt, candidate.startedAt);
+      const completedAt =
+        existing.completedAt == null
+          ? candidate.completedAt
+          : candidate.completedAt == null
+            ? existing.completedAt
+            : Math.max(existing.completedAt, candidate.completedAt);
+      fileChangeVisualItemsByPath.set(signature, {
+        ...existing,
+        firstIndex: Math.min(existing.firstIndex, candidate.firstIndex),
+        firstCreatedAt: Math.min(existing.firstCreatedAt, candidate.firstCreatedAt),
+        startedAt,
+        completedAt,
+        rawStatus: candidate.rawStatus || existing.rawStatus,
+        status: mergeFileChangeStatus(existing.status, candidate.status),
+        file: mergeFileChangeFile(existing.file, candidate.file),
+        streamUpdateCount: existing.streamUpdateCount + candidate.streamUpdateCount,
+        lastPatchUpdatedAt:
+          existing.lastPatchUpdatedAt == null
+            ? candidate.lastPatchUpdatedAt
+            : candidate.lastPatchUpdatedAt == null
+              ? existing.lastPatchUpdatedAt
+              : Math.max(existing.lastPatchUpdatedAt, candidate.lastPatchUpdatedAt),
+      });
+    }
+  }
+
+  for (const entry of fileChangeVisualItemsByPath.values()) {
     const counts = { add: 0, modify: 0, delete: 0, rename: 0, unknown: 0 };
-    for (const f of files) counts[f.kind] += 1;
+    counts[entry.file.kind] += 1;
     const createdAt = entry.startedAt ?? entry.firstCreatedAt;
-    const nodeId = `filechg:${params.timelineKey}:${entry.turnId}:${entry.itemId}`;
+    const nodeId = `filechg:${params.timelineKey}:${entry.turnId}:${entry.itemId}:${entry.file.pathAbs}`;
     const isStreaming = entry.status === "running" && entry.completedAt == null;
     const settledAt = entry.status === "running" ? null : entry.completedAt;
     renderNodes.push({
@@ -2175,7 +2283,7 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
           isStreaming,
           settledAt,
           counts,
-          files,
+          files: [entry.file],
         },
       },
     });

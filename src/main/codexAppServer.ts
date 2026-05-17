@@ -126,11 +126,7 @@ export class CodexAppServer {
 
     this.proc.on("exit", (code, signal) => {
       const error = new Error(`codex app-server exited (code=${code}, signal=${signal})`);
-      for (const [id, p] of this.pending.entries()) {
-        clearTimeout(p.timeout);
-        p.reject(error);
-        this.pending.delete(id);
-      }
+      this.rejectPending(error);
       this.onMessage?.({ kind: "local", method: "codex/exit", params: { code, signal, expected: this.stopping } });
       this.stopping = false;
     });
@@ -160,13 +156,41 @@ export class CodexAppServer {
   }
 
   stop(): void {
-    if (!this.proc) return;
+    const proc = this.proc;
+    if (!proc) return;
+    const pid = proc.pid;
     this.stopping = true;
-    try {
-      this.proc.kill();
-    } catch {}
+    this.rejectPending(new Error("codex app-server stopped"));
     try {
       this.rl?.close();
+    } catch {}
+    try {
+      proc.stdin?.destroy();
+    } catch {}
+    try {
+      proc.stdout?.destroy();
+    } catch {}
+    try {
+      proc.stderr?.destroy();
+    } catch {}
+    try {
+      if (process.platform === "win32" && pid) {
+        const killer = spawn("taskkill.exe", ["/pid", String(pid), "/t", "/f"], {
+          stdio: "ignore",
+          windowsHide: true,
+        });
+        killer.on("error", () => undefined);
+        killer.unref();
+      } else {
+        proc.kill();
+      }
+    } catch {
+      try {
+        proc.kill();
+      } catch {}
+    }
+    try {
+      proc.unref();
     } catch {}
     this.proc = undefined;
     this.rl = undefined;
@@ -277,6 +301,14 @@ export class CodexAppServer {
         message,
       },
     });
+  }
+
+  private rejectPending(error: Error): void {
+    for (const [id, p] of this.pending.entries()) {
+      clearTimeout(p.timeout);
+      p.reject(error);
+      this.pending.delete(id);
+    }
   }
 
   private getSpawnCommand(): { command: string; args: string[]; spawnCwd?: string } {

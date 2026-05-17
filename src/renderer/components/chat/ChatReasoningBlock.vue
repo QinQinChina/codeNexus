@@ -11,7 +11,7 @@
               <span class="ui-leading-icon-slot" aria-hidden="true">
                 <Brain class="h-3 w-3 flex-none text-[var(--fg-warning)] [stroke-width:2.2]" />
               </span>
-              <span class="min-w-0 truncate" v-tooltip="summaryTitle">{{ summaryTitle || "思考" }}</span>
+              <span class="min-w-0 truncate">{{ summaryTitle || "思考" }}</span>
               <span v-if="durationText" class="mono dim whitespace-nowrap">{{ durationText }}</span>
             </span>
             <ChevronDown

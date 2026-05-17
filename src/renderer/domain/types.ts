@@ -84,9 +84,21 @@ export type TimelineEventItem = {
   hidden?: boolean;
 };
 
+export type TokenUsageBreakdownState = {
+  totalTokens: number | null;
+  inputTokens: number | null;
+  cachedInputTokens: number | null;
+  outputTokens: number | null;
+  reasoningOutputTokens: number | null;
+};
+
 export type TokenUsageState = {
   usedTokens: number | null;
   contextWindow: number | null;
+  last: TokenUsageBreakdownState;
+  total: TokenUsageBreakdownState;
+  modelContextWindow: number | null;
+  updatedAt: number | null;
 };
 
 export type ThreadTurnDiagnostics = {
@@ -118,8 +130,10 @@ export type GlobalConfigDraft = {
   approvalsReviewer: ApprovalsReviewer;
   sandboxMode: SandboxMode;
   windowsElevatedSandboxEnabled: boolean;
-  powershellUtf8Enabled: boolean;
   unifiedExecEnabled: boolean;
+  applyPatchStreamingEventsEnabled: boolean;
+  codeModeEnabled: boolean;
+  codeModeOnlyEnabled: boolean;
 };
 
 export type McpResourceEntry = {

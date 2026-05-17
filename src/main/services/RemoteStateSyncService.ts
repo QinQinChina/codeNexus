@@ -143,6 +143,7 @@ export class RemoteStateSyncService {
   private planStateByThreadId = new Map<string, RemoteThreadPlanState>();
   private loopTimer: ReturnType<typeof setInterval> | null = null;
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
+  private flushAbortController: AbortController | null = null;
   private flushing = false;
   private started = false;
 
@@ -184,6 +185,9 @@ export class RemoteStateSyncService {
 
   stop(): void {
     this.started = false;
+    this.flushAbortController?.abort();
+    this.flushAbortController = null;
+    this.flushing = false;
     this.clearLoop();
     this.clearFlushTimer();
   }
@@ -447,6 +451,8 @@ export class RemoteStateSyncService {
     }
 
     this.flushing = true;
+    const abortController = new AbortController();
+    this.flushAbortController = abortController;
     this.state.phase = "syncing";
     this.state.lastError = null;
     this.emitState();
@@ -483,12 +489,16 @@ export class RemoteStateSyncService {
       this.emitState();
       return { ok: true };
     } catch (error) {
+      if (!this.started) return { ok: true };
       const message = readErrorMessage(error);
       this.state.phase = "error";
       this.state.lastError = message;
       this.emitState();
       return { ok: false, error: message };
     } finally {
+      if (this.flushAbortController === abortController) {
+        this.flushAbortController = null;
+      }
       this.flushing = false;
     }
   }
@@ -540,7 +550,11 @@ export class RemoteStateSyncService {
     if (this.state.settings.accessToken) {
       headers.Authorization = `Bearer ${this.state.settings.accessToken}`;
     }
-    const response = await fetch(`${baseUrl}${path}`, { ...init, headers });
+    const response = await fetch(`${baseUrl}${path}`, {
+      ...init,
+      headers,
+      signal: init.signal ?? this.flushAbortController?.signal,
+    });
     if (response.status === 401 && retry) {
       const refreshed = await this.tryRefreshAccessToken();
       if (refreshed) return this.requestJson(path, init, false);
@@ -565,6 +579,7 @@ export class RemoteStateSyncService {
     const response = await fetch(`${baseUrl}/api/v1/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal: this.flushAbortController?.signal,
       body: JSON.stringify({ refreshToken }),
     });
     if (!response.ok) return false;

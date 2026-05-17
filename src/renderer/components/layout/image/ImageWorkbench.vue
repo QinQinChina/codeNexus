@@ -26,19 +26,19 @@
           <article v-for="image in selectedHistoryItem.images" :key="image.path" class="image-workbench__result">
             <div class="image-workbench__result-tools">
               <span class="image-workbench__zoom mono">{{ Math.round(getImageZoom(image.path) * 100) }}%</span>
-              <button class="image-workbench__tool" type="button" v-tooltip="'缩小'" @click="zoomImage(image.path, 1 / ZOOM_STEP)">
+              <button class="image-workbench__tool" type="button" @click="zoomImage(image.path, 1 / ZOOM_STEP)">
                 <ZoomOut aria-hidden="true" />
               </button>
-              <button class="image-workbench__tool" type="button" v-tooltip="'放大'" @click="zoomImage(image.path, ZOOM_STEP)">
+              <button class="image-workbench__tool" type="button" @click="zoomImage(image.path, ZOOM_STEP)">
                 <ZoomIn aria-hidden="true" />
               </button>
-              <button class="image-workbench__tool" type="button" v-tooltip="'重置视图'" @click="resetImageZoom(image.path)">
+              <button class="image-workbench__tool" type="button" @click="resetImageZoom(image.path)">
                 <RotateCcw aria-hidden="true" />
               </button>
-              <button class="image-workbench__tool" type="button" v-tooltip="'复制图片'" @click="copyImageToClipboard(image)">
+              <button class="image-workbench__tool" type="button" @click="copyImageToClipboard(image)">
                 <Copy aria-hidden="true" />
               </button>
-              <button class="image-workbench__tool" type="button" v-tooltip="'下载图片'" @click="downloadImage(image)">
+              <button class="image-workbench__tool" type="button" @click="downloadImage(image)">
                 <Download aria-hidden="true" />
               </button>
             </div>
@@ -115,7 +115,6 @@
                     class="image-workbench__history-action"
                     type="button"
                     aria-label="取消图片任务"
-                    v-tooltip="'取消图片任务'"
                     @click.stop="workbench.cancelTask(item.taskId)"
                     @keydown.stop
                   >
@@ -129,7 +128,6 @@
                     class="image-workbench__history-action"
                     type="button"
                     aria-label="重试图片任务"
-                    v-tooltip="'重试图片任务'"
                     @click.stop="workbench.retryTask(item.taskId)"
                     @keydown.stop
                   >
@@ -139,7 +137,6 @@
                     class="image-workbench__history-action is-danger"
                     type="button"
                     aria-label="删除失败记录"
-                    v-tooltip="'删除失败记录'"
                     @click.stop="deleteHistoryItem(item.id)"
                     @keydown.stop
                   >
@@ -152,7 +149,6 @@
                     class="image-workbench__history-action"
                     type="button"
                     aria-label="复制图片"
-                    v-tooltip="'复制图片'"
                     @click.stop="copyImageToClipboard(item.images[0])"
                     @keydown.stop
                   >
@@ -163,7 +159,6 @@
                     class="image-workbench__history-action"
                     type="button"
                     aria-label="下载图片"
-                    v-tooltip="'下载图片'"
                     @click.stop="downloadImage(item.images[0])"
                     @keydown.stop
                   >
@@ -173,7 +168,6 @@
                     class="image-workbench__history-action is-danger"
                     type="button"
                     aria-label="删除图片历史"
-                    v-tooltip="'删除图片历史'"
                     @click.stop="deleteHistoryItem(item.id)"
                     @keydown.stop
                   >

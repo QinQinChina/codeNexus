@@ -1127,7 +1127,8 @@ textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-
   backdrop-filter: blur(6px);
 }
 
-.composer-shell #input {
+.composer-shell #input,
+.composer-shell .composer-input-editor {
   --composer-input-line-height: 22px;
   --composer-file-token-height: 22px;
   --composer-file-token-content-height: 20px;
@@ -1150,13 +1151,15 @@ textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-
   caret-color: var(--text);
 }
 
-.composer-shell #input:focus {
+.composer-shell #input:focus,
+.composer-shell .composer-input-editor:focus {
   outline: none;
   border: 0;
   box-shadow: none;
 }
 
-.composer-shell #input[data-placeholder]:empty::before {
+.composer-shell #input[data-placeholder]:empty::before,
+.composer-shell .composer-input-editor[data-placeholder]:empty::before {
   content: attr(data-placeholder);
   color: var(--input-placeholder, var(--text-muted));
   pointer-events: none;
@@ -1310,7 +1313,7 @@ textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-
   gap: 12px;
   min-width: 0;
   padding-top: 8px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-top: 1px solid var(--composer-divider, color-mix(in srgb, var(--border) 72%, transparent));
 }
 
 .composer-toolbar-main,
@@ -1969,26 +1972,22 @@ textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-
   line-height: 1.25;
 }
 
-:root[data-theme="light"] .composer-shell {
+:root[data-tone="light"] .composer-shell {
   border-color: color-mix(in srgb, var(--light-border) 74%, var(--accent) 20%);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--light-elevated-bg) 88%, transparent),
-    color-mix(in srgb, var(--light-panel-bg) 94%, transparent)
-  );
+  background: var(--composer-shell-bg);
 }
 
-:root[data-theme="light"] .composer-shell.is-agent {
+:root[data-tone="light"] .composer-shell.is-agent {
   border-color: var(--composer-agent-border);
   background: var(--composer-agent-bg);
 }
 
-:root[data-theme="light"] .composer-shell.is-plan {
+:root[data-tone="light"] .composer-shell.is-plan {
   border-color: var(--composer-plan-border);
   background: var(--composer-plan-bg);
 }
 
-:root[data-theme="light"] .composer-send-button {
+:root[data-tone="light"] .composer-send-button {
   color: var(--button-primary-text);
   background: linear-gradient(
     180deg,
@@ -2074,6 +2073,53 @@ textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-
     min-width: 0;
   }
 
+}
+
+/* === Composer variants === */
+.composer.composer--inline {
+  height: 100%;
+  min-height: 0;
+}
+
+.composer.composer--inline .composer-input-area,
+.composer.composer--inline .composer-shell {
+  height: 100%;
+  min-height: 0;
+}
+
+.composer.composer--inline .composer-shell {
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 8px;
+  overflow: hidden;
+  padding: 10px 12px;
+  cursor: text;
+}
+
+.composer.composer--inline .composer-input-editor {
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  align-self: stretch;
+  overflow-y: auto;
+  padding: 0 2px;
+}
+
+.composer.composer--inline .composer-toolbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 28px;
+  align-self: end;
+  padding-top: 8px;
+}
+
+.composer.composer--inline .composer-toolbar-main {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.composer.composer--inline .composer-toolbar-actions {
+  flex: 0 0 auto;
+  justify-self: end;
+  width: auto;
 }
 
 @media (prefers-reduced-motion: reduce) {

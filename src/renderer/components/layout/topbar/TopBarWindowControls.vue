@@ -4,7 +4,6 @@
     class="btn-icon"
     type="button"
     aria-label="最小化"
-    v-tooltip="'最小化'"
     @click="onWindowMinimize"
   >
     <Minus aria-hidden="true" />
@@ -14,7 +13,6 @@
     class="btn-icon"
     type="button"
     :aria-label="windowExpanded ? '还原' : '最大化'"
-    v-tooltip="windowExpanded ? '还原' : '最大化'"
     @click="onWindowToggleMaximize"
   >
     <Copy v-if="windowExpanded" aria-hidden="true" />
@@ -24,8 +22,8 @@
     id="btn-window-close"
     class="btn-icon danger"
     type="button"
+    :disabled="closeInFlight || appClosingStore.visible"
     aria-label="关闭"
-    v-tooltip="'关闭'"
     @click="onWindowClose"
   >
     <X aria-hidden="true" />
@@ -33,7 +31,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { Copy, Minus, Square, X } from "lucide-vue-next";
 import { codexDesktop } from "../../../api/codexDesktopClient";
 import { useAppClosingStore } from "../../../stores/appClosing.store";
@@ -50,7 +48,22 @@ const windowState = ref<AppWindowState>({
 const windowExpanded = computed(() => windowState.value.isMaximized || windowState.value.isFullScreen);
 
 let stopWindowStateListener: (() => void) | null = null;
-let closeInFlight = false;
+const closeInFlight = ref(false);
+let closeResetTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearCloseResetTimer() {
+  if (!closeResetTimer) return;
+  clearTimeout(closeResetTimer);
+  closeResetTimer = null;
+}
+
+function scheduleCloseReset() {
+  clearCloseResetTimer();
+  closeResetTimer = setTimeout(() => {
+    closeResetTimer = null;
+    if (!appClosingStore.visible) closeInFlight.value = false;
+  }, 2_500);
+}
 
 function onWindowMinimize() {
   void codexDesktop.window.minimize().catch((error) => {
@@ -65,13 +78,30 @@ function onWindowToggleMaximize() {
 }
 
 function onWindowClose() {
-  if (closeInFlight || appClosingStore.visible) return;
-  closeInFlight = true;
-  void codexDesktop.window.close().catch((error) => {
-    closeInFlight = false;
-    console.warn("[TopBarWindowControls] window close failed", error);
-  });
+  if (closeInFlight.value || appClosingStore.visible) return;
+  closeInFlight.value = true;
+  void codexDesktop.window
+    .close()
+    .then(() => {
+      scheduleCloseReset();
+    })
+    .catch((error) => {
+      clearCloseResetTimer();
+      closeInFlight.value = false;
+      console.warn("[TopBarWindowControls] window close failed", error);
+    });
 }
+
+watch(
+  () => appClosingStore.visible,
+  (visible) => {
+    if (visible) {
+      clearCloseResetTimer();
+      return;
+    }
+    closeInFlight.value = false;
+  }
+);
 
 onMounted(() => {
   void (async () => {
@@ -92,5 +122,6 @@ onBeforeUnmount(() => {
     stopWindowStateListener?.();
   } catch {}
   stopWindowStateListener = null;
+  clearCloseResetTimer();
 });
 </script>

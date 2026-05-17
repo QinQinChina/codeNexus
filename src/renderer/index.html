@@ -12,15 +12,20 @@
             .toLowerCase();
           if (
             raw === "light" ||
+            raw === "pink" ||
             raw === "dark" ||
             raw === "tech" ||
+            raw === "hacker" ||
             raw === "windsurf" ||
             raw === "aurora" ||
             raw === "moss"
           ) {
-            const theme = raw === "light" || raw === "dark" || raw === "tech" ? raw : "dark";
+            const theme =
+              raw === "light" || raw === "pink" || raw === "dark" || raw === "tech" || raw === "hacker"
+                ? raw
+                : "dark";
             document.documentElement.dataset.theme = theme;
-            document.documentElement.dataset.tone = theme === "light" ? "light" : "dark";
+            document.documentElement.dataset.tone = theme === "light" || theme === "pink" ? "light" : "dark";
           }
 
           const rawFont = String(

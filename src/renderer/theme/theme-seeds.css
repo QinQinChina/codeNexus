@@ -38,6 +38,24 @@
   --theme-seed-danger: rgb(174 32 68);
 }
 
+:root[data-theme="pink"] {
+  color-scheme: light;
+  --theme-seed-bg: rgb(255 245 249);
+  --theme-seed-surface-1: rgb(255 250 253);
+  --theme-seed-surface-2: rgb(252 232 241);
+  --theme-seed-surface-3: rgb(246 215 230);
+  --theme-seed-elevated: rgb(255 255 255);
+  --theme-seed-text: rgb(82 45 64);
+  --theme-seed-text-muted: rgb(135 92 112);
+  --theme-seed-border-source: rgb(161 86 121);
+  --theme-seed-shadow-source: rgb(126 58 91);
+  --theme-seed-accent: rgb(218 74 129);
+  --theme-seed-accent-contrast: rgb(255 255 255);
+  --theme-seed-success: rgb(36 137 113);
+  --theme-seed-warning: rgb(181 93 36);
+  --theme-seed-danger: rgb(195 43 91);
+}
+
 :root[data-theme="dark"] {
   color-scheme: dark;
   --theme-seed-bg: rgb(31 31 31);
@@ -72,4 +90,22 @@
   --theme-seed-success: rgb(57 217 138);
   --theme-seed-warning: rgb(246 176 72);
   --theme-seed-danger: rgb(255 83 119);
+}
+
+:root[data-theme="hacker"] {
+  color-scheme: dark;
+  --theme-seed-bg: rgb(2 8 6);
+  --theme-seed-surface-1: rgb(5 15 10);
+  --theme-seed-surface-2: rgb(8 24 16);
+  --theme-seed-surface-3: rgb(12 36 24);
+  --theme-seed-elevated: rgb(9 28 18);
+  --theme-seed-text: rgb(210 245 220);
+  --theme-seed-text-muted: rgb(126 169 139);
+  --theme-seed-border-source: rgb(55 220 112);
+  --theme-seed-shadow-source: rgb(0 0 0);
+  --theme-seed-accent: rgb(34 255 119);
+  --theme-seed-accent-contrast: rgb(0 18 8);
+  --theme-seed-success: rgb(57 255 136);
+  --theme-seed-warning: rgb(244 190 75);
+  --theme-seed-danger: rgb(255 74 92);
 }

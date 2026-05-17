@@ -6,7 +6,7 @@ Theme colors are centralized in layered CSS variable files. Edit the earliest la
 
 1. `theme-seeds.css`
    - Edit this file for brand, accent, background, surface, text, border source, and state seed colors.
-   - Light and dark palettes live here under `:root[data-theme="light"]` and `:root[data-theme="dark"]`.
+   - Theme palettes live here under selectors such as `:root[data-theme="light"]`, `:root[data-theme="dark"]`, and `:root[data-theme="tech"]`.
    - Raw `rgb(...)` values belong here.
 
 2. `tokens.css`
@@ -38,11 +38,6 @@ Older stored names such as `windsurf`, `aurora`, and `moss` currently normalize 
 - Global semantic tokens define meaning shared across the product, such as `--accent`, `--surface-1`, `--fg-danger`.
 - Component tokens define decisions for a UI region, such as `--composer-bg`, `--topbar-bg`, and `--chat-pane-bg`.
 - Vue files should use semantic or component tokens, not raw color utilities such as hard-coded purple/white values.
-
-## Background Opacity
-
-`theme.store.ts` applies `backgroundOpacityPercent` to `--page-bg-opacity` and `--page-shell-opacity-factor`.
-Keep image/background opacity behavior behind those variables so the setting remains theme-agnostic.
 
 ## Tailwind
 

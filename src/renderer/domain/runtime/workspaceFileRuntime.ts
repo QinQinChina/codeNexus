@@ -23,6 +23,7 @@ export type WorkspaceFileRuntime = {
   readWorkspaceDirectory: (path?: string) => Promise<WorkspaceDirectoryReadResult>;
   getWorkspaceMetadata: (path: string) => Promise<WorkspaceFileMetadataState>;
   readWorkspaceTextFile: (path: string) => Promise<WorkspaceTextFileReadResult>;
+  deleteWorkspaceFile: (path: string) => Promise<void>;
   writeWorkspaceTextFile: (
     path: string,
     content: string,
@@ -151,6 +152,20 @@ async function getMetadataViaLocalIpc(path: string): Promise<WorkspaceFileMetada
   }
 }
 
+async function deleteFileViaLocalIpc(path: string): Promise<void> {
+  const filePath = String(path ?? "").trim();
+  if (!filePath) throw new Error("missing file path");
+  try {
+    await codexDesktop.app.deleteFile({ path: filePath });
+  } catch (error) {
+    const msg = readErrorMessage(error);
+    if (isIpcHandlerMissingError(msg, IPC_APP_CHANNELS.appDeleteFile)) {
+      throw new Error("主进程未加载文件删除能力，请重启应用后重试。");
+    }
+    throw error;
+  }
+}
+
 export function createWorkspaceFileRuntime(resolveWorkspacePath: WorkspacePathResolver): WorkspaceFileRuntime {
   const readWorkspaceDirectory = async (path = ""): Promise<WorkspaceDirectoryReadResult> => {
     const resolved = resolveWorkspacePath(path);
@@ -195,12 +210,18 @@ export function createWorkspaceFileRuntime(resolveWorkspacePath: WorkspacePathRe
     };
   };
 
+  const deleteWorkspaceFile = async (path: string): Promise<void> => {
+    const resolved = resolveWorkspacePath(path);
+    await deleteFileViaLocalIpc(resolved.path);
+  };
+
   return {
     readTextFile: readTextFileViaLocalIpc,
     writeTextFile: writeTextFileViaLocalIpc,
     readWorkspaceDirectory,
     getWorkspaceMetadata,
     readWorkspaceTextFile,
+    deleteWorkspaceFile,
     writeWorkspaceTextFile,
   };
 }

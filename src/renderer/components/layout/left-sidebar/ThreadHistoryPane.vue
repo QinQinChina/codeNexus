@@ -4,11 +4,10 @@
       <div class="lsb-pane-head-row">
         <div class="lsb-pane-title">线程</div>
         <div class="lsb-head-badges">
-          <span class="lsb-head-badge is-accent mono" v-tooltip="threadsCountTitle">{{ threadsCountText }}</span>
+          <span class="lsb-head-badge is-accent mono">{{ threadsCountText }}</span>
           <span
             v-if="runningThreadsCount > 0"
             class="lsb-head-badge is-success mono"
-            v-tooltip="`进行中的线程：${runningThreadsCount}`"
           >
             运行 {{ runningThreadsCount }}
           </span>
@@ -29,7 +28,6 @@
           id="btn-refresh-history"
           class="lsb-icon-btn lsb-thread-refresh-btn"
           type="button"
-          v-tooltip="'从磁盘刷新历史'"
           aria-label="刷新"
           :disabled="isRefreshingHistory"
           @click="onRefreshHistoryClick"
@@ -55,7 +53,6 @@
             v-if="threadFilterText"
             class="lsb-search-clear"
             type="button"
-            v-tooltip="'清空搜索'"
             aria-label="清空搜索"
             @click="threadFilterText = ''"
           >
@@ -96,15 +93,13 @@
                     class="lsb-group-head lsb-group-head-toggle"
                     type="button"
                     v-bind="triggerProps"
-                    v-tooltip="threadGroupToggleTitle(group, open)"
                   >
                     <span class="lsb-group-head-left">
                       <Folder class="lsb-group-icon" aria-hidden="true" />
-                      <span class="lsb-group-title" v-tooltip="group.cwdFull">{{ group.title }}</span>
+                      <span class="lsb-group-title">{{ group.title }}</span>
                       <span
                         v-if="threadFilterActive"
                         class="lsb-head-badge mono"
-                        v-tooltip="`匹配 ${group.rows.length} 条`"
                         >{{ group.rows.length }}</span
                       >
                     </span>
@@ -126,8 +121,6 @@
                   :running-thread-ids="threadStore.runningThreadIds"
                   :recently-completed-thread-ids="threadStore.recentlyCompletedThreadIds"
                   :thread-aria-label="threadAriaLabel"
-                  :thread-item-hover-title="threadItemHoverTitle"
-                  :thread-status-title="threadStatusTitle"
                   :thread-row-depth-style="threadRowDepthStyle"
                   :format-relative-time="formatRelativeTime"
                   @open-thread="onThreadItemClick"
@@ -344,13 +337,6 @@ const threadsCountText = computed(() => {
   const matched = visibleThreadGroups.value.reduce((acc, g) => acc + g.rows.length, 0);
   return `匹配 ${matched} / ${total}`;
 });
-const threadsCountTitle = computed(() => {
-  const total = threadStore.threadHistory.length;
-  if (!threadFilterActive.value) return `线程总数：${total}`;
-  const matched = visibleThreadGroups.value.reduce((acc, g) => acc + g.rows.length, 0);
-  return `匹配线程：${matched} / ${total}`;
-});
-
 const visibleThreadGroupKeys = computed(() => {
   return new Set(threadGroups.value.map((group) => String(group.key ?? "").trim()).filter(Boolean));
 });
@@ -385,9 +371,6 @@ const onThreadGroupOpenChangeMaybe = (groupKeyValue: string, open: boolean) => {
   if (threadFilterActive.value) return;
   onThreadGroupOpenChange(groupKeyValue, open);
 };
-const threadGroupToggleTitle = (group: ThreadGroup, open: boolean) =>
-  [group.cwdFull || "未选择工作区", open ? "点击折叠该工作区线程" : "点击展开该工作区线程"].filter(Boolean).join("\n");
-
 function extractInvalidWorkspacePathFromError(errorText: string): string {
   const text = String(errorText ?? "");
   for (const re of [
@@ -410,30 +393,6 @@ const isInvalidWorkspaceItem = (item: { cwd?: string }) => {
 };
 const shouldShowUserInputBadge = (threadIdValue: string) =>
   userInputStore.queueSizeForThread(String(threadIdValue ?? "").trim()) > 0;
-const threadItemHoverTitle = (row: ThreadRowModel) => {
-  const title = threadStore.displayThreadTitle(row.item.id, row.item.title);
-  const meta = String(row.item.meta ?? "").trim();
-  const ts = Number(row.item.updatedAt ?? 0);
-  const timeText = Number.isFinite(ts) && ts > 0 ? new Date(ts).toLocaleString() : "";
-  const agentNicknameText = String(row.item.agentNickname ?? "").trim();
-  const agentRoleText = String(row.item.agentRole ?? "").trim();
-  const agentPathText = String(row.item.agentPath ?? "").trim();
-  const forkedFromId = normalizeThreadId(row.item.forkedFromId);
-  const forkedFromTitle = forkedFromId
-    ? String(threadHistoryById.value.get(forkedFromId)?.title ?? forkedFromId).trim()
-    : "";
-  return [
-    title,
-    meta,
-    timeText,
-    agentNicknameText ? `Agent：${agentNicknameText}` : "",
-    agentRoleText ? `角色：${agentRoleText}` : "",
-    agentPathText ? `路径：${agentPathText}` : "",
-    forkedFromId ? `Fork 自：${forkedFromTitle}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-};
 const threadAriaLabel = (row: ThreadRowModel) =>
   `打开线程：${threadStore.displayThreadTitle(row.item.id, row.item.title)}`;
 const shouldShowThreadAttention = (threadId: string) => {
@@ -466,18 +425,6 @@ const onRenameThread = async (threadIdValue: string, titleValue: string) => {
       message: error instanceof Error ? error.message : String(error),
     });
   }
-};
-const threadStatusTitle = (threadId: string) => {
-  const tid = String(threadId ?? "").trim();
-  return !tid
-    ? ""
-    : threadStore.runningThreadIds.has(tid)
-      ? "进行中"
-      : shouldShowThreadAttention(tid)
-        ? "有新完成（点击清除）"
-        : threadStore.recentlyCompletedThreadIds.has(tid)
-          ? "刚完成"
-          : "";
 };
 const threadRowDepthStyle = (depth: number) =>
   ({ "--lsb-thread-depth": String(Math.max(0, Math.round(depth))) }) as Record<string, string>;

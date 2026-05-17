@@ -26,7 +26,6 @@
                   :aria-level="row.depth + 1"
                   :aria-expanded="row.isDirectory ? String(row.isExpanded) : undefined"
                   :aria-selected="row.isActiveFile || row.isSelectedDirectory ? 'true' : 'false'"
-                  v-tooltip="`${row.path}\n拖到聊天输入框可选择${row.isDirectory ? '文件夹' : '文件'}`"
                   :data-tree-path="row.path"
                   @click="onOpenTreeRow(row)"
                   @dragstart="onTreeRowDragStart(row, $event)"

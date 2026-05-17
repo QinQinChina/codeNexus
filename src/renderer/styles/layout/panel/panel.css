@@ -30,7 +30,7 @@
     var(--panel-shadow, var(--shadow-soft)),
     0 0 0 1px color-mix(in srgb, var(--border-accent, var(--border)) 18%, transparent),
     0 10px 26px color-mix(in srgb, var(--accent) 10%, transparent);
-  --panel-backdrop-filter: blur(12px) saturate(125%);
+  --panel-backdrop-filter: none;
 }
 
 .turn-diff-panel::before {

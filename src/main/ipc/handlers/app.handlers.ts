@@ -1,6 +1,6 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeImage, Notification, shell } from "electron";
 import { randomUUID } from "node:crypto";
-import { appendFile, copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, readdir, stat, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { IPC_APP_CHANNELS } from "../../../shared/ipc/channels";
@@ -499,17 +499,6 @@ function focusMainWindow(win: BrowserWindow | null): void {
   } catch {}
 }
 
-const ALLOWED_BACKGROUND_IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"]);
-const GLOBAL_BACKGROUND_RELATIVE_DIR = "global-background";
-
-function getBackgroundRelativeDir(): string {
-  return GLOBAL_BACKGROUND_RELATIVE_DIR;
-}
-
-function getBackgroundAbsoluteDir(): string {
-  return join(app.getPath("userData"), getBackgroundRelativeDir());
-}
-
 const ALLOWED_NOTIFICATION_SOUND_EXTS = new Set<string>([".mp3", ".wav", ".ogg", ".m4a"]);
 const ALLOWED_NOTIFICATION_SOUND_IDS = new Set<string>([
   "阿啵.mp3",
@@ -663,6 +652,15 @@ export function registerAppHandlers(deps: {
       return { ok: true };
     }
   );
+
+  ipcMain.handle(IPC_APP_CHANNELS.appDeleteFile, async (_evt, args: { path: string }) => {
+    const filePath = resolveLocalFilePath(args?.path ?? "");
+    if (!filePath) throw new Error("app:deleteFile requires path");
+    const info = await stat(filePath);
+    if (!info.isFile()) throw new Error("app:deleteFile path is not a file");
+    await unlink(filePath);
+    return { ok: true as const };
+  });
 
   ipcMain.handle(IPC_APP_CHANNELS.appReadDirectory, async (_evt, args: { path: string }) => {
     const dirPath = resolveLocalFilePath(args?.path ?? "");
@@ -909,56 +907,6 @@ export function registerAppHandlers(deps: {
   ipcMain.handle(IPC_APP_CHANNELS.appImageGenerationTaskRetry, async (_evt, args: { id: string }) => {
     const result = await imageGenerationTaskService.retry(args?.id);
     return { ok: true as const, ...result };
-  });
-
-  ipcMain.handle(IPC_APP_CHANNELS.appImportBackgroundImage, async () => {
-    const mainWindow = deps.getMainWindow();
-    if (!mainWindow) return { ok: false as const, canceled: true as const };
-
-    const res = await dialog.showOpenDialog(mainWindow, {
-      properties: ["openFile"],
-      filters: [
-        {
-          name: "图片",
-          extensions: ["png", "jpg", "jpeg", "webp", "bmp", "gif"],
-        },
-      ],
-    });
-    if (res.canceled) return { ok: false as const, canceled: true as const };
-
-    const sourcePath = resolveLocalFilePath(res.filePaths[0] ?? "");
-    if (!sourcePath) throw new Error("app:background:import requires source file");
-    const ext = extname(sourcePath).toLowerCase();
-    if (!ALLOWED_BACKGROUND_IMAGE_EXTS.has(ext)) {
-      throw new Error(`app:background:import unsupported extension ${ext || "<empty>"}`);
-    }
-
-    const relativeDir = getBackgroundRelativeDir();
-    const absoluteDir = getBackgroundAbsoluteDir();
-    const relativePath = join(relativeDir, `background${ext}`);
-    const absolutePath = join(app.getPath("userData"), relativePath);
-
-    await rm(absoluteDir, { recursive: true, force: true });
-    await mkdir(absoluteDir, { recursive: true });
-    await copyFile(sourcePath, absolutePath);
-
-    const image = nativeImage.createFromPath(absolutePath);
-    if (image.isEmpty()) {
-      await rm(absoluteDir, { recursive: true, force: true });
-      throw new Error("app:background:import failed to load copied image");
-    }
-
-    return {
-      ok: true as const,
-      canceled: false as const,
-      relativePath,
-      dataUrl: image.toDataURL(),
-    };
-  });
-
-  ipcMain.handle(IPC_APP_CHANNELS.appClearBackgroundImage, async () => {
-    await rm(getBackgroundAbsoluteDir(), { recursive: true, force: true });
-    return { ok: true as const };
   });
 
   ipcMain.handle(IPC_APP_CHANNELS.appWindowGetState, async () => {

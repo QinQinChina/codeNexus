@@ -12,10 +12,10 @@
 }
 
 .sidebar-left {
-  --lsb-bg: color-mix(in srgb, var(--surface-1) 90%, var(--bg) 10%);
-  --lsb-bg-strong: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2, var(--surface-1)) 4%);
-  --lsb-surface: color-mix(in srgb, var(--surface-1) 82%, var(--surface-2, var(--surface-1)) 18%);
-  --lsb-surface-raised: color-mix(in srgb, var(--surface-1) 88%, var(--accent) 8%);
+  --lsb-bg: var(--shell-surface, color-mix(in srgb, var(--surface-1) 90%, var(--bg) 10%));
+  --lsb-bg-strong: var(--shell-surface-strong, color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%));
+  --lsb-surface: var(--control-surface, color-mix(in srgb, var(--surface-1) 82%, var(--surface-2) 18%));
+  --lsb-surface-raised: var(--panel-surface-strong, color-mix(in srgb, var(--surface-1) 88%, var(--accent) 8%));
   --lsb-surface-hover: color-mix(in srgb, var(--accent) 9%, transparent);
   --lsb-surface-active: color-mix(in srgb, var(--accent) 14%, var(--surface-1) 86%);
   --lsb-line: color-mix(in srgb, var(--border) 78%, transparent);
@@ -23,10 +23,10 @@
   --lsb-accent: color-mix(in srgb, var(--accent) 84%, var(--success, var(--accent)) 16%);
   --lsb-text: var(--text);
   --lsb-muted: var(--text-muted);
-  --lsb-control-bg: color-mix(in srgb, var(--surface-1) 78%, transparent);
-  --lsb-control-bg-hover: color-mix(in srgb, var(--accent) 10%, var(--surface-1) 90%);
-  --lsb-control-border: color-mix(in srgb, var(--border) 76%, transparent);
-  --lsb-control-border-hover: color-mix(in srgb, var(--accent) 40%, var(--border) 60%);
+  --lsb-control-bg: var(--control-surface);
+  --lsb-control-bg-hover: var(--control-surface-hover);
+  --lsb-control-border: var(--control-border);
+  --lsb-control-border-hover: var(--control-border-hover);
   --lsb-radius: 8px;
   --lsb-radius-sm: 6px;
   --lsb-pad-x: 14px;
@@ -42,23 +42,22 @@
   color: var(--lsb-text);
 }
 
-:root[data-theme="light"] .sidebar-left,
 :root[data-tone="light"] .sidebar-left {
-  --lsb-bg: color-mix(in srgb, var(--light-panel-bg, var(--surface-1)) 94%, var(--light-shell-bg, var(--bg)) 6%);
-  --lsb-bg-strong: color-mix(in srgb, var(--light-elevated-bg, var(--surface-1)) 86%, var(--surface-1) 14%);
-  --lsb-surface: color-mix(in srgb, var(--light-elevated-bg, var(--surface-1)) 86%, transparent);
-  --lsb-surface-raised: color-mix(in srgb, var(--light-elevated-bg, var(--surface-1)) 88%, var(--accent) 8%);
+  --lsb-bg: var(--shell-surface);
+  --lsb-bg-strong: var(--shell-surface-strong);
+  --lsb-surface: var(--control-surface);
+  --lsb-surface-raised: var(--panel-surface-strong);
   --lsb-line: color-mix(in srgb, var(--light-border, var(--border)) 92%, transparent);
   --lsb-line-strong: color-mix(in srgb, var(--light-border-strong, var(--border)) 88%, var(--text) 8%);
-  --lsb-control-bg: color-mix(in srgb, var(--light-elevated-bg, var(--surface-1)) 82%, transparent);
-  --lsb-control-border: color-mix(in srgb, var(--light-border, var(--border)) 82%, var(--accent) 18%);
+  --lsb-control-bg: var(--control-surface);
+  --lsb-control-border: var(--control-border);
 }
 
 :root[data-tone="dark"] .sidebar-left {
-  --lsb-bg: color-mix(in srgb, var(--surface-1) 92%, black 8%);
-  --lsb-bg-strong: color-mix(in srgb, var(--surface-1) 86%, var(--surface-2, var(--surface-1)) 14%);
-  --lsb-surface: color-mix(in srgb, var(--surface-1) 74%, transparent);
-  --lsb-control-bg: color-mix(in srgb, var(--surface-1) 72%, transparent);
+  --lsb-bg: var(--shell-surface);
+  --lsb-bg-strong: var(--shell-surface-strong);
+  --lsb-surface: var(--control-surface);
+  --lsb-control-bg: var(--control-surface);
 }
 
 .lsb-shell {
@@ -67,8 +66,7 @@
   height: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--lsb-bg-strong) 92%, transparent), var(--lsb-bg)), var(--lsb-bg);
+  background: var(--sidebar-bg, linear-gradient(180deg, var(--lsb-bg-strong), var(--lsb-bg)));
 }
 
 .lsb-shell--threads-only {
@@ -83,6 +81,7 @@
 }
 
 .lsb-pane-content {
+  position: relative;
   min-width: 0;
   min-height: 0;
   display: grid;
@@ -90,12 +89,26 @@
   overflow: hidden;
 }
 
+.lsb-pane-content::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 28px;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgb(from var(--lsb-bg) r g b / var(--shell-surface-alpha)) 72%);
+  z-index: 2;
+}
+
 .lsb-pane-head {
   display: grid;
   gap: 8px;
   padding: 12px var(--lsb-pad-x) 10px;
   border-bottom: 1px solid var(--lsb-line);
-  background: color-mix(in srgb, var(--lsb-bg-strong) 88%, transparent);
+  background: var(--shell-chrome-bg, linear-gradient(180deg, var(--lsb-bg-strong), var(--lsb-bg)));
+  backdrop-filter: var(--shell-backdrop-filter, none);
+  -webkit-backdrop-filter: var(--shell-backdrop-filter, none);
 }
 
 .lsb-pane-head-row {
@@ -134,7 +147,7 @@
   display: grid;
   align-content: start;
   gap: 8px;
-  padding: 8px var(--lsb-pad-x) 16px;
+  padding: 8px var(--lsb-pad-x) 24px;
 }
 
 @media (max-width: 1500px) {

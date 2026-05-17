@@ -11,10 +11,7 @@ export function createWindowApi(ipcRenderer: IpcRenderer): CodexDesktopApi["wind
     // 切换最大化：在正常与最大化之间来回切换。
     toggleMaximize: () => ipcRenderer.invoke(IPC_APP_CHANNELS.appWindowToggleMaximize),
     // 关闭窗口：走主进程的关闭流程，保留清理逻辑。
-    close: async () => {
-      ipcRenderer.send(IPC_APP_CHANNELS.appWindowClose);
-      return { ok: true as const };
-    },
+    close: () => ipcRenderer.invoke(IPC_APP_CHANNELS.appWindowClose),
     // 监听窗口状态变化：用于同步标题栏和文档数据属性。
     onState: (cb) => {
       const listener = (_evt: unknown, payload: any) => cb(payload);

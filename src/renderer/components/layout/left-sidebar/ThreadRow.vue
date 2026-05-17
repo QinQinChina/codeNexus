@@ -16,11 +16,10 @@
         role="button"
         tabindex="0"
         :aria-label="threadAriaLabel(row)"
-        v-tooltip="threadItemHoverTitle(row)"
         @click="onRowClick"
         @keydown="onRowKeydown"
       >
-        <span class="lsb-thread-title" v-tooltip="displayTitle">
+        <span class="lsb-thread-title">
           <LoadingDots
             v-if="isPendingThreadId(row.item.id)"
             class="lsb-thread-title-text"
@@ -48,23 +47,21 @@
           <span
             v-if="shouldShowUnpersistedBadge"
             class="lsb-badge is-main"
-            v-tooltip="'该线程尚未写入历史，发送第一条消息后会落盘'"
             >临时</span
           >
           <span
             v-if="hasUserInputQuestion"
             class="lsb-badge is-question"
-            v-tooltip="'该线程有待回答计划问答'"
             >问答</span
           >
-          <span v-if="agentNicknameBadge" class="lsb-badge" v-tooltip="`Agent：${row.item.agentNickname}`">{{
+          <span v-if="agentNicknameBadge" class="lsb-badge">{{
             agentNicknameBadge
           }}</span>
           <span v-if="isInvalidWorkspaceItem(row.item)" class="lsb-badge">无效</span>
         </span>
 
         <span class="lsb-thread-right">
-          <span class="lsb-thread-status" v-tooltip="visualThreadStatusTitle">
+          <span class="lsb-thread-status">
             <MessageCircleQuestionMark
               v-if="threadVisualStatus === 'question'"
               class="lsb-thread-status-icon is-question"
@@ -79,7 +76,6 @@
               v-else-if="threadVisualStatus === 'attention'"
               class="lsb-thread-attention-btn"
               type="button"
-              v-tooltip="'该线程有新完成'"
               aria-label="清除提醒"
               @click.stop="emit('clear-thread-attention', row.item.id)"
             >
@@ -97,7 +93,6 @@
           <button
             class="lsb-icon-btn lsb-delete"
             type="button"
-            v-tooltip="'删除历史'"
             aria-label="删除历史"
             @click.stop="emit('delete-thread', row.item.id)"
           >
@@ -139,8 +134,6 @@ const props = defineProps<{
   runningThreadIds: Set<string>;
   recentlyCompletedThreadIds: Set<string>;
   threadAriaLabel: (row: ThreadRowItem) => string;
-  threadItemHoverTitle: (row: ThreadRowItem) => string;
-  threadStatusTitle: (threadId: string) => string;
   threadRowDepthStyle: (depth: number) => Record<string, string>;
   formatRelativeTime: (updatedAt: number) => string;
 }>();
@@ -179,11 +172,6 @@ const threadVisualStatus = computed<ThreadVisualStatus>(() => {
 const threadStatusClass = computed(() =>
   threadVisualStatus.value === "idle" ? "" : `is-status-${threadVisualStatus.value}`
 );
-const visualThreadStatusTitle = computed(() => {
-  if (threadVisualStatus.value === "question") return "待回答计划问答";
-  return props.threadStatusTitle(threadId.value);
-});
-
 const isRenaming = ref(false);
 const renameDraft = ref("");
 const renameInputEl = ref<HTMLInputElement | null>(null);

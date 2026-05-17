@@ -5,14 +5,14 @@
     <div class="bottom-bar__right">
       <CodexProfileSwitch class="bottom-bar__profile-switch" />
 
-      <div class="bottom-bar__conn mono" :class="connectionStateClass" v-tooltip="connectionTitleText">
+      <div class="bottom-bar__conn mono" :class="connectionStateClass">
         <span class="bottom-bar__conn-icon" aria-hidden="true">
           <span class="bottom-bar__conn-dot"></span>
         </span>
         <span class="bottom-bar__conn-text">{{ connectionLabel }}</span>
       </div>
 
-      <div class="bottom-bar__clock mono dim" v-tooltip="titleText" :aria-label="`当前时间 ${timeText}`">
+      <div class="bottom-bar__clock mono dim" :aria-label="`当前时间 ${timeText}`">
         {{ timeText }}
       </div>
     </div>
@@ -38,8 +38,6 @@ const timeText = computed(() => {
   return `${yyyy}-${MM}-${dd} ${hh}:${mm}`;
 });
 
-const titleText = computed(() => new Date(now.value).toLocaleString());
-
 let timerId: number | null = null;
 
 function clearTimer() {
@@ -64,13 +62,6 @@ const connectionLabel = computed(() => {
   if (appShellStore.serverConnState === "failed") return "失败";
   return "离线";
 });
-const connectionTitleText = computed(() => {
-  if (appShellStore.serverConnState === "connected") return "服务连接正常";
-  if (appShellStore.serverConnState === "connecting") return "服务连接中";
-  if (appShellStore.serverConnState === "failed") return appShellStore.serverError || "服务连接失败";
-  return "服务未连接";
-});
-
 onMounted(() => {
   now.value = Date.now();
   scheduleNextTick();
@@ -89,9 +80,9 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   padding: 0;
   border-top: 1px solid var(--panel-border, var(--border));
-  background: var(--panel-bg, var(--surface-1));
-  backdrop-filter: var(--panel-backdrop-filter, none);
-  -webkit-backdrop-filter: var(--panel-backdrop-filter, none);
+  background: var(--shell-chrome-bg, var(--topbar-bg, var(--panel-bg)));
+  backdrop-filter: var(--shell-backdrop-filter, none);
+  -webkit-backdrop-filter: var(--shell-backdrop-filter, none);
 }
 
 .bottom-bar__left,
@@ -116,7 +107,7 @@ onBeforeUnmount(() => {
   padding-top: 1px;
   padding-bottom: 1px;
   border-color: color-mix(in srgb, var(--panel-border, var(--border)) 72%, transparent);
-  background: color-mix(in srgb, var(--panel-bg, var(--surface-1)) 88%, transparent);
+  background: var(--control-surface, var(--button-bg));
 }
 
 .bottom-bar .bottom-bar__profile-switch :deep(.codex-profile-switch__select) {

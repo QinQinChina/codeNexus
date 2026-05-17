@@ -16,11 +16,13 @@ type TooltipState = {
   placement: TooltipPlacement;
   disabled: boolean;
   delay: number;
+  pointerInside: boolean;
+  focusInside: boolean;
   showTimer: number | null;
   cleanup: Array<() => void>;
 };
 
-const DEFAULT_DELAY_MS = 360;
+const DEFAULT_DELAY_MS = 700;
 const GAP_PX = 8;
 const VIEWPORT_PADDING_PX = 8;
 const PLACEMENTS: TooltipPlacement[] = ["top", "bottom", "left", "right"];
@@ -127,6 +129,10 @@ function clearShowTimer(state: TooltipState) {
   state.showTimer = null;
 }
 
+function isTooltipActive(state: TooltipState) {
+  return state.pointerInside || state.focusInside;
+}
+
 function hideTooltip(anchor?: HTMLElement) {
   if (anchor && currentAnchor && anchor !== currentAnchor) return;
   if (currentState) clearShowTimer(currentState);
@@ -153,6 +159,11 @@ function showTooltip(anchor: HTMLElement, state: TooltipState, delayOverride?: n
   }
 
   state.showTimer = window.setTimeout(() => {
+    if (!isTooltipActive(state) || state.disabled || !state.content) {
+      clearShowTimer(state);
+      return;
+    }
+
     const el = ensureTooltipElement();
     currentAnchor?.removeAttribute("aria-describedby");
     currentAnchor = anchor;
@@ -184,11 +195,32 @@ function onWindowUpdate() {
 }
 
 function bind(el: HTMLElement, state: TooltipState) {
-  const onPointerEnter = () => showTooltip(el, state);
-  const onPointerLeave = () => hideTooltip(el);
-  const onFocus = () => showTooltip(el, state, 0);
-  const onBlur = () => hideTooltip(el);
-  const onPointerDown = () => hideTooltip(el);
+  const cancelPendingOrVisible = () => {
+    clearShowTimer(state);
+    if (!isTooltipActive(state)) hideTooltip(el);
+  };
+
+  const onPointerEnter = () => {
+    state.pointerInside = true;
+    showTooltip(el, state);
+  };
+  const onPointerLeave = () => {
+    state.pointerInside = false;
+    cancelPendingOrVisible();
+  };
+  const onFocus = () => {
+    state.focusInside = true;
+    showTooltip(el, state);
+  };
+  const onBlur = () => {
+    state.focusInside = false;
+    cancelPendingOrVisible();
+  };
+  const onPointerDown = () => {
+    state.pointerInside = false;
+    state.focusInside = false;
+    cancelPendingOrVisible();
+  };
 
   el.addEventListener("pointerenter", onPointerEnter);
   el.addEventListener("pointerleave", onPointerLeave);
@@ -210,6 +242,8 @@ const tooltipDirective: Directive<HTMLElement, TooltipValue> = {
     const normalized = normalizeValue(binding.value);
     const state: TooltipState = {
       ...normalized,
+      pointerInside: false,
+      focusInside: false,
       showTimer: null,
       cleanup: [],
     };
@@ -236,6 +270,8 @@ const tooltipDirective: Directive<HTMLElement, TooltipValue> = {
   beforeUnmount(el) {
     const state = stateByElement.get(el);
     if (!state) return;
+    state.pointerInside = false;
+    state.focusInside = false;
     clearShowTimer(state);
     state.cleanup.forEach((fn) => fn());
     stateByElement.delete(el);

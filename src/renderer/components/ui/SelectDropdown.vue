@@ -14,7 +14,7 @@
     @click="onTriggerClick"
     @keydown="onTriggerKeydown"
   >
-    <span class="ui-select-value mono" v-tooltip="selectedLabel">{{ selectedLabel }}</span>
+    <span class="ui-select-value mono">{{ selectedLabel }}</span>
     <span class="ui-select-chevron" :class="{ open }" aria-hidden="true">▾</span>
   </button>
 
@@ -47,7 +47,7 @@
           @mouseenter="onOptionMouseEnter(idx)"
           @click="onOptionClick(opt.value)"
         >
-          <span class="ui-select-option-label" v-tooltip="opt.label">{{ opt.label }}</span>
+          <span class="ui-select-option-label">{{ opt.label }}</span>
         </button>
       </div>
     </Transition>
@@ -80,7 +80,7 @@ let nextSelectId = 0;
 const props = withDefaults(
   defineProps<{
     modelValue: string;
-    options: OptionInput[];
+    options: readonly OptionInput[];
     disabled?: boolean;
     ariaLabel?: string;
     theme?: "auto" | "dark" | "light";

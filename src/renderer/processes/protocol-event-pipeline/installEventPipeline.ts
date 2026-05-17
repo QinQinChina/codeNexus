@@ -71,14 +71,27 @@ function toThreadTokenUsage(tokenUsage: ThreadTokenUsagePayload | Record<string,
   const tokenUsageRecord = toRecord(tokenUsage);
   const lastUsageRecord = toRecord(tokenUsageRecord.last);
   const totalUsageRecord = toRecord(tokenUsageRecord.total);
+  const toBreakdown = (record: Record<string, unknown>) => ({
+    totalTokens: toFiniteNumber(record.totalTokens),
+    inputTokens: toFiniteNumber(record.inputTokens),
+    cachedInputTokens: toFiniteNumber(record.cachedInputTokens),
+    outputTokens: toFiniteNumber(record.outputTokens),
+    reasoningOutputTokens: toFiniteNumber(record.reasoningOutputTokens),
+  });
+  const last = toBreakdown(lastUsageRecord);
+  const total = toBreakdown(totalUsageRecord);
   const usedTokens = toFiniteNumber(
-    tokenUsageRecord.usedTokens ??
-      lastUsageRecord.totalTokens ??
-      lastUsageRecord.inputTokens ??
-      totalUsageRecord.totalTokens
+    tokenUsageRecord.usedTokens ?? last.totalTokens ?? last.inputTokens ?? total.totalTokens
   );
   const contextWindow = toFiniteNumber(tokenUsageRecord.contextWindow ?? tokenUsageRecord.modelContextWindow);
-  return { usedTokens, contextWindow };
+  return {
+    usedTokens,
+    contextWindow,
+    last,
+    total,
+    modelContextWindow: contextWindow,
+    updatedAt: Date.now(),
+  };
 }
 
 // 转换为格式化的 JSON 字符串
@@ -139,6 +152,8 @@ const THINKING_PHASE_BODY_TEXT: Record<ThinkingPhase, string> = {
   completed: "本回合已完成。",
   failed: "本回合执行失败。",
 };
+
+const THREAD_PREPARING_EVENT_ID = "local:threadPreparing";
 
 // 从候选值中解析出有效的 ID
 function resolveId(...candidates: unknown[]): string {
@@ -267,6 +282,12 @@ export function installEventPipeline(pinia: Pinia) {
       clearTimeout(timer);
       timers.delete(key);
     }
+  };
+
+  const clearThreadPreparingEvent = (threadIdValue: string) => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId || threadId === "__app__") return;
+    timelineStore.removeEvent({ threadId, id: THREAD_PREPARING_EVENT_ID });
   };
 
   // 更新或插入上下文压缩提示事件
@@ -1101,10 +1122,36 @@ export function installEventPipeline(pinia: Pinia) {
       return;
     }
 
+    if (n.method === "thread/status/changed") {
+      const params = n.params;
+      const statusThreadId = resolveId(params.threadId, effectiveThreadId);
+      const statusRecord = toRecord(params.status);
+      const statusType = String(statusRecord.type ?? "").trim();
+      if (statusThreadId && statusThreadId !== "__app__") {
+        if (runtimeStore.timelineDebugEnabled) {
+          debugTimelineStore.appendEvent({
+            threadId: statusThreadId,
+            method: n.method,
+            paramsText,
+            params,
+            turnId: rawTurnId || undefined,
+            hidden: true,
+          });
+        }
+
+        if (statusType !== "active") {
+          clearThreadPreparingEvent(statusThreadId);
+        }
+      }
+      // 该通知在新线程首轮完成后也可能到达；准备态由本地发送流程前置触发，这里只隐藏/记录 debug。
+      return;
+    }
+
     if (n.method === "turn/started") {
       const params = n.params;
       const startedTurnId = resolveId(params.turn.id, rawTurnId, activeTurnId);
       if (effectiveThreadId && effectiveThreadId !== "__app__") {
+        clearThreadPreparingEvent(effectiveThreadId);
         const previousActiveTurnId = resolveId(threadStore.activeTurnIdByThread.get(effectiveThreadId));
         if (previousActiveTurnId && previousActiveTurnId !== startedTurnId) {
           clearThinkingTurnTimers(effectiveThreadId, previousActiveTurnId);
@@ -1170,6 +1217,7 @@ export function installEventPipeline(pinia: Pinia) {
       const completedTurnId = resolveId(params.turn.id, rawTurnId, activeTurnId);
       const err = params.turn.error ?? null;
       if (effectiveThreadId && effectiveThreadId !== "__app__") {
+        clearThreadPreparingEvent(effectiveThreadId);
         threadStore.setThreadRunning(effectiveThreadId, false);
         threadStore.setActiveTurn(effectiveThreadId, "");
         if (completedTurnId) {
@@ -1291,8 +1339,12 @@ export function installEventPipeline(pinia: Pinia) {
     if (n.method === "thread/tokenUsage/updated") {
       const params = n.params;
       const tokenUsage = toThreadTokenUsage(params.tokenUsage);
+      const usageTurnId = resolveId((params as any)?.turnId, rawTurnId, activeTurnId);
       if (effectiveThreadId && effectiveThreadId !== "__app__") {
         threadStore.setTokenUsage(effectiveThreadId, tokenUsage);
+        if (usageTurnId) {
+          threadStore.setTurnTokenUsage(effectiveThreadId, usageTurnId, tokenUsage);
+        }
       }
       if (effectiveThreadId && effectiveThreadId !== "__app__") {
         appendAuxJsonlLog({
@@ -1300,23 +1352,23 @@ export function installEventPipeline(pinia: Pinia) {
           method: n.method,
           serverId: n.serverId,
           threadId: effectiveThreadId,
-          turnId: rawTurnId || null,
+          turnId: usageTurnId || null,
           paramsText: safeJsonStringify(
-            { threadId: effectiveThreadId, turnId: rawTurnId || null, tokenUsage },
+            { threadId: effectiveThreadId, turnId: usageTurnId || null, tokenUsage },
             { space: 2 }
           ),
-          params: { threadId: effectiveThreadId, turnId: rawTurnId || null, tokenUsage },
+          params: { threadId: effectiveThreadId, turnId: usageTurnId || null, tokenUsage },
         });
         if (runtimeStore.timelineDebugEnabled) {
           debugTimelineStore.appendEvent({
             threadId: effectiveThreadId,
             method: n.method,
             paramsText: safeJsonStringify(
-              { threadId: effectiveThreadId, turnId: rawTurnId || null, tokenUsage },
+              { threadId: effectiveThreadId, turnId: usageTurnId || null, tokenUsage },
               { space: 2 }
             ),
-            params: { threadId: effectiveThreadId, turnId: rawTurnId || null, tokenUsage },
-            turnId: rawTurnId || undefined,
+            params: { threadId: effectiveThreadId, turnId: usageTurnId || null, tokenUsage },
+            turnId: usageTurnId || undefined,
             hidden: true,
           });
         }
@@ -1362,6 +1414,9 @@ export function installEventPipeline(pinia: Pinia) {
     if (n.method === "error") {
       const params = n.params;
       const errorTurnId = resolveId(params.turnId, rawTurnId, activeTurnId);
+      if (effectiveThreadId && effectiveThreadId !== "__app__") {
+        clearThreadPreparingEvent(effectiveThreadId);
+      }
       if (effectiveThreadId && effectiveThreadId !== "__app__" && errorTurnId) {
         bindTurnThread(effectiveThreadId, errorTurnId, n.serverId);
         completeThinkingEvent({

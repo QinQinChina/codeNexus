@@ -4,10 +4,10 @@
     type="button"
     class="composer-sandbox-trigger composer-select--sandbox mono"
     :class="[sandboxToneClass, { 'is-open': open }]"
-    v-tooltip="tooltipText"
     aria-haspopup="listbox"
     :aria-expanded="open ? 'true' : 'false'"
     aria-label="权限"
+    @pointerdown="onPreservePointerFocus"
     @click="onTriggerClick"
     @keydown="onTriggerKeydown"
   >
@@ -22,8 +22,10 @@
         ref="popoverRef"
         class="composer-sandbox-popover"
         :style="popoverStyle"
+        :data-composer-owner="interactionOwnerId || undefined"
         role="listbox"
         aria-label="权限"
+        @pointerdown="onPreservePointerFocus"
       >
         <button
           v-for="option in pickerOptions"
@@ -58,6 +60,8 @@ const props = defineProps<{
   modelValue: SandboxMode;
   options: readonly SelectOption[];
   tooltipText: string;
+  preservePointerFocus?: boolean;
+  interactionOwnerId?: string;
 }>();
 
 const emit = defineEmits<{
@@ -72,6 +76,10 @@ const popoverStyle = ref<Record<string, string>>({});
 const POPOVER_GAP_PX = 6;
 const VIEWPORT_PADDING_PX = 8;
 const POPOVER_WIDTH_PX = 112;
+
+function onPreservePointerFocus(event: PointerEvent) {
+  if (props.preservePointerFocus) event.preventDefault();
+}
 
 function normalizeToneKey(value: unknown): string {
   return (

@@ -12,7 +12,7 @@
       ]"
     >
       <div class="skill-summary" :class="modeClass">
-        <label class="skill-switch" v-tooltip="switchTitle(skill)">
+        <label class="skill-switch">
           <input
             class="skill-switch-input"
             type="checkbox"
@@ -29,7 +29,7 @@
         <div class="skill-summary-main">
           <div class="skill-summary-topline">
             <div class="skill-title-wrap">
-              <div class="name" v-tooltip="skill.name">{{ skill.name }}</div>
+              <div class="name">{{ skill.name }}</div>
               <div v-if="mode === 'manager'" class="skill-badge-row">
                 <span class="skill-status-pill" :class="skill.enabled ? 'is-enabled' : 'is-disabled'">
                   {{ skill.enabled ? "已启用" : "已关闭" }}
@@ -42,7 +42,6 @@
               v-if="skill.description || skill.path"
               class="skill-summary-toggle"
               type="button"
-              v-tooltip="isSkillOpen(skill) ? '收起详情' : '展开详情'"
               :aria-label="isSkillOpen(skill) ? '收起技能详情' : '展开技能详情'"
               @click="toggleSkillOpen(skill)"
             >
@@ -50,11 +49,11 @@
             </button>
           </div>
 
-          <div v-if="mode === 'manager'" class="skill-preview" v-tooltip="previewText(skill)">
+          <div v-if="mode === 'manager'" class="skill-preview">
             {{ previewText(skill) }}
           </div>
 
-          <div v-if="skill.path" class="skill-path" v-tooltip="skill.path">{{ skill.path }}</div>
+          <div v-if="skill.path" class="skill-path">{{ skill.path }}</div>
         </div>
       </div>
 
@@ -66,7 +65,7 @@
 
         <section v-if="skill.path" class="skill-info-block">
           <div class="skill-info-label mono">路径</div>
-          <div class="skill-path skill-path--body" v-tooltip="skill.path">{{ skill.path }}</div>
+          <div class="skill-path skill-path--body">{{ skill.path }}</div>
         </section>
       </div>
     </article>
@@ -117,12 +116,6 @@ const previewText = (skill: SkillState): string => {
   if (description) return description;
   if (!skill.configurable) return "该技能为固定项，当前仅支持查看。";
   return skill.enabled ? "当前已启用，可按需关闭。" : "当前已关闭，可按需启用。";
-};
-
-const switchTitle = (skill: SkillState): string => {
-  if (!skill.configurable) return "该技能暂不支持切换";
-  if (isSkillPending(skill)) return "正在更新技能状态";
-  return skill.enabled ? "关闭技能" : "启用技能";
 };
 
 const onSkillCheckboxChanged = (skill: SkillState, event: Event) => {

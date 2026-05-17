@@ -36,6 +36,7 @@
               :scrollElement="timelineRef"
               :onLayoutChange="onPaneLayoutChange"
               :onViewportAdapterChange="setTimelineViewportAdapter"
+              :inlineRewriteCloseSeq="inlineRewriteCloseSeq"
             />
           </div>
 
@@ -47,7 +48,6 @@
             type="button"
             aria-haspopup="dialog"
             :aria-expanded="queuePopoverVisible ? 'true' : 'false'"
-            v-tooltip="'查看排队消息'"
             @pointerenter="onQueuePopoverPointerEnter"
             @pointerleave="onQueuePopoverPointerLeave"
           >
@@ -100,6 +100,7 @@
             @pick-images="onPickComposeImages"
             @send="onSendClick"
             @interrupt-turn="onInterruptTurnClick"
+            @interact="onBottomComposerInteract"
           />
         </template>
       </div>
@@ -261,6 +262,7 @@ const queuePopoverPlacement = ref<PopoverPlacement | null>(null);
 const slashPopoverPlacement = ref<PopoverPlacement | null>(null);
 const composerDockHeightPx = ref(0);
 const centerContentWidthPx = ref(0);
+const inlineRewriteCloseSeq = ref(0);
 const COMPOSER_DOCK_FALLBACK_HEIGHT_PX = 84;
 const COMPOSER_DOCK_BOTTOM_INSET_PX = 14;
 const COMPOSER_DOCK_GAP_PX = 8;
@@ -288,6 +290,10 @@ function bindComposerImageInputRef(el: HTMLInputElement | null) {
 
 function bindQueuePopoverToggleRef(el: HTMLButtonElement | null) {
   queuePopoverToggleRef.value = el;
+}
+
+function onBottomComposerInteract() {
+  inlineRewriteCloseSeq.value += 1;
 }
 
 function measureComposerDockHeight() {
@@ -372,7 +378,8 @@ const timelineScrollController = useTimelineScrollController({
 const {
   hasTopEdgeFade,
   hasBottomEdgeFade,
-  forceFollowBottom,
+  requestFollowBottom,
+  scrollLastRowByKindToTop,
   notifyTimelineLayoutChange,
   onTimelineScroll,
   scheduleTimelineViewportStateUpdate,
@@ -1234,7 +1241,7 @@ async function onSendClick() {
   await runtime.send();
   await nextTick();
   resizeComposerInput();
-  forceFollowBottom("local-send");
+  void scrollLastRowByKindToTop("user", 8, "auto");
 }
 
 async function onInterruptTurnClick() {
@@ -1253,7 +1260,7 @@ async function onEditQueuedMessage(messageId: string) {
 async function onSendQueuedMessageNow(messageId: string) {
   await runtime.sendQueuedMessageNow(messageId);
   closeQueuePopover();
-  forceFollowBottom("queue-send-now");
+  void scrollLastRowByKindToTop("user", 8, "auto");
 }
 
 async function onRemoveQueuedMessage(messageId: string) {
@@ -1344,7 +1351,7 @@ watch(
 watch(
   () => runtimeStore.timelineScrollToBottomSeq,
   () => {
-    forceFollowBottom("runtime-request");
+    requestFollowBottom("runtime-request");
   },
   { flush: "post" }
 );

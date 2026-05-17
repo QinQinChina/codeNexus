@@ -24,7 +24,6 @@
       >
         <div
           class="turn-diff-file-summary flex min-w-0 w-full items-center gap-1.5 rounded-[4px] px-2 py-1.5 text-left"
-          v-tooltip="file.title"
         >
           <span
             class="turn-diff-kind-badge inline-flex shrink-0 self-center rounded-[4px] border px-1.5 py-0 text-[9.5px] font-semibold tracking-[0.1px]"
@@ -35,7 +34,6 @@
           <span class="turn-diff-file-content min-w-0 flex flex-1 items-center gap-1.5">
             <span
               class="turn-diff-file-title block min-w-0 flex-1 truncate mono text-[11.5px] text-[var(--text)]"
-              v-tooltip="file.title"
               >{{ file.label }}</span
             >
             <span

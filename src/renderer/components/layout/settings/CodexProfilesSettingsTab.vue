@@ -39,7 +39,7 @@
           <div class="codex-form-title-row">
             <div>
               <div class="codex-form-title">{{ selectedProfileId ? "编辑配置" : "新建配置" }}</div>
-              <div class="codex-form-subtitle mono" v-tooltip="profilesStore.path">{{ profilesStore.path || "userData" }}</div>
+              <div class="codex-form-subtitle mono">{{ profilesStore.path || "userData" }}</div>
             </div>
             <span class="status-chip mono" :class="activeBadgeClass">{{ activeBadgeText }}</span>
           </div>

@@ -14,12 +14,28 @@
       </div>
     </div>
 
+    <div ref="pinnedPromptLayerRef" class="chat-pinned-prompt-layer">
+      <Transition name="chat-pinned-prompt">
+        <ChatPinnedUserPromptBox
+          v-if="pinnedUserMessage"
+          :text="pinnedUserMessage.text"
+          :title="pinnedUserMessage.title"
+          :fileCount="pinnedUserMessage.fileCount"
+          :imageCount="pinnedUserMessage.imageCount"
+          :showTimestamp="viewPrefs.showTimestamps"
+          :formattedTime="pinnedUserMessage.formattedTime"
+          @locate="onPinnedUserClick"
+        />
+      </Transition>
+    </div>
+
     <ChatTimelineViewport
       :rows="chatRenderedRows"
       :timelineKey="timelineKey"
       :scrollElement="scrollElement"
       :onLayoutChange="onLayoutChange"
-      :onViewportAdapterChange="onViewportAdapterChange"
+      :onViewportAdapterChange="setLocalViewportAdapter"
+      :onPinnedUserRowChange="setPinnedUserRowId"
       #default="{ row: renderedRow }"
     >
       <ChatRowRenderer
@@ -28,10 +44,10 @@
         :viewPrefs="viewPrefs"
         :assistantPlanMessageFormat="appShellStore.assistantPlanMessageFormat"
         :planExecStateByEventId="planExecStateByEventId"
-        :modelOptions="modelOptions as any"
+        :modelOptions="modelOptions"
         :isTurnRunning="isTurnRunning"
-        :reasoningEffortOptions="reasoningEffortOptions as any"
-        :sandboxModeOptions="sandboxModeOptions as any"
+        :reasoningEffortOptions="reasoningEffortOptions"
+        :sandboxModeOptions="sandboxModeOptions"
         :turnPlanForPlanDeltaEvent="turnPlanForPlanDeltaEvent"
         :userMessageParts="userMessageParts"
         :userMessageImageCount="userMessageImageCount"
@@ -40,8 +56,11 @@
         :handleThumbLoadError="onThumbLoadError"
         :handleUserFileTokenClick="onUserFileTokenClick"
         :handleUserBubbleClick="onUserBubbleClick"
-        :isHistoryRewriteAnchor="isHistoryRewriteAnchor"
         :handlePreviewImage="onPreviewImage"
+        :inlineRewriteDraft="inlineRewriteDraft"
+        :onInlineRewriteUpdate="updateInlineRewriteDraft"
+        :onInlineRewriteCancel="closeInlineRewrite"
+        :onInlineRewriteSend="sendInlineRewriteDraft"
         :handleLayoutChange="onLayoutChange"
         :getMarkdownEventHtml="getMarkdownEventHtml"
         :isReasoningOpen="isReasoningOpen"
@@ -123,16 +142,15 @@
             </div>
             <div class="composer-lightbox-toolbar app-scrollbar" @pointerdown.stop @click.stop>
               <span class="composer-lightbox-zoom mono">{{ Math.round(imageLightboxZoom * 100) }}%</span>
-              <button class="composer-lightbox-action" type="button" v-tooltip="'缩小'" @click="zoomImageLightboxOut">
+              <button class="composer-lightbox-action" type="button" @click="zoomImageLightboxOut">
                 <ZoomOut aria-hidden="true" />
               </button>
-              <button class="composer-lightbox-action" type="button" v-tooltip="'放大'" @click="zoomImageLightboxIn">
+              <button class="composer-lightbox-action" type="button" @click="zoomImageLightboxIn">
                 <ZoomIn aria-hidden="true" />
               </button>
               <button
                 class="composer-lightbox-action"
                 type="button"
-                v-tooltip="'重置视图'"
                 @click="resetImageLightboxView"
               >
                 <RotateCcw aria-hidden="true" />
@@ -140,7 +158,6 @@
               <button
                 class="composer-lightbox-action"
                 type="button"
-                v-tooltip="'下载图片'"
                 @click="downloadImageLightboxImage"
               >
                 <Download aria-hidden="true" />
@@ -149,7 +166,6 @@
                 ref="imageLightboxCloseButtonRef"
                 class="composer-lightbox-action composer-lightbox-action--close"
                 type="button"
-                v-tooltip="'关闭'"
                 @click="closeImageLightbox"
               >
                 <X aria-hidden="true" />
@@ -168,6 +184,7 @@ import { computed, ref } from "vue";
 import { Download, RotateCcw, X, ZoomIn, ZoomOut } from "lucide-vue-next";
 import ChatTimelineViewport from "./ChatTimelineViewport.vue";
 import ChatRowRenderer from "./ChatRowRenderer.vue";
+import ChatPinnedUserPromptBox from "../../chat/ChatPinnedUserPromptBox.vue";
 import { chatActivityToneClass } from "./chatStyle";
 import { CHAT_ROW_ACTIVITY_CLASS, CHAT_ROW_BASE_CLASS } from "./chatPresentation";
 import ExecutionWaveText from "../../ui/ExecutionWaveText.vue";
@@ -183,6 +200,7 @@ import { useModelCatalogStore } from "../../../stores/modelCatalog.store";
 import { useViewPrefsStore } from "../../../stores/viewPrefs.store";
 import { useAgentMarkdownRenderer } from "../../../features/timeline/useAgentMarkdownRenderer";
 import { buildMcpToolDefinitionIndex } from "../../../features/timeline/renderModel/buildTimelineNodes";
+import { formatTime } from "../../../features/timeline/renderModel/formatters";
 import { buildModelPickerOptions } from "../../../../shared/modelCatalog";
 
 import { useChatTimeline } from "../composables/useChatTimeline";
@@ -191,6 +209,7 @@ import { useImageLightbox } from "../composables/useImageLightbox";
 import { useChatLayout } from "../composables/useChatLayout";
 import { useChatMessageParts } from "../composables/useChatMessageParts";
 import { useChatRenderModel } from "../composables/useChatRenderModel";
+import { useInlineHistoryRewrite } from "../composables/useInlineHistoryRewrite";
 import type { McpResourceReadNode } from "../../../features/timeline/renderModel/buildTimelineNodes";
 import type { McpToolItem } from "../../timeline/cards/McpToolCardContent.vue";
 
@@ -203,6 +222,7 @@ const props = defineProps<{
   scrollElement: HTMLElement | null;
   onLayoutChange?: () => void;
   onViewportAdapterChange?: (adapter: TimelineViewportAdapter | null) => void;
+  inlineRewriteCloseSeq?: number;
 }>();
 
 const appShellStore = useAppShellStore();
@@ -211,6 +231,9 @@ const mcpResourceStore = useMcpResourceStore();
 const runtimeStore = useRuntimeStore();
 const viewPrefs = useViewPrefsStore();
 const modelCatalogStore = useModelCatalogStore();
+const localViewportAdapter = ref<TimelineViewportAdapter | null>(null);
+const pinnedUserRowId = ref("");
+const pinnedPromptLayerRef = ref<HTMLElement | null>(null);
 
 const { getMarkdownEventHtml } = useAgentMarkdownRenderer({ key: () => runtimeStore.timelineKey });
 const mcpToolDefinitions = computed(() => buildMcpToolDefinitionIndex(mcpStore.servers));
@@ -229,9 +252,19 @@ const {
   visibleImageToolEntries,
   onThumbLoadError,
   onUserFileTokenClick,
-  onUserBubbleClick,
-  isHistoryRewriteAnchor,
+  getUserMessageSnapshot,
 } = useChatMessageParts(() => hiddenImageIds.value, props.onLayoutChange);
+
+const {
+  inlineRewriteDraft,
+  openInlineRewrite: onUserBubbleClick,
+  updateInlineRewriteDraft,
+  closeInlineRewrite,
+  sendInlineRewriteDraft,
+} = useInlineHistoryRewrite({
+  closeSeq: () => props.inlineRewriteCloseSeq,
+  getUserMessageSnapshot,
+});
 
 // 4. 渲染模型计算逻辑
 const {
@@ -331,6 +364,77 @@ const onOpenRelatedMcpResource = (item: McpToolItem) => {
 
 const activityDotClass = chatActivityToneClass;
 
+function setLocalViewportAdapter(adapter: TimelineViewportAdapter | null) {
+  localViewportAdapter.value = adapter;
+  props.onViewportAdapterChange?.(adapter);
+}
+
+function setPinnedUserRowId(rowId: string) {
+  pinnedUserRowId.value = String(rowId ?? "").trim();
+}
+
+const pinnedUserRow = computed(() => {
+  const rowId = pinnedUserRowId.value;
+  if (!rowId) return null;
+  const row = chatRenderedRows.value.find((item) => item.id === rowId) ?? null;
+  return row?.kind === "user" ? row : null;
+});
+
+const pinnedUserMessage = computed(() => {
+  const row = pinnedUserRow.value;
+  if (!row) return null;
+  const parts = userMessageParts(row.event);
+  const textParts = parts
+    .filter((part) => part.type === "text")
+    .map((part) => part.text.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  const fileCount = parts.filter((part) => part.type === "file").length;
+  const imageCount = userMessageImageCount(row.event);
+  const suffix = [
+    fileCount > 0 ? `+${fileCount} 文件` : "",
+    imageCount > 0 ? `+${imageCount} 图片` : "",
+  ].filter(Boolean);
+  const summary = textParts.join(" ").trim() || "用户消息";
+  const title = [summary, ...suffix].filter(Boolean).join(" · ");
+  return {
+    rowId: row.id,
+    text: summary,
+    title,
+    fileCount,
+    imageCount,
+    formattedTime: formatTime(row.event.createdAt),
+  };
+});
+
+function pinnedPromptLocateOffsetPx() {
+  const prompt = pinnedPromptLayerRef.value?.querySelector<HTMLElement>(".chat-pinned-prompt") ?? null;
+  const promptHeight = Math.ceil(prompt?.getBoundingClientRect().height ?? 0);
+  return Math.max(8, promptHeight + 5);
+}
+
+function scrollDomRowToTop(rowId: string, offsetPx = 0) {
+  const element = props.scrollElement;
+  if (!element) return false;
+  const row = Array.from(element.querySelectorAll<HTMLElement>(".chat-timeline-row")).find(
+    (item) => String(item.dataset.rowId ?? "").trim() === rowId
+  );
+  if (!row) return false;
+  const elementRect = element.getBoundingClientRect();
+  const rowRect = row.getBoundingClientRect();
+  const delta = rowRect.top - elementRect.top - Math.max(0, Math.round(offsetPx));
+  const maxScrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
+  element.scrollTo({ top: Math.max(0, Math.min(maxScrollTop, element.scrollTop + delta)), behavior: "smooth" });
+  return true;
+}
+
+function onPinnedUserClick() {
+  const rowId = pinnedUserMessage.value?.rowId ?? "";
+  if (!rowId) return;
+  const offsetPx = pinnedPromptLocateOffsetPx();
+  if (localViewportAdapter.value?.scrollRowToTop(rowId, offsetPx, "smooth")) return;
+  scrollDomRowToTop(rowId, offsetPx);
+}
+
 // 计划工具条选项
 const reasoningEffortOptions = [
   { value: "low", label: "低" },
@@ -346,4 +450,5 @@ const sandboxModeOptions = [
 const modelOptions = computed(() =>
   buildModelPickerOptions({ customIds: modelCatalogStore.customIds, current: runtimeStore.model })
 );
+
 </script>

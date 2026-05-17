@@ -1,5 +1,5 @@
 import type { DiffLineKind } from "./diff";
-import { getParsedDiffCached } from "./diff";
+import { getDiffLineStats } from "./diff";
 export { isLocalThinkingEvent, isLocalUserEvent, isMarkdownEvent, isReasoningStreamEvent } from "../eventKinds";
 import type {
   CommandActionNode,
@@ -43,20 +43,10 @@ export function fileChangeStatusText(status: FileChangeNode["status"]) {
   return "未知";
 }
 
-function countAddedDeletedLines(diffText: string): { add: number; del: number } {
-  const text = String(diffText ?? "");
-  if (!text.trim()) return { add: 0, del: 0 };
-  const parsed = getParsedDiffCached(text);
-  let add = 0;
-  let del = 0;
-  for (const line of parsed.lines) {
-    if (line.kind === "add") add += 1;
-    else if (line.kind === "del") del += 1;
-  }
-  return { add, del };
-}
-
-export function fileChangeCountsText(counts: FileChangeNode["counts"], files: Array<{ diffText: string }>) {
+export function fileChangeCountsText(
+  counts: FileChangeNode["counts"],
+  files: Array<{ diffText: string; kind?: string }>
+) {
   const parts: string[] = [];
   if (counts.add) parts.push(`新增 ${counts.add}`);
   if (counts.modify) parts.push(`修改 ${counts.modify}`);
@@ -66,7 +56,7 @@ export function fileChangeCountsText(counts: FileChangeNode["counts"], files: Ar
   let addLines = 0;
   let delLines = 0;
   for (const f of files ?? []) {
-    const stats = countAddedDeletedLines((f as any)?.diffText ?? "");
+    const stats = getDiffLineStats((f as any)?.diffText ?? "", (f as any)?.kind ?? "");
     addLines += stats.add;
     delLines += stats.del;
   }
@@ -130,12 +120,11 @@ export function fileChangeKindClass(kind: FileChangeKind) {
   return "border-[var(--timeline-status-unknown-border)] bg-[var(--timeline-kind-unknown-bg)] text-[var(--timeline-kind-unknown-text)]";
 }
 
-export function fileChangeDiffMetaText(diffText: string) {
+export function fileChangeDiffMetaText(diffText: string, fileKind = "") {
   const text = String(diffText ?? "");
   if (!text.trim()) return "—";
-  const { add, del } = countAddedDeletedLines(text);
+  const { add, del, lineCount } = getDiffLineStats(text, fileKind);
   if (add > 0 || del > 0) return `+${add} -${del}`;
-  const lineCount = text.split(/\r?\n/).length;
   return `${lineCount.toLocaleString()} 行`;
 }
 

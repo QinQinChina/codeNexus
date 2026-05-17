@@ -10,7 +10,47 @@
   --topbar-dropdown-border: var(--theme-border-strong);
   --topbar-dropdown-text: var(--text);
   --topbar-dropdown-shadow: 0 18px 40px rgb(from var(--theme-seed-shadow-source) r g b / 0.16);
-  --topbar-bg: var(--surface-1);
+
+  --shell-surface: color-mix(in srgb, var(--surface-1) 90%, var(--bg) 10%);
+  --shell-surface-strong: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2, var(--surface-1)) 4%);
+  --pane-surface: color-mix(in srgb, var(--bg) 92%, var(--surface-1) 8%);
+  --pane-surface-strong: color-mix(in srgb, var(--surface-1) 86%, var(--bg) 14%);
+  --panel-surface: color-mix(in srgb, var(--surface-elevated) 90%, var(--surface-1) 10%);
+  --panel-surface-strong: color-mix(in srgb, var(--surface-elevated) 96%, var(--surface-2) 4%);
+  --control-surface: color-mix(in srgb, var(--surface-elevated) 82%, transparent);
+  --control-surface-hover: color-mix(in srgb, var(--surface-elevated) 88%, var(--accent) 8%);
+  --control-surface-active: color-mix(in srgb, var(--surface-elevated) 82%, var(--accent) 14%);
+  --control-border: var(--border);
+  --control-border-hover: var(--border-accent);
+
+  --shell-bg: linear-gradient(180deg, var(--shell-surface-strong), var(--shell-surface));
+  --shell-chrome-bg: var(--shell-bg);
+  --pane-bg: linear-gradient(180deg, var(--pane-surface-strong), var(--pane-surface));
+  --panel-surface-bg: linear-gradient(180deg, var(--panel-surface-strong), var(--panel-surface));
+  --card-surface-bg: color-mix(in srgb, var(--panel-surface-strong) 84%, transparent);
+  --chat-surface-bg: linear-gradient(180deg, var(--pane-surface-strong), var(--pane-surface));
+  --composer-surface-bg: linear-gradient(180deg, var(--panel-surface-strong), var(--panel-surface));
+  --shell-backdrop-filter: none;
+  --panel-backdrop-filter: none;
+  --floating-backdrop-filter: none;
+
+  /* Compatibility aliases. New shell/layout styles should consume the semantic tokens above. */
+  --theme-topbar-surface: var(--shell-surface-strong);
+  --theme-shell-solid-surface: var(--shell-surface);
+  --theme-shell-solid-surface-strong: var(--shell-surface-strong);
+  --theme-sidebar-surface: var(--shell-surface-strong);
+  --theme-sidebar-surface-2: var(--shell-surface);
+  --theme-center-surface: var(--pane-surface-strong);
+  --theme-center-surface-2: var(--pane-surface);
+  --theme-panel-surface: var(--panel-surface-strong);
+  --theme-panel-surface-2: var(--panel-surface);
+  --theme-card-surface: var(--panel-surface-strong);
+  --theme-chat-surface: var(--pane-surface-strong);
+  --theme-chat-surface-2: var(--pane-surface);
+  --theme-composer-surface: var(--panel-surface-strong);
+  --theme-composer-surface-2: var(--panel-surface);
+
+  --topbar-bg: var(--shell-chrome-bg);
   --topbar-border: var(--border);
   --topbar-text: var(--text);
   --topbar-text-muted: var(--text-muted);
@@ -22,11 +62,9 @@
   --topbar-control-border: var(--border);
   --topbar-control-server-border: rgb(from var(--accent) r g b / 0.34);
 
-  --app-backdrop: rgb(
-    from var(--theme-seed-shadow-source) r g b / calc(0.03 + 0.18 * var(--page-shell-opacity-factor))
-  );
-  --sidebar-bg: linear-gradient(180deg, var(--surface-1) 0%, var(--surface-2) 100%);
-  --center-bg: linear-gradient(180deg, var(--bg) 0%, var(--surface-1) 100%);
+  --app-backdrop: rgb(from var(--theme-seed-shadow-source) r g b / 0.21);
+  --sidebar-bg: var(--shell-bg);
+  --center-bg: var(--pane-bg);
 
   --bubble-user-bg: rgb(from var(--accent) r g b / 0.08);
   --bubble-user-border: rgb(from var(--accent) r g b / 0.24);
@@ -35,31 +73,27 @@
   --bubble-assistant-tint: rgb(from var(--accent) r g b / 0.04);
   --bubble-shadow: var(--shadow-soft);
 
-  --button-bg: color-mix(in srgb, var(--surface-elevated) 78%, transparent);
-  --button-bg-hover: color-mix(in srgb, var(--surface-elevated) 88%, var(--accent) 8%);
-  --button-border: var(--border);
-  --button-border-hover: var(--border-accent);
+  --button-bg: var(--control-surface);
+  --button-bg-hover: var(--control-surface-hover);
+  --button-border: var(--control-border);
+  --button-border-hover: var(--control-border-hover);
   --button-text: var(--text);
   --button-text-hover: var(--text);
 
-  --input-bg: color-mix(in srgb, var(--surface-elevated) 80%, transparent);
-  --input-bg-strong: var(--surface-elevated);
-  --input-border: var(--border);
+  --input-bg: var(--control-surface);
+  --input-bg-strong: var(--panel-surface-strong);
+  --input-border: var(--control-border);
   --input-text: var(--text);
   --input-placeholder: rgb(from var(--theme-seed-text-muted) r g b / 0.66);
 
-  --panel-bg: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--surface-elevated) 84%, transparent),
-    color-mix(in srgb, var(--surface-1) 94%, transparent)
-  );
+  --panel-bg: var(--panel-surface-bg);
   --panel-border: var(--border);
   --panel-shadow: var(--shadow-soft);
   --panel-hover-bg: rgb(from var(--accent) r g b / 0.06);
   --panel-active-bg: rgb(from var(--accent) r g b / 0.1);
-  --panel-backdrop-filter: blur(10px) saturate(112%);
+  --panel-backdrop-filter: none;
 
-  --card-bg: color-mix(in srgb, var(--surface-elevated) 74%, transparent);
+  --card-bg: var(--card-surface-bg);
   --card-border: var(--border);
 
   --mcp-dot-border: rgb(from var(--theme-seed-text) r g b / 0.2);
@@ -69,11 +103,7 @@
   --bg-accent-soft-hover: rgb(from var(--accent) r g b / 0.14);
   --bg-danger-soft-hover: rgb(from var(--danger) r g b / 0.14);
 
-  --chat-pane-bg: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--surface-2) 70%, transparent),
-    color-mix(in srgb, var(--surface-1) 94%, transparent)
-  );
+  --chat-pane-bg: var(--chat-surface-bg);
   --timeline-item-bg: linear-gradient(
     180deg,
     color-mix(in srgb, var(--surface-elevated) 78%, transparent),
@@ -108,11 +138,7 @@
   --timeline-kind-unknown-bg: rgb(from var(--text) r g b / 0.06);
   --timeline-kind-unknown-text: var(--text-muted);
 
-  --composer-bg: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--surface-elevated) 86%, transparent),
-    color-mix(in srgb, var(--surface-1) 94%, transparent)
-  );
+  --composer-bg: var(--composer-surface-bg);
   --composer-shell-bg: var(--composer-bg);
   --composer-shell-border: color-mix(in srgb, var(--border) 76%, var(--accent) 24%);
   --composer-shell-focus-border: var(--border-accent-hover);
@@ -181,36 +207,139 @@
   --composer-option-border-accent-mix: 38%;
 }
 
-:root[data-theme="light"] {
+:root[data-tone="light"] {
+  --shell-surface: color-mix(in srgb, var(--light-panel-bg, var(--surface-1)) 94%, var(--light-shell-bg, var(--bg)) 6%);
+  --shell-surface-strong: color-mix(
+    in srgb,
+    var(--light-elevated-bg, var(--surface-1)) 86%,
+    var(--surface-1) 14%
+  );
+  --pane-surface: color-mix(in srgb, var(--light-shell-bg, var(--bg)) 84%, var(--light-panel-bg, var(--surface-1)) 16%);
+  --pane-surface-strong: color-mix(in srgb, var(--light-panel-bg, var(--surface-1)) 92%, var(--bg) 8%);
+  --panel-surface: color-mix(in srgb, var(--light-panel-bg, var(--surface-1)) 88%, transparent);
+  --panel-surface-strong: color-mix(in srgb, var(--light-elevated-bg, var(--surface-elevated)) 92%, var(--surface-1) 8%);
+  --theme-shell-solid-surface: var(--shell-surface);
+  --theme-shell-solid-surface-strong: var(--shell-surface-strong);
   --diff-add-bg: color-mix(in srgb, var(--success) 16%, var(--surface-1) 84%);
   --diff-del-bg: color-mix(in srgb, var(--danger) 14%, var(--surface-1) 86%);
 }
 
+:root[data-theme="pink"] {
+  --theme-page-bg-image:
+    radial-gradient(860px 520px at 12% -6%, rgb(from var(--accent) r g b / 0.15) 0%, transparent 62%),
+    radial-gradient(760px 460px at 88% 6%, rgb(from var(--warning) r g b / 0.08) 0%, transparent 64%),
+    linear-gradient(180deg, var(--bg) 0%, color-mix(in srgb, var(--surface-1) 82%, var(--surface-2) 18%) 100%);
+  --topbar-dropdown-bg: color-mix(in srgb, var(--surface-elevated) 96%, transparent);
+  --shell-surface: color-mix(in srgb, var(--surface-1) 92%, var(--surface-2) 8%);
+  --shell-surface-strong: color-mix(in srgb, var(--surface-elevated) 90%, var(--surface-2) 10%);
+  --pane-surface: color-mix(in srgb, var(--bg) 88%, var(--surface-1) 12%);
+  --pane-surface-strong: color-mix(in srgb, var(--surface-1) 88%, var(--surface-2) 12%);
+  --panel-surface: color-mix(in srgb, var(--surface-elevated) 86%, var(--surface-2) 14%);
+  --panel-surface-strong: color-mix(in srgb, var(--surface-elevated) 92%, var(--surface-2) 8%);
+  --theme-topbar-surface: var(--shell-surface-strong);
+  --theme-sidebar-surface: var(--shell-surface-strong);
+  --theme-sidebar-surface-2: var(--shell-surface);
+  --theme-center-surface: var(--pane-surface-strong);
+  --theme-center-surface-2: var(--pane-surface);
+  --theme-panel-surface: var(--panel-surface-strong);
+  --theme-panel-surface-2: var(--panel-surface);
+  --theme-card-surface: var(--panel-surface-strong);
+  --theme-chat-surface: var(--pane-surface-strong);
+  --theme-chat-surface-2: var(--pane-surface);
+  --theme-composer-surface: var(--panel-surface-strong);
+  --theme-composer-surface-2: var(--panel-surface);
+  --topbar-hover-bg: rgb(from var(--accent) r g b / 0.1);
+  --topbar-active-bg: rgb(from var(--accent) r g b / 0.15);
+  --topbar-btn-active-bg: color-mix(in srgb, var(--accent) 13%, var(--surface-elevated) 87%);
+  --topbar-btn-active-text: color-mix(in srgb, var(--accent) 82%, var(--text) 18%);
+  --topbar-control-bg: color-mix(in srgb, var(--surface-elevated) 84%, var(--surface-2) 16%);
+  --bubble-user-bg: rgb(from var(--accent) r g b / 0.1);
+  --bubble-user-border: rgb(from var(--accent) r g b / 0.28);
+  --button-bg-hover: color-mix(in srgb, var(--surface-elevated) 82%, var(--accent) 9%);
+  --control-surface: color-mix(in srgb, var(--surface-elevated) 86%, var(--surface-2) 14%);
+  --input-bg: var(--control-surface);
+  --panel-border: color-mix(in srgb, var(--border) 82%, var(--accent) 18%);
+  --panel-hover-bg: rgb(from var(--accent) r g b / 0.08);
+  --panel-active-bg: rgb(from var(--accent) r g b / 0.12);
+  --timeline-item-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-elevated) 82%, var(--surface-2) 12%),
+    color-mix(in srgb, var(--surface-1) 94%, transparent)
+  );
+  --composer-shell-bg: var(--composer-bg);
+  --composer-shell-border: color-mix(in srgb, var(--border) 68%, var(--accent) 32%);
+  --composer-shell-focus-border: color-mix(in srgb, var(--accent) 48%, var(--border) 52%);
+  --composer-divider: color-mix(in srgb, var(--border) 58%, var(--accent) 18%);
+  --composer-mode-group-bg: color-mix(in srgb, var(--surface-elevated) 76%, var(--surface-2) 24%);
+  --composer-mode-group-border: color-mix(in srgb, var(--border) 68%, var(--accent) 22%);
+  --composer-mode-active-bg: color-mix(in srgb, var(--accent) 12%, var(--surface-elevated) 88%);
+  --composer-mode-active-border: color-mix(in srgb, var(--accent) 42%, var(--border) 58%);
+  --composer-mode-active-text: color-mix(in srgb, var(--accent) 78%, var(--text) 22%);
+  --composer-select-bg: color-mix(in srgb, var(--surface-elevated) 78%, var(--surface-2) 22%);
+  --composer-select-border: color-mix(in srgb, var(--border) 70%, var(--accent) 18%);
+  --composer-chip-bg: color-mix(in srgb, var(--surface-elevated) 80%, var(--surface-2) 20%);
+  --composer-agent-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-elevated) 82%, var(--accent) 8%),
+    color-mix(in srgb, var(--surface-1) 88%, var(--surface-2) 12%)
+  );
+  --composer-agent-border: color-mix(in srgb, var(--border) 62%, var(--accent) 34%);
+  --composer-agent-focus-border: color-mix(in srgb, var(--accent) 52%, var(--border) 48%);
+  --composer-agent-focus-ring: rgb(from var(--accent) r g b / 0.13);
+  --composer-agent-mode-bg: color-mix(in srgb, var(--accent) 12%, var(--surface-elevated) 88%);
+  --composer-agent-mode-border: color-mix(in srgb, var(--accent) 42%, var(--border) 58%);
+  --composer-agent-mode-text: color-mix(in srgb, var(--accent) 78%, var(--text) 22%);
+  --composer-agent-glow: rgb(from var(--accent) r g b / 0.1);
+  --composer-plan-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-elevated) 84%, var(--warning) 7%),
+    color-mix(in srgb, var(--surface-1) 94%, transparent)
+  );
+  --ui-link: color-mix(in srgb, var(--accent) 86%, var(--text) 14%);
+  --ui-link-hover: color-mix(in srgb, var(--accent) 72%, var(--text) 28%);
+  --ui-editor-purple: color-mix(in srgb, var(--accent) 62%, var(--danger) 38%);
+}
+
 :root[data-tone="dark"] {
   --theme-page-bg-image: linear-gradient(180deg, var(--bg) 0%, var(--bg) 100%);
+  --shell-surface: color-mix(in srgb, var(--surface-1) 92%, black 8%);
+  --shell-surface-strong: color-mix(in srgb, var(--surface-1) 86%, var(--surface-2, var(--surface-1)) 14%);
+  --pane-surface: var(--bg);
+  --pane-surface-strong: var(--bg);
+  --panel-surface: var(--surface-1);
+  --panel-surface-strong: color-mix(in srgb, var(--surface-1) 88%, var(--surface-2) 12%);
+  --theme-shell-solid-surface: var(--shell-surface);
+  --theme-shell-solid-surface-strong: var(--shell-surface-strong);
   --topbar-dropdown-bg: var(--surface-elevated);
   --topbar-dropdown-bg-solid: var(--surface-elevated);
-  --topbar-bg: var(--surface-1);
+  --theme-topbar-surface: var(--shell-surface-strong);
+  --theme-sidebar-surface: var(--shell-surface-strong);
+  --theme-sidebar-surface-2: var(--shell-surface);
+  --theme-center-surface: var(--pane-surface-strong);
+  --theme-center-surface-2: var(--pane-surface);
+  --theme-panel-surface: var(--panel-surface-strong);
+  --theme-panel-surface-2: var(--panel-surface);
+  --theme-card-surface: var(--panel-surface-strong);
+  --theme-chat-surface: var(--pane-surface-strong);
+  --theme-chat-surface-2: var(--pane-surface);
+  --theme-composer-surface: var(--panel-surface-strong);
+  --theme-composer-surface-2: var(--panel-surface);
   --topbar-hover-bg: rgb(from var(--accent) r g b / 0.12);
   --topbar-active-bg: rgb(from var(--accent) r g b / 0.18);
   --topbar-btn-active-bg: rgb(from var(--accent) r g b / 0.2);
-  --topbar-control-bg: var(--surface-2);
-  --sidebar-bg: var(--surface-1);
-  --center-bg: var(--bg);
+  --topbar-control-bg: rgb(from var(--surface-2) r g b / var(--shell-surface-alpha-strong));
   --bubble-assistant-bg: var(--surface-2);
   --bubble-assistant-tint: transparent;
-  --button-bg: var(--surface-2);
-  --button-bg-hover: color-mix(in srgb, var(--surface-3) 88%, var(--accent) 12%);
-  --input-bg: var(--surface-2);
-  --input-bg-strong: var(--surface-elevated);
-  --panel-bg: var(--surface-1);
+  --control-surface: var(--surface-2);
+  --control-surface-hover: color-mix(in srgb, var(--surface-3) 88%, var(--accent) 12%);
+  --button-bg: var(--control-surface);
+  --button-bg-hover: var(--control-surface-hover);
+  --input-bg: var(--control-surface);
+  --input-bg-strong: var(--panel-surface-strong);
   --panel-hover-bg: rgb(from var(--accent) r g b / 0.1);
   --panel-active-bg: rgb(from var(--accent) r g b / 0.16);
   --panel-backdrop-filter: none;
-  --card-bg: var(--surface-2);
-  --chat-pane-bg: var(--bg);
   --timeline-item-bg: var(--surface-2);
-  --composer-bg: var(--surface-2);
   --composer-shell-bg: var(--composer-bg);
   --composer-shell-border: var(--border);
   --composer-shell-focus-border: var(--border-accent-hover);
@@ -228,37 +357,40 @@
     radial-gradient(620px 440px at 92% 10%, rgb(from var(--danger) r g b / 0.1) 0%, transparent 62%),
     linear-gradient(135deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 70%, var(--surface-3) 30%) 100%);
   --topbar-dropdown-bg: color-mix(in srgb, var(--surface-elevated) 94%, transparent);
-  --topbar-bg: color-mix(in srgb, var(--surface-1) 84%, var(--bg) 16%);
+  --shell-surface: color-mix(in srgb, var(--surface-1) 88%, var(--accent) 4%);
+  --shell-surface-strong: color-mix(in srgb, var(--surface-2) 78%, var(--accent) 7%);
+  --pane-surface: color-mix(in srgb, var(--bg) 92%, var(--accent) 4%);
+  --pane-surface-strong: color-mix(in srgb, var(--surface-1) 72%, var(--bg) 24%);
+  --panel-surface: color-mix(in srgb, var(--surface-2) 82%, var(--accent) 6%);
+  --panel-surface-strong: color-mix(in srgb, var(--surface-2) 88%, var(--accent) 8%);
+  --theme-topbar-surface: var(--shell-surface-strong);
+  --theme-sidebar-surface: var(--shell-surface-strong);
+  --theme-sidebar-surface-2: var(--shell-surface);
+  --theme-center-surface: var(--pane-surface-strong);
+  --theme-center-surface-2: var(--pane-surface);
+  --theme-panel-surface: var(--panel-surface-strong);
+  --theme-panel-surface-2: var(--panel-surface);
+  --theme-card-surface: var(--panel-surface-strong);
+  --theme-chat-surface: var(--pane-surface-strong);
+  --theme-chat-surface-2: var(--pane-surface);
+  --theme-composer-surface: var(--panel-surface-strong);
+  --theme-composer-surface-2: var(--panel-surface);
   --topbar-hover-bg: rgb(from var(--accent) r g b / 0.14);
   --topbar-active-bg: rgb(from var(--accent) r g b / 0.22);
   --topbar-btn-active-bg: color-mix(in srgb, var(--accent) 20%, var(--surface-2) 80%);
   --topbar-btn-active-text: color-mix(in srgb, var(--accent) 86%, white 14%);
   --topbar-control-bg: color-mix(in srgb, var(--surface-2) 86%, transparent);
-  --sidebar-bg: linear-gradient(180deg, color-mix(in srgb, var(--surface-1) 88%, var(--accent) 4%), var(--bg));
-  --center-bg: linear-gradient(180deg, color-mix(in srgb, var(--bg) 92%, var(--accent) 4%), var(--bg));
   --bubble-user-bg: rgb(from var(--accent) r g b / 0.11);
   --bubble-user-border: rgb(from var(--accent) r g b / 0.34);
   --button-bg-hover: color-mix(in srgb, var(--surface-3) 80%, var(--accent) 20%);
-  --panel-bg: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--surface-2) 82%, var(--accent) 6%),
-    color-mix(in srgb, var(--surface-1) 90%, transparent)
-  );
   --panel-border: color-mix(in srgb, var(--border) 78%, var(--accent) 22%);
   --panel-hover-bg: rgb(from var(--accent) r g b / 0.12);
   --panel-active-bg: rgb(from var(--accent) r g b / 0.18);
-  --panel-backdrop-filter: blur(12px) saturate(126%);
-  --card-bg: color-mix(in srgb, var(--surface-2) 86%, transparent);
-  --chat-pane-bg: linear-gradient(180deg, color-mix(in srgb, var(--bg) 90%, var(--accent) 4%), var(--bg));
+  --panel-backdrop-filter: none;
   --timeline-item-bg: linear-gradient(
     180deg,
     color-mix(in srgb, var(--surface-2) 82%, var(--accent) 6%),
     color-mix(in srgb, var(--surface-1) 92%, transparent)
-  );
-  --composer-bg: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--surface-2) 82%, var(--accent) 7%),
-    color-mix(in srgb, var(--surface-1) 94%, transparent)
   );
   --composer-agent-bg: linear-gradient(
     180deg,
@@ -276,6 +408,71 @@
   --ui-editor-purple: color-mix(in srgb, var(--danger) 62%, var(--accent) 38%);
   --ui-editor-yellow: color-mix(in srgb, var(--warning) 90%, white 10%);
   --ui-editor-green: color-mix(in srgb, var(--success) 84%, white 16%);
+}
+
+:root[data-theme="hacker"] {
+  --theme-page-bg-image:
+    linear-gradient(180deg, rgb(from var(--accent) r g b / 0.055) 0 1px, transparent 1px 4px),
+    radial-gradient(820px 520px at 18% -6%, rgb(from var(--accent) r g b / 0.16) 0%, transparent 66%),
+    radial-gradient(720px 460px at 88% 4%, rgb(from var(--success) r g b / 0.09) 0%, transparent 64%),
+    linear-gradient(180deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 78%, var(--surface-2) 22%) 100%);
+  --topbar-dropdown-bg: color-mix(in srgb, var(--surface-elevated) 92%, transparent);
+  --shell-surface: color-mix(in srgb, var(--surface-1) 88%, var(--accent) 5%);
+  --shell-surface-strong: color-mix(in srgb, var(--surface-2) 80%, var(--accent) 8%);
+  --pane-surface: color-mix(in srgb, var(--bg) 92%, var(--accent) 3%);
+  --pane-surface-strong: color-mix(in srgb, var(--surface-1) 72%, var(--bg) 24%);
+  --panel-surface: color-mix(in srgb, var(--surface-2) 80%, var(--accent) 6%);
+  --panel-surface-strong: color-mix(in srgb, var(--surface-2) 84%, black 12%);
+  --theme-topbar-surface: var(--shell-surface-strong);
+  --theme-sidebar-surface: var(--shell-surface-strong);
+  --theme-sidebar-surface-2: var(--shell-surface);
+  --theme-center-surface: var(--pane-surface-strong);
+  --theme-center-surface-2: var(--pane-surface);
+  --theme-panel-surface: var(--panel-surface-strong);
+  --theme-panel-surface-2: var(--panel-surface);
+  --theme-card-surface: var(--panel-surface-strong);
+  --theme-chat-surface: var(--pane-surface-strong);
+  --theme-chat-surface-2: var(--pane-surface);
+  --theme-composer-surface: var(--panel-surface-strong);
+  --theme-composer-surface-2: var(--panel-surface);
+  --topbar-hover-bg: rgb(from var(--accent) r g b / 0.13);
+  --topbar-active-bg: rgb(from var(--accent) r g b / 0.2);
+  --topbar-btn-active-bg: color-mix(in srgb, var(--accent) 18%, var(--surface-2) 82%);
+  --topbar-btn-active-text: color-mix(in srgb, var(--accent) 88%, white 12%);
+  --topbar-control-bg: color-mix(in srgb, var(--surface-2) 82%, black 18%);
+  --bubble-user-bg: rgb(from var(--accent) r g b / 0.1);
+  --bubble-user-border: rgb(from var(--accent) r g b / 0.36);
+  --button-bg-hover: color-mix(in srgb, var(--surface-3) 78%, var(--accent) 22%);
+  --control-surface: color-mix(in srgb, var(--surface-2) 88%, black 12%);
+  --input-bg: var(--control-surface);
+  --input-bg-strong: var(--panel-surface-strong);
+  --panel-border: color-mix(in srgb, var(--border) 70%, var(--accent) 30%);
+  --panel-hover-bg: rgb(from var(--accent) r g b / 0.11);
+  --panel-active-bg: rgb(from var(--accent) r g b / 0.18);
+  --panel-shadow: 0 14px 36px rgb(from var(--theme-seed-shadow-source) r g b / 0.34);
+  --timeline-item-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 80%, var(--accent) 5%),
+    color-mix(in srgb, var(--surface-1) 92%, black 8%)
+  );
+  --composer-shell-border: color-mix(in srgb, var(--border) 58%, var(--accent) 42%);
+  --composer-agent-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 76%, var(--success) 10%),
+    color-mix(in srgb, var(--surface-1) 92%, black 8%)
+  );
+  --composer-plan-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 76%, var(--warning) 10%),
+    color-mix(in srgb, var(--surface-1) 92%, black 8%)
+  );
+  --ui-timeline-card-bg: color-mix(in srgb, var(--surface-2) 88%, var(--accent) 4%);
+  --ui-link: color-mix(in srgb, var(--accent) 88%, white 12%);
+  --ui-link-hover: color-mix(in srgb, var(--accent) 66%, white 34%);
+  --ui-editor-blue: color-mix(in srgb, var(--accent) 78%, white 22%);
+  --ui-editor-purple: color-mix(in srgb, var(--accent) 58%, var(--danger) 42%);
+  --ui-editor-yellow: color-mix(in srgb, var(--warning) 92%, white 8%);
+  --ui-editor-green: color-mix(in srgb, var(--success) 88%, white 12%);
 }
 
 .composer-select--model,

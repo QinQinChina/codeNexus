@@ -33,7 +33,6 @@
           :source="image.source"
           :sourceKind="image.sourceKind"
           :previewTitle="image.title"
-          v-tooltip="image.title"
           :workspaceRoot="workspaceRoot"
           :rootMarginPx="360"
           @load-error="$emit('load-error', $event)"

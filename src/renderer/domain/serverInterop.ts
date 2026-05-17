@@ -131,8 +131,10 @@ export function createDefaultGlobalConfigDraft(): GlobalConfigDraft {
     approvalsReviewer: "user",
     sandboxMode: "danger-full-access",
     windowsElevatedSandboxEnabled: false,
-    powershellUtf8Enabled: true,
     unifiedExecEnabled: false,
+    applyPatchStreamingEventsEnabled: false,
+    codeModeEnabled: false,
+    codeModeOnlyEnabled: false,
   };
 }
 
@@ -149,8 +151,10 @@ export function extractGlobalConfigFromReadResult(result: unknown): GlobalConfig
   const approvalsReviewerNode = readPathValue(root, "approvals_reviewer");
   const sandboxNode = readPathValue(root, "sandbox_mode");
   const windowsSandboxNode = readPathValue(root, "windows.sandbox");
-  const powershellUtf8Node = readPathValue(root, "features.powershell_utf8");
   const unifiedExecNode = readPathValue(root, "features.unified_exec");
+  const applyPatchStreamingEventsNode = readPathValue(root, "features.apply_patch_streaming_events");
+  const codeModeNode = readPathValue(root, "features.code_mode");
+  const codeModeOnlyNode = readPathValue(root, "features.code_mode_only");
 
   return {
     model: normalizeModelName(modelNode.value),
@@ -178,8 +182,13 @@ export function extractGlobalConfigFromReadResult(result: unknown): GlobalConfig
       String(windowsSandboxNode.value ?? "")
         .trim()
         .toLowerCase() === "elevated",
-    powershellUtf8Enabled: normalizeBooleanFlag(powershellUtf8Node.value, defaults.powershellUtf8Enabled),
     unifiedExecEnabled: normalizeBooleanFlag(unifiedExecNode.value, defaults.unifiedExecEnabled),
+    applyPatchStreamingEventsEnabled: normalizeBooleanFlag(
+      applyPatchStreamingEventsNode.value,
+      defaults.applyPatchStreamingEventsEnabled
+    ),
+    codeModeEnabled: normalizeBooleanFlag(codeModeNode.value, defaults.codeModeEnabled),
+    codeModeOnlyEnabled: normalizeBooleanFlag(codeModeOnlyNode.value, defaults.codeModeOnlyEnabled),
   };
 }
 
@@ -236,11 +245,20 @@ export function buildConfigBatchChangesFromDraft(
       value: Boolean(draft.windowsElevatedSandboxEnabled) ? "elevated" : "unelevated",
     });
   }
-  if (Boolean(draft.powershellUtf8Enabled) !== Boolean(baseline.powershellUtf8Enabled)) {
-    changes.push({ keyPath: "features.powershell_utf8", value: Boolean(draft.powershellUtf8Enabled) });
-  }
   if (Boolean(draft.unifiedExecEnabled) !== Boolean(baseline.unifiedExecEnabled)) {
     changes.push({ keyPath: "features.unified_exec", value: Boolean(draft.unifiedExecEnabled) });
+  }
+  if (Boolean(draft.applyPatchStreamingEventsEnabled) !== Boolean(baseline.applyPatchStreamingEventsEnabled)) {
+    changes.push({
+      keyPath: "features.apply_patch_streaming_events",
+      value: Boolean(draft.applyPatchStreamingEventsEnabled),
+    });
+  }
+  if (Boolean(draft.codeModeEnabled) !== Boolean(baseline.codeModeEnabled)) {
+    changes.push({ keyPath: "features.code_mode", value: Boolean(draft.codeModeEnabled) });
+  }
+  if (Boolean(draft.codeModeOnlyEnabled) !== Boolean(baseline.codeModeOnlyEnabled)) {
+    changes.push({ keyPath: "features.code_mode_only", value: Boolean(draft.codeModeOnlyEnabled) });
   }
   return changes;
 }

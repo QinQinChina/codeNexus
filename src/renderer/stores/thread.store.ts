@@ -4,6 +4,7 @@ import type {
   ThreadHandoffDiagnosticsState,
   PlanStepState,
   ThreadHistoryItem,
+  TokenUsageBreakdownState,
   TokenUsageState,
   TurnPlanState,
 } from "../domain/types";
@@ -13,6 +14,28 @@ const COMPLETED_BADGE_DURATION_MS = 10_000;
 const completedBadgeTimersByThread = new Map<string, ReturnType<typeof setTimeout>>();
 const TURN_STARTED_AT_CACHE_LIMIT = 120;
 const TURN_PLAN_CACHE_LIMIT = 120;
+const TURN_TOKEN_USAGE_CACHE_LIMIT = 120;
+
+function emptyTokenUsageBreakdown(): TokenUsageBreakdownState {
+  return {
+    totalTokens: null,
+    inputTokens: null,
+    cachedInputTokens: null,
+    outputTokens: null,
+    reasoningOutputTokens: null,
+  };
+}
+
+function emptyTokenUsageState(): TokenUsageState {
+  return {
+    usedTokens: null,
+    contextWindow: null,
+    last: emptyTokenUsageBreakdown(),
+    total: emptyTokenUsageBreakdown(),
+    modelContextWindow: null,
+    updatedAt: null,
+  };
+}
 
 function toFiniteNonNegativeNumberOrNull(value: unknown): number | null {
   const raw = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
@@ -20,15 +43,33 @@ function toFiniteNonNegativeNumberOrNull(value: unknown): number | null {
   return Math.max(0, raw);
 }
 
+function normalizeTokenUsageBreakdown(value: unknown): TokenUsageBreakdownState {
+  const anyValue = value && typeof value === "object" ? (value as any) : null;
+  return {
+    totalTokens: toFiniteNonNegativeNumberOrNull(anyValue?.totalTokens),
+    inputTokens: toFiniteNonNegativeNumberOrNull(anyValue?.inputTokens),
+    cachedInputTokens: toFiniteNonNegativeNumberOrNull(anyValue?.cachedInputTokens),
+    outputTokens: toFiniteNonNegativeNumberOrNull(anyValue?.outputTokens),
+    reasoningOutputTokens: toFiniteNonNegativeNumberOrNull(anyValue?.reasoningOutputTokens),
+  };
+}
+
 function normalizeTokenUsage(value: unknown): TokenUsageState {
   const anyValue = value && typeof value === "object" ? (value as any) : null;
   const lastUsage = anyValue?.last && typeof anyValue.last === "object" ? anyValue.last : null;
   const totalUsage = anyValue?.total && typeof anyValue.total === "object" ? anyValue.total : null;
+  const last = normalizeTokenUsageBreakdown(lastUsage);
+  const total = normalizeTokenUsageBreakdown(totalUsage);
+  const contextWindow = toFiniteNonNegativeNumberOrNull(anyValue?.contextWindow ?? anyValue?.modelContextWindow);
   return {
     usedTokens: toFiniteNonNegativeNumberOrNull(
-      anyValue?.usedTokens ?? lastUsage?.totalTokens ?? lastUsage?.inputTokens ?? totalUsage?.totalTokens
+      anyValue?.usedTokens ?? last.totalTokens ?? last.inputTokens ?? total.totalTokens
     ),
-    contextWindow: toFiniteNonNegativeNumberOrNull(anyValue?.contextWindow ?? anyValue?.modelContextWindow),
+    contextWindow,
+    last,
+    total,
+    modelContextWindow: contextWindow,
+    updatedAt: toFiniteNonNegativeNumberOrNull(anyValue?.updatedAt),
   };
 }
 
@@ -71,6 +112,7 @@ export const useThreadStore = defineStore("thread", {
     recentlyCompletedThreadIds: new Set<string>(),
     threadTitleOverridesByThreadId: new Map<string, string>(),
     tokenUsageByThread: new Map<string, TokenUsageState>(),
+    turnTokenUsageByThread: new Map<string, Map<string, TokenUsageState>>(),
     activeTurnIdByThread: new Map<string, string>(),
     turnStartedAtByThread: new Map<string, Map<string, number>>(),
     handoffDiagnosticsByThread: new Map<string, ThreadHandoffDiagnosticsState>(),
@@ -84,8 +126,8 @@ export const useThreadStore = defineStore("thread", {
     // 当前线程 token 使用量（无线程时返回空值占位）。
     currentTokenUsage(state): TokenUsageState {
       const key = state.currentThreadId;
-      if (!key) return { usedTokens: null, contextWindow: null };
-      return state.tokenUsageByThread.get(key) ?? { usedTokens: null, contextWindow: null };
+      if (!key) return emptyTokenUsageState();
+      return state.tokenUsageByThread.get(key) ?? emptyTokenUsageState();
     },
     currentCompletedTurns(state): CompletedTurnState[] {
       const key = state.currentThreadId;
@@ -103,6 +145,14 @@ export const useThreadStore = defineStore("thread", {
         const turnId = String(turnIdValue ?? "").trim();
         if (!threadId || !turnId) return null;
         return state.turnPlansByThread.get(threadId)?.get(turnId) ?? null;
+      };
+    },
+    tokenUsageForTurn: (state) => {
+      return (threadIdValue: string, turnIdValue: string): TokenUsageState | null => {
+        const threadId = String(threadIdValue ?? "").trim();
+        const turnId = String(turnIdValue ?? "").trim();
+        if (!threadId || !turnId) return null;
+        return state.turnTokenUsageByThread.get(threadId)?.get(turnId) ?? null;
       };
     },
     displayThreadTitle: (state) => {
@@ -204,6 +254,10 @@ export const useThreadStore = defineStore("thread", {
       };
 
       moveMapEntry(this.tokenUsageByThread);
+      moveMapEntry(
+        this.turnTokenUsageByThread,
+        (fromValue, toValue) => new Map<string, TokenUsageState>([...toValue.entries(), ...fromValue.entries()])
+      );
       moveMapEntry(this.activeTurnIdByThread);
       moveMapEntry(
         this.turnStartedAtByThread,
@@ -306,11 +360,31 @@ export const useThreadStore = defineStore("thread", {
         }
       }
     },
-    setTokenUsage(threadId: string, usage: TokenUsageState) {
+    setTokenUsage(threadId: string, usage: unknown) {
       const tid = String(threadId ?? "").trim();
       if (!tid) return;
       const normalized = normalizeTokenUsage(usage);
       this.tokenUsageByThread.set(tid, normalized);
+    },
+    setTurnTokenUsage(threadId: string, turnId: string, usage: unknown) {
+      const tid = String(threadId ?? "").trim();
+      const turn = String(turnId ?? "").trim();
+      if (!tid || !turn) return;
+      const normalized = normalizeTokenUsage(usage);
+      this.tokenUsageByThread.set(tid, normalized);
+      const map = this.turnTokenUsageByThread.get(tid) ?? new Map<string, TokenUsageState>();
+      if (!this.turnTokenUsageByThread.has(tid)) this.turnTokenUsageByThread.set(tid, map);
+      if (map.has(turn)) map.delete(turn);
+      map.set(turn, normalized);
+      if (map.size > TURN_TOKEN_USAGE_CACHE_LIMIT) {
+        const overflow = map.size - TURN_TOKEN_USAGE_CACHE_LIMIT;
+        let removed = 0;
+        for (const key of map.keys()) {
+          map.delete(key);
+          removed += 1;
+          if (removed >= overflow) break;
+        }
+      }
     },
     setThreadHandoffDiagnosticsLoading(threadId: string, loading: boolean) {
       const tid = String(threadId ?? "").trim();
@@ -438,6 +512,13 @@ export const useThreadStore = defineStore("thread", {
         }
         if (planMap.size === 0) this.turnPlansByThread.delete(threadId);
       }
+      const usageMap = this.turnTokenUsageByThread.get(threadId);
+      if (usageMap) {
+        for (const turnId of idSet) {
+          usageMap.delete(turnId);
+        }
+        if (usageMap.size === 0) this.turnTokenUsageByThread.delete(threadId);
+      }
     },
     // 更新当前 turn 的计划摘要；切换 turn 时重置旧 delta。
     setTurnPlan(threadId: string, turnId: string, explanation: string | null, plan: PlanStepState[]) {
@@ -483,6 +564,7 @@ export const useThreadStore = defineStore("thread", {
       }
 
       this.tokenUsageByThread.delete(tid);
+      this.turnTokenUsageByThread.delete(tid);
       this.activeTurnIdByThread.delete(tid);
       this.turnStartedAtByThread.delete(tid);
       this.handoffDiagnosticsByThread.delete(tid);

@@ -163,6 +163,7 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
     treeLoadingPaths: [] as string[],
     treeErrorTextByPath: {} as Record<string, string>,
     expandedDirectoryPaths: [] as string[],
+    deletingFilePaths: [] as string[],
     editorTabOrder: [] as string[],
     editorTabsByPath: {} as Record<string, WorkspaceEditorTabState>,
     activeEditorTabPath: "" as string,
@@ -252,6 +253,12 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
         return isTabDirty(key ? state.editorTabsByPath[key] : null);
       };
     },
+    isFileDeleting(state): (path: string) => boolean {
+      return (path: string) => {
+        const key = toComparablePath(path);
+        return key ? state.deletingFilePaths.some((value) => toComparablePath(value) === key) : false;
+      };
+    },
     canEditActiveFile(): boolean {
       const activeTab = this.activeTab;
       if (!activeTab?.path) return false;
@@ -272,6 +279,7 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
       this.treeLoadingPaths = [];
       this.treeErrorTextByPath = {};
       this.expandedDirectoryPaths = this.workspacePath ? [this.workspacePath] : [];
+      this.deletingFilePaths = [];
       this.clearEditorState();
     },
     clearEditorState() {
@@ -446,6 +454,63 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
     async closeActiveTab(): Promise<boolean> {
       if (!this.activeEditorTabPath) return true;
       return await this.closeTab(this.activeEditorTabPath);
+    },
+    async deleteWorkspaceFile(path: string): Promise<boolean> {
+      this.syncWorkspace();
+      if (!this.workspacePath) return false;
+      const targetPath = normalizeAbsoluteFsPath(String(path ?? "").trim());
+      if (!targetPath) return false;
+      const deletingKey = toComparablePath(targetPath);
+      if (!deletingKey || this.deletingFilePaths.some((value) => toComparablePath(value) === deletingKey)) return false;
+
+      const tabPath = resolveExistingTabPath(this.editorTabsByPath, targetPath);
+      const dirty = tabPath ? this.isTabDirty(tabPath) : false;
+      const confirmed = await confirmModalLazy({
+        title: "删除文件？",
+        message: dirty
+          ? "此文件已打开且有未保存修改，删除后这些内容也会丢失。"
+          : "此操作会从磁盘删除该文件，无法在应用内撤销。",
+        detail: targetPath,
+        confirmText: "删除文件",
+        cancelText: "取消",
+        danger: true,
+      });
+      if (!confirmed) return false;
+
+      this.deletingFilePaths = uniquePaths([...this.deletingFilePaths, targetPath]);
+      try {
+        const runtime = getRuntimeOrchestrator();
+        const metadata = await runtime.getWorkspaceMetadata(targetPath);
+        if (!metadata.isFile) throw new Error("当前选择不是文件，不能删除。");
+        await runtime.deleteWorkspaceFile(targetPath);
+
+        if (tabPath) this.removeEditorTab(tabPath);
+        const parentDirectory = directoryPathForFile(targetPath);
+        if (parentDirectory) {
+          await this.ensureDirectoryLoaded(parentDirectory, { force: true });
+          if (isSamePath(this.directoryPath, parentDirectory)) {
+            this.entries = [...this.directoryEntriesByPath(parentDirectory)];
+            this.directoryErrorText = this.directoryErrorByPath(parentDirectory);
+          }
+        }
+
+        showToast({
+          kind: "success",
+          title: "文件已删除",
+          message: basenameFromPath(targetPath) || targetPath,
+        });
+        return true;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error ?? "unknown error");
+        showToast({
+          kind: "error",
+          title: "文件删除失败",
+          message,
+        });
+        return false;
+      } finally {
+        this.deletingFilePaths = withoutPath(this.deletingFilePaths, targetPath);
+      }
     },
     async confirmResetDirtyTabsForWorkspaceChange(nextWorkspace?: string): Promise<boolean> {
       const dirtyTabs = this.openTabs.filter((tab) => isTabDirty(tab));

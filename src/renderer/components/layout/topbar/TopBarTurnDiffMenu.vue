@@ -8,7 +8,6 @@
       aria-haspopup="menu"
       :aria-expanded="props.open ? 'true' : 'false'"
       aria-label="本回合差异"
-      v-tooltip="'本回合差异'"
       @click.stop="emit('toggle')"
     >
       <GitCompare aria-hidden="true" />

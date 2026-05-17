@@ -157,7 +157,7 @@
 .timeline-pane--chat {
   --timeline-inline-pad: 12px;
   --timeline-scrollbar-gutter-w: 11px;
-  --timeline-bottom-occluder-bg: color-mix(in srgb, var(--bg) 92%, var(--theme-seed-canvas-deep) 8%);
+  --timeline-bottom-occluder-bg: var(--chat-pane-bg);
   --chat-column-w: min(
     calc(100cqw - (var(--timeline-inline-pad) * 2) - (var(--timeline-scrollbar-gutter-w) * 2)),
     var(--chat-content-max-w)
@@ -165,7 +165,7 @@
   container-type: inline-size;
   padding: 0;
   gap: 0;
-  background: color-mix(in srgb, var(--bg) 92%, var(--theme-seed-canvas-deep) 8%);
+  background: var(--chat-pane-bg);
 }
 
 .timeline-pane--chat::after {
@@ -202,7 +202,7 @@
 }
 
 .timeline-pane--chat .chat-pane {
-  gap: 10px;
+  gap: 0;
 }
 
 .timeline-pane--chat #timeline > .chat-pane,
@@ -234,13 +234,13 @@
 }
 
 /* === Low-glare light workbench tuning === */
-:root[data-theme="light"] .timeline-pane--chat {
+:root[data-tone="light"] .timeline-pane--chat {
   --timeline-bottom-occluder-bg: var(--chat-pane-bg);
   background: var(--chat-pane-bg);
 }
 
-:root[data-theme="light"] .timeline-pane--chat #timeline,
-:root[data-theme="light"] .timeline-pane--chat .timeline {
+:root[data-tone="light"] .timeline-pane--chat #timeline,
+:root[data-tone="light"] .timeline-pane--chat .timeline {
   border: 0;
   background: transparent;
   box-shadow: none;

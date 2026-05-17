@@ -10,6 +10,27 @@
   border-left: 1px solid var(--border);
 }
 
+.workspace-files-tree,
+.workspace-files-sidebar {
+  --wf-bg: var(--shell-surface, color-mix(in srgb, var(--surface-1) 90%, var(--bg) 10%));
+  --wf-bg-strong: var(--shell-surface-strong, color-mix(in srgb, var(--surface-1) 96%, var(--surface-2) 4%));
+  --wf-border: color-mix(in srgb, var(--border) 78%, transparent);
+  --wf-border-strong: color-mix(in srgb, var(--border) 86%, var(--text) 8%);
+  --wf-surface: var(--control-surface, color-mix(in srgb, var(--surface-1) 82%, var(--surface-2) 18%));
+  --wf-surface-strong: var(--panel-surface-strong, color-mix(in srgb, var(--surface-1) 88%, var(--accent) 8%));
+  --wf-tree-bg: var(--wf-bg);
+  --wf-tree-hover: color-mix(in srgb, var(--accent) 14%, transparent);
+  --wf-tree-active: color-mix(in srgb, var(--accent) 22%, transparent);
+  --wf-tree-directory: color-mix(in srgb, var(--warning) 46%, transparent);
+  --wf-tree-file: color-mix(in srgb, var(--accent) 52%, transparent);
+}
+
+.workspace-files-sidebar {
+  padding: 0;
+  overflow: hidden;
+  background: var(--sidebar-bg);
+}
+
 .sidebar-right > .panel {
   margin-bottom: 0;
   min-height: 0;
@@ -69,14 +90,6 @@
 }
 
 .workspace-files-tree {
-  --wf-border: color-mix(in srgb, var(--border) 82%, var(--text) 18%);
-  --wf-surface: color-mix(in srgb, var(--surface-1) 86%, transparent);
-  --wf-surface-strong: color-mix(in srgb, var(--surface-1) 92%, var(--accent-soft) 8%);
-  --wf-tree-bg: color-mix(in srgb, var(--surface-1) 74%, rgb(from var(--bg) r g b / 0.34));
-  --wf-tree-hover: color-mix(in srgb, var(--accent) 14%, transparent);
-  --wf-tree-active: color-mix(in srgb, var(--accent) 22%, transparent);
-  --wf-tree-directory: color-mix(in srgb, var(--warning) 46%, transparent);
-  --wf-tree-file: color-mix(in srgb, var(--accent) 52%, transparent);
   min-width: 0;
   min-height: 0;
   display: flex;
@@ -86,6 +99,7 @@
 }
 
 .workspace-files-shell {
+  position: relative;
   min-height: 0;
   flex: 1 1 auto;
   display: flex;
@@ -93,9 +107,28 @@
   gap: 0;
   overflow: hidden;
   padding: 0;
+  background: var(--sidebar-bg, linear-gradient(180deg, var(--wf-bg-strong), var(--wf-tree-bg)));
+}
+
+.workspace-files-sidebar .workspace-files-shell {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.workspace-files-shell::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 28px;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgb(from var(--wf-tree-bg) r g b / var(--shell-surface-alpha)) 72%);
+  z-index: 2;
 }
 
 .workspace-files-body {
+  position: relative;
   min-height: 0;
   flex: 1 1 auto;
   display: flex;
@@ -127,13 +160,8 @@
   border-radius: 0;
   border: 0;
   background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--wf-surface) 94%, transparent),
-      color-mix(in srgb, var(--wf-tree-bg) 98%, transparent)
-    ),
-    color-mix(in srgb, var(--wf-tree-bg) 96%, transparent);
-  padding: 6px 0 10px;
+    linear-gradient(180deg, color-mix(in srgb, var(--wf-surface) 6%, transparent), transparent 32%);
+  padding: 6px 0 24px;
 }
 
 .workspace-files-placeholder {
@@ -254,6 +282,12 @@
   background: color-mix(in srgb, var(--accent) 86%, transparent);
 }
 
+.workspace-file-tree-row.is-deleting {
+  cursor: default;
+  opacity: 0.62;
+  filter: saturate(0.78);
+}
+
 .workspace-file-tree-row__chevron {
   width: 14px;
   height: 14px;
@@ -305,6 +339,66 @@
 
 .workspace-file-tree-message.is-error {
   color: var(--fg-danger);
+}
+
+.workspace-file-context-menu {
+  position: fixed;
+  z-index: 1200;
+  min-width: 176px;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-1) 94%, transparent), var(--surface-1)),
+    var(--surface-1);
+  box-shadow:
+    0 18px 44px rgb(from var(--shadow-color, #000) r g b / 0.28),
+    inset 0 1px 0 color-mix(in srgb, var(--text) 7%, transparent);
+  backdrop-filter: blur(12px) saturate(118%);
+  -webkit-backdrop-filter: blur(12px) saturate(118%);
+}
+
+.workspace-file-context-menu__item {
+  width: 100%;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 0.14s ease,
+    color 0.14s ease,
+    opacity 0.14s ease;
+}
+
+.workspace-file-context-menu__item:hover:not(:disabled),
+.workspace-file-context-menu__item:focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--danger) 13%, transparent);
+}
+
+.workspace-file-context-menu__item.is-danger {
+  color: color-mix(in srgb, var(--danger) 84%, var(--text) 16%);
+}
+
+.workspace-file-context-menu__item:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.workspace-file-context-menu__icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  stroke-width: 2.25;
 }
 
 .workspace-files-editor-empty {
@@ -449,10 +543,21 @@
   color: var(--fg-danger);
 }
 
-html[data-tone="light"] .workspace-files-tree {
-  --wf-surface: color-mix(in srgb, white 82%, var(--accent-soft) 18%);
-  --wf-surface-strong: color-mix(in srgb, white 88%, var(--accent-soft) 12%);
-  --wf-tree-bg: color-mix(in srgb, white 90%, var(--accent-soft) 10%);
+html[data-tone="light"] .workspace-files-tree,
+html[data-tone="light"] .workspace-files-sidebar {
+  --wf-bg: var(--shell-surface);
+  --wf-bg-strong: var(--shell-surface-strong);
+  --wf-border: color-mix(in srgb, var(--light-border, var(--border)) 92%, transparent);
+  --wf-border-strong: color-mix(in srgb, var(--light-border-strong, var(--border)) 88%, var(--text) 8%);
+  --wf-surface: var(--control-surface);
+  --wf-surface-strong: var(--panel-surface-strong);
+}
+
+html[data-tone="dark"] .workspace-files-tree,
+html[data-tone="dark"] .workspace-files-sidebar {
+  --wf-bg: var(--shell-surface);
+  --wf-bg-strong: var(--shell-surface-strong);
+  --wf-surface: var(--control-surface);
 }
 
 html[data-tone="light"] .workspace-files-editor-error,
@@ -811,4 +916,13 @@ html[data-tone="light"] .workspace-files-editor-footer__error {
 
 html[data-tone="light"] .workspace-editor-pane {
   --wf-surface: color-mix(in srgb, white 86%, var(--accent-soft) 14%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-file-tree-row,
+  .workspace-file-tree-row::after,
+  .workspace-file-tree-row__chevron {
+    transition: none;
+    animation: none;
+  }
 }

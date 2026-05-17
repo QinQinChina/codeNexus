@@ -52,7 +52,6 @@
           class="!inline-flex !h-7 !items-center !justify-center !rounded-xl !border !border-[color:var(--border-warning)] !bg-gradient-to-b !from-[color:var(--bg-warning-soft)] !to-[color:var(--button-bg)] !px-3 !tracking-[0.1px] !text-[color:var(--fg-warning)] !shadow-none transition-[border-color,background,box-shadow,color] duration-150 hover:!border-[color:var(--border-warning-hover)] hover:!to-[color:var(--button-bg-hover)] focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-[color:var(--bg-warning-soft)] active:!translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
           type="button"
           :disabled="isTurnRunning || execState.executing"
-          v-tooltip="isTurnRunning ? '当前回合运行中，请等待完成后再执行计划' : '切换到 agent 模式并发送“执行计划”'"
           @click="$emit('execute-plan', event)"
         >
           <span v-if="execState.executing">执行中...</span>
@@ -109,10 +108,10 @@ defineProps<{
   isStructuredFinalAnswer: boolean;
   markdownHtml: string;
   execState: PlanDeltaExecUiState | null;
-  modelOptions: OptionInput[];
+  modelOptions: readonly OptionInput[];
   isTurnRunning: boolean;
-  reasoningEffortOptions: OptionInput[];
-  sandboxModeOptions: OptionInput[];
+  reasoningEffortOptions: readonly OptionInput[];
+  sandboxModeOptions: readonly OptionInput[];
   sandboxSelectClass: string;
 }>();
 

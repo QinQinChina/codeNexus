@@ -10,6 +10,8 @@ export function createAppApi(ipcRenderer: IpcRenderer): CodexDesktopApi["app"] {
     readTextFile: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appReadTextFile, args),
     // 写入文本文件：用于工作区编辑与本地持久化。
     writeTextFile: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appWriteTextFile, args),
+    // 删除本地文件：用于工作区文件面板的显式删除操作。
+    deleteFile: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appDeleteFile, args),
     // 读取目录：用于文件面板和工作区浏览。
     readDirectory: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appReadDirectory, args),
     // 获取文件元信息：用于判断类型、大小和修改时间。
@@ -40,10 +42,6 @@ export function createAppApi(ipcRenderer: IpcRenderer): CodexDesktopApi["app"] {
     cancelImageGenerationTask: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appImageGenerationTaskCancel, args),
     deleteImageGenerationTask: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appImageGenerationTaskDelete, args),
     retryImageGenerationTask: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appImageGenerationTaskRetry, args),
-    // 导入背景图：从文件系统选择并应用背景。
-    importBackgroundImage: () => ipcRenderer.invoke(IPC_APP_CHANNELS.appImportBackgroundImage),
-    // 清除背景图：恢复默认背景设置。
-    clearBackgroundImage: () => ipcRenderer.invoke(IPC_APP_CHANNELS.appClearBackgroundImage),
     // 读取 Codex profile：同步设置页的模型/账户配置。
     readCodexProfiles: () => ipcRenderer.invoke(IPC_APP_CHANNELS.appCodexProfilesRead),
     // 新增或更新 profile：写回主进程持久化存储。

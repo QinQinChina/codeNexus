@@ -33,6 +33,7 @@ let appCloseFlowPromise: Promise<void> | null = null;
 let allowMainWindowClose = false;
 let closeCleanupFinished = false;
 let appCloseFlowStartedAt = 0;
+let appCloseForceExitTimer: NodeJS.Timeout | null = null;
 
 const codexServerManager = new CodexServerManager();
 const workspacePatchService = new WorkspacePatchService();
@@ -44,6 +45,7 @@ const APP_CLOSE_OVERLAY_BOOT_MS = 56;
 const APP_CLOSE_PREPARE_MS = 200;
 const APP_CLOSE_MIN_VISIBLE_MS = 300;
 const APP_CLOSE_FINALIZE_MS = 48;
+const APP_CLOSE_FORCE_EXIT_MS = 5_000;
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -88,12 +90,33 @@ function pushWindowClosingState(phase: AppWindowClosingState["phase"]) {
 
 function stopCodexServersForClose(_reason: string) {
   if (closeCleanupFinished) return;
+  closeCleanupFinished = true;
   try {
     codexServerManager.stopAll();
-    remoteStateSyncService?.stop();
-  } finally {
-    closeCleanupFinished = true;
+  } catch (error) {
+    console.warn("[app-close] stop codex servers failed", error);
   }
+  try {
+    remoteStateSyncService?.stop();
+  } catch (error) {
+    console.warn("[app-close] stop remote sync failed", error);
+  }
+}
+
+function clearAppCloseForceExitWatchdog() {
+  if (!appCloseForceExitTimer) return;
+  clearTimeout(appCloseForceExitTimer);
+  appCloseForceExitTimer = null;
+}
+
+function armAppCloseForceExitWatchdog() {
+  clearAppCloseForceExitWatchdog();
+  appCloseForceExitTimer = setTimeout(() => {
+    console.warn("[app-close] force exiting after close watchdog timeout");
+    stopCodexServersForClose("force-exit-watchdog");
+    app.exit(0);
+  }, APP_CLOSE_FORCE_EXIT_MS);
+  appCloseForceExitTimer.unref?.();
 }
 
 async function runAppCloseFlow(win: BrowserWindow): Promise<void> {
@@ -101,6 +124,7 @@ async function runAppCloseFlow(win: BrowserWindow): Promise<void> {
   if (appCloseFlowPromise) return appCloseFlowPromise;
 
   appCloseFlowStartedAt = Date.now();
+  armAppCloseForceExitWatchdog();
   appCloseFlowPromise = (async () => {
     pushWindowClosingState("starting");
     await wait(APP_CLOSE_OVERLAY_BOOT_MS);
@@ -277,6 +301,7 @@ app
     });
 
     mainWindow.on("closed", () => {
+      clearAppCloseForceExitWatchdog();
       mainWindow = null;
       allowMainWindowClose = false;
       closeCleanupFinished = false;

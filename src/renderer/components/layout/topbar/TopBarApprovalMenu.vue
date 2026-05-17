@@ -12,7 +12,6 @@
       aria-haspopup="menu"
       :aria-expanded="props.open ? 'true' : 'false'"
       aria-label="审批"
-      v-tooltip="'审批'"
       @click.stop="emit('toggle')"
     >
       <ShieldCheck class="topbar-approval-button__icon" aria-hidden="true" />
@@ -25,7 +24,7 @@
         <div class="topbar-menu-section">
           <div class="row" style="align-items: baseline; justify-content: space-between; gap: 10px">
             <div class="topbar-menu-heading">审批</div>
-            <div class="mono dim text-[11px]" v-tooltip="approvalQueueTitle">{{ approvalQueueText }}</div>
+            <div class="mono dim text-[11px]">{{ approvalQueueText }}</div>
           </div>
 
           <div id="approval-box" :class="{ dim: !activeApprovalPrompt }">
@@ -87,7 +86,6 @@
                   <DetailDisclosure
                     v-for="file in applyPatchFiles(activeApprovalPrompt)"
                     :key="file.path"
-                    v-tooltip="applyPatchFileSummary(file)"
                     :defaultOpen="false"
                     :content="file.body"
                   />
@@ -196,9 +194,6 @@ const guardianThreadId = computed(() => {
 const guardianTargetItemId = computed(() => String(activeApprovalPrompt.value?.itemId ?? "").trim());
 
 const approvalQueueText = computed(() => String(approvalStore.queue.length || 0));
-const approvalQueueTitle = computed(() =>
-  hasPendingApproval.value ? `待审批 ${approvalStore.queue.length} 条` : "当前无待审批请求"
-);
 
 type ApprovalInfoRow = {
   label: string;
@@ -356,17 +351,4 @@ const applyPatchFiles = (
   return out;
 };
 
-const applyPatchChangeBadgeText = (kind: FileChange["type"] | "unknown") => {
-  if (kind === "add") return "新增";
-  if (kind === "delete") return "删除";
-  if (kind === "update") return "修改";
-  return "未知";
-};
-
-const applyPatchFileSummary = (file: { path: string; kind: FileChange["type"] | "unknown"; movePath: string }) => {
-  const change = applyPatchChangeBadgeText(file.kind);
-  const path = toText(file.path) || "(unknown)";
-  const movePath = toText(file.movePath);
-  return movePath ? `[${change}] ${path} → ${movePath}` : `[${change}] ${path}`;
-};
 </script>

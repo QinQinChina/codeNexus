@@ -46,7 +46,7 @@
   --we-cm-invalid: var(--danger);
 }
 
-:root[data-theme="light"] .workspace-editor-pane {
+:root[data-tone="light"] .workspace-editor-pane {
   --we-tabs-bg: color-mix(in srgb, rgb(from var(--surface-1) r g b / 0.98) 86%, var(--accent-soft) 14%);
   --we-tab-active-bg: color-mix(in srgb, white 0.98%, transparent);
   --we-tab-active-border: color-mix(in srgb, var(--border) 92%, transparent);

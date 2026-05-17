@@ -51,73 +51,6 @@
             </div>
 
             <section class="global-config-guide-entry global-config-local-entry">
-              <div class="guide-entry-text global-appearance-copy">
-                <div class="guide-entry-title">全局背景外观</div>
-                <div class="guide-entry-desc">{{ globalAppearanceDescription }}</div>
-              </div>
-              <div class="global-appearance-controls">
-                <div
-                  class="global-appearance-preview"
-                  :class="{ 'is-empty': !globalAppearanceStore.currentBackgroundDataUrl }"
-                  :style="globalBackgroundPreviewStyle"
-                >
-                  <span v-if="!globalAppearanceStore.currentBackgroundDataUrl">未设置背景图</span>
-                </div>
-                <div class="global-appearance-actions">
-                  <button
-                    class="btn-mini"
-                    type="button"
-                    :disabled="globalAppearanceStore.backgroundMutationPending"
-                    @click="onImportGlobalBackground"
-                  >
-                    {{ currentGlobalAppearance.backgroundImageRelativePath ? "更换图片" : "选择图片" }}
-                  </button>
-                  <button
-                    class="btn-mini"
-                    type="button"
-                    :disabled="
-                      !currentGlobalAppearance.backgroundImageRelativePath ||
-                      globalAppearanceStore.backgroundMutationPending
-                    "
-                    @click="onClearGlobalBackground"
-                  >
-                    清除
-                  </button>
-                </div>
-                <label class="global-appearance-fit-row">
-                  <span class="global-appearance-fit-label dim">适配模式</span>
-                  <SelectDropdown
-                    id="sel-global-background-fit-mode"
-                    class="context-input mono"
-                    :modelValue="currentGlobalAppearance.backgroundFitMode"
-                    :options="globalBackgroundFitModeOptions"
-                    @update:modelValue="onGlobalBackgroundFitModeChanged"
-                  />
-                </label>
-                <div class="page-bg-opacity-controls">
-                  <input
-                    class="page-bg-opacity-slider"
-                    type="range"
-                    min="10"
-                    max="100"
-                    step="1"
-                    :value="currentGlobalAppearance.surfaceOpacityPercent"
-                    @input="onGlobalSurfaceOpacityInput"
-                  />
-                  <span class="page-bg-opacity-value mono">{{ currentGlobalAppearance.surfaceOpacityPercent }}%</span>
-                  <button
-                    class="btn-mini"
-                    type="button"
-                    :disabled="currentGlobalAppearance.surfaceOpacityPercent === DEFAULT_GLOBAL_SURFACE_OPACITY_PERCENT"
-                    @click="resetGlobalSurfaceOpacity"
-                  >
-                    重置
-                  </button>
-                </div>
-              </div>
-            </section>
-
-            <section class="global-config-guide-entry global-config-local-entry">
               <div class="guide-entry-text">
                 <div class="guide-entry-title">字体与字号</div>
                 <div class="guide-entry-desc">切换全局字体样式与整体字号缩放，立即生效。</div>
@@ -317,7 +250,7 @@
                     </div>
                     <div v-if="modelCatalogStore.customIds.length > 0" class="global-model-list">
                       <div v-for="id in modelCatalogStore.customIds" :key="id" class="global-model-item">
-                        <span class="global-model-item-id mono" v-tooltip="id">{{ id }}</span>
+                        <span class="global-model-item-id mono">{{ id }}</span>
                         <button
                           class="btn-mini"
                           type="button"
@@ -488,15 +421,32 @@
                   </label>
                   <label
                     class="global-toggle-row"
-                    :class="{ 'is-dirty': isGlobalConfigFieldDirty('powershellUtf8Enabled') }"
+                    :class="{ 'is-dirty': isGlobalConfigFieldDirty('unifiedExecEnabled') }"
                   >
                     <div class="global-toggle-copy">
-                      <span class="global-toggle-title">终端编码</span>
-                      <span class="global-toggle-note mono">启用统一终端编码</span>
+                      <span class="global-toggle-title">统一执行</span>
+                      <span class="global-toggle-note mono">启用统一执行流程</span>
                     </div>
                     <span class="skill-switch">
                       <input
-                        v-model="configStore.draft.powershellUtf8Enabled"
+                        v-model="configStore.draft.unifiedExecEnabled"
+                        class="skill-switch-input"
+                        type="checkbox"
+                        :disabled="globalControlsDisabled"
+                      />
+                      <span class="skill-switch-track" aria-hidden="true"
+                        ><span class="skill-switch-thumb"></span
+                      ></span>
+                    </span>
+                  </label>
+                  <label class="global-toggle-row" :class="{ 'is-dirty': isGlobalConfigFieldDirty('codeModeEnabled') }">
+                    <div class="global-toggle-copy">
+                      <span class="global-toggle-title">Code Mode</span>
+                      <span class="global-toggle-note mono">启用官方 code_mode 能力</span>
+                    </div>
+                    <span class="skill-switch">
+                      <input
+                        v-model="configStore.draft.codeModeEnabled"
                         class="skill-switch-input"
                         type="checkbox"
                         :disabled="globalControlsDisabled"
@@ -508,15 +458,35 @@
                   </label>
                   <label
                     class="global-toggle-row"
-                    :class="{ 'is-dirty': isGlobalConfigFieldDirty('unifiedExecEnabled') }"
+                    :class="{ 'is-dirty': isGlobalConfigFieldDirty('codeModeOnlyEnabled') }"
                   >
                     <div class="global-toggle-copy">
-                      <span class="global-toggle-title">统一执行</span>
-                      <span class="global-toggle-note mono">启用统一执行流程</span>
+                      <span class="global-toggle-title">仅 Code Mode</span>
+                      <span class="global-toggle-note mono">启用官方 code_mode_only 能力</span>
                     </div>
                     <span class="skill-switch">
                       <input
-                        v-model="configStore.draft.unifiedExecEnabled"
+                        v-model="configStore.draft.codeModeOnlyEnabled"
+                        class="skill-switch-input"
+                        type="checkbox"
+                        :disabled="globalControlsDisabled"
+                      />
+                      <span class="skill-switch-track" aria-hidden="true"
+                        ><span class="skill-switch-thumb"></span
+                      ></span>
+                    </span>
+                  </label>
+                  <label
+                    class="global-toggle-row"
+                    :class="{ 'is-dirty': isGlobalConfigFieldDirty('applyPatchStreamingEventsEnabled') }"
+                  >
+                    <div class="global-toggle-copy">
+                      <span class="global-toggle-title">流式文件 Diff</span>
+                      <span class="global-toggle-note mono">启用 patchUpdated 文件变更流</span>
+                    </div>
+                    <span class="skill-switch">
+                      <input
+                        v-model="configStore.draft.applyPatchStreamingEventsEnabled"
                         class="skill-switch-input"
                         type="checkbox"
                         :disabled="globalControlsDisabled"
@@ -559,11 +529,6 @@ import { useAppShellStore } from "../../../stores/appShell.store";
 import { useConfigStore } from "../../../stores/config.store";
 import { useConfigRequirementsStore } from "../../../stores/configRequirements.store";
 import {
-  GLOBAL_BACKGROUND_FIT_MODE_OPTIONS,
-  getGlobalBackgroundStyleTokens,
-  useGlobalAppearanceStore,
-} from "../../../stores/globalAppearance.store";
-import {
   UI_FONT_FAMILY_PRESET_OPTIONS,
   UI_FONT_SIZE_PRESET_OPTIONS,
   useTypographyStore,
@@ -579,10 +544,8 @@ import {
 import type { GlobalConfigDraft } from "../../../domain/types";
 import { useModelCatalogStore } from "../../../stores/modelCatalog.store";
 import {
-  DEFAULT_GLOBAL_SURFACE_OPACITY_PERCENT,
   type AssistantFinalMessageFormat,
   type AssistantPlanMessageFormat,
-  type GlobalBackgroundFitMode,
 } from "../../../../shared/localSettings";
 import { buildModelPickerOptions, normalizeModelId } from "../../../../shared/modelCatalog";
 import { CN_MODEL_PRESETS } from "../../../../shared/modelPresets";
@@ -592,7 +555,6 @@ const runtimeStore = useRuntimeStore();
 const appShellStore = useAppShellStore();
 const configStore = useConfigStore();
 const configRequirementsStore = useConfigRequirementsStore();
-const globalAppearanceStore = useGlobalAppearanceStore();
 const typographyStore = useTypographyStore();
 const modelCatalogStore = useModelCatalogStore();
 
@@ -600,16 +562,8 @@ const props = defineProps<{ mode?: "drawer" | "settings" }>();
 const isSettings = computed(() => props.mode === "settings");
 const open = computed(() => (isSettings.value ? true : appShellStore.globalConfigDrawerOpen));
 const closeBtnRef = ref<HTMLButtonElement | null>(null);
-const currentGlobalAppearance = computed(() => globalAppearanceStore.appearance);
-const globalBackgroundFitModeOptions = GLOBAL_BACKGROUND_FIT_MODE_OPTIONS;
 const uiFontFamilyPresetOptions = UI_FONT_FAMILY_PRESET_OPTIONS;
 const uiFontSizePresetOptions = UI_FONT_SIZE_PRESET_OPTIONS;
-const globalAppearanceDescription = computed(() => {
-  if (currentGlobalAppearance.value.backgroundImageRelativePath) {
-    return "当前应用已设置全局背景图，图片保存在本机应用数据目录。";
-  }
-  return "为整个应用设置统一背景图，并可调节界面蒙层透明度。";
-});
 
 const assistantFinalMessageFormatOptions: Array<{ value: AssistantFinalMessageFormat; label: string }> = [
   { value: "markdown", label: "Markdown（默认）" },
@@ -619,17 +573,6 @@ const assistantPlanMessageFormatOptions: Array<{ value: AssistantPlanMessageForm
   { value: "markdown", label: "Markdown（默认）" },
   { value: "plan-card-v1", label: "计划卡片（解释/步骤/原文）" },
 ];
-const globalBackgroundPreviewStyle = computed(() => {
-  const tokens = getGlobalBackgroundStyleTokens(currentGlobalAppearance.value.backgroundFitMode);
-  return {
-    backgroundImage: globalAppearanceStore.currentBackgroundDataUrl
-      ? `url(${JSON.stringify(globalAppearanceStore.currentBackgroundDataUrl)})`
-      : "none",
-    backgroundSize: tokens.size,
-    backgroundPosition: tokens.position,
-    backgroundRepeat: tokens.repeat,
-  } as Record<string, string>;
-});
 
 const closeDrawer = () => {
   if (isSettings.value) {
@@ -718,7 +661,7 @@ const runWithGlobalConfigDirtyGuard = async (
     const decision = await actionModal({
       title: copy.title,
       message: copy.message,
-      detail: "主配置需要手动保存；全局背景外观仍保持即时生效。",
+        detail: "主配置需要手动保存。",
       cancelKey: "cancel",
       buttons: [
         { key: "cancel", label: "继续编辑" },
@@ -752,34 +695,12 @@ const onRequestClose = () => {
   void requestClose();
 };
 
-const onGlobalSurfaceOpacityInput = (event: Event) => {
-  const target = event.target as HTMLInputElement | null;
-  const next = Number.parseInt(String(target?.value ?? ""), 10);
-  globalAppearanceStore.setSurfaceOpacityPercent(next);
-};
-
-const resetGlobalSurfaceOpacity = () => {
-  globalAppearanceStore.setSurfaceOpacityPercent(DEFAULT_GLOBAL_SURFACE_OPACITY_PERCENT);
-};
-
 const onUiFontFamilyPresetChanged = (next: string) => {
   typographyStore.setFontFamilyPreset(next);
 };
 
 const onUiFontSizePresetChanged = (next: string) => {
   typographyStore.setFontSizePreset(next);
-};
-
-const onImportGlobalBackground = async () => {
-  await globalAppearanceStore.importBackgroundImage();
-};
-
-const onGlobalBackgroundFitModeChanged = (next: string) => {
-  globalAppearanceStore.setBackgroundFitMode(next as GlobalBackgroundFitMode);
-};
-
-const onClearGlobalBackground = async () => {
-  await globalAppearanceStore.clearBackgroundImage();
 };
 
 const onWindowKeydown = (event: KeyboardEvent) => {
@@ -1033,8 +954,10 @@ const GLOBAL_CONFIG_DIRTY_KEYS: Array<keyof GlobalConfigDraft> = [
   "approvalsReviewer",
   "sandboxMode",
   "windowsElevatedSandboxEnabled",
-  "powershellUtf8Enabled",
   "unifiedExecEnabled",
+  "applyPatchStreamingEventsEnabled",
+  "codeModeEnabled",
+  "codeModeOnlyEnabled",
 ];
 
 const globalConfigDirtyCount = computed(
@@ -1120,9 +1043,9 @@ const globalConfigActionsSummary = computed(() => {
 });
 
 const globalConfigActionsHint = computed(() => {
-  if (!runtimeStore.serverId) return "连接服务后才能保存主配置；背景外观仍即时生效。";
+  if (!runtimeStore.serverId) return "连接服务后才能保存主配置。";
   if (globalConfigValidationError.value) return "修正当前校验错误后，才能保存主配置。";
-  return "主配置改动需要点击保存；全局背景外观保持即时生效。";
+  return "主配置改动需要点击保存。";
 });
 
 const onSaveGlobalConfig = () => {
@@ -1343,10 +1266,6 @@ if (!configStore.snapshot) configStore.applySnapshot(createDefaultGlobalConfigDr
   gap: 10px;
 }
 
-.global-appearance-copy {
-  min-width: 0;
-}
-
 .global-model-manager {
   gap: 10px;
 }
@@ -1414,12 +1333,6 @@ if (!configStore.snapshot) configStore.applySnapshot(createDefaultGlobalConfigDr
   white-space: nowrap;
 }
 
-.global-appearance-controls {
-  display: grid;
-  gap: 10px;
-  width: min(100%, 320px);
-}
-
 .typography-controls {
   display: grid;
   gap: 10px;
@@ -1436,62 +1349,4 @@ if (!configStore.snapshot) configStore.applySnapshot(createDefaultGlobalConfigDr
   color: var(--text-2);
 }
 
-.global-appearance-preview {
-  min-height: 100px;
-  border-radius: 5px;
-  border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
-  background-color: color-mix(in srgb, var(--surface-1) 60%, transparent);
-  background-position: center center;
-  background-repeat: no-repeat;
-  background-size: cover;
-  display: grid;
-  place-items: center;
-  color: var(--text-2);
-  overflow: hidden;
-  font-size: 13px;
-}
-
-.global-appearance-preview.is-empty {
-  background-image: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--surface-1) 80%, transparent),
-    color-mix(in srgb, var(--accent) 15%, transparent)
-  );
-}
-
-.global-appearance-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.global-appearance-fit-row {
-  display: grid;
-  gap: 8px;
-}
-
-.global-appearance-fit-label {
-  font-size: 12.5px;
-  color: var(--text-2);
-}
-
-.page-bg-opacity-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-}
-
-.page-bg-opacity-slider {
-  width: 100%;
-  accent-color: var(--accent);
-}
-
-.page-bg-opacity-value {
-  min-width: 44px;
-  text-align: right;
-  color: var(--text-1);
-  font-size: 13px;
-}
 </style>

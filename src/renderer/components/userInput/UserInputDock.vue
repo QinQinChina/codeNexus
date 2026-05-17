@@ -5,7 +5,7 @@
         <span class="attn-dot" aria-hidden="true"></span>
         <div class="text-[12px] font-semibold tracking-[0.2px] text-[color:var(--text)]">计划问答</div>
       </div>
-      <span class="mono dim text-[11px]" v-tooltip="userInputQueueTitle">{{ userInputQueueText }}</span>
+      <span class="mono dim text-[11px]">{{ userInputQueueText }}</span>
     </div>
 
     <div :id="userInputBoxId" :class="{ dim: !activeUserInputPrompt }">
@@ -274,18 +274,6 @@ const userInputSubmitText = computed(() => {
 const userInputQueueText = computed(() => {
   const n = threadUserInputQueueSize.value;
   return n > 0 ? `待输入 ${n}` : "0";
-});
-
-const userInputQueueTitle = computed(() => {
-  const prompt = activeUserInputPrompt.value;
-  if (!prompt) return "无待回答问题";
-  const header =
-    prompt.kind === "questions"
-      ? activeUserInputQuestion.value?.header
-        ? String(activeUserInputQuestion.value.header)
-        : "计划问答"
-      : `MCP · ${prompt.serverName}`;
-  return `${header}\n共 ${threadUserInputQueueSize.value} 组待处理`;
 });
 
 const activeUserInputKeyboardTargets = computed<UserInputKeyboardTarget[]>(() => {

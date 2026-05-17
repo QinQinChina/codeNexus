@@ -1,5 +1,5 @@
 <template>
-  <div class="codex-profile-switch" v-tooltip="switchTitle">
+  <div class="codex-profile-switch">
     <Bot class="codex-profile-switch__icon" aria-hidden="true" />
     <SelectDropdown
       v-if="profilesStore.profiles.length > 0"
@@ -16,7 +16,6 @@
     <button
       class="btn-icon codex-profile-switch__settings"
       type="button"
-      v-tooltip="'管理模型配置'"
       @click="openProfileSettings"
     >
       <Settings2 aria-hidden="true" />
@@ -51,11 +50,6 @@ const selectedValue = computed(() => String(profilesStore.activeProfileId ?? "")
 const selectDisabled = computed(
   () => !runtimeStore.serverId || profilesStore.profiles.length === 0 || Boolean(switchingId.value)
 );
-const switchTitle = computed(() => {
-  if (!runtimeStore.serverId) return "未连接服务，暂不能切换模型配置";
-  if (profilesStore.profiles.length === 0) return "尚未创建模型配置";
-  return "切换 Codex 模型配置";
-});
 
 function openProfileSettings() {
   appShellStore.openSettings("profiles");

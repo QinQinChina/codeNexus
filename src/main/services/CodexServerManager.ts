@@ -41,10 +41,17 @@ export class CodexServerManager {
   }
 
   stopAll(): void {
+    let firstError: unknown = null;
     for (const [serverId, record] of this.servers.entries()) {
-      record.server.stop();
-      this.servers.delete(serverId);
+      try {
+        record.server.stop();
+      } catch (error) {
+        firstError ??= error;
+      } finally {
+        this.servers.delete(serverId);
+      }
     }
+    if (firstError) throw firstError;
   }
 
   async request<M extends string>(args: CodexRpcArgs<M>): Promise<CodexRpcResult<M>> {

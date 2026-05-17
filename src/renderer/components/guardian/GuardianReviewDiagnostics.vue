@@ -21,10 +21,10 @@
           {{ item.statusText }}
         </span>
         <span class="min-w-0 flex-1">
-          <span class="block truncate text-[12px] font-medium text-[color:var(--text)]" v-tooltip="item.summaryText">{{
+          <span class="block truncate text-[12px] font-medium text-[color:var(--text)]">{{
             item.actionSummary || item.summaryText
           }}</span>
-          <span class="block truncate mono text-[11px] text-[color:var(--text-muted)]" v-tooltip="guardianMetaText(item)">
+          <span class="block truncate mono text-[11px] text-[color:var(--text-muted)]">
             {{ guardianMetaText(item) }}
           </span>
         </span>

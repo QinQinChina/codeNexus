@@ -3,7 +3,6 @@
     ref="tickerViewportRef"
     class="topbar-announcement"
     :class="tickerClass"
-    v-tooltip="tickerFullText"
     role="status"
     aria-live="polite"
   >
@@ -24,7 +23,6 @@ import { useDujitangTicker } from "./useDujitangTicker";
 
 const {
   tickerClass,
-  tickerFullText,
   tickerOverflow,
   tickerText,
   tickerTrackRef,

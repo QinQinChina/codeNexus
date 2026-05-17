@@ -1,22 +1,26 @@
 <template>
   <div
-    class="event simple-file-change-event file-change-card group min-w-0 max-w-full rounded-[4px] border border-[var(--ui-well-border)] bg-[var(--ui-timeline-card-bg)] p-[var(--timeline-card-padding,10px)] shadow-[var(--ui-timeline-card-shadow)]"
+    class="event simple-file-change-event file-change-card group min-w-0 max-w-full rounded-[4px] border border-[var(--ui-well-border)] bg-[var(--ui-timeline-card-bg)] p-[var(--file-change-card-padding,var(--timeline-card-padding,10px))] shadow-[var(--ui-timeline-card-shadow)]"
     :class="[fileChangeEventClass, modeClass, { 'is-streaming': isRunning }]"
   >
-    <div class="file-change-card-header flex w-full min-w-0 items-start gap-2.5 rounded-[4px] px-1.5 pt-1.5 pb-1.5">
+    <div class="file-change-card-header flex w-full min-w-0 items-start gap-2.5 rounded-[4px] px-1 py-1">
       <FileDiff
         class="mt-[3px] h-[13px] w-[13px] flex-none text-[color:var(--accent)] [stroke-width:2.2]"
         aria-hidden="true"
       />
       <div class="file-change-card-main flex min-w-0 flex-1 items-start gap-2.5">
-        <div class="mono min-w-0 flex-1 truncate text-[12.5px] text-[var(--text)]" v-tooltip="pathTitle">
+        <div class="mono min-w-0 flex-1 truncate text-[12.5px] text-[var(--text)]">
           {{ pathText }}
         </div>
         <div
           class="file-change-card-meta mono flex-none whitespace-nowrap pt-[1px] text-[10.5px] text-[var(--text-muted)]"
         >
           <span v-if="diffMeta.kind === 'lines'" class="file-change-line-stats">
-            <span class="file-change-line-count file-change-line-add" :aria-label="`新增 ${diffMeta.add} 行`">
+            <span
+              class="file-change-line-count file-change-line-add"
+              :class="{ 'is-zero': diffMeta.add === 0 }"
+              :aria-label="`新增 ${diffMeta.add} 行`"
+            >
               <span class="file-change-line-count-prefix">+</span>
               <span class="file-change-line-count-value" aria-hidden="true">
                 <Transition name="file-change-count-roll">
@@ -24,7 +28,11 @@
                 </Transition>
               </span>
             </span>
-            <span class="file-change-line-count file-change-line-del" :aria-label="`删除 ${diffMeta.del} 行`">
+            <span
+              class="file-change-line-count file-change-line-del"
+              :class="{ 'is-zero': diffMeta.del === 0 }"
+              :aria-label="`删除 ${diffMeta.del} 行`"
+            >
               <span class="file-change-line-count-prefix">-</span>
               <span class="file-change-line-count-value" aria-hidden="true">
                 <Transition name="file-change-count-roll">
@@ -42,7 +50,6 @@
           v-if="hasDiff"
           type="button"
           class="file-change-toggle mono inline-flex h-[20px] flex-none items-center justify-center rounded-[4px] border px-1.5 text-[10px] leading-none"
-          v-tooltip="isDiffExpanded ? '收起 diff' : '展开 diff'"
           :aria-expanded="isDiffExpanded ? 'true' : 'false'"
           @click="isDiffExpanded = !isDiffExpanded"
         >
@@ -59,13 +66,23 @@
 
     <div
       v-if="isRunning"
-      class="file-change-stream-strip mono mx-1.5 mb-1.5 flex min-w-0 items-center gap-2 rounded-[4px] border px-2 py-1 text-[10.5px]"
+      class="file-change-stream-strip mono mx-1 mb-1 flex min-w-0 items-center gap-2 rounded-[4px] border px-1.5 py-1 text-[10.5px]"
     >
-      <ExecutionWaveText class="min-w-0 flex-1 truncate" :text="streamStripText" :cycle-max-chars="96" />
-      <span class="flex-none text-[var(--text-muted)]">{{ streamCountText }}</span>
+      <span class="file-change-stream-beacon" aria-hidden="true"></span>
+      <div class="min-w-0 flex-1">
+        <ExecutionWaveText class="min-w-0 truncate" :text="streamStripText" :cycle-max-chars="96" />
+        <span class="file-change-stream-rail" aria-hidden="true">
+          <span class="file-change-stream-rail-fill" :style="{ width: streamRailWidth }"></span>
+        </span>
+      </div>
+      <span v-if="diffMeta.kind === 'lines'" class="file-change-stream-deltas" aria-hidden="true">
+        <span class="file-change-stream-delta file-change-stream-delta--add">+{{ diffMeta.add }}</span>
+        <span class="file-change-stream-delta file-change-stream-delta--del">-{{ diffMeta.del }}</span>
+      </span>
+      <span class="file-change-stream-count flex-none">{{ streamCountText }}</span>
     </div>
 
-    <div v-if="shouldShowDiffBody" class="px-1.5 pb-1.5">
+    <div v-if="shouldShowDiffBody" class="px-1 pb-1">
       <UnifiedDiffViewer
         v-if="shouldShowDiffViewer && file"
         :diffText="file.diffText"
@@ -91,7 +108,7 @@ import { computed, ref, watch } from "vue";
 import { FileDiff } from "lucide-vue-next";
 import UnifiedDiffViewer from "./UnifiedDiffViewer.vue";
 import ExecutionWaveText from "../../ui/ExecutionWaveText.vue";
-import { getParsedDiffCached } from "../../../features/timeline/renderModel/diff";
+import { getDiffLineStats } from "../../../features/timeline/renderModel/diff";
 
 export type FileChangeFile = {
   pathAbs: string;
@@ -111,7 +128,7 @@ const props = withDefaults(
     file: FileChangeFile | null;
     fileChangeKindClass: (kind: string) => any;
     fileChangeKindText: (kind: string) => string;
-    fileChangeDiffMetaText: (diffText: string) => string;
+    fileChangeDiffMetaText: (diffText: string, fileKind?: string) => string;
     isRunning?: boolean;
     streamUpdateCount?: number;
     lastPatchUpdatedAt?: number | null;
@@ -130,19 +147,6 @@ const props = withDefaults(
 
 type DiffMeta = { kind: "lines"; add: number; del: number } | { kind: "text"; text: string };
 
-const countAddedDeletedLines = (diffText: string) => {
-  const text = String(diffText ?? "");
-  if (!text.trim()) return { add: 0, del: 0 };
-  const parsed = getParsedDiffCached(text);
-  let add = 0;
-  let del = 0;
-  for (const line of parsed.lines) {
-    if (line.kind === "add") add += 1;
-    else if (line.kind === "del") del += 1;
-  }
-  return { add, del };
-};
-
 const pathText = computed(() => {
   if (!props.file) return props.statusText === "进行中" ? "等待文件路径…" : "暂无结构化文件路径";
   const from = String(props.file.pathRel ?? props.file.pathAbs ?? "").trim() || props.file.pathAbs;
@@ -151,19 +155,11 @@ const pathText = computed(() => {
   return from;
 });
 
-const pathTitle = computed(() => {
-  if (!props.file) return pathText.value;
-  const from = String(props.file.pathAbs ?? props.file.pathRel ?? "").trim() || props.file.pathRel;
-  const to = String(props.file.pathAbsTo ?? props.file.pathRelTo ?? "").trim();
-  if (props.file.kind === "rename" && to) return `${from} -> ${to}`;
-  return from;
-});
-
 const diffMeta = computed<DiffMeta>(() => {
   if (!props.file) return { kind: "text", text: "--" };
-  const stats = countAddedDeletedLines(props.file.diffText);
+  const stats = getDiffLineStats(props.file.diffText, props.file.kind);
   if (stats.add > 0 || stats.del > 0) return { kind: "lines", add: stats.add, del: stats.del };
-  return { kind: "text", text: props.fileChangeDiffMetaText(props.file.diffText) };
+  return { kind: "text", text: props.fileChangeDiffMetaText(props.file.diffText, props.file.kind) };
 });
 
 const isDiffExpanded = ref(false);
@@ -198,8 +194,13 @@ const streamStripText = computed(() => {
 });
 
 const streamCountText = computed(() => {
-  if (props.streamUpdateCount <= 0) return "live";
-  return `${props.streamUpdateCount} updates`;
+  if (props.streamUpdateCount <= 0) return "实时";
+  return `${props.streamUpdateCount} 次`;
+});
+
+const streamRailWidth = computed(() => {
+  const updates = Math.max(0, Math.min(9, props.streamUpdateCount));
+  return `${28 + updates * 7}%`;
 });
 
 watch(
@@ -219,15 +220,25 @@ watch(
 .file-change-line-stats {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .file-change-line-count {
   display: inline-flex;
-  align-items: baseline;
-  gap: 0;
+  align-items: center;
+  gap: 1px;
+  min-width: 5.5ch;
+  justify-content: flex-end;
+  border-radius: 3px;
+  padding: 2px 4px;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+  background: color-mix(in srgb, currentColor 9%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 22%, transparent);
+}
+
+.file-change-line-count.is-zero {
+  opacity: 0.48;
 }
 
 .file-change-line-count-prefix {
@@ -237,7 +248,7 @@ watch(
 .file-change-line-count-value {
   position: relative;
   display: inline-grid;
-  min-width: 2.5ch;
+  min-width: 2.8ch;
   height: 1em;
   overflow: hidden;
   text-align: right;
@@ -280,10 +291,16 @@ watch(
 }
 
 .file-change-card {
+  --file-change-card-padding: 7px;
+
   transition:
     border-color 160ms ease,
     background-color 160ms ease,
     box-shadow 160ms ease;
+}
+
+.file-change-card--chat {
+  --file-change-card-padding: 6px;
 }
 
 .file-change-card.is-streaming {
@@ -350,7 +367,92 @@ watch(
 .file-change-stream-strip {
   color: color-mix(in srgb, var(--accent) 76%, var(--text) 24%);
   border-color: color-mix(in srgb, var(--accent) 24%, transparent);
-  background: color-mix(in srgb, var(--accent) 8%, var(--ui-well-bg));
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--accent) 10%, transparent),
+      transparent 42%,
+      color-mix(in srgb, var(--success, var(--fg-success)) 8%, transparent)
+    ),
+    color-mix(in srgb, var(--ui-well-bg) 86%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.file-change-stream-beacon {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 72%, transparent);
+}
+
+.file-change-stream-beacon::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  border: 1px solid color-mix(in srgb, var(--accent) 52%, transparent);
+  animation: file-change-beacon-ring 1.35s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.file-change-stream-rail {
+  position: relative;
+  display: block;
+  width: min(220px, 100%);
+  height: 2px;
+  margin-top: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.file-change-stream-rail-fill {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  min-width: 42px;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 42%, transparent),
+    color-mix(in srgb, var(--success, var(--fg-success)) 64%, var(--accent) 36%),
+    color-mix(in srgb, var(--accent) 34%, transparent)
+  );
+  animation: file-change-stream-flow 1.05s linear infinite;
+}
+
+.file-change-stream-deltas {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+}
+
+.file-change-stream-delta,
+.file-change-stream-count {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  border-radius: 3px;
+  padding: 0 5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  background: color-mix(in srgb, var(--ui-well-bg) 72%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.file-change-stream-delta--add {
+  color: var(--file-change-add-fg);
+}
+
+.file-change-stream-delta--del {
+  color: var(--file-change-del-fg);
+}
+
+.file-change-stream-count {
+  color: color-mix(in srgb, var(--text-muted) 88%, var(--accent) 12%);
 }
 
 @keyframes file-change-stream-pulse {
@@ -365,10 +467,37 @@ watch(
   }
 }
 
+@keyframes file-change-beacon-ring {
+  0% {
+    opacity: 0.62;
+    transform: scale(0.72);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.65);
+  }
+}
+
+@keyframes file-change-stream-flow {
+  0% {
+    filter: brightness(0.92);
+    transform: translateX(-10%);
+  }
+  50% {
+    filter: brightness(1.16);
+  }
+  100% {
+    filter: brightness(0.92);
+    transform: translateX(10%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .file-change-card,
   .file-change-status-dot,
   .file-change-stream-pulse,
+  .file-change-stream-beacon::after,
+  .file-change-stream-rail-fill,
   .file-change-count-roll-enter-active,
   .file-change-count-roll-leave-active {
     animation: none;

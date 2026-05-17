@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { getCachedUserLocalSettings, patchUserLocalSettings } from "../domain/localSettings";
 
-export type AppThemeName = "light" | "dark" | "tech";
+export type AppThemeName = "light" | "pink" | "dark" | "tech" | "hacker";
 export type AppThemeTone = "light" | "dark";
 export type AppThemeDefinition = {
   id: AppThemeName;
@@ -16,16 +16,15 @@ type ThemeTransitionOrigin = {
 const DEFAULT_THEME: AppThemeName = "light";
 export const APP_THEME_DEFINITIONS: readonly AppThemeDefinition[] = [
   { id: "light", label: "浅色", tone: "light" },
+  { id: "pink", label: "少女粉", tone: "light" },
   { id: "dark", label: "深色", tone: "dark" },
   { id: "tech", label: "科技", tone: "dark" },
+  { id: "hacker", label: "黑客", tone: "dark" },
 ] as const;
 export const APP_THEME_ORDER: readonly AppThemeName[] = APP_THEME_DEFINITIONS.map((theme) => theme.id);
 const APP_THEME_BY_ID = new Map<AppThemeName, AppThemeDefinition>(
   APP_THEME_DEFINITIONS.map((theme) => [theme.id, theme])
 );
-const DEFAULT_BACKGROUND_OPACITY_PERCENT = 100;
-const MIN_BACKGROUND_OPACITY_PERCENT = 10;
-const MAX_BACKGROUND_OPACITY_PERCENT = 100;
 
 function normalizeTheme(value: unknown): AppThemeName | null {
   const raw = String(value ?? "")
@@ -44,27 +43,10 @@ export function themeLabelFor(theme: AppThemeName): string {
   return APP_THEME_BY_ID.get(theme)?.label ?? theme;
 }
 
-function normalizeBackgroundOpacityPercent(value: unknown): number {
-  if (value == null) return DEFAULT_BACKGROUND_OPACITY_PERCENT;
-  const n = Number(value);
-  if (!Number.isFinite(n)) return DEFAULT_BACKGROUND_OPACITY_PERCENT;
-  const rounded = Math.round(n);
-  if (rounded < MIN_BACKGROUND_OPACITY_PERCENT) return MIN_BACKGROUND_OPACITY_PERCENT;
-  if (rounded > MAX_BACKGROUND_OPACITY_PERCENT) return MAX_BACKGROUND_OPACITY_PERCENT;
-  return rounded;
-}
-
 function applyThemeToDocument(theme: AppThemeName): void {
   try {
     document.documentElement.dataset.theme = theme;
     document.documentElement.dataset.tone = themeTone(theme);
-  } catch {}
-}
-
-function applyBackgroundOpacityToDocument(percent: number): void {
-  try {
-    document.documentElement.style.setProperty("--page-bg-opacity", `${percent / 100}`);
-    document.documentElement.style.setProperty("--page-shell-opacity-factor", `${percent / 100}`);
   } catch {}
 }
 
@@ -133,7 +115,6 @@ function playThemeViewTransition(applyTheme: () => void, origin?: ThemeTransitio
 export const useThemeStore = defineStore("theme", {
   state: () => ({
     theme: DEFAULT_THEME as AppThemeName,
-    backgroundOpacityPercent: DEFAULT_BACKGROUND_OPACITY_PERCENT,
     ready: false,
   }),
   getters: {
@@ -145,15 +126,12 @@ export const useThemeStore = defineStore("theme", {
     initTheme() {
       const cached = getCachedUserLocalSettings();
       this.theme = normalizeTheme(cached.settings.ui.theme) ?? DEFAULT_THEME;
-      this.backgroundOpacityPercent = normalizeBackgroundOpacityPercent(cached.settings.ui.backgroundOpacityPercent);
       this.ready = true;
       applyThemeToDocument(this.theme);
-      applyBackgroundOpacityToDocument(this.backgroundOpacityPercent);
       if (!cached.exists) {
         void patchUserLocalSettings({
           ui: {
             theme: this.theme,
-            backgroundOpacityPercent: this.backgroundOpacityPercent,
           },
         });
       }
@@ -167,14 +145,6 @@ export const useThemeStore = defineStore("theme", {
       }, opts?.transitionOrigin);
       if (!shouldSave) return;
       void patchUserLocalSettings({ ui: { theme: normalized } });
-    },
-    setBackgroundOpacityPercent(next: number, opts?: { save?: boolean }) {
-      const shouldSave = opts?.save ?? true;
-      const normalized = normalizeBackgroundOpacityPercent(next);
-      this.backgroundOpacityPercent = normalized;
-      applyBackgroundOpacityToDocument(this.backgroundOpacityPercent);
-      if (!shouldSave) return;
-      void patchUserLocalSettings({ ui: { backgroundOpacityPercent: this.backgroundOpacityPercent } });
     },
     cycleTheme(order: readonly AppThemeName[] = APP_THEME_ORDER, opts?: { transitionOrigin?: ThemeTransitionOrigin }) {
       const fallback = APP_THEME_ORDER;

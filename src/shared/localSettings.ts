@@ -1,12 +1,6 @@
 import { normalizeCustomModelIds } from "./modelCatalog";
 import { normalizeBuiltinDynamicToolName, type BuiltinDynamicToolName } from "./dynamicTools";
 
-export type LocalGlobalAppearanceState = {
-  backgroundImageRelativePath: string | null;
-  surfaceOpacityPercent: number;
-  backgroundFitMode: GlobalBackgroundFitMode;
-};
-
 export type LocalRemoteSyncSettings = {
   enabled: boolean;
   serverBaseUrl: string | null;
@@ -37,7 +31,6 @@ export type LocalDynamicToolsSettings = {
   enabledByName: Record<BuiltinDynamicToolName, boolean>;
 };
 
-export type GlobalBackgroundFitMode = "cover" | "contain" | "tile";
 export type MainView = "chat" | "image";
 export type UiFontFamilyPreset = "alibaba-puhuiti" | "source-han-sans-sc";
 export type UiFontSizePreset = "small" | "medium" | "large";
@@ -49,7 +42,6 @@ export type UserLocalSettings = {
   version: 1;
   ui: {
     theme: string | null;
-    backgroundOpacityPercent: number;
     mainView: MainView;
     leftSidebarVisible: boolean;
     leftSidebarWidthPx: number;
@@ -71,7 +63,6 @@ export type UserLocalSettings = {
   models: {
     customIds: string[];
   };
-  workspaceAppearance: LocalGlobalAppearanceState;
   remoteSync: LocalRemoteSyncSettings;
   imageGeneration: LocalImageGenerationSettings;
   dynamicTools: LocalDynamicToolsSettings;
@@ -83,7 +74,6 @@ export type UserLocalSettings = {
 export type UserLocalSettingsPatch = {
   ui?: Partial<{
     theme: string | null;
-    backgroundOpacityPercent: number | null;
     mainView: MainView;
     leftSidebarVisible: boolean;
     leftSidebarWidthPx: number | null;
@@ -104,11 +94,6 @@ export type UserLocalSettingsPatch = {
   }>;
   models?: Partial<{
     customIds: string[] | null;
-  }>;
-  workspaceAppearance?: Partial<{
-    backgroundImageRelativePath: string | null;
-    surfaceOpacityPercent: number | null;
-    backgroundFitMode: GlobalBackgroundFitMode | null;
   }>;
   remoteSync?: Partial<{
     enabled: boolean;
@@ -142,10 +127,6 @@ export type UserLocalSettingsPatch = {
 };
 
 export const DEFAULT_NOTIFICATION_SOUND_VOLUME_PERCENT = 70;
-export const DEFAULT_GLOBAL_SURFACE_OPACITY_PERCENT = 100;
-export const MIN_GLOBAL_SURFACE_OPACITY_PERCENT = 10;
-export const MAX_GLOBAL_SURFACE_OPACITY_PERCENT = 100;
-export const DEFAULT_GLOBAL_BACKGROUND_FIT_MODE: GlobalBackgroundFitMode = "cover";
 export const DEFAULT_REMOTE_SYNC_HEARTBEAT_INTERVAL_SEC = 15;
 export const MIN_REMOTE_SYNC_HEARTBEAT_INTERVAL_SEC = 5;
 export const MAX_REMOTE_SYNC_HEARTBEAT_INTERVAL_SEC = 120;
@@ -215,7 +196,6 @@ export const DEFAULT_USER_LOCAL_SETTINGS: UserLocalSettings = {
   version: 1,
   ui: {
     theme: null,
-    backgroundOpacityPercent: 100,
     mainView: "chat",
     leftSidebarVisible: true,
     leftSidebarWidthPx: 320,
@@ -236,11 +216,6 @@ export const DEFAULT_USER_LOCAL_SETTINGS: UserLocalSettings = {
   },
   models: {
     customIds: [],
-  },
-  workspaceAppearance: {
-    backgroundImageRelativePath: null,
-    surfaceOpacityPercent: DEFAULT_GLOBAL_SURFACE_OPACITY_PERCENT,
-    backgroundFitMode: DEFAULT_GLOBAL_BACKGROUND_FIT_MODE,
   },
   remoteSync: {
     enabled: false,
@@ -321,23 +296,6 @@ function normalizeMainView(value: unknown, fallback: MainView): MainView {
   if (value === "image") return "image";
   if (value === "chat") return "chat";
   return fallback;
-}
-
-function normalizeGlobalAppearanceState(value: unknown): LocalGlobalAppearanceState {
-  const record = toRecord(value);
-  return {
-    backgroundImageRelativePath: toNullableString(record?.backgroundImageRelativePath, null),
-    surfaceOpacityPercent: toIntegerInRange(
-      record?.surfaceOpacityPercent,
-      DEFAULT_GLOBAL_SURFACE_OPACITY_PERCENT,
-      MIN_GLOBAL_SURFACE_OPACITY_PERCENT,
-      MAX_GLOBAL_SURFACE_OPACITY_PERCENT
-    ),
-    backgroundFitMode:
-      record?.backgroundFitMode === "contain" || record?.backgroundFitMode === "tile"
-        ? record.backgroundFitMode
-        : DEFAULT_GLOBAL_BACKGROUND_FIT_MODE,
-  };
 }
 
 function normalizeRemoteSyncSettings(value: unknown): LocalRemoteSyncSettings {
@@ -442,7 +400,6 @@ export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
   const ui = toRecord(root?.ui);
   const notification = toRecord(root?.notification);
   const models = toRecord(root?.models);
-  const globalAppearance = toRecord(root?.workspaceAppearance);
   const remoteSync = toRecord(root?.remoteSync);
   const imageGeneration = toRecord(root?.imageGeneration);
   const dynamicTools = toRecord(root?.dynamicTools);
@@ -453,12 +410,6 @@ export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
     version: 1,
     ui: {
       theme: toNullableString(ui?.theme, DEFAULT_USER_LOCAL_SETTINGS.ui.theme),
-      backgroundOpacityPercent: toIntegerInRange(
-        ui?.backgroundOpacityPercent,
-        DEFAULT_USER_LOCAL_SETTINGS.ui.backgroundOpacityPercent,
-        10,
-        100
-      ),
       mainView: normalizeMainView(ui?.mainView, inferredMainViewFallback),
       leftSidebarVisible: toBoolean(ui?.leftSidebarVisible, DEFAULT_USER_LOCAL_SETTINGS.ui.leftSidebarVisible),
       leftSidebarWidthPx: toPositiveInteger(ui?.leftSidebarWidthPx, DEFAULT_USER_LOCAL_SETTINGS.ui.leftSidebarWidthPx),
@@ -497,7 +448,6 @@ export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
     models: {
       customIds: normalizeCustomModelIds(models?.customIds),
     },
-    workspaceAppearance: normalizeGlobalAppearanceState(globalAppearance),
     remoteSync: normalizeRemoteSyncSettings(remoteSync),
     imageGeneration: normalizeImageGenerationSettings(imageGeneration),
     dynamicTools: normalizeDynamicToolsSettings(dynamicTools),
@@ -515,7 +465,6 @@ export function mergeUserLocalSettings(
   const patchUi = toRecord(patch?.ui);
   const patchNotification = toRecord(patch?.notification);
   const patchModels = toRecord(patch?.models);
-  const patchGlobalAppearance = toRecord(patch?.workspaceAppearance);
   const patchRemoteSync = toRecord(patch?.remoteSync);
   const patchImageGeneration = toRecord(patch?.imageGeneration);
   const patchDynamicTools = toRecord(patch?.dynamicTools);
@@ -525,10 +474,6 @@ export function mergeUserLocalSettings(
     version: 1,
     ui: {
       theme: patchUi && "theme" in patchUi ? patchUi.theme : current.ui.theme,
-      backgroundOpacityPercent:
-        patchUi && "backgroundOpacityPercent" in patchUi
-          ? patchUi.backgroundOpacityPercent
-          : current.ui.backgroundOpacityPercent,
       mainView: patchUi && "mainView" in patchUi ? patchUi.mainView : current.ui.mainView,
       leftSidebarVisible:
         patchUi && "leftSidebarVisible" in patchUi ? patchUi.leftSidebarVisible : current.ui.leftSidebarVisible,
@@ -576,20 +521,6 @@ export function mergeUserLocalSettings(
     },
     models: {
       customIds: patchModels && "customIds" in patchModels ? patchModels.customIds : current.models.customIds,
-    },
-    workspaceAppearance: {
-      backgroundImageRelativePath:
-        patchGlobalAppearance && "backgroundImageRelativePath" in patchGlobalAppearance
-          ? patchGlobalAppearance.backgroundImageRelativePath
-          : current.workspaceAppearance.backgroundImageRelativePath,
-      surfaceOpacityPercent:
-        patchGlobalAppearance && "surfaceOpacityPercent" in patchGlobalAppearance
-          ? patchGlobalAppearance.surfaceOpacityPercent
-          : current.workspaceAppearance.surfaceOpacityPercent,
-      backgroundFitMode:
-        patchGlobalAppearance && "backgroundFitMode" in patchGlobalAppearance
-          ? patchGlobalAppearance.backgroundFitMode
-          : current.workspaceAppearance.backgroundFitMode,
     },
     remoteSync: {
       enabled: patchRemoteSync && "enabled" in patchRemoteSync ? patchRemoteSync.enabled : current.remoteSync.enabled,

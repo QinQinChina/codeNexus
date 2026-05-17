@@ -65,7 +65,7 @@ import {
 } from "vue";
 import type { ChatRenderedRow } from "../types/chat.types";
 import { getChatRowPresentation, type ChatTimelineRowGroup } from "./chatPresentation";
-import type { TimelineViewportAdapter } from "./timelineScrollPolicy";
+import { TIMELINE_FOLLOW_THRESHOLD_PX, type TimelineViewportAdapter } from "./timelineScrollPolicy";
 
 type RenderedTimelineRow = {
   row: ChatRenderedRow;
@@ -81,6 +81,12 @@ const OVERSCAN_VIEWPORT_MULTIPLIER = 1.5;
 const MIN_OVERSCAN_ROWS = 8;
 const ROW_HEIGHT_EPSILON_PX = 1;
 const FALLBACK_CLIENT_HEIGHT_PX = 720;
+const DEFAULT_ROW_GAPS = {
+  activity: 2,
+  body: 5,
+  command: 2,
+  mixed: 5,
+} satisfies Record<ChatTimelineRowGroup | "mixed", number>;
 
 const props = withDefaults(
   defineProps<{
@@ -90,6 +96,7 @@ const props = withDefaults(
     virtualThreshold?: number;
     onLayoutChange?: () => void;
     onViewportAdapterChange?: (adapter: TimelineViewportAdapter | null) => void;
+    onPinnedUserRowChange?: (rowId: string) => void;
   }>(),
   {
     scrollElement: null,
@@ -102,12 +109,22 @@ defineSlots<{
 }>();
 
 let pendingLayoutNotifyRafId: number | null = null;
+let pendingHeightRestoreRafId: number | null = null;
 let scrollElementCleanup: (() => void) | null = null;
 let scrollElementResizeObserver: ResizeObserver | null = null;
+
+type PendingHeightRestore = {
+  anchor: ReturnType<typeof captureVisibleAnchor>;
+  wasFollowing: boolean;
+  scrollTopAtCapture: number;
+};
+
+let pendingHeightRestore: PendingHeightRestore | null = null;
 
 const scrollTopPx = shallowRef(0);
 const clientHeightPx = shallowRef(FALLBACK_CLIENT_HEIGHT_PX);
 const viewportTopPx = shallowRef(0);
+const rowGapPx = shallowRef({ ...DEFAULT_ROW_GAPS });
 const rowHeightsByKey = shallowRef(new Map<string, number>());
 const rowElementsById = new Map<string, HTMLElement>();
 const rowResizeObserversById = new Map<string, ResizeObserver>();
@@ -175,12 +192,13 @@ const virtualRows = computed(() => {
 });
 
 const rowStructureSignature = computed(() =>
-  renderedRows.value
-    .map(
+  [
+    `gaps:${rowGapPx.value.body}:${rowGapPx.value.command}:${rowGapPx.value.activity}:${rowGapPx.value.mixed}`,
+    ...renderedRows.value.map(
       (item) =>
         `${String(item.row.id ?? "")}:${String(item.row.kind ?? "")}:${item.presentation.group}:${item.presentation.estimatedHeightPx}`
-    )
-    .join("\n")
+    ),
+  ].join("\n")
 );
 
 function heightCacheKey(rowId: string) {
@@ -202,12 +220,11 @@ function rowGapBefore(index: number): number {
   const previousGroup = getChatRowPresentation(previous).group;
   const currentGroup = getChatRowPresentation(current).group;
   if (previousGroup === currentGroup) return gapForGroup(currentGroup);
-  return 5;
+  return rowGapPx.value.mixed;
 }
 
 function gapForGroup(group: ChatTimelineRowGroup): number {
-  if (group === "command" || group === "activity") return 2;
-  return 5;
+  return rowGapPx.value[group];
 }
 
 function firstRowIndexAtOrAfter(offsetPx: number): number {
@@ -236,8 +253,19 @@ function firstRowIndexAfter(offsetPx: number): number {
 
 function clampScrollTop(value: number): number {
   const element = props.scrollElement;
-  const maxScrollTop = Math.max(0, (element?.scrollHeight ?? totalHeightPx.value) - (element?.clientHeight ?? clientHeightPx.value));
+  const maxScrollTop = Math.max(
+    0,
+    (element?.scrollHeight ?? totalHeightPx.value) - (element?.clientHeight ?? clientHeightPx.value)
+  );
   return Math.max(0, Math.min(maxScrollTop, Math.round(value)));
+}
+
+function distanceToBottom(element: HTMLElement): number {
+  return Math.max(0, Math.round(element.scrollHeight - element.clientHeight - element.scrollTop));
+}
+
+function isFollowingBottom(element: HTMLElement): boolean {
+  return distanceToBottom(element) <= TIMELINE_FOLLOW_THRESHOLD_PX;
 }
 
 function viewportContentTop(): number {
@@ -249,11 +277,41 @@ function viewportContentTop(): number {
   return Math.max(0, Math.round(viewportRect.top - elementRect.top + element.scrollTop));
 }
 
+function parseCssPx(value: string, fallback: number): number {
+  const parsed = Number.parseFloat(String(value ?? "").trim());
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(0, Math.round(parsed));
+}
+
+function syncTimelineGapMetrics() {
+  const viewport = viewportRef.value;
+  if (!viewport) return false;
+  const styles = getComputedStyle(viewport);
+  const next = {
+    activity: parseCssPx(styles.getPropertyValue("--chat-row-gap-activity"), DEFAULT_ROW_GAPS.activity),
+    body: parseCssPx(styles.getPropertyValue("--chat-row-gap-body"), DEFAULT_ROW_GAPS.body),
+    command: parseCssPx(styles.getPropertyValue("--chat-row-gap-command"), DEFAULT_ROW_GAPS.command),
+    mixed: parseCssPx(styles.getPropertyValue("--chat-row-gap-mixed"), DEFAULT_ROW_GAPS.mixed),
+  };
+  const previous = rowGapPx.value;
+  if (
+    previous.activity === next.activity &&
+    previous.body === next.body &&
+    previous.command === next.command &&
+    previous.mixed === next.mixed
+  ) {
+    return false;
+  }
+  rowGapPx.value = next;
+  return true;
+}
+
 function updateScrollMetrics() {
   const element = props.scrollElement;
   scrollTopPx.value = Math.max(0, Math.round(element?.scrollTop ?? 0));
   clientHeightPx.value = Math.max(1, Math.round(element?.clientHeight ?? FALLBACK_CLIENT_HEIGHT_PX));
   viewportTopPx.value = viewportContentTop();
+  syncPinnedUserRow();
 }
 
 function scheduleLayoutChangeNotify() {
@@ -271,9 +329,50 @@ function updateMeasuredHeight(rowId: string, element: HTMLElement) {
   const key = heightCacheKey(rowId);
   const previousHeight = rowHeightsByKey.value.get(key) ?? 0;
   if (Math.abs(previousHeight - nextHeight) <= ROW_HEIGHT_EPSILON_PX) return;
+  scheduleHeightChangeRestore();
   rowHeightsByKey.value.set(key, nextHeight);
   triggerRef(rowHeightsByKey);
   scheduleLayoutChangeNotify();
+}
+
+function scheduleHeightChangeRestore() {
+  if (!virtualEnabled.value) return;
+  const element = props.scrollElement;
+  if (!element) return;
+  if (!pendingHeightRestore) {
+    pendingHeightRestore = {
+      anchor: captureVisibleAnchor(),
+      wasFollowing: isFollowingBottom(element),
+      scrollTopAtCapture: Math.max(0, Math.round(element.scrollTop)),
+    };
+  }
+  if (pendingHeightRestoreRafId != null) return;
+  void nextTick(() => {
+    if (pendingHeightRestoreRafId != null) return;
+    pendingHeightRestoreRafId = requestAnimationFrame(() => {
+      pendingHeightRestoreRafId = null;
+      const restore = pendingHeightRestore;
+      pendingHeightRestore = null;
+      if (!restore) return;
+      const element = props.scrollElement;
+      if (!element) {
+        updateScrollMetrics();
+        return;
+      }
+      const scrollTop = Math.max(0, Math.round(element.scrollTop));
+      if (Math.abs(scrollTop - restore.scrollTopAtCapture) > ROW_HEIGHT_EPSILON_PX) {
+        updateScrollMetrics();
+        return;
+      }
+      if (restore.wasFollowing) {
+        scrollToBottom("auto");
+      } else if (restore.anchor) {
+        restoreVisibleAnchor(restore.anchor);
+      } else {
+        updateScrollMetrics();
+      }
+    });
+  });
 }
 
 function toElement(value: Element | ComponentPublicInstance | null): HTMLElement | null {
@@ -345,6 +444,30 @@ function restoreVisibleAnchor(anchor: { rowId: string; topOffsetPx: number }) {
   return true;
 }
 
+function scrollRowToTop(rowId: string, offsetPx = 0, behavior: ScrollBehavior = "auto") {
+  const element = props.scrollElement;
+  if (!element) return false;
+  const id = String(rowId ?? "").trim();
+  if (!id) return false;
+  const item = renderedRows.value.find((row) => row.row.id === id);
+  if (!item) return false;
+  const targetTop = clampScrollTop(viewportContentTop() + item.top - Math.max(0, Math.round(offsetPx)));
+  element.scrollTo({ top: targetTop, behavior });
+  updateScrollMetrics();
+  return true;
+}
+
+function scrollLastRowByKindToTop(kind: string, offsetPx = 0, behavior: ScrollBehavior = "auto") {
+  const normalizedKind = String(kind ?? "").trim();
+  if (!normalizedKind) return false;
+  for (let index = renderedRows.value.length - 1; index >= 0; index -= 1) {
+    const item = renderedRows.value[index];
+    if (item?.row.kind !== normalizedKind) continue;
+    return scrollRowToTop(item.row.id, offsetPx, behavior);
+  }
+  return false;
+}
+
 function scrollToBottom(behavior: ScrollBehavior = "auto") {
   const element = props.scrollElement;
   if (!element) return;
@@ -365,9 +488,41 @@ const viewportAdapter: TimelineViewportAdapter = {
   captureVisibleAnchor,
   restoreVisibleAnchor,
   scrollToBottom,
+  scrollRowToTop,
+  scrollLastRowByKindToTop,
   getScrollMetrics,
   notifyLayoutChange: scheduleLayoutChangeNotify,
 };
+
+function findPinnedUserRowId(): string {
+  const element = props.scrollElement;
+  if (!element || renderedRows.value.length === 0) return "";
+  if (!virtualEnabled.value) {
+    const viewport = viewportRef.value;
+    if (!viewport) return "";
+    const top = element.getBoundingClientRect().top;
+    let pinned = "";
+    for (const row of Array.from(viewport.querySelectorAll<HTMLElement>(".chat-timeline-row"))) {
+      const kind = String(row.dataset.rowKind ?? "").trim();
+      if (kind !== "user") continue;
+      const rowRect = row.getBoundingClientRect();
+      if (rowRect.top > top) break;
+      if (rowRect.bottom <= top) pinned = String(row.dataset.rowId ?? "").trim();
+    }
+    return pinned;
+  }
+  const localScrollTop = Math.max(0, scrollTopPx.value - viewportTopPx.value);
+  let pinned = "";
+  for (const item of renderedRows.value) {
+    if (item.top > localScrollTop) break;
+    if (item.row.kind === "user" && item.bottom <= localScrollTop) pinned = item.row.id;
+  }
+  return pinned;
+}
+
+function syncPinnedUserRow() {
+  props.onPinnedUserRowChange?.(findPinnedUserRowId());
+}
 
 function syncViewportAdapter() {
   props.onViewportAdapterChange?.(virtualEnabled.value ? viewportAdapter : null);
@@ -387,13 +542,24 @@ function attachScrollElement(element: HTMLElement | null | undefined) {
   element.addEventListener("scroll", onScroll, { passive: true });
   scrollElementCleanup = () => element.removeEventListener("scroll", onScroll);
   if (typeof ResizeObserver !== "undefined") {
-    scrollElementResizeObserver = new ResizeObserver(() => updateScrollMetrics());
+    scrollElementResizeObserver = new ResizeObserver(() => {
+      const gapChanged = syncTimelineGapMetrics();
+      updateScrollMetrics();
+      if (gapChanged) scheduleLayoutChangeNotify();
+    });
     scrollElementResizeObserver.observe(element);
   }
+  syncTimelineGapMetrics();
   updateScrollMetrics();
 }
 
 watch(rowStructureSignature, () => scheduleLayoutChangeNotify(), { flush: "post" });
+
+watch(
+  () => [props.timelineKey, rowStructureSignature.value, scrollTopPx.value, viewportTopPx.value] as const,
+  () => syncPinnedUserRow(),
+  { flush: "post" }
+);
 
 watch(
   () => props.timelineKey,
@@ -432,6 +598,7 @@ watch(virtualEnabled, () => {
   if (!virtualEnabled.value) disconnectVirtualRowObservers();
   syncViewportAdapter();
   void nextTick(() => {
+    syncTimelineGapMetrics();
     updateScrollMetrics();
     scheduleLayoutChangeNotify();
   });
@@ -439,12 +606,17 @@ watch(virtualEnabled, () => {
 
 onMounted(() => {
   attachScrollElement(props.scrollElement);
+  syncTimelineGapMetrics();
   syncViewportAdapter();
   scheduleLayoutChangeNotify();
 });
 
 onBeforeUnmount(() => {
+  props.onPinnedUserRowChange?.("");
   props.onViewportAdapterChange?.(null);
+  if (pendingHeightRestoreRafId != null) cancelAnimationFrame(pendingHeightRestoreRafId);
+  pendingHeightRestoreRafId = null;
+  pendingHeightRestore = null;
   scrollElementCleanup?.();
   scrollElementCleanup = null;
   scrollElementResizeObserver?.disconnect();

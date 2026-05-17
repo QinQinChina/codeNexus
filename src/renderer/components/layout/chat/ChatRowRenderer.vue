@@ -3,16 +3,23 @@
     v-if="renderedRow.kind === 'user'"
     :event="renderedRow.event"
     :workspaceRoot="workspaceRoot"
-    :isHistoryRewriteAnchor="isHistoryRewriteAnchor(renderedRow.event)"
     :messageParts="userMessageParts(renderedRow.event)"
     :imageCount="userMessageImageCount(renderedRow.event)"
     :visibleImages="visibleUserMessageImageEntries(renderedRow.event)"
     :showTimestamps="viewPrefs.showTimestamps"
     :formattedTime="formatTime(renderedRow.event.createdAt)"
+    :inlineRewriteDraft="inlineRewriteDraft?.anchorEventId === renderedRow.event.id ? inlineRewriteDraft : null"
+    :modelOptions="modelOptions"
+    :reasoningEffortOptions="reasoningEffortOptions"
+    :sandboxModeOptions="sandboxModeOptions"
+    :sendDisabled="isTurnRunning"
     @click="handleUserBubbleClick"
     @file-token-click="handleUserFileTokenClick"
     @thumb-load-error="handleThumbLoadError"
     @preview-image="handlePreviewImage"
+    @inline-rewrite-update="onInlineRewriteUpdate?.($event)"
+    @inline-rewrite-cancel="onInlineRewriteCancel?.()"
+    @inline-rewrite-send="onInlineRewriteSend?.()"
   />
 
   <ChatAssistantMessage
@@ -23,10 +30,10 @@
     :isStructuredFinalAnswer="Boolean(tryParseStructuredFinalAnswerV1(renderedRow.event.paramsText))"
     :markdownHtml="getMarkdownEventHtml(renderedRow.event)"
     :execState="planExecStateByEventId[renderedRow.event.id] ?? null"
-    :modelOptions="modelOptions as any"
+    :modelOptions="modelOptions"
     :isTurnRunning="isTurnRunning"
-    :reasoningEffortOptions="reasoningEffortOptions as any"
-    :sandboxModeOptions="sandboxModeOptions as any"
+    :reasoningEffortOptions="reasoningEffortOptions"
+    :sandboxModeOptions="sandboxModeOptions"
     :sandboxSelectClass="sandboxSelectClass(planExecStateByEventId[renderedRow.event.id]?.sandboxMode || '')"
     @execute-plan="executePlanFromPlanDelta"
     @update:model="(value) => updatePlanExecModel(renderedRow.event.id, value)"
@@ -53,10 +60,10 @@
         :viewPrefs="viewPrefs"
         :assistantPlanMessageFormat="assistantPlanMessageFormat"
         :planExecStateByEventId="planExecStateByEventId"
-        :modelOptions="modelOptions as any"
+        :modelOptions="modelOptions"
         :isTurnRunning="isTurnRunning"
-        :reasoningEffortOptions="reasoningEffortOptions as any"
-        :sandboxModeOptions="sandboxModeOptions as any"
+        :reasoningEffortOptions="reasoningEffortOptions"
+        :sandboxModeOptions="sandboxModeOptions"
         :turnPlanForPlanDeltaEvent="turnPlanForPlanDeltaEvent"
         :userMessageParts="userMessageParts"
         :userMessageImageCount="userMessageImageCount"
@@ -65,7 +72,6 @@
         :handleThumbLoadError="handleThumbLoadError"
         :handleUserFileTokenClick="handleUserFileTokenClick"
         :handleUserBubbleClick="handleUserBubbleClick"
-        :isHistoryRewriteAnchor="isHistoryRewriteAnchor"
         :handlePreviewImage="handlePreviewImage"
         :handleLayoutChange="handleLayoutChange"
         :getMarkdownEventHtml="getMarkdownEventHtml"
@@ -85,6 +91,10 @@
         :updatePlanExecModel="updatePlanExecModel"
         :updatePlanExecReasoningEffort="updatePlanExecReasoningEffort"
         :updatePlanExecSandboxMode="updatePlanExecSandboxMode"
+        :inlineRewriteDraft="inlineRewriteDraft"
+        :onInlineRewriteUpdate="onInlineRewriteUpdate"
+        :onInlineRewriteCancel="onInlineRewriteCancel"
+        :onInlineRewriteSend="onInlineRewriteSend"
       />
     </template>
   </ChatAuxActivityGroup>
@@ -93,6 +103,12 @@
     v-else-if="renderedRow.kind === 'activity'"
     :text="renderedRow.text"
     :activityDotClass="activityDotClass(renderedRow.tone)"
+  />
+
+  <ChatTokenUsageSummary
+    v-else-if="renderedRow.kind === 'tokenUsageSummary'"
+    :usage="(renderedRow as any).item.usage"
+    @layout-change="handleLayoutChange?.()"
   />
 
   <ChatImageToolCard
@@ -202,13 +218,24 @@
 </template>
 
 <script setup lang="ts">
-import { defineAsyncComponent, defineComponent, h } from "vue";
 import ChatUserMessage from "../../chat/ChatUserMessage.vue";
 import ChatAssistantMessage from "../../chat/ChatAssistantMessage.vue";
 import ChatActivityRow from "../../chat/ChatActivityRow.vue";
 import ChatAuxActivityGroup from "../../chat/ChatAuxActivityGroup.vue";
 import ChatReasoningBlock from "../../chat/ChatReasoningBlock.vue";
 import ChatSystemRow from "../../chat/ChatSystemRow.vue";
+import ChatImageToolCard from "../../chat/ChatImageToolCard.vue";
+import ChatWebSearchCard from "../../chat/ChatWebSearchCard.vue";
+import ChatSshToolActivity from "../../chat/ChatSshToolActivity.vue";
+import ChatTokenUsageSummary from "../../chat/ChatTokenUsageSummary.vue";
+import ChatFileChangeCard from "../../chat/ChatFileChangeCard.vue";
+import ChatCommandActionRow from "../../chat/ChatCommandActionRow.vue";
+import DynamicToolCallCardContent from "../../timeline/cards/DynamicToolCallCardContent.vue";
+import McpResourceReadCardContent from "../../timeline/cards/McpResourceReadCardContent.vue";
+import McpToolCardContent from "../../timeline/cards/McpToolCardContent.vue";
+import CommandReadActivityRow from "../../timeline/activities/CommandReadActivityRow.vue";
+import CommandListActivityRow from "../../timeline/activities/CommandListActivityRow.vue";
+import CommandSearchActivityRow from "../../timeline/activities/CommandSearchActivityRow.vue";
 import { CHAT_ROW_ACTIVITY_CLASS, CHAT_ROW_TOOL_CLASS } from "./chatPresentation";
 import { chatActivityToneClass, chatSandboxToneClass } from "./chatStyle";
 
@@ -242,6 +269,7 @@ import type { SandboxMode } from "../../../stores/runtime.store";
 import type { McpToolItem } from "../../timeline/cards/McpToolCardContent.vue";
 import type {
   ChatImageEntry,
+  ChatInlineRewriteDraft,
   ChatRenderedRow,
   ChatUserMessagePart,
   ImagePreviewPayload,
@@ -256,73 +284,6 @@ type AnyFn = (...args: any[]) => any;
 
 const COMMAND_FILES_RENDER_LIMIT = 1000;
 const { markdownRendererTick, refreshWhenReady } = useMarkdownRendererRefresh();
-
-const AsyncTimelineCardLoading = defineComponent({
-  name: "AsyncTimelineCardLoading",
-  setup() {
-    return () =>
-      h("div", { class: "chat-async-card-loading", "aria-hidden": "true" }, [
-        h("div", { class: "chat-async-card-loading__line chat-async-card-loading__line--wide" }),
-        h("div", { class: "chat-async-card-loading__line chat-async-card-loading__line--short" }),
-      ]);
-  },
-});
-
-const ChatImageToolCard = defineAsyncComponent({
-  loader: () => import("../../chat/ChatImageToolCard.vue"),
-  loadingComponent: AsyncTimelineCardLoading,
-  delay: 120,
-});
-const ChatWebSearchCard = defineAsyncComponent({
-  loader: () => import("../../chat/ChatWebSearchCard.vue"),
-  loadingComponent: AsyncTimelineCardLoading,
-  delay: 120,
-});
-const DynamicToolCallCardContent = defineAsyncComponent({
-  loader: () => import("../../timeline/cards/DynamicToolCallCardContent.vue"),
-  loadingComponent: AsyncTimelineCardLoading,
-  delay: 120,
-});
-const ChatSshToolActivity = defineAsyncComponent({
-  loader: () => import("../../chat/ChatSshToolActivity.vue"),
-  loadingComponent: AsyncTimelineCardLoading,
-  delay: 120,
-});
-const ChatFileChangeCard = defineAsyncComponent({
-  loader: () => import("../../chat/ChatFileChangeCard.vue"),
-  loadingComponent: AsyncTimelineCardLoading,
-  delay: 120,
-});
-const ChatCommandActionRow = defineAsyncComponent({
-  loader: () => import("../../chat/ChatCommandActionRow.vue"),
-  loadingComponent: AsyncTimelineCardLoading,
-  delay: 120,
-});
-const CommandReadActivityRow = defineAsyncComponent({
-  loader: () => import("../../timeline/activities/CommandReadActivityRow.vue"),
-  loadingComponent: AsyncTimelineCardLoading,
-  delay: 120,
-});
-const CommandListActivityRow = defineAsyncComponent({
-  loader: () => import("../../timeline/activities/CommandListActivityRow.vue"),
-  loadingComponent: AsyncTimelineCardLoading,
-  delay: 120,
-});
-const CommandSearchActivityRow = defineAsyncComponent({
-  loader: () => import("../../timeline/activities/CommandSearchActivityRow.vue"),
-  loadingComponent: AsyncTimelineCardLoading,
-  delay: 120,
-});
-const McpResourceReadCardContent = defineAsyncComponent({
-  loader: () => import("../../timeline/cards/McpResourceReadCardContent.vue"),
-  loadingComponent: AsyncTimelineCardLoading,
-  delay: 120,
-});
-const McpToolCardContent = defineAsyncComponent({
-  loader: () => import("../../timeline/cards/McpToolCardContent.vue"),
-  loadingComponent: AsyncTimelineCardLoading,
-  delay: 120,
-});
 
 const isSshMcpToolGroup = (group: McpToolGroupNode | null | undefined): boolean => {
   return (group?.items ?? []).some((item) => {
@@ -339,10 +300,10 @@ defineProps<{
   viewPrefs: { showTimestamps: boolean };
   assistantPlanMessageFormat: string;
   planExecStateByEventId: Record<string, PlanDeltaExecUiState | undefined>;
-  modelOptions: OptionInput[];
+  modelOptions: readonly OptionInput[];
   isTurnRunning: boolean;
-  reasoningEffortOptions: OptionInput[];
-  sandboxModeOptions: OptionInput[];
+  reasoningEffortOptions: readonly OptionInput[];
+  sandboxModeOptions: readonly OptionInput[];
   turnPlanForPlanDeltaEvent: (event: TimelineEventItem) => TurnPlanState | null;
   userMessageParts: (event: TimelineEventItem) => ChatUserMessagePart[];
   userMessageImageCount: (event: TimelineEventItem) => number;
@@ -351,7 +312,6 @@ defineProps<{
   handleThumbLoadError: (err: ThumbLoadErrorPayload) => void;
   handleUserFileTokenClick: (path: string) => void;
   handleUserBubbleClick: (event: TimelineEventItem) => void;
-  isHistoryRewriteAnchor: (event: TimelineEventItem) => boolean;
   handlePreviewImage: (payload: ImagePreviewPayload) => void;
   handleLayoutChange?: () => void;
   getMarkdownEventHtml: (event: TimelineEventItem) => string;
@@ -371,6 +331,10 @@ defineProps<{
   updatePlanExecModel: (eventId: string, value: string) => void;
   updatePlanExecReasoningEffort: (eventId: string, value: string) => void;
   updatePlanExecSandboxMode: (eventId: string, value: SandboxMode) => void;
+  inlineRewriteDraft?: ChatInlineRewriteDraft | null;
+  onInlineRewriteUpdate?: (patch: Partial<ChatInlineRewriteDraft>) => void;
+  onInlineRewriteCancel?: () => void;
+  onInlineRewriteSend?: () => void;
 }>();
 
 const fileChangeRenderableFiles = (item: FileChangeNode) =>

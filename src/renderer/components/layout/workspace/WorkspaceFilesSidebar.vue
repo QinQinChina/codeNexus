@@ -26,9 +26,9 @@
                   :aria-level="row.depth + 1"
                   :aria-expanded="row.isDirectory ? String(row.isExpanded) : undefined"
                   :aria-selected="row.isActiveFile || row.isSelectedDirectory ? 'true' : 'false'"
-                  v-tooltip="`${row.path}\n拖到聊天输入框可选择${row.isDirectory ? '文件夹' : '文件'}`"
                   :data-tree-path="row.path"
                   @click="onOpenTreeRow(row)"
+                  @contextmenu="onTreeRowContextMenu(row, $event)"
                   @dragstart="onTreeRowDragStart(row, $event)"
                   @dragend="onTreeRowDragEnd"
                 >
@@ -49,7 +49,9 @@
                     :isExpanded="row.isExpanded"
                   />
                   <span class="workspace-file-tree-row__label">{{ row.label }}</span>
-                  <span v-if="row.isLoading" class="workspace-file-tree-row__meta">加载中</span>
+                  <span v-if="treeRowMetaText(row)" class="workspace-file-tree-row__meta">{{
+                    treeRowMetaText(row)
+                  }}</span>
                 </button>
 
                 <div
@@ -69,12 +71,34 @@
         </section>
       </div>
     </div>
+    <Teleport to="body">
+      <div
+        v-if="contextMenu.visible"
+        class="workspace-file-context-menu"
+        :style="contextMenuStyle"
+        role="menu"
+        aria-label="文件操作"
+        @click.stop
+        @contextmenu.prevent
+      >
+        <button
+          class="workspace-file-context-menu__item is-danger"
+          type="button"
+          role="menuitem"
+          :disabled="workspaceFilesStore.isFileDeleting(contextMenu.path)"
+          @click="onDeleteContextFile"
+        >
+          <Trash2 class="workspace-file-context-menu__icon" aria-hidden="true" />
+          <span>删除文件</span>
+        </button>
+      </div>
+    </Teleport>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from "vue";
-import { ChevronRight } from "lucide-vue-next";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { ChevronRight, Trash2 } from "lucide-vue-next";
 import WorkspaceTreeEntryIcon from "./WorkspaceTreeEntryIcon.vue";
 import { useWorkspaceFilesStore } from "../../../stores/workspaceFiles.store";
 import { basenameFromPath } from "../../../domain/workspaceFiles";
@@ -84,6 +108,12 @@ import { writeWorkspaceFileDragData } from "../../../domain/workspaceFileDrag";
 const workspaceFilesStore = useWorkspaceFilesStore();
 const treeSurfaceRef = ref<HTMLElement | null>(null);
 const draggingTreePath = ref("");
+const contextMenu = ref({
+  visible: false,
+  x: 0,
+  y: 0,
+  path: "",
+});
 
 type TreeRow =
   | {
@@ -189,9 +219,15 @@ const treeRowClass = (row: Extract<TreeRow, { kind: "entry" }>) => {
     "is-file": !row.isDirectory,
     "is-active-file": row.isActiveFile,
     "is-selected-directory": row.isSelectedDirectory,
+    "is-deleting": workspaceFilesStore.isFileDeleting(row.path),
     "is-drag-source": draggingTreePath.value === normalizeAbsoluteFsPath(row.path),
   };
 };
+
+const contextMenuStyle = computed(() => ({
+  left: `${contextMenu.value.x}px`,
+  top: `${contextMenu.value.y}px`,
+}));
 
 const treeRowStyle = (row: Extract<TreeRow, { kind: "entry" }>) => {
   return {
@@ -205,7 +241,15 @@ const treeMessageStyle = (row: Extract<TreeRow, { kind: "message" }>) => {
   };
 };
 
+const treeRowMetaText = (row: Extract<TreeRow, { kind: "entry" }>) => {
+  if (workspaceFilesStore.isFileDeleting(row.path)) return "删除中";
+  if (row.isLoading) return "加载中";
+  return "";
+};
+
 const onOpenTreeRow = (row: Extract<TreeRow, { kind: "entry" }>) => {
+  closeContextMenu();
+  if (workspaceFilesStore.isFileDeleting(row.path)) return;
   if (row.isDirectory) {
     void workspaceFilesStore.toggleDirectoryExpanded(row.path);
     return;
@@ -213,7 +257,47 @@ const onOpenTreeRow = (row: Extract<TreeRow, { kind: "entry" }>) => {
   void workspaceFilesStore.openFile(row.path);
 };
 
+const closeContextMenu = () => {
+  if (!contextMenu.value.visible) return;
+  contextMenu.value = {
+    visible: false,
+    x: 0,
+    y: 0,
+    path: "",
+  };
+};
+
+const onTreeRowContextMenu = (row: Extract<TreeRow, { kind: "entry" }>, event: MouseEvent) => {
+  if (row.isDirectory || workspaceFilesStore.isFileDeleting(row.path)) {
+    closeContextMenu();
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  const menuWidth = 176;
+  const menuHeight = 44;
+  const viewportPadding = 8;
+  contextMenu.value = {
+    visible: true,
+    x: Math.max(viewportPadding, Math.min(event.clientX, window.innerWidth - menuWidth - viewportPadding)),
+    y: Math.max(viewportPadding, Math.min(event.clientY, window.innerHeight - menuHeight - viewportPadding)),
+    path: normalizeAbsoluteFsPath(row.path),
+  };
+};
+
+const onDeleteContextFile = async () => {
+  const path = normalizeAbsoluteFsPath(contextMenu.value.path);
+  closeContextMenu();
+  if (!path) return;
+  await workspaceFilesStore.deleteWorkspaceFile(path);
+};
+
 const onTreeRowDragStart = (row: Extract<TreeRow, { kind: "entry" }>, event: DragEvent) => {
+  closeContextMenu();
+  if (workspaceFilesStore.isFileDeleting(row.path)) {
+    event.preventDefault();
+    return;
+  }
   draggingTreePath.value = normalizeAbsoluteFsPath(row.path);
   writeWorkspaceFileDragData(event.dataTransfer, row.path, {
     kind: row.isDirectory ? "directory" : "file",
@@ -232,8 +316,25 @@ function scrollActiveRowIntoView() {
   row?.scrollIntoView({ block: "nearest" });
 }
 
+function onWindowPointerDown(event: PointerEvent) {
+  const target = event.target;
+  if (target instanceof Element && target.closest(".workspace-file-context-menu")) return;
+  closeContextMenu();
+}
+
+function onWindowKeydown(event: KeyboardEvent) {
+  if (event.key === "Escape") closeContextMenu();
+}
+
 onMounted(() => {
   void workspaceFilesStore.ensureReady(false);
+  window.addEventListener("pointerdown", onWindowPointerDown, true);
+  window.addEventListener("keydown", onWindowKeydown, true);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("pointerdown", onWindowPointerDown, true);
+  window.removeEventListener("keydown", onWindowKeydown, true);
 });
 
 watch(

@@ -38,16 +38,16 @@
           <article v-for="image in selectedHistoryItem.images" :key="image.path" class="image-workbench__result">
             <div class="image-workbench__result-tools">
               <span class="image-workbench__zoom mono">{{ Math.round(getImageZoom(image.path) * 100) }}%</span>
-              <button class="image-workbench__tool" type="button" v-tooltip="'缩小'" @click="zoomImage(image.path, 1 / ZOOM_STEP)">
+              <button class="image-workbench__tool" type="button" @click="zoomImage(image.path, 1 / ZOOM_STEP)">
                 <ZoomOut aria-hidden="true" />
               </button>
-              <button class="image-workbench__tool" type="button" v-tooltip="'放大'" @click="zoomImage(image.path, ZOOM_STEP)">
+              <button class="image-workbench__tool" type="button" @click="zoomImage(image.path, ZOOM_STEP)">
                 <ZoomIn aria-hidden="true" />
               </button>
-              <button class="image-workbench__tool" type="button" v-tooltip="'重置视图'" @click="resetImageZoom(image.path)">
+              <button class="image-workbench__tool" type="button" @click="resetImageZoom(image.path)">
                 <RotateCcw aria-hidden="true" />
               </button>
-              <button class="image-workbench__tool" type="button" v-tooltip="'下载图片'" @click="downloadImage(image)">
+              <button class="image-workbench__tool" type="button" @click="downloadImage(image)">
                 <Download aria-hidden="true" />
               </button>
             </div>
@@ -162,7 +162,6 @@
                   class="btn-mini btn-mini--danger image-workbench__history-delete"
                   type="button"
                   aria-label="删除失败记录"
-                  v-tooltip="'删除失败记录'"
                   @click.stop="workbench.deleteHistoryItem(item.id)"
                   @keydown.stop
                 >
@@ -701,12 +700,12 @@ onBeforeUnmount(() => {
 }
 
 .btn-mini--danger {
-  color: var(--danger, #ef4444);
+  color: var(--danger);
 }
 
 .btn-mini--danger:hover {
-  border-color: color-mix(in srgb, var(--danger, #ef4444) 48%, var(--border));
-  background: color-mix(in srgb, var(--danger, #ef4444) 10%, var(--bg));
+  border-color: color-mix(in srgb, var(--danger) 48%, var(--border));
+  background: color-mix(in srgb, var(--danger) 10%, var(--bg));
 }
 
 .image-workbench__summary {
@@ -803,7 +802,7 @@ onBeforeUnmount(() => {
 }
 
 .image-workbench__history-card.is-failed {
-  border-color: color-mix(in srgb, var(--danger, #ef4444) 42%, var(--ui-code-border));
+  border-color: color-mix(in srgb, var(--danger) 42%, var(--ui-code-border));
   cursor: default;
 }
 
@@ -843,7 +842,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   min-height: 0;
   object-fit: contain;
-  background: color-mix(in srgb, var(--bg) 78%, #000 22%);
+  background: color-mix(in srgb, var(--bg) 78%, var(--theme-seed-canvas-deep) 22%);
 }
 
 .image-workbench__history-preview img.is-full {
@@ -902,8 +901,8 @@ onBeforeUnmount(() => {
 
 .image-workbench__history-skeleton.is-failed {
   grid-column: 1 / -1;
-  background: color-mix(in srgb, var(--danger, #ef4444) 10%, var(--surface-1));
-  color: var(--danger, #ef4444);
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface-1));
+  color: var(--danger);
 }
 
 .image-workbench__history-skeleton.is-failed::after {
@@ -943,7 +942,7 @@ onBeforeUnmount(() => {
 }
 
 .image-workbench__history-title.is-failed {
-  color: var(--danger, #ef4444);
+  color: var(--danger);
 }
 
 .image-workbench__history-skeleton-line {
@@ -1092,11 +1091,11 @@ onBeforeUnmount(() => {
   place-items: center;
   overflow: hidden;
   background:
-    linear-gradient(45deg, color-mix(in srgb, var(--bg) 86%, #000 14%) 25%, transparent 25%),
-    linear-gradient(-45deg, color-mix(in srgb, var(--bg) 86%, #000 14%) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--bg) 86%, #000 14%) 75%),
-    linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--bg) 86%, #000 14%) 75%),
-    color-mix(in srgb, var(--bg) 72%, #000 28%);
+    linear-gradient(45deg, color-mix(in srgb, var(--bg) 86%, var(--theme-seed-canvas-deep) 14%) 25%, transparent 25%),
+    linear-gradient(-45deg, color-mix(in srgb, var(--bg) 86%, var(--theme-seed-canvas-deep) 14%) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--bg) 86%, var(--theme-seed-canvas-deep) 14%) 75%),
+    linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--bg) 86%, var(--theme-seed-canvas-deep) 14%) 75%),
+    color-mix(in srgb, var(--bg) 72%, var(--theme-seed-canvas-deep) 28%);
   background-position:
     0 0,
     0 8px,

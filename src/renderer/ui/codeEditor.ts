@@ -97,12 +97,6 @@ const workspaceEditorTheme = EditorView.theme({
     lineHeight: "1",
     transform: "translateY(0)",
   },
-  ".cm-foldGutter .cm-gutterElement span[title='Fold line']": {
-    transform: "translateY(-3px)",
-  },
-  ".cm-foldGutter .cm-gutterElement span[title='Unfold line']": {
-    transform: "translateY(0)",
-  },
   ".cm-activeLine": {
     backgroundColor: "var(--we-cm-active-line-bg)",
   },

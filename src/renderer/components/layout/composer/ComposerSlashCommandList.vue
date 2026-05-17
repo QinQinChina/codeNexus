@@ -18,9 +18,6 @@
           type="button"
           class="composer-slash-option group"
           :class="{ 'is-active': index === activeIndex && !command.disabled }"
-          v-tooltip="
-            command.disabled ? command.disabledHint || command.hint || command.title : command.hint || command.title
-          "
           :disabled="command.disabled"
           @mouseenter="$emit('hover', index)"
           @click="$emit('select', command.id)"

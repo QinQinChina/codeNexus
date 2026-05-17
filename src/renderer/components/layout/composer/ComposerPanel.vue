@@ -1,5 +1,10 @@
 <template>
-  <div class="composer">
+  <div
+    class="composer"
+    :class="{ 'composer--inline': variant === 'inline' }"
+    @pointerdown.capture="onComposerRootPointerDownCapture"
+    @focusin.capture="emit('interact')"
+  >
     <div class="composer-input-area">
       <div
         :ref="composerPanelRef"
@@ -16,7 +21,7 @@
         @dragleave="onComposerDragLeave"
         @drop="onComposerDrop"
       >
-        <UserInputDock v-if="hasPendingComposerUserInput" />
+        <UserInputDock v-if="variant !== 'inline' && hasPendingComposerUserInput" />
         <div
           v-if="isWorkspaceFileDragOver"
           class="composer-file-drop-overlay"
@@ -26,12 +31,13 @@
         </div>
         <div
           :ref="bindComposerInputRef"
-          id="input"
+          :id="inputId || 'input'"
+          class="composer-input-editor"
           contenteditable="true"
           role="textbox"
           aria-multiline="true"
           spellcheck="false"
-          data-placeholder="输入任务..."
+          :data-placeholder="inputPlaceholder || '输入任务...'"
           @keydown="onComposerKeydown"
           @paste="onComposerPaste"
           @input="onComposerInput"
@@ -41,6 +47,7 @@
         ></div>
 
         <input
+          v-if="variant !== 'inline'"
           :ref="composerImageInputRef"
           class="composer-image-input-native"
           type="file"
@@ -49,12 +56,11 @@
           @change="onComposerImageInputChange"
         />
 
-        <div v-if="composeAttachments.length > 0" class="composer-attachments">
+        <div v-if="variant !== 'inline' && composeAttachments.length > 0" class="composer-attachments">
           <div
             v-for="attachment in composeAttachments"
             :key="attachment.id"
             class="composer-attachment"
-            v-tooltip="attachment.name"
           >
             <button
               class="composer-attachment-preview"
@@ -83,7 +89,7 @@
         <div class="composer-toolbar">
           <div class="composer-toolbar-main">
             <div
-              v-if="historyRewriteActive"
+              v-if="historyRewriteActive && variant !== 'inline'"
               class="composer-rewrite-chip mono"
             >
               <span>{{ historyRewriteSource === "queue" ? "编辑排队消息" : "重写历史消息" }}</span>
@@ -125,6 +131,8 @@
               :reasoningEffort="reasoningEffort"
               :modelOptions="modelOptions"
               :reasoningEffortOptions="reasoningEffortOptions"
+              :preservePointerFocus="variant === 'inline'"
+              :interactionOwnerId="interactionOwnerId"
               @update:model="emit('update:model', $event)"
               @update:reasoningEffort="emit('update:reasoningEffort', $event)"
             />
@@ -132,23 +140,24 @@
               :modelValue="sandboxMode"
               :tooltipText="sandboxRiskText"
               :options="sandboxModeOptions"
+              :preservePointerFocus="variant === 'inline'"
+              :interactionOwnerId="interactionOwnerId"
               @update:modelValue="emit('update:sandboxMode', $event)"
             />
             <span
-              v-if="serviceTierLabel"
+              v-if="variant !== 'inline' && serviceTierLabel"
               class="composer-service-tier mono"
               :class="{ 'is-fast': serviceTierLabel === '快速' }"
-              v-tooltip="serviceTierTooltip || serviceTierLabel"
               >{{ serviceTierLabel }}</span
             >
           </div>
 
           <div class="composer-toolbar-actions">
             <button
+              v-if="variant !== 'inline'"
               id="btn-add-image"
               class="btn-mini composer-icon-button"
               type="button"
-              v-tooltip="'添加图片'"
               aria-label="添加图片"
               @click="emit('pick-images')"
             >
@@ -156,8 +165,8 @@
             </button>
 
             <div
+              v-if="variant !== 'inline'"
               class="composer-context"
-              v-tooltip="contextUsageTooltip"
             >
               <WaterBallProgress
                 class="composer-context-ball"
@@ -178,7 +187,6 @@
               :class="{ 'is-running': isTurnRunning, 'is-disabled': sendDisabled && !isTurnRunning }"
               type="button"
               :disabled="sendDisabled && !isTurnRunning"
-              v-tooltip="sendTitle"
               :aria-label="sendTitle"
               @click="emit('send')"
             >
@@ -196,7 +204,6 @@
               class="composer-send-button composer-stop-button is-running"
               type="button"
               :disabled="interruptDisabled"
-              v-tooltip="interruptTitle"
               :aria-label="interruptTitle"
               @click="emit('interrupt-turn')"
             >
@@ -266,7 +273,7 @@ const props = defineProps<{
   model: string;
   reasoningEffort: string;
   sandboxMode: SandboxMode;
-  modelOptions: string[];
+  modelOptions: readonly string[];
   reasoningEffortOptions: readonly SelectOption[];
   sandboxModeOptions: readonly SelectOption[];
   sandboxRiskText: string;
@@ -284,6 +291,10 @@ const props = defineProps<{
   composerPanelRef: ElementRefBinder<HTMLDivElement>;
   composerInputRef: ElementRefBinder<HTMLDivElement>;
   composerImageInputRef: ElementRefBinder<HTMLInputElement>;
+  inputId?: string;
+  inputPlaceholder?: string;
+  variant?: "dock" | "inline";
+  interactionOwnerId?: string;
 }>();
 
 const emit = defineEmits<{
@@ -302,6 +313,7 @@ const emit = defineEmits<{
   (event: "pick-images"): void;
   (event: "send"): void;
   (event: "interrupt-turn"): void;
+  (event: "interact"): void;
 }>();
 
 const internalComposerInputRef = ref<HTMLDivElement | null>(null);
@@ -375,7 +387,6 @@ function buildMentionTokenElement(mention: ComposeWorkspaceFileMention): HTMLSpa
   root.dataset.composeMentionId = mention.id;
   root.dataset.composeMentionPath = mention.path;
   root.dataset.composeMentionKind = kind;
-  root.title = mention.path;
 
   const icon = buildMentionTokenIcon(mention.path, kind);
   const label = document.createElement("span");
@@ -852,6 +863,17 @@ function onComposerInputMouseDown(event: MouseEvent) {
   selectedMentionId.value = mentionId;
   applySelectedMentionState();
   if (mentionOffset >= 0) focusComposerAtLogicalOffset(mentionOffset + 1);
+}
+
+function onComposerRootPointerDownCapture(event: PointerEvent) {
+  emit("interact");
+  if (props.variant !== "inline" || event.button !== 0) return;
+  const input = internalComposerInputRef.value;
+  const target = event.target instanceof Element ? event.target : null;
+  if (!input || !target || input.contains(target)) return;
+  if (!target.closest(".composer-toolbar")) return;
+  event.preventDefault();
+  isInputFocused.value = true;
 }
 
 function onComposerShellPointerDown(event: PointerEvent) {

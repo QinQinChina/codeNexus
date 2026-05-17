@@ -41,7 +41,6 @@
               ref="lightboxRenderRef"
               class="agent-mermaid-lightbox-render app-scrollbar"
               :class="{ 'is-dragging': lightboxIsDragging }"
-              v-tooltip="'左键拖动平移 · 滚轮缩放'"
               @pointerdown="onMermaidLightboxPointerDown"
               @pointermove="onMermaidLightboxPointerMove"
               @pointerup="onMermaidLightboxPointerUp"
@@ -480,7 +479,6 @@ function enhanceInlinePathHighlights(host: HTMLElement) {
     const display = summarizeParsedPath(parsed, segments);
     code.classList.add("agent-inline-path");
     code.dataset.agentPathFull = parsed.full;
-    code.title = parsed.full;
     code.setAttribute("role", "button");
     code.setAttribute("tabindex", "0");
     code.textContent = display;
@@ -501,7 +499,6 @@ function enhanceInlinePathHighlights(host: HTMLElement) {
         const code = document.createElement("code");
         code.className = "agent-inline-path";
         code.dataset.agentPathFull = parsed.full;
-        code.title = parsed.full;
         code.setAttribute("role", "button");
         code.setAttribute("tabindex", "0");
         code.textContent = display;
@@ -670,7 +667,6 @@ function createMermaidErrorElement(detail: string) {
   element.className = "agent-mermaid-error";
   const normalized = String(detail ?? "").trim();
   element.textContent = normalized ? `Mermaid 渲染失败：${normalized}` : "Mermaid 渲染失败，已回退为代码块。";
-  if (detail) element.title = detail;
   return element;
 }
 
@@ -711,7 +707,6 @@ function createMermaidRenderElement(svg: string, blockKey?: string) {
 
   const viewport = document.createElement("div");
   viewport.className = "agent-mermaid-viewport app-scrollbar";
-  viewport.title = "左键拖动平移 · 滚轮缩放";
 
   const body = document.createElement("div");
   body.className = "agent-mermaid-render";
@@ -799,7 +794,6 @@ function layoutMermaidBlock(block: HTMLElement) {
   if (expandButton) {
     const shouldShow = fitScale < MERMAID_LIGHTBOX_BUTTON_THRESHOLD;
     expandButton.hidden = !shouldShow;
-    expandButton.title = shouldShow ? `当前适配 ${Math.round(fitScale * 100)}%，点击放大查看` : "";
   }
 }
 

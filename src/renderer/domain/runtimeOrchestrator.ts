@@ -208,6 +208,16 @@ export type RuntimeOrchestrator = {
   loadOlderHistoryTurns: (threadId?: string) => Promise<boolean>;
   deleteHistoryThread: (threadId: string) => Promise<void>;
   send: () => Promise<void>;
+  sendHistoryRewriteDraft: (draft: {
+    anchorTurnId: string;
+    composeInput: string;
+    composeAttachments: ComposeImageAttachment[];
+    composeFileMentions: ComposeWorkspaceFileMention[];
+    model: string;
+    reasoningEffort: string;
+    sandboxMode: string;
+    composeMode: "default" | "plan";
+  }) => Promise<boolean>;
   steerNow: () => Promise<void>;
   sendQueuedMessageNow: (messageId: string) => Promise<void>;
   editQueuedMessage: (messageId: string) => Promise<void>;
@@ -226,6 +236,7 @@ export type RuntimeOrchestrator = {
   readWorkspaceDirectory: (path?: string) => Promise<WorkspaceDirectoryReadResult>;
   getWorkspaceMetadata: (path: string) => Promise<WorkspaceFileMetadataState>;
   readWorkspaceTextFile: (path: string) => Promise<WorkspaceTextFileReadResult>;
+  deleteWorkspaceFile: (path: string) => Promise<void>;
   writeWorkspaceTextFile: (
     path: string,
     content: string,
@@ -321,6 +332,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const mcpStartupFailureToastKeys = new Set<string>();
   let globalConfigAutoLoadAttempted = false;
   const disposers: Array<() => void> = [];
+  const THREAD_PREPARING_EVENT_ID = "local:threadPreparing";
+  const THREAD_PREPARING_ENVIRONMENT_TEXT = "正在准备环境…";
 
   // 统一写入时间线事件，默认写到应用级线程。
   const pushEvent = (
@@ -335,6 +348,27 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       turnId: opts?.turnId,
       level: opts?.level ?? "info",
     });
+  };
+
+  const upsertThreadPreparingEvent = (threadIdValue: string) => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId || threadId === APP_TIMELINE_ID) return;
+    timelineStore.upsertEvent({
+      threadId,
+      id: THREAD_PREPARING_EVENT_ID,
+      method: "local/thinking",
+      paramsText: THREAD_PREPARING_ENVIRONMENT_TEXT,
+      params: { phase: "preparingEnvironment" },
+      level: "info",
+      localKind: "thinking",
+      thinkingPhase: "preparing",
+    });
+  };
+
+  const clearThreadPreparingEvent = (threadIdValue: string) => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId || threadId === APP_TIMELINE_ID) return;
+    timelineStore.removeEvent({ threadId, id: THREAD_PREPARING_EVENT_ID });
   };
 
   const perfNow = () => {
@@ -731,8 +765,15 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     return String(anchorEvent?.turnId ?? "").trim();
   };
 
-  const rollbackHistoryRewriteBeforeSend = async (threadIdValue: string): Promise<boolean> => {
-    if (!runtimeStore.historyRewriteActive || runtimeStore.historyRewriteSource !== "history") return true;
+  const rollbackHistoryRewriteBeforeSend = async (
+    threadIdValue: string,
+    opts?: { anchorTurnId?: string; force?: boolean }
+  ): Promise<boolean> => {
+    const forcedAnchorTurnId = String(opts?.anchorTurnId ?? "").trim();
+    const forceRewrite = Boolean(opts?.force || forcedAnchorTurnId);
+    if (!forceRewrite && (!runtimeStore.historyRewriteActive || runtimeStore.historyRewriteSource !== "history")) {
+      return true;
+    }
 
     const tid = String(threadIdValue ?? "").trim();
     if (!tid) {
@@ -755,7 +796,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       return false;
     }
 
-    const anchorTurnId = resolveHistoryRewriteAnchorTurnId(tid);
+    const anchorTurnId = forcedAnchorTurnId || resolveHistoryRewriteAnchorTurnId(tid);
     const rollback = resolveHistoryRewriteRollback(threadStore.completedTurnsByThread.get(tid) ?? [], anchorTurnId);
     if (!rollback) {
       showToast({
@@ -858,6 +899,27 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     events: Array<{ method: string; turnId?: string; params?: unknown; paramsText: string; createdAt?: number }>
   ) => {
     threadStore.replaceRollbackState(threadIdValue, buildCompletedTurnsFromReplay(events));
+  };
+
+  const rebuildTokenUsageFromReplay = (
+    threadIdValue: string,
+    events: Array<{ method: string; turnId?: string; params?: unknown; createdAt?: number }>
+  ) => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId) return;
+    for (const event of events) {
+      if (event.method !== "thread/tokenUsage/updated") continue;
+      const params = event.params && typeof event.params === "object" ? (event.params as any) : null;
+      const tokenUsage = params?.tokenUsage;
+      if (!tokenUsage || typeof tokenUsage !== "object") continue;
+      const turnId = String(event.turnId ?? params?.turnId ?? "").trim();
+      const usage = {
+        ...(tokenUsage as Record<string, unknown>),
+        updatedAt: Number.isFinite(event.createdAt) ? Number(event.createdAt) : Date.now(),
+      };
+      threadStore.setTokenUsage(threadId, usage);
+      if (turnId) threadStore.setTurnTokenUsage(threadId, turnId, usage);
+    }
   };
 
   const renderReplayEvents = (threadIdValue: string, replayEvents: ThreadReplayCache) => {
@@ -988,14 +1050,15 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     });
 
     rebuildRollbackStateFromReplay(threadIdValue, transformed);
+    rebuildTokenUsageFromReplay(threadIdValue, transformed);
     const nextTimelineEvents: TimelineEventItem[] = [];
 
     for (const item of transformed) {
       const id = String(item.id ?? "").trim();
       if (!id) continue;
 
-      // turn diff 仅用于回滚状态重建/摘要，不写入时间线 UI。
-      if (item.method === "turn/diff/updated") continue;
+      // turn diff/token usage 仅用于重建派生状态，不写入时间线 UI。
+      if (item.method === "turn/diff/updated" || item.method === "thread/tokenUsage/updated") continue;
 
       const planKey = planKeyById.get(id) ?? "";
       if (planKey) {
@@ -1561,6 +1624,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     readWorkspaceDirectory,
     getWorkspaceMetadata,
     readWorkspaceTextFile,
+    deleteWorkspaceFile,
     writeWorkspaceTextFile,
   } = workspaceFileRuntime;
 
@@ -2834,17 +2898,62 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   });
   const { startTurnWithInput } = turnStartRuntime;
 
-  const sendOrQueueText = async (mode: "auto" | "steer") => {
-    const composeInput = String(runtimeStore.composeInput ?? "");
-    const composeAttachments = runtimeStore.composeAttachments.map((item: ComposeImageAttachment) => ({
+  type SendDraft = {
+    anchorTurnId?: string;
+    composeInput: string;
+    composeAttachments: ComposeImageAttachment[];
+    composeFileMentions: ComposeWorkspaceFileMention[];
+    model?: string;
+    reasoningEffort?: string;
+    sandboxMode?: string;
+    composeMode?: "default" | "plan";
+  };
+
+  function cloneComposeAttachmentsForSend(items: ComposeImageAttachment[]): ComposeImageAttachment[] {
+    return items.map((item: ComposeImageAttachment) => ({
       ...item,
       input: { ...item.input },
     }));
-    const composeFileMentions = runtimeStore.composeFileMentions.map((item: ComposeWorkspaceFileMention) => ({
-      ...item,
-    }));
+  }
+
+  function cloneComposeMentionsForSend(items: ComposeWorkspaceFileMention[]): ComposeWorkspaceFileMention[] {
+    return items.map((item: ComposeWorkspaceFileMention) => ({ ...item }));
+  }
+
+  function runtimeStoreSendDraft(): SendDraft {
+    return {
+      composeInput: String(runtimeStore.composeInput ?? ""),
+      composeAttachments: runtimeStore.composeAttachments,
+      composeFileMentions: runtimeStore.composeFileMentions,
+      model: runtimeStore.model,
+      reasoningEffort: runtimeStore.reasoningEffort,
+      sandboxMode: runtimeStore.sandboxMode,
+      composeMode: runtimeStore.composeMode,
+    };
+  }
+
+  function clearRuntimeStoreDraftAfterSend() {
+    runtimeStore.composeInput = "";
+    runtimeStore.clearComposeAttachments();
+    runtimeStore.clearComposeFileMentions();
+    runtimeStore.endHistoryRewrite();
+  }
+
+  const sendOrQueueDraft = async (
+    mode: "auto" | "steer",
+    draft: SendDraft,
+    opts?: { clearRuntimeDraftOnAccept?: boolean }
+  ): Promise<boolean> => {
+    const clearRuntimeDraftOnAccept = opts?.clearRuntimeDraftOnAccept ?? false;
+    const composeInput = String(draft.composeInput ?? "");
+    const composeAttachments = cloneComposeAttachmentsForSend(draft.composeAttachments);
+    const composeFileMentions = cloneComposeMentionsForSend(draft.composeFileMentions);
+    const requestedModel = String(draft.model ?? runtimeStore.model ?? "").trim();
+    const requestedReasoningEffort = String(draft.reasoningEffort ?? runtimeStore.reasoningEffort ?? "").trim();
+    const requestedSandboxMode = String(draft.sandboxMode ?? runtimeStore.sandboxMode ?? "").trim();
+    const requestedComposeMode = draft.composeMode ?? runtimeStore.composeMode;
     const input = buildUserTurnInput(composeInput, composeAttachments, composeFileMentions);
-    if (input.length === 0) return;
+    if (input.length === 0) return false;
     const localUserMessage = summarizeLocalUserMessage(input);
     const visibleText = String(localUserMessage.payload.text ?? "").trim();
     const queueText = String(localUserMessage.payload.text ?? "");
@@ -2852,13 +2961,13 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     const workspaceReady = await ensureWorkspaceForSend();
     if (!workspaceReady) {
       showToast({ kind: "error", title: "无法发送", message: "未选择工作区或工作区不可用。" });
-      return;
+      return false;
     }
     const activeWorkspace = normalizeWorkspacePath(runtimeStore.workspacePath);
     const activeServerId = await ensureServerForWorkspace(activeWorkspace);
     if (!activeServerId) {
       showToast({ kind: "error", title: "无法发送", message: "未连接服务或服务不可用。" });
-      return;
+      return false;
     }
     if (!runtimeStore.currentThreadId) {
       void createThread();
@@ -2866,17 +2975,14 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     let threadId = String(runtimeStore.currentThreadId ?? "").trim();
     if (!threadId) {
       showToast({ kind: "error", title: "无法发送", message: "会话尚未就绪，请稍后重试。" });
-      return;
+      return false;
     }
     if (isPendingThreadId(threadId)) {
       const prevCount = runtimeStore.pendingThreadInitSendCountByThread.get(threadId) ?? 0;
       const nextCount = Number.isFinite(prevCount) ? Math.max(0, Math.round(prevCount)) + 1 : 1;
       runtimeStore.setPendingThreadInitSendCount(threadId, nextCount);
 
-      runtimeStore.composeInput = "";
-      runtimeStore.clearComposeAttachments();
-      runtimeStore.clearComposeFileMentions();
-      runtimeStore.endHistoryRewrite();
+      if (clearRuntimeDraftOnAccept) clearRuntimeStoreDraftAfterSend();
 
       const localUserEventId = `local:user:${Date.now()}:${Math.random().toString(16).slice(2)}`;
       const localUserMessageId = `local-user-msg:${Date.now()}:${Math.random().toString(16).slice(2)}`;
@@ -2891,6 +2997,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         localState: "queued",
         localMessageId: localUserMessageId,
       });
+      upsertThreadPreparingEvent(threadId);
       runtimeStore.requestScrollTimelineToBottom();
       messageQueueStore.enqueue({
         threadId,
@@ -2904,13 +3011,13 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         threadId,
         queuedCount: nextCount,
       });
-      return;
+      return true;
     }
     let threadWorkspace = normalizeWorkspacePath(getWorkspaceForThread(threadId) || runtimeStore.workspacePath);
     let threadServerId = await ensureServerForWorkspace(threadWorkspace);
     if (!threadServerId) {
       showToast({ kind: "error", title: "无法发送", message: "当前会话对应的服务不可用。" });
-      return;
+      return false;
     }
     setThreadWorkspace(threadId, threadWorkspace);
 
@@ -2918,12 +3025,12 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       threadId,
       threadWorkspace,
       threadServerId,
-      model: runtimeStore.model,
+      model: requestedModel,
     });
     if (!compatibility.ok) {
       showToast({ kind: "warn", title: "会话需要新建", message: compatibility.error });
       pushEvent("turn:error", compatibility.error, { threadId, level: "error" });
-      return;
+      return false;
     }
     if (compatibility.threadId !== threadId) {
       threadId = compatibility.threadId;
@@ -2931,7 +3038,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       threadServerId = await ensureServerForWorkspace(threadWorkspace);
       if (!threadServerId) {
         showToast({ kind: "error", title: "无法发送", message: "当前会话对应的服务不可用。" });
-        return;
+        return false;
       }
       setThreadWorkspace(threadId, threadWorkspace);
     }
@@ -2961,15 +3068,20 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       }
     }
 
+    const overrideAnchorTurnId = String(draft.anchorTurnId ?? "").trim();
     const rewroteHistoryBeforeSend =
-      runtimeStore.historyRewriteActive && runtimeStore.historyRewriteSource === "history";
-    const historyRewriteReady = await rollbackHistoryRewriteBeforeSend(threadId);
-    if (!historyRewriteReady) return;
+      Boolean(overrideAnchorTurnId) ||
+      (runtimeStore.historyRewriteActive && runtimeStore.historyRewriteSource === "history");
+    const historyRewriteReady = await rollbackHistoryRewriteBeforeSend(threadId, {
+      anchorTurnId: overrideAnchorTurnId,
+      force: Boolean(overrideAnchorTurnId),
+    });
+    if (!historyRewriteReady) return false;
     if (!rewroteHistoryBeforeSend) {
       const resumed = await ensureThreadResumed(threadId);
       if (!resumed) {
         showToast({ kind: "error", title: "无法发送", message: "会话未就绪（resume 失败）。" });
-        return;
+        return false;
       }
     }
 
@@ -2978,10 +3090,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       timelineStore.removeEvent({ threadId, id: event.id });
     }
 
-    runtimeStore.composeInput = "";
-    runtimeStore.clearComposeAttachments();
-    runtimeStore.clearComposeFileMentions();
-    runtimeStore.endHistoryRewrite();
+    if (clearRuntimeDraftOnAccept) clearRuntimeStoreDraftAfterSend();
 
     const running = threadStore.runningThreadIds.has(threadId);
     if (running && mode === "auto") {
@@ -2991,7 +3100,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         inputs: input,
         displayText: localUserMessage.displayText,
       });
-      return;
+      return true;
     }
 
     const localUserEventId = `local:user:${Date.now()}:${Math.random().toString(16).slice(2)}`;
@@ -3031,21 +3140,35 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       const steerOk = await requestTurnSteer(threadId, input, turnIdValue);
       if (!steerOk) {
         setLocalUserEventState("failed", "error", turnIdValue || undefined);
-        return;
+        return false;
       }
       setLocalUserEventState("sent", "info", turnIdValue || undefined);
-      return;
+      return true;
     }
 
     setLocalUserEventState("sending", "info");
-    const started = await startTurnWithInput({ threadId, threadWorkspace, threadServerId, input });
+    if (unpersistedThreadsById.has(threadId)) {
+      upsertThreadPreparingEvent(threadId);
+    }
+    const started = await startTurnWithInput({
+      threadId,
+      threadWorkspace,
+      threadServerId,
+      input,
+      model: requestedModel,
+      effort: requestedReasoningEffort,
+      sandboxMode: requestedSandboxMode,
+      composeModeOverride: requestedComposeMode,
+    });
     if (started.ok) {
       setLocalUserEventState("sent", "info");
-      return;
+      return true;
     }
+    clearThreadPreparingEvent(threadId);
     pushEvent("turn:error", started.error, { threadId, level: "error" });
     threadStore.setThreadRunning(threadId, false);
     setLocalUserEventState("failed", "error");
+    return false;
   };
 
   const summarizeQueuedMessagePreview = (message: {
@@ -3106,6 +3229,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (!threadServerId) {
       messageQueueStore.markStatus(threadId, next.id, "failed");
       patchLocalEvent({ localState: "failed", level: "error" });
+      clearThreadPreparingEvent(threadId);
       return;
     }
     const compatibility = await ensureThreadModelToolCompatibility({
@@ -3117,6 +3241,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (!compatibility.ok) {
       messageQueueStore.markStatus(threadId, next.id, "failed");
       patchLocalEvent({ localState: "failed", level: "error" });
+      clearThreadPreparingEvent(threadId);
       pushEvent("turn:error", compatibility.error, { threadId, level: "error" });
       return;
     }
@@ -3127,6 +3252,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       if (!threadServerId) {
         messageQueueStore.markStatus(threadId, next.id, "failed");
         patchLocalEvent({ localState: "failed", level: "error" });
+        clearThreadPreparingEvent(threadId);
         return;
       }
     }
@@ -3134,6 +3260,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (!resumed) {
       messageQueueStore.markStatus(threadId, next.id, "failed");
       patchLocalEvent({ localState: "failed", level: "error" });
+      clearThreadPreparingEvent(threadId);
       return;
     }
 
@@ -3145,7 +3272,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (queueInput.length === 0) {
       messageQueueStore.markStatus(threadId, next.id, "failed");
       patchLocalEvent({ localState: "failed", level: "error" });
+      clearThreadPreparingEvent(threadId);
       return;
+    }
+    if (unpersistedThreadsById.has(threadId)) {
+      upsertThreadPreparingEvent(threadId);
     }
     const started = await startTurnWithInput({ threadId, threadWorkspace, threadServerId, input: queueInput });
     if (started.ok) {
@@ -3155,6 +3286,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     }
     messageQueueStore.markStatus(threadId, next.id, "failed");
     patchLocalEvent({ localState: "failed", level: "error" });
+    clearThreadPreparingEvent(threadId);
   };
 
   const notifyCompletedTurnIfBackground = async (threadIdValue: string) => {
@@ -3177,11 +3309,29 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   };
 
   const send = async () => {
-    await sendOrQueueText("auto");
+    await sendOrQueueDraft("auto", runtimeStoreSendDraft(), { clearRuntimeDraftOnAccept: true });
+  };
+
+  const sendHistoryRewriteDraft: RuntimeOrchestrator["sendHistoryRewriteDraft"] = async (draft) => {
+    const anchorTurnId = String(draft?.anchorTurnId ?? "").trim();
+    if (!anchorTurnId) {
+      showToast({ kind: "error", title: "无法重写历史", message: "找不到该消息对应的回合。" });
+      return false;
+    }
+    return await sendOrQueueDraft("auto", {
+      anchorTurnId,
+      composeInput: String(draft?.composeInput ?? ""),
+      composeAttachments: Array.isArray(draft?.composeAttachments) ? draft.composeAttachments : [],
+      composeFileMentions: Array.isArray(draft?.composeFileMentions) ? draft.composeFileMentions : [],
+      model: String(draft?.model ?? ""),
+      reasoningEffort: String(draft?.reasoningEffort ?? ""),
+      sandboxMode: String(draft?.sandboxMode ?? ""),
+      composeMode: draft?.composeMode === "plan" ? "plan" : "default",
+    });
   };
 
   const steerNow = async () => {
-    await sendOrQueueText("steer");
+    await sendOrQueueDraft("steer", runtimeStoreSendDraft(), { clearRuntimeDraftOnAccept: true });
   };
 
   const editQueuedMessage = async (messageIdValue: string) => {
@@ -3289,6 +3439,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (!threadServerId) {
       messageQueueStore.markStatus(threadId, msg.id, "failed");
       patchLocalEvent({ localState: "failed", level: "error" });
+      clearThreadPreparingEvent(threadId);
       return;
     }
 
@@ -3296,6 +3447,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (!resumed) {
       messageQueueStore.markStatus(threadId, msg.id, "failed");
       patchLocalEvent({ localState: "failed", level: "error" });
+      clearThreadPreparingEvent(threadId);
       return;
     }
 
@@ -3304,6 +3456,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (queueInput.length === 0) {
       messageQueueStore.markStatus(threadId, msg.id, "failed");
       patchLocalEvent({ localState: "failed", level: "error" });
+      clearThreadPreparingEvent(threadId);
       return;
     }
 
@@ -3330,6 +3483,9 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       return;
     }
 
+    if (unpersistedThreadsById.has(threadId)) {
+      upsertThreadPreparingEvent(threadId);
+    }
     const started = await startTurnWithInput({ threadId, threadWorkspace, threadServerId, input: queueInput });
     if (started.ok) {
       messageQueueStore.remove(threadId, msg.id);
@@ -3338,6 +3494,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     }
     messageQueueStore.markStatus(threadId, msg.id, "failed");
     patchLocalEvent({ localState: "failed", level: "error" });
+    clearThreadPreparingEvent(threadId);
   };
 
   const interruptTurn = async () => {
@@ -3935,6 +4092,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     loadOlderHistoryTurns,
     deleteHistoryThread,
     send,
+    sendHistoryRewriteDraft,
     steerNow,
     sendQueuedMessageNow,
     editQueuedMessage,
@@ -3953,6 +4111,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     readWorkspaceDirectory,
     getWorkspaceMetadata,
     readWorkspaceTextFile,
+    deleteWorkspaceFile,
     writeWorkspaceTextFile,
     refreshSkills,
     toggleSkill,

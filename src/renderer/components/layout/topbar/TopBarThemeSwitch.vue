@@ -2,7 +2,12 @@
   <button
     id="btn-topbar-theme"
     class="topbar-theme-switch"
-    :class="{ 'is-dark': !themeStore.isLight, 'is-tech': themeStore.theme === 'tech' }"
+    :class="{
+      'is-dark': !themeStore.isLight,
+      'is-tech': themeStore.theme === 'tech',
+      'is-hacker': themeStore.theme === 'hacker',
+      'is-pink': themeStore.theme === 'pink',
+    }"
     type="button"
     :aria-label="themeAriaLabel"
     @click="onToggleTheme"
@@ -17,7 +22,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { Cpu, Moon, Sun } from "lucide-vue-next";
+import { Cpu, Heart, Moon, Sun, Terminal } from "lucide-vue-next";
 import { APP_THEME_ORDER, themeLabelFor, useThemeStore } from "../../../stores/theme.store";
 
 const themeStore = useThemeStore();
@@ -34,7 +39,9 @@ const nextThemeLabel = computed(() => nextThemeLabelFor());
 const themeAriaLabel = computed(() => `切换主题，当前${themeLabel.value}，下一个${nextThemeLabel.value}`);
 const themeIcon = computed(() => {
   if (themeStore.theme === "light") return Sun;
+  if (themeStore.theme === "pink") return Heart;
   if (themeStore.theme === "tech") return Cpu;
+  if (themeStore.theme === "hacker") return Terminal;
   return Moon;
 });
 

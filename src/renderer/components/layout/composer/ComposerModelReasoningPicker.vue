@@ -4,9 +4,9 @@
     type="button"
     class="composer-model-reasoning-trigger"
     :class="['composer-select--model', modelToneClass, { 'is-open': open }]"
-    v-tooltip="triggerTitle"
     aria-haspopup="dialog"
     :aria-expanded="open ? 'true' : 'false'"
+    @pointerdown="onPreservePointerFocus"
     @click="onTriggerClick"
     @keydown="onTriggerKeydown"
   >
@@ -25,8 +25,10 @@
         ref="popoverRef"
         class="composer-model-reasoning-popover app-scrollbar"
         :style="popoverStyle"
+        :data-composer-owner="interactionOwnerId || undefined"
         role="dialog"
         aria-label="模型和思考程度"
+        @pointerdown="onPreservePointerFocus"
       >
         <div class="composer-model-reasoning-popover-head">
           <div class="composer-model-reasoning-popover-title">
@@ -64,8 +66,10 @@
         ref="reasoningPopoverRef"
         class="composer-model-reasoning-popover composer-model-reasoning-popover--sub app-scrollbar"
         :style="reasoningPopoverStyle"
+        :data-composer-owner="interactionOwnerId || undefined"
         role="listbox"
         :aria-label="`${activeModel} 思考程度`"
+        @pointerdown="onPreservePointerFocus"
       >
         <div class="composer-model-reasoning-popover-head composer-model-reasoning-popover-head--sub">
           <div class="composer-model-reasoning-popover-title">
@@ -116,6 +120,8 @@ const props = defineProps<{
   reasoningEffort: string;
   modelOptions: readonly string[];
   reasoningEffortOptions: readonly SelectOption[];
+  preservePointerFocus?: boolean;
+  interactionOwnerId?: string;
 }>();
 
 const emit = defineEmits<{
@@ -137,6 +143,10 @@ const POPOVER_MAX_HEIGHT_PX = 320;
 const MODEL_POPOVER_MIN_WIDTH_PX = 224;
 const REASONING_POPOVER_WIDTH_PX = 176;
 
+function onPreservePointerFocus(event: PointerEvent) {
+  if (props.preservePointerFocus) event.preventDefault();
+}
+
 function normalizeToneKey(value: unknown): string {
   return (
     String(value ?? "")
@@ -154,8 +164,6 @@ const selectedReasoningLabel = computed(() => {
   const hit = props.reasoningEffortOptions.find((option) => option.value === props.reasoningEffort);
   return hit?.label ?? props.reasoningEffort;
 });
-
-const triggerTitle = computed(() => `模型：${props.model}，思考程度：${selectedReasoningLabel.value}`);
 
 const modelPickerOptions = computed<VisibleOption[]>(() =>
   props.modelOptions.map((value) => ({

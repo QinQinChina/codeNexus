@@ -42,6 +42,7 @@ const ACTIVITY_ROW_KINDS = new Set<ChatRenderedRow["kind"]>(["activity", "auxAct
 
 function rowGroup(row: ChatRenderedRow): ChatTimelineRowGroup {
   if (COMMAND_ROW_KINDS.has(row.kind)) return "command";
+  if (row.kind === "tokenUsageSummary") return "activity";
   if (ACTIVITY_ROW_KINDS.has(row.kind)) return "activity";
   return "body";
 }
@@ -49,6 +50,7 @@ function rowGroup(row: ChatRenderedRow): ChatTimelineRowGroup {
 function rowRole(row: ChatRenderedRow): ChatTimelineRowRole {
   if (row.kind === "user" || row.kind === "assistant") return "message";
   if (row.kind === "system") return "system";
+  if (row.kind === "tokenUsageSummary") return "activity";
   if (ACTIVITY_ROW_KINDS.has(row.kind) || COMMAND_ROW_KINDS.has(row.kind)) return "activity";
   if (TOOL_ROW_KINDS.has(row.kind)) return "tool";
   return "tool";
@@ -57,6 +59,7 @@ function rowRole(row: ChatRenderedRow): ChatTimelineRowRole {
 function rowDensity(row: ChatRenderedRow): ChatTimelineRowDensity {
   if (COMMAND_ROW_KINDS.has(row.kind) || row.kind === "activity" || row.kind === "reasoningBlock") return "compact";
   if (row.kind === "assistant" || row.kind === "user" || row.kind === "fileChange") return "spacious";
+  if (row.kind === "tokenUsageSummary") return "compact";
   return "standard";
 }
 
@@ -87,6 +90,7 @@ function rowStatus(row: ChatRenderedRow): ChatTimelineRowStatus {
     if (row.group.stats.failed > 0) return "error";
     return "completed";
   }
+  if (row.kind === "tokenUsageSummary") return "completed";
   if (
     row.kind === "commandAction" ||
     row.kind === "commandList" ||
@@ -109,6 +113,7 @@ function estimatedHeightPx(row: ChatRenderedRow): number {
     case "commandRead":
     case "commandSearch":
     case "reasoningBlock":
+    case "tokenUsageSummary":
       return 28;
     case "auxActivityGroup":
       return row.defaultCollapsed ? 36 : 180;
@@ -138,7 +143,8 @@ function isExpandable(row: ChatRenderedRow): boolean {
     row.kind === "reasoningBlock" ||
     row.kind === "mcpResourceRead" ||
     row.kind === "mcpToolGroup" ||
-    row.kind === "commandAction"
+    row.kind === "commandAction" ||
+    row.kind === "tokenUsageSummary"
   );
 }
 

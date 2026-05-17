@@ -34,6 +34,6 @@ defineProps<{
   eventClass: string;
   fileChangeKindClass: (kind: string) => any;
   fileChangeKindText: (kind: string) => string;
-  fileChangeDiffMetaText: (diffText: string) => string;
+  fileChangeDiffMetaText: (diffText: string, fileKind?: string) => string;
 }>();
 </script>

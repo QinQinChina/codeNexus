@@ -349,6 +349,22 @@
     0 0 14px rgb(from var(--accent) r g b / 0.2);
 }
 
+.topbar button.topbar-theme-switch.is-hacker {
+  border-color: color-mix(in srgb, var(--accent) 58%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 6%, transparent),
+    0 0 16px rgb(from var(--accent) r g b / 0.26);
+}
+
+.topbar button.topbar-theme-switch.is-pink {
+  border-color: color-mix(in srgb, var(--accent) 38%, transparent);
+  background: var(--topbar-btn-active-bg);
+  color: var(--topbar-btn-active-text);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 28%, transparent),
+    0 8px 18px rgb(from var(--accent) r g b / 0.14);
+}
+
 .topbar button.topbar-theme-switch:hover:not(:disabled) {
   transform: translateY(-1px);
   border-color: color-mix(in srgb, var(--tb-control-border) 58%, var(--accent) 42%);

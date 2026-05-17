@@ -1,4 +1,10 @@
-import type { TimelineEventItem } from "../../../domain/types";
+import type {
+  CollaborationModeKind,
+  ComposeImageAttachment,
+  ComposeWorkspaceFileMention,
+  TimelineEventItem,
+  TokenUsageState,
+} from "../../../domain/types";
 import type { DynamicToolTimelineItem } from "../../../domain/dynamicTools";
 import type {
   ReasoningBlockNode,
@@ -74,6 +80,13 @@ export type ChatAuxActivitySummaryItem = {
   count: number;
 };
 
+export type ChatTokenUsageSummaryItem = {
+  threadId: string;
+  turnId: string;
+  completedAt: number | null;
+  usage: TokenUsageState;
+};
+
 export type ChatAuxiliaryRow =
   | (ChatRowBase & { kind: "activity"; text: string; createdAt: number; tone?: ActivityTone })
   | (ChatRowBase & { kind: "imageTool"; createdAt: number; item: ChatImageToolItem })
@@ -92,6 +105,7 @@ export type ChatMainRow =
   | (ChatRowBase & { kind: "assistant"; event: TimelineEventItem })
   | (ChatRowBase & { kind: "system"; text: string })
   | (ChatRowBase & { kind: "fileChange"; item: FileChangeNode })
+  | (ChatRowBase & { kind: "tokenUsageSummary"; item: ChatTokenUsageSummaryItem })
   | ChatAuxiliaryRow;
 
 export type ChatAuxActivityGroupRow = ChatRowBase & {
@@ -112,6 +126,19 @@ export type PlanDeltaExecUiState = {
   reasoningEffort: string;
   sandboxMode: SandboxMode;
   executing: boolean;
+};
+
+export type ChatInlineRewriteDraft = {
+  anchorEventId: string;
+  anchorTurnId: string;
+  composeInput: string;
+  composeFileMentions: ComposeWorkspaceFileMention[];
+  composeAttachments: ComposeImageAttachment[];
+  model: string;
+  reasoningEffort: string;
+  sandboxMode: SandboxMode;
+  composeMode: CollaborationModeKind;
+  sending: boolean;
 };
 
 export type ChatUserMessageSnapshot = {

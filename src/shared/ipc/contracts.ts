@@ -466,18 +466,6 @@ export type AppFileMetadata = {
   modifiedAtMs: number;
 };
 
-export type ImportBackgroundImageResult =
-  | {
-      ok: true;
-      canceled: false;
-      relativePath: string;
-      dataUrl: string;
-    }
-  | {
-      ok: false;
-      canceled: true;
-    };
-
 export type ImageGenerationGenerateArgs = {
   threadId?: string | null;
   turnId?: string | null;
@@ -641,6 +629,7 @@ export type CodexDesktopAppApi = {
     path: string;
   }): Promise<{ ok: true; content: string; encoding: AppTextEncoding; lineEnding?: AppTextLineEnding | null }>;
   writeTextFile(args: { path: string; content: string; encoding?: AppTextEncoding }): Promise<{ ok: true }>;
+  deleteFile(args: { path: string }): Promise<{ ok: true }>;
   readDirectory(args: { path: string }): Promise<{ ok: true; entries: AppDirectoryEntry[] }>;
   getFileMetadata(args: { path: string }): Promise<{ ok: true; metadata: AppFileMetadata }>;
   listNotificationSounds(): Promise<{ items: NotificationSoundItem[] }>;
@@ -650,8 +639,6 @@ export type CodexDesktopAppApi = {
   readClipboardImageDataUrl(): Promise<{ ok: true; dataUrl: string | null }>;
   writeClipboardImageFromPath(args: { path: string }): Promise<{ ok: true }>;
   readImageFileDataUrl(args: { path: string }): Promise<{ ok: true; dataUrl: string }>;
-  importBackgroundImage(): Promise<ImportBackgroundImageResult>;
-  clearBackgroundImage(): Promise<{ ok: true }>;
   generateImage(args: ImageGenerationGenerateArgs): Promise<ImageGenerationGenerateResult>;
   listImageGenerationHistory(): Promise<ImageGenerationHistoryListResult>;
   deleteImageGenerationHistory(args: { id: string }): Promise<ImageGenerationHistoryDeleteResult>;

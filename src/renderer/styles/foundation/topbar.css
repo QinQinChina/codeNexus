@@ -4,8 +4,9 @@
   --tb-line: var(--topbar-border);
   --tb-line-strong: color-mix(in srgb, var(--topbar-border) 78%, var(--topbar-text) 10%);
   --tb-bg: var(--topbar-bg);
-  --tb-bg-raised: color-mix(in srgb, var(--topbar-bg) 90%, var(--surface-1, var(--topbar-bg)) 10%);
-  --tb-control-bg: var(--topbar-control-bg, color-mix(in srgb, var(--topbar-bg) 84%, transparent));
+  --tb-bg-raised: var(--shell-surface-strong, var(--surface-1));
+  --tb-bg-base: var(--shell-surface, var(--surface-1));
+  --tb-control-bg: var(--topbar-control-bg, var(--control-surface, color-mix(in srgb, var(--topbar-bg) 84%, transparent)));
   --tb-control-hover: var(--topbar-hover-bg);
   --tb-control-active: var(--topbar-active-bg);
   --tb-control-border: var(--topbar-control-border, var(--topbar-border));
@@ -20,13 +21,9 @@
   height: var(--topbar-h);
   padding: 0 calc(var(--topbar-px) + var(--window-controls-pad)) 0 var(--topbar-px);
   border-bottom: 1px solid var(--tb-line);
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--tb-bg-raised) 96%, transparent),
-      color-mix(in srgb, var(--tb-bg) 86%, var(--surface-2, var(--tb-bg)) 14%)
-    ),
-    var(--tb-bg);
+  background: var(--topbar-bg, linear-gradient(180deg, var(--tb-bg-raised), var(--tb-bg-base)));
+  backdrop-filter: var(--shell-backdrop-filter, none);
+  -webkit-backdrop-filter: var(--shell-backdrop-filter, none);
   color: var(--topbar-text);
   -webkit-app-region: drag;
 }
