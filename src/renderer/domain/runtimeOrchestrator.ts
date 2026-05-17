@@ -772,6 +772,35 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     return String(anchorEvent?.turnId ?? "").trim();
   };
 
+  const isHistoryRewriteAnchorUserEvent = (event: TimelineEventItem, anchorTurnId: string): boolean => {
+    if (String(event?.turnId ?? "").trim() !== anchorTurnId) return false;
+    return event.localKind === "user" || event.method === "user";
+  };
+
+  const isOutputAfterHistoryRewriteAnchor = (event: TimelineEventItem): boolean => {
+    if (event.hidden) return false;
+    if (event.localKind === "thinking" || event.method === "local/thinking") return false;
+    if (
+      event.method === "turn/started" ||
+      event.method === "turn/completed" ||
+      event.method === "turn/diff/updated" ||
+      event.method === "thread/tokenUsage/updated" ||
+      event.method === "local/contextCompaction"
+    ) {
+      return false;
+    }
+    return true;
+  };
+
+  const hasOutputBelowHistoryRewriteAnchor = (threadIdValue: string, anchorTurnIdValue: string): boolean | null => {
+    const anchorTurnId = String(anchorTurnIdValue ?? "").trim();
+    if (!anchorTurnId) return null;
+    const events = timelineStore.eventsForThread(threadIdValue);
+    const anchorIndex = events.findIndex((event) => isHistoryRewriteAnchorUserEvent(event, anchorTurnId));
+    if (anchorIndex < 0) return null;
+    return events.slice(anchorIndex + 1).some(isOutputAfterHistoryRewriteAnchor);
+  };
+
   const rollbackHistoryRewriteBeforeSend = async (
     threadIdValue: string,
     opts?: { anchorTurnId?: string; force?: boolean }
@@ -806,6 +835,9 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     const anchorTurnId = forcedAnchorTurnId || resolveHistoryRewriteAnchorTurnId(tid);
     const rollback = resolveHistoryRewriteRollback(threadStore.completedTurnsByThread.get(tid) ?? [], anchorTurnId);
     if (!rollback) {
+      if (hasOutputBelowHistoryRewriteAnchor(tid, anchorTurnId) === false) {
+        return true;
+      }
       showToast({
         kind: "error",
         title: "无法重写历史",
