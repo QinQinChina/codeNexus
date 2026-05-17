@@ -147,6 +147,8 @@ const IMAGE_MIME_BY_EXT: Record<string, string> = {
   ".webp": "image/webp",
   ".gif": "image/gif",
   ".bmp": "image/bmp",
+  ".svg": "image/svg+xml",
+  ".ico": "image/x-icon",
 };
 
 const IMAGE_EXT_BY_MIME: Record<string, string> = {
@@ -155,6 +157,8 @@ const IMAGE_EXT_BY_MIME: Record<string, string> = {
   "image/webp": ".webp",
   "image/gif": ".gif",
   "image/bmp": ".bmp",
+  "image/svg+xml": ".svg",
+  "image/x-icon": ".ico",
 };
 
 function imageMimeFromExt(extValue: unknown): string {
@@ -240,7 +244,10 @@ function sanitizePathSegment(value: unknown, fallback: string): string {
 function parseImageDataUrl(value: string): { mimeType: string; buffer: Buffer } | null {
   const match = String(value ?? "").match(/^data:([^;,]+);base64,(.+)$/i);
   if (!match) return null;
-  const mimeType = String(match[1] ?? "image/png").trim().toLowerCase() || "image/png";
+  const mimeType =
+    String(match[1] ?? "image/png")
+      .trim()
+      .toLowerCase() || "image/png";
   const body = String(match[2] ?? "").trim();
   if (!body) return null;
   return { mimeType, buffer: Buffer.from(body, "base64") };
@@ -271,7 +278,12 @@ async function readImageFileAsDataUrl(filePath: string): Promise<string> {
   return image.toDataURL();
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number, signal?: AbortSignal): Promise<Response> {
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+  signal?: AbortSignal
+): Promise<Response> {
   const controller = new AbortController();
   const abort = () => controller.abort();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -306,9 +318,7 @@ function extractGeneratedImages(value: unknown): Array<{
   const out: Array<{ buffer?: Buffer; url?: string; mimeType?: string; revisedPrompt: string | null }> = [];
   for (const itemValue of items) {
     const item =
-      itemValue && typeof itemValue === "object" && !Array.isArray(itemValue)
-        ? (itemValue as Record<string, any>)
-        : {};
+      itemValue && typeof itemValue === "object" && !Array.isArray(itemValue) ? (itemValue as Record<string, any>) : {};
     const revisedPrompt = toNullableText(item.revised_prompt ?? item.revisedPrompt);
     const rawBase64 = toNullableText(item.b64_json ?? item.base64 ?? item.image_base64);
     if (rawBase64) {
@@ -361,10 +371,7 @@ export async function generateImagesWithSettings(
   const mode = inputImages.length > 0 ? "edit" : "generate";
   const endpoint = normalizeImageEndpoint(imageSettings.baseUrl, mode === "edit" ? "edits" : "generations");
   const outputFormat = normalizeImageOutputFormat(args?.outputFormat, imageSettings.outputFormat);
-  const n = Math.min(
-    toIntegerInRange(args?.n, 1, 1, 4),
-    toIntegerInRange(imageSettings.maxImages, 1, 1, 4)
-  );
+  const n = Math.min(toIntegerInRange(args?.n, 1, 1, 4), toIntegerInRange(imageSettings.maxImages, 1, 1, 4));
   const size = toNullableText(args?.size) ?? imageSettings.defaultSize;
   const quality = toNullableText(args?.quality) ?? imageSettings.defaultQuality;
   const model = toNullableText(imageSettings.model) || "gpt-image-2";

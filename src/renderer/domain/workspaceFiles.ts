@@ -1,6 +1,7 @@
 import type { WorkspaceFileSource } from "./types";
 
 export const WORKSPACE_FILE_SAVE_TIMELINE_METHOD = "local/workspaceFileSave";
+const WORKSPACE_IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg", ".ico"]);
 
 export type WorkspaceFileSaveTimelineStatus = "success" | "failed";
 
@@ -93,6 +94,25 @@ export function detectUnsupportedTextReason(content: string): string {
     return "文件包含较多不可见控制字符，暂不支持作为文本编辑。";
   }
   return "";
+}
+
+export function isWorkspaceImagePath(path: string): boolean {
+  const name = basenameFromPath(path).toLowerCase();
+  const match = name.match(/(\.[^.\\/]+)$/);
+  return Boolean(match?.[1] && WORKSPACE_IMAGE_EXTS.has(match[1]));
+}
+
+export function workspaceImageMimeFromPath(path: string): string {
+  const name = basenameFromPath(path).toLowerCase();
+  const ext = name.match(/(\.[^.\\/]+)$/)?.[1] ?? "";
+  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+  if (ext === ".png") return "image/png";
+  if (ext === ".webp") return "image/webp";
+  if (ext === ".gif") return "image/gif";
+  if (ext === ".bmp") return "image/bmp";
+  if (ext === ".svg") return "image/svg+xml";
+  if (ext === ".ico") return "image/x-icon";
+  return "image/*";
 }
 
 export function basenameFromPath(path: string): string {

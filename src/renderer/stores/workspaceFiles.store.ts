@@ -6,9 +6,12 @@ import {
   buildWorkspaceFileSaveTimelineItem,
   buildWorkspaceFileSaveTimelineParamsText,
   detectUnsupportedTextReason,
+  isWorkspaceImagePath,
   WORKSPACE_FILE_SAVE_TIMELINE_METHOD,
+  workspaceImageMimeFromPath,
   type WorkspaceFileSaveTimelineParams,
 } from "../domain/workspaceFiles";
+import { readLocalImageDataUrl } from "../features/media/localImageCache";
 import { normalizeAbsoluteFsPath } from "../domain/workspacePath";
 import { useRuntimeStore } from "./runtime.store";
 import { useTimelineStore } from "./timeline.store";
@@ -34,8 +37,11 @@ export type WorkspaceEditorTabState = {
   path: string;
   source: WorkspaceFileSource | null;
   metadata: WorkspaceFileMetadataState | null;
+  previewKind: "text" | "image";
   originalContent: string;
   draftContent: string;
+  imageDataUrl: string;
+  imageMimeType: string;
   encoding: AppTextEncoding;
   lineEnding: AppTextLineEnding;
   unsupportedReason: string;
@@ -122,8 +128,11 @@ function createEditorTabState(path: string): WorkspaceEditorTabState {
     path: normalized,
     source: null,
     metadata: null,
+    previewKind: "text",
     originalContent: "",
     draftContent: "",
+    imageDataUrl: "",
+    imageMimeType: "",
     encoding: "UTF-8",
     lineEnding: "LF",
     unsupportedReason: "",
@@ -142,6 +151,7 @@ function resolveExistingTabPath(tabsByPath: Record<string, WorkspaceEditorTabSta
 
 function isTabDirty(tab: WorkspaceEditorTabState | null | undefined): boolean {
   if (!tab) return false;
+  if (tab.previewKind !== "text") return false;
   return tab.draftContent !== tab.originalContent;
 }
 
@@ -229,6 +239,15 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
     activeFileDraftContent(): string {
       return this.activeTab?.draftContent ?? "";
     },
+    activeFilePreviewKind(): "text" | "image" {
+      return this.activeTab?.previewKind ?? "text";
+    },
+    activeFileImageDataUrl(): string {
+      return this.activeTab?.imageDataUrl ?? "";
+    },
+    activeFileImageMimeType(): string {
+      return this.activeTab?.imageMimeType ?? "";
+    },
     activeFileUnsupportedReason(): string {
       return this.activeTab?.unsupportedReason ?? "";
     },
@@ -262,7 +281,7 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
     canEditActiveFile(): boolean {
       const activeTab = this.activeTab;
       if (!activeTab?.path) return false;
-      return !activeTab.loading && !activeTab.unsupportedReason;
+      return activeTab.previewKind === "text" && !activeTab.loading && !activeTab.unsupportedReason;
     },
     canSaveActiveFile(): boolean {
       return this.canEditActiveFile && this.isDirty && !this.fileLoading && !this.saving;
@@ -756,6 +775,9 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
       tab.saving = false;
       tab.errorText = "";
       tab.unsupportedReason = "";
+      tab.previewKind = "text";
+      tab.imageDataUrl = "";
+      tab.imageMimeType = "";
 
       try {
         const metadata = await runtime.getWorkspaceMetadata(nextPath);
@@ -770,6 +792,31 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
           return false;
         }
 
+        if (isWorkspaceImagePath(nextPath)) {
+          const imageDataUrl = await readLocalImageDataUrl(nextPath);
+          currentPath = resolveExistingTabPath(this.editorTabsByPath, currentPath);
+          if (!currentPath) return false;
+          const finalPath = this.renameEditorTab(currentPath, nextPath);
+          const finalTab = this.editorTabsByPath[finalPath];
+          if (!finalTab) return false;
+          finalTab.path = nextPath;
+          finalTab.source = "local";
+          finalTab.metadata = metadata;
+          finalTab.previewKind = "image";
+          finalTab.originalContent = "";
+          finalTab.draftContent = "";
+          finalTab.imageDataUrl = imageDataUrl;
+          finalTab.imageMimeType = workspaceImageMimeFromPath(nextPath);
+          finalTab.encoding = "UTF-8";
+          finalTab.lineEnding = "LF";
+          finalTab.unsupportedReason = "";
+          finalTab.errorText = "";
+          finalTab.loading = false;
+          finalTab.saving = false;
+          this.activeEditorTabPath = finalPath;
+          return true;
+        }
+
         const result = await runtime.readWorkspaceTextFile(nextPath);
         currentPath = resolveExistingTabPath(this.editorTabsByPath, currentPath);
         if (!currentPath) return false;
@@ -780,8 +827,11 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
         finalTab.path = result.path;
         finalTab.source = result.source;
         finalTab.metadata = metadata;
+        finalTab.previewKind = "text";
         finalTab.originalContent = result.content;
         finalTab.draftContent = result.content;
+        finalTab.imageDataUrl = "";
+        finalTab.imageMimeType = "";
         finalTab.encoding = result.encoding;
         finalTab.lineEnding = result.lineEnding;
         finalTab.unsupportedReason = unsupportedReason;

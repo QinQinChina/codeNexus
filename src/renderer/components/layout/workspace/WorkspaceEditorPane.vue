@@ -16,17 +16,14 @@
             :aria-selected="isActiveTab(tab.path) ? 'true' : 'false'"
             @click="onActivateTab(tab.path)"
           >
-            <FileText class="workspace-editor-tab__icon" aria-hidden="true" />
+            <ImageIcon v-if="tab.previewKind === 'image'" class="workspace-editor-tab__icon" aria-hidden="true" />
+            <FileText v-else class="workspace-editor-tab__icon" aria-hidden="true" />
             <span class="workspace-editor-tab__label">{{ basenameFromPath(tab.path) || tab.path }}</span>
             <span v-if="workspaceFilesStore.isTabDirty(tab.path)" class="workspace-editor-tab__dirty" aria-hidden="true"
               >*</span
             >
           </button>
-          <button
-            class="workspace-editor-tab__close"
-            type="button"
-            @click.stop="onCloseTab(tab.path)"
-          >
+          <button class="workspace-editor-tab__close" type="button" @click.stop="onCloseTab(tab.path)">
             <X class="workspace-editor-tab__close-icon" aria-hidden="true" />
           </button>
         </div>
@@ -62,16 +59,33 @@
           <div v-else-if="workspaceFilesStore.activeFileUnsupportedReason" class="workspace-files-editor-error">
             {{ workspaceFilesStore.activeFileUnsupportedReason }}
           </div>
+          <div v-else-if="activeIsImagePreview" class="workspace-editor-image-shell">
+            <div class="workspace-editor-image-stage">
+              <img
+                class="workspace-editor-image"
+                :src="workspaceFilesStore.activeFileImageDataUrl"
+                :alt="workspaceFilesStore.activeFileName || '图片预览'"
+              />
+            </div>
+          </div>
           <div v-else class="workspace-editor-code-shell">
             <div ref="editorHostRef" class="workspace-editor-code-view" aria-label="代码编辑器"></div>
           </div>
           <div class="workspace-editor-statusbar">
             <span class="mono dim workspace-editor-statusbar__language">{{ activeLanguageLabel }}</span>
-            <span class="mono dim">{{ activeEncodingLabel }}</span>
-            <span class="mono dim">{{ activeLineEndingLabel }}</span>
-            <span class="mono dim">{{ activeCursorLabel }}</span>
-            <span class="mono dim">{{ activeSelectionLabel }}</span>
-            <span class="mono dim">字符：{{ workspaceFilesStore.activeFileDraftContent.length.toLocaleString() }}</span>
+            <template v-if="workspaceFilesStore.activeFilePreviewKind === 'text'">
+              <span class="mono dim">{{ activeEncodingLabel }}</span>
+              <span class="mono dim">{{ activeLineEndingLabel }}</span>
+              <span class="mono dim">{{ activeCursorLabel }}</span>
+              <span class="mono dim">{{ activeSelectionLabel }}</span>
+              <span class="mono dim"
+                >字符：{{ workspaceFilesStore.activeFileDraftContent.length.toLocaleString() }}</span
+              >
+            </template>
+            <template v-else-if="activeIsImagePreview">
+              <span class="mono dim">{{ activeImageMimeLabel }}</span>
+              <span class="mono dim">只读预览</span>
+            </template>
             <span
               v-if="workspaceFilesStore.fileErrorText && !workspaceFilesStore.activeFileUnsupportedReason"
               class="workspace-files-editor-footer__error"
@@ -89,7 +103,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import type { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { ChevronRight, FileText, X } from "lucide-vue-next";
+import { ChevronRight, FileText, Image as ImageIcon, X } from "lucide-vue-next";
 import { basenameFromPath } from "../../../domain/workspaceFiles";
 import { normalizeAbsoluteFsPath } from "../../../domain/workspacePath";
 import { useWorkspaceFilesStore } from "../../../stores/workspaceFiles.store";
@@ -154,8 +168,15 @@ const visibleBreadcrumbs = computed(() => {
 });
 
 const activeLanguageLabel = computed(() => {
+  if (workspaceFilesStore.activeFilePreviewKind === "image") return "图片";
   return getLanguageDisplayNameForPath(workspaceFilesStore.activeFilePath);
 });
+
+const activeIsImagePreview = computed(
+  () => workspaceFilesStore.activeFilePreviewKind === "image" && Boolean(workspaceFilesStore.activeFileImageDataUrl)
+);
+
+const activeImageMimeLabel = computed(() => workspaceFilesStore.activeFileImageMimeType || "image/*");
 
 const activeEncodingLabel = computed(() => {
   return workspaceFilesStore.activeTab?.encoding ?? "UTF-8";
@@ -360,7 +381,10 @@ async function ensureLanguageLoaded(pathValue: string) {
 async function syncEditorView() {
   const path = String(workspaceFilesStore.activeFilePath ?? "").trim();
   const canRenderEditor =
-    Boolean(path) && !workspaceFilesStore.fileLoading && !workspaceFilesStore.activeFileUnsupportedReason;
+    Boolean(path) &&
+    workspaceFilesStore.activeFilePreviewKind === "text" &&
+    !workspaceFilesStore.fileLoading &&
+    !workspaceFilesStore.activeFileUnsupportedReason;
 
   if (!canRenderEditor) {
     teardownEditorView({ preserveCurrent: true });
@@ -412,6 +436,7 @@ watch(
     [
       workspaceFilesStore.activeFilePath,
       workspaceFilesStore.activeFileDraftContent,
+      workspaceFilesStore.activeFilePreviewKind,
       workspaceFilesStore.fileLoading,
       workspaceFilesStore.activeFileUnsupportedReason,
     ] as const,
