@@ -12,7 +12,7 @@
 | `ipc/channels.ts` / `ipc/contracts.ts`         | IPC 单一事实来源（含 `history.getThreadContent` 与统一 `cache` 管理接口） |
 | `codex-protocol/`                              | app-server 协议映射与类型导出                                             |
 | `localSettings.ts`                             | 本地设置定义与归一化                                                      |
-| `modelCatalog.ts` / `modelPresets.ts`          | 模型目录与预设                                                            |
+| `modelCatalog.ts`                              | 模型目录                                                                  |
 | `localDraftState.ts` / `localMessageOutbox.ts` | 本地草稿与消息队列结构                                                    |
 
 ## 维护边界

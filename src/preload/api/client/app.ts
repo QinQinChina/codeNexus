@@ -50,8 +50,12 @@ export function createAppApi(ipcRenderer: IpcRenderer): CodexDesktopApi["app"] {
     deleteCodexProfile: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appCodexProfilesDelete, args),
     // 设置当前 active profile：切换当前会话使用的配置。
     setActiveCodexProfile: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appCodexProfilesSetActive, args),
+    // 读取 Codex API Key：用于从本机 Codex CLI 导入当前配置。
+    readCodexAuthApiKey: () => ipcRenderer.invoke(IPC_APP_CHANNELS.appCodexAuthReadApiKey),
     // 写入 Codex API Key：用于本地认证配置。
     writeCodexAuthApiKey: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appCodexAuthWriteApiKey, args),
+    // 测试供应商连接：主进程执行请求，避免 renderer CORS 差异。
+    testCodexProvider: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appCodexProviderTest, args),
     // 读取 skill roots：获取当前启用的技能根目录。
     readCodexSkillRoots: () => ipcRenderer.invoke(IPC_APP_CHANNELS.appCodexSkillRootsRead),
     // 为当前工作区设置 skill roots：联动工作区与技能配置。

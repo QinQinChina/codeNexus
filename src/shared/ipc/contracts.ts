@@ -611,6 +611,21 @@ export type CodexAuthWriteApiKeyResult = {
   path: string;
 };
 
+export type CodexAuthReadApiKeyResult = {
+  ok: true;
+  path: string;
+  exists: boolean;
+  apiKey: string | null;
+  maskedApiKey: string | null;
+};
+
+export type CodexProviderTestResult = {
+  ok: boolean;
+  status: number | null;
+  message: string;
+  modelCount: number | null;
+};
+
 export type CodexSkillRootsSnapshot = {
   path: string;
   exists: boolean;
@@ -651,7 +666,9 @@ export type CodexDesktopAppApi = {
   upsertCodexProfile(args: { profile: CodexProviderProfileInput }): Promise<CodexProviderProfilesMutationResult>;
   deleteCodexProfile(args: { id: string }): Promise<CodexProviderProfilesMutationResult>;
   setActiveCodexProfile(args: { id: string | null }): Promise<CodexProviderProfilesMutationResult>;
+  readCodexAuthApiKey(): Promise<CodexAuthReadApiKeyResult>;
   writeCodexAuthApiKey(args: { apiKey: string }): Promise<CodexAuthWriteApiKeyResult>;
+  testCodexProvider(args: { baseUrl: string; apiKey: string; timeoutMs?: number }): Promise<CodexProviderTestResult>;
   readCodexSkillRoots(): Promise<CodexSkillRootsSnapshot>;
   setCodexSkillRootsForWorkspace(args: {
     workspacePath: string;

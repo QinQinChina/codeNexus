@@ -110,6 +110,13 @@ function toNullableText(value: unknown): string | null {
   return text || null;
 }
 
+function maskSecret(value: unknown): string | null {
+  const text = String(value ?? "").trim();
+  if (!text) return null;
+  if (text.length <= 10) return "********";
+  return `${text.slice(0, 4)}...${text.slice(-4)}`;
+}
+
 function toIntegerInRange(value: unknown, fallback: number, min: number, max: number): number {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
@@ -123,6 +130,14 @@ function normalizeHttpUrl(value: unknown): string | null {
   const trimmed = text.replace(/\/+$/, "");
   if (!/^https?:\/\//i.test(trimmed)) return null;
   return trimmed;
+}
+
+function normalizeOpenAiModelsEndpoint(baseUrlValue: unknown): string {
+  const baseUrl = normalizeHttpUrl(baseUrlValue);
+  if (!baseUrl) throw new Error("供应商 Base URL 无效，请填写 http(s) URL。");
+  if (/\/models$/i.test(baseUrl)) return baseUrl;
+  if (/\/v1$/i.test(baseUrl)) return `${baseUrl}/models`;
+  return `${baseUrl}/v1/models`;
 }
 
 const IMAGE_MIME_BY_EXT: Record<string, string> = {
@@ -738,6 +753,18 @@ export function registerAppHandlers(deps: {
     return { path: codexProfileService.path, exists: true as const, state };
   });
 
+  ipcMain.handle(IPC_APP_CHANNELS.appCodexAuthReadApiKey, async () => {
+    const authPath = join(homedir(), ".codex", "auth.json");
+    let existing: Record<string, unknown> = {};
+    let exists = false;
+    try {
+      existing = tryParseObjectJson(await readFile(authPath, "utf8"));
+      exists = true;
+    } catch {}
+    const apiKey = toNullableText(existing.OPENAI_API_KEY);
+    return { ok: true as const, path: authPath, exists, apiKey, maskedApiKey: maskSecret(apiKey) };
+  });
+
   ipcMain.handle(IPC_APP_CHANNELS.appCodexAuthWriteApiKey, async (_evt, args: { apiKey: string }) => {
     const apiKey = String(args?.apiKey ?? "").trim();
     const authPath = join(homedir(), ".codex", "auth.json");
@@ -750,6 +777,57 @@ export function registerAppHandlers(deps: {
     await writeFile(authPath, `${JSON.stringify(next, null, 2)}\n`, "utf8");
     return { ok: true as const, path: authPath };
   });
+
+  ipcMain.handle(
+    IPC_APP_CHANNELS.appCodexProviderTest,
+    async (_evt, args: { baseUrl: string; apiKey: string; timeoutMs?: number }) => {
+      const endpoint = normalizeOpenAiModelsEndpoint(args?.baseUrl);
+      const apiKey = String(args?.apiKey ?? "").trim();
+      if (!apiKey) throw new Error("API Key 不能为空。");
+      const timeoutMs = toIntegerInRange(args?.timeoutMs, 15_000, 3_000, 60_000);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(endpoint, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          signal: controller.signal,
+        });
+        const text = await response.text().catch(() => "");
+        let modelCount: number | null = null;
+        try {
+          const parsed = JSON.parse(text);
+          if (Array.isArray(parsed?.data)) modelCount = parsed.data.length;
+        } catch {}
+        if (!response.ok) {
+          return {
+            ok: false,
+            status: response.status,
+            message: truncateText(text, 240) || response.statusText || "连接失败",
+            modelCount,
+          };
+        }
+        return {
+          ok: true,
+          status: response.status,
+          message: modelCount == null ? "连接成功。" : `连接成功，读取到 ${modelCount} 个模型。`,
+          modelCount,
+        };
+      } catch (error: any) {
+        return {
+          ok: false,
+          status: null,
+          message: error?.name === "AbortError" ? "连接超时。" : String(error?.message ?? error ?? "连接失败"),
+          modelCount: null,
+        };
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+  );
 
   ipcMain.handle(IPC_APP_CHANNELS.appCodexSkillRootsRead, async () => {
     const { exists, state } = await codexSkillRootsService.read();

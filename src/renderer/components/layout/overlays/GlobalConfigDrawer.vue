@@ -210,27 +210,6 @@
                     </div>
 
                     <div class="global-model-add-row">
-                      <SelectDropdown
-                        id="sel-global-custom-model-cn-presets"
-                        v-model="cnPresetPick"
-                        class="context-input mono"
-                        :disabled="modelCatalogControlsDisabled"
-                        :options="cnPresetDropdownOptions"
-                        :minPopoverWidth="0"
-                        aria-label="国内模型预设"
-                      />
-                      <button
-                        class="btn-mini"
-                        type="button"
-                        :disabled="!canAddCnPresetModel"
-                        @click="onAddCnPresetModel"
-                      >
-                        添加
-                      </button>
-                    </div>
-                    <div v-if="cnPresetHintText" class="global-model-manage-hint">{{ cnPresetHintText }}</div>
-
-                    <div class="global-model-add-row">
                       <input
                         id="inp-global-custom-model"
                         class="context-input mono"
@@ -548,7 +527,6 @@ import {
   type AssistantPlanMessageFormat,
 } from "../../../../shared/localSettings";
 import { buildModelPickerOptions, normalizeModelId } from "../../../../shared/modelCatalog";
-import { CN_MODEL_PRESETS } from "../../../../shared/modelPresets";
 
 const runtime = getRuntimeOrchestrator();
 const runtimeStore = useRuntimeStore();
@@ -1133,44 +1111,6 @@ const onAddRemoteModel = async () => {
   if (!next || remoteModelPickExists.value || modelCatalogControlsDisabled.value) return;
   const added = await modelCatalogStore.addCustomModel(next);
   if (added) remoteModelPick.value = "";
-};
-
-const cnPresetPick = ref("");
-const normalizedCnPresetPick = computed(() => normalizeModelId(cnPresetPick.value));
-const cnPresetPickExists = computed(() => {
-  const next = normalizedCnPresetPick.value;
-  return Boolean(next) && modelCatalogStore.availableModelIds.includes(next);
-});
-const canAddCnPresetModel = computed(
-  () => Boolean(normalizedCnPresetPick.value) && !cnPresetPickExists.value && !modelCatalogControlsDisabled.value
-);
-const selectedCnPreset = computed(() => {
-  const next = normalizedCnPresetPick.value;
-  if (!next) return null;
-  return CN_MODEL_PRESETS.find((preset) => preset.id === next) ?? null;
-});
-const cnPresetHintText = computed(() => {
-  const next = normalizedCnPresetPick.value;
-  if (!next) return "从常见国内厂商的 OpenAI 兼容模型中一键添加 model id（不会自动配置 base_url / api_key）。";
-  if (cnPresetPickExists.value) return "该模型已在可选列表中。";
-  const preset = selectedCnPreset.value;
-  if (!preset) return "点击添加后，会立即出现在所有模型下拉里。";
-  if (preset.baseUrlHint) return `提示：${preset.provider} 建议 base_url = ${preset.baseUrlHint}。`;
-  return `提示：${preset.provider}，base_url 参考厂商文档。`;
-});
-const cnPresetDropdownOptions = computed(() => {
-  const options = CN_MODEL_PRESETS.map((preset) => ({
-    value: preset.id,
-    label: `${preset.provider} · ${preset.id}`,
-  }));
-  return [{ value: "", label: "选择国内常用模型预设", disabled: true }, ...options];
-});
-
-const onAddCnPresetModel = async () => {
-  const next = normalizedCnPresetPick.value;
-  if (!next || cnPresetPickExists.value || modelCatalogControlsDisabled.value) return;
-  const added = await modelCatalogStore.addCustomModel(next);
-  if (added) cnPresetPick.value = "";
 };
 
 const onCustomModelInput = (event: Event) => {

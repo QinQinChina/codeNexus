@@ -10,6 +10,10 @@ export type CodexProviderProfile = {
   modelReasoningEffort: ReasoningEffort;
   modelContextWindow: number | null;
   modelAutoCompactTokenLimit: number | null;
+  order: number;
+  lastTestedAt: number | null;
+  lastTestStatus: "ok" | "error" | null;
+  lastTestMessage: string | null;
   createdAt: number;
   updatedAt: number;
 };
@@ -26,6 +30,10 @@ export type CodexProviderProfileInput = Partial<
     | "modelReasoningEffort"
     | "modelContextWindow"
     | "modelAutoCompactTokenLimit"
+    | "order"
+    | "lastTestedAt"
+    | "lastTestStatus"
+    | "lastTestMessage"
   >
 >;
 
@@ -54,6 +62,22 @@ function normalizeNullablePositiveInt(value: unknown): number | null {
   if (!Number.isFinite(n)) return null;
   const rounded = Math.round(n);
   return rounded > 0 ? rounded : null;
+}
+
+function normalizeNullableTimestamp(value: unknown): number | null {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n);
+}
+
+function normalizeOrder(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.round(n));
+}
+
+function normalizeLastTestStatus(value: unknown): "ok" | "error" | null {
+  return value === "ok" || value === "error" ? value : null;
 }
 
 export function normalizeCodexProviderId(value: unknown, fallback = "custom"): string {
@@ -111,6 +135,10 @@ export function normalizeCodexProviderProfile(value: unknown): CodexProviderProf
     modelReasoningEffort: normalizeCodexProfileReasoningEffort(record.modelReasoningEffort),
     modelContextWindow: normalizeNullablePositiveInt(record.modelContextWindow),
     modelAutoCompactTokenLimit: normalizeNullablePositiveInt(record.modelAutoCompactTokenLimit),
+    order: normalizeOrder(record.order),
+    lastTestedAt: normalizeNullableTimestamp(record.lastTestedAt),
+    lastTestStatus: normalizeLastTestStatus(record.lastTestStatus),
+    lastTestMessage: normalizeText(record.lastTestMessage).slice(0, 500) || null,
     createdAt: Number.isFinite(createdAt) && createdAt > 0 ? Math.round(createdAt) : Date.now(),
     updatedAt: Number.isFinite(updatedAt) && updatedAt > 0 ? Math.round(updatedAt) : Date.now(),
   };
@@ -125,7 +153,7 @@ export function normalizeCodexProviderProfilesState(value: unknown): CodexProvid
     if (!profile) continue;
     byId.set(profile.id, profile);
   }
-  const profiles = [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  const profiles = [...byId.values()].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
   const activeRaw = normalizeCodexProfileId(root?.activeProfileId);
   return {
     version: 1,
@@ -152,6 +180,10 @@ export function buildCodexProviderProfile(input: CodexProviderProfileInput, exis
     modelAutoCompactTokenLimit: normalizeNullablePositiveInt(
       input.modelAutoCompactTokenLimit ?? existing?.modelAutoCompactTokenLimit
     ),
+    order: normalizeOrder(input.order ?? existing?.order),
+    lastTestedAt: normalizeNullableTimestamp(input.lastTestedAt ?? existing?.lastTestedAt),
+    lastTestStatus: normalizeLastTestStatus(input.lastTestStatus ?? existing?.lastTestStatus),
+    lastTestMessage: normalizeText(input.lastTestMessage ?? existing?.lastTestMessage).slice(0, 500) || null,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
