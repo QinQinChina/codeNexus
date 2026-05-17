@@ -1,20 +1,16 @@
-:root[data-theme="light"],
-:root[data-theme="dark"] {
+:root[data-theme] {
   --page-bg-image: var(--theme-page-bg-image);
 }
 
-:root[data-theme="light"] .content,
-:root[data-theme="dark"] .content {
+:root[data-theme] .content {
   background: transparent;
 }
 
-:root[data-theme="light"] .sidebar,
-:root[data-theme="dark"] .sidebar {
+:root[data-theme] .sidebar {
   background: var(--sidebar-bg);
 }
 
-:root[data-theme="light"] .center-pane,
-:root[data-theme="dark"] .center-pane {
+:root[data-theme] .center-pane {
   background: var(--center-bg);
   color: var(--text);
 }

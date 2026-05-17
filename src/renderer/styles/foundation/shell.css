@@ -302,8 +302,8 @@ html[data-tone="light"] .sash-files.is-collapsed::before {
     );
 }
 
-:root[data-theme="dark"] .sash-left.is-collapsed,
-:root[data-theme="dark"] .sash-files.is-collapsed {
+html[data-tone="dark"] .sash-left.is-collapsed,
+html[data-tone="dark"] .sash-files.is-collapsed {
   --edge-wave-width: 48px;
   --edge-wave-blur: 12px;
   --edge-wave-shift-start: 7px;
@@ -322,7 +322,7 @@ html[data-tone="light"] .sash-files.is-collapsed::before {
     0 0 44px color-mix(in srgb, var(--bg-success-soft) 32%, transparent);
 }
 
-:root[data-theme="dark"] .sash-left.is-collapsed::before {
+html[data-tone="dark"] .sash-left.is-collapsed::before {
   background:
     linear-gradient(
       90deg,
@@ -340,7 +340,7 @@ html[data-tone="light"] .sash-files.is-collapsed::before {
     );
 }
 
-:root[data-theme="dark"] .sash-files.is-collapsed::before {
+html[data-tone="dark"] .sash-files.is-collapsed::before {
   background:
     linear-gradient(
       270deg,

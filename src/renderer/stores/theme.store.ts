@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { getCachedUserLocalSettings, patchUserLocalSettings } from "../domain/localSettings";
 
-export type AppThemeName = "light" | "dark";
+export type AppThemeName = "light" | "dark" | "tech";
 export type AppThemeTone = "light" | "dark";
 export type AppThemeDefinition = {
   id: AppThemeName;
@@ -17,6 +17,7 @@ const DEFAULT_THEME: AppThemeName = "light";
 export const APP_THEME_DEFINITIONS: readonly AppThemeDefinition[] = [
   { id: "light", label: "浅色", tone: "light" },
   { id: "dark", label: "深色", tone: "dark" },
+  { id: "tech", label: "科技", tone: "dark" },
 ] as const;
 export const APP_THEME_ORDER: readonly AppThemeName[] = APP_THEME_DEFINITIONS.map((theme) => theme.id);
 const APP_THEME_BY_ID = new Map<AppThemeName, AppThemeDefinition>(

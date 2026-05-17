@@ -10,8 +10,15 @@
           const raw = String(window.codexDesktop?.localState?.initialSettingsSnapshot?.settings?.ui?.theme ?? "")
             .trim()
             .toLowerCase();
-          if (raw === "light" || raw === "dark" || raw === "windsurf" || raw === "aurora" || raw === "moss") {
-            const theme = raw === "light" ? "light" : "dark";
+          if (
+            raw === "light" ||
+            raw === "dark" ||
+            raw === "tech" ||
+            raw === "windsurf" ||
+            raw === "aurora" ||
+            raw === "moss"
+          ) {
+            const theme = raw === "light" || raw === "dark" || raw === "tech" ? raw : "dark";
             document.documentElement.dataset.theme = theme;
             document.documentElement.dataset.tone = theme === "light" ? "light" : "dark";
           }

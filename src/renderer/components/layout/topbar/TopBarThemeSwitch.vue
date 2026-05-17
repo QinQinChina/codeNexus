@@ -2,27 +2,22 @@
   <button
     id="btn-topbar-theme"
     class="topbar-theme-switch"
-    :class="{ 'is-dark': themeStore.theme === 'dark' }"
+    :class="{ 'is-dark': !themeStore.isLight, 'is-tech': themeStore.theme === 'tech' }"
     type="button"
-    role="switch"
-    :aria-checked="themeStore.theme === 'dark'"
     :aria-label="themeAriaLabel"
-    v-tooltip="themeAriaLabel"
     @click="onToggleTheme"
   >
-    <span class="topbar-theme-switch-track" aria-hidden="true">
-      <Sun class="topbar-theme-switch-rail-icon topbar-theme-switch-rail-icon--sun" />
-      <Moon class="topbar-theme-switch-rail-icon topbar-theme-switch-rail-icon--moon" />
-    </span>
-    <span class="topbar-theme-switch-thumb" aria-hidden="true">
-      <component :is="themeIcon" class="topbar-theme-switch-icon" />
+    <span class="topbar-theme-switch-icon-wrap" aria-hidden="true">
+      <Transition name="topbar-theme-icon" mode="out-in">
+        <component :is="themeIcon" :key="themeStore.theme" class="topbar-theme-switch-icon" />
+      </Transition>
     </span>
   </button>
 </template>
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { Moon, Sun } from "lucide-vue-next";
+import { Cpu, Moon, Sun } from "lucide-vue-next";
 import { APP_THEME_ORDER, themeLabelFor, useThemeStore } from "../../../stores/theme.store";
 
 const themeStore = useThemeStore();
@@ -39,6 +34,7 @@ const nextThemeLabel = computed(() => nextThemeLabelFor());
 const themeAriaLabel = computed(() => `切换主题，当前${themeLabel.value}，下一个${nextThemeLabel.value}`);
 const themeIcon = computed(() => {
   if (themeStore.theme === "light") return Sun;
+  if (themeStore.theme === "tech") return Cpu;
   return Moon;
 });
 

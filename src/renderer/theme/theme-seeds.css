@@ -55,3 +55,21 @@
   --theme-seed-warning: rgb(226 192 141);
   --theme-seed-danger: rgb(248 81 73);
 }
+
+:root[data-theme="tech"] {
+  color-scheme: dark;
+  --theme-seed-bg: rgb(6 10 18);
+  --theme-seed-surface-1: rgb(10 17 28);
+  --theme-seed-surface-2: rgb(14 27 42);
+  --theme-seed-surface-3: rgb(19 40 58);
+  --theme-seed-elevated: rgb(16 29 45);
+  --theme-seed-text: rgb(222 238 245);
+  --theme-seed-text-muted: rgb(137 165 178);
+  --theme-seed-border-source: rgb(92 202 224);
+  --theme-seed-shadow-source: rgb(0 4 12);
+  --theme-seed-accent: rgb(0 224 255);
+  --theme-seed-accent-contrast: rgb(1 18 28);
+  --theme-seed-success: rgb(57 217 138);
+  --theme-seed-warning: rgb(246 176 72);
+  --theme-seed-danger: rgb(255 83 119);
+}

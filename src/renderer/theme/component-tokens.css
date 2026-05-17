@@ -186,7 +186,7 @@
   --diff-del-bg: color-mix(in srgb, var(--danger) 14%, var(--surface-1) 86%);
 }
 
-:root[data-theme="dark"] {
+:root[data-tone="dark"] {
   --theme-page-bg-image: linear-gradient(180deg, var(--bg) 0%, var(--bg) 100%);
   --topbar-dropdown-bg: var(--surface-elevated);
   --topbar-dropdown-bg-solid: var(--surface-elevated);
@@ -220,6 +220,62 @@
   --ui-timeline-card-bg: var(--surface-2);
   --diff-add-bg: color-mix(in srgb, var(--success) 24%, var(--bg) 76%);
   --diff-del-bg: color-mix(in srgb, var(--danger) 24%, var(--bg) 76%);
+}
+
+:root[data-theme="tech"] {
+  --theme-page-bg-image:
+    radial-gradient(780px 520px at 16% -8%, rgb(from var(--accent) r g b / 0.18) 0%, transparent 64%),
+    radial-gradient(620px 440px at 92% 10%, rgb(from var(--danger) r g b / 0.1) 0%, transparent 62%),
+    linear-gradient(135deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 70%, var(--surface-3) 30%) 100%);
+  --topbar-dropdown-bg: color-mix(in srgb, var(--surface-elevated) 94%, transparent);
+  --topbar-bg: color-mix(in srgb, var(--surface-1) 84%, var(--bg) 16%);
+  --topbar-hover-bg: rgb(from var(--accent) r g b / 0.14);
+  --topbar-active-bg: rgb(from var(--accent) r g b / 0.22);
+  --topbar-btn-active-bg: color-mix(in srgb, var(--accent) 20%, var(--surface-2) 80%);
+  --topbar-btn-active-text: color-mix(in srgb, var(--accent) 86%, white 14%);
+  --topbar-control-bg: color-mix(in srgb, var(--surface-2) 86%, transparent);
+  --sidebar-bg: linear-gradient(180deg, color-mix(in srgb, var(--surface-1) 88%, var(--accent) 4%), var(--bg));
+  --center-bg: linear-gradient(180deg, color-mix(in srgb, var(--bg) 92%, var(--accent) 4%), var(--bg));
+  --bubble-user-bg: rgb(from var(--accent) r g b / 0.11);
+  --bubble-user-border: rgb(from var(--accent) r g b / 0.34);
+  --button-bg-hover: color-mix(in srgb, var(--surface-3) 80%, var(--accent) 20%);
+  --panel-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 82%, var(--accent) 6%),
+    color-mix(in srgb, var(--surface-1) 90%, transparent)
+  );
+  --panel-border: color-mix(in srgb, var(--border) 78%, var(--accent) 22%);
+  --panel-hover-bg: rgb(from var(--accent) r g b / 0.12);
+  --panel-active-bg: rgb(from var(--accent) r g b / 0.18);
+  --panel-backdrop-filter: blur(12px) saturate(126%);
+  --card-bg: color-mix(in srgb, var(--surface-2) 86%, transparent);
+  --chat-pane-bg: linear-gradient(180deg, color-mix(in srgb, var(--bg) 90%, var(--accent) 4%), var(--bg));
+  --timeline-item-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 82%, var(--accent) 6%),
+    color-mix(in srgb, var(--surface-1) 92%, transparent)
+  );
+  --composer-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 82%, var(--accent) 7%),
+    color-mix(in srgb, var(--surface-1) 94%, transparent)
+  );
+  --composer-agent-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 78%, var(--success) 10%),
+    color-mix(in srgb, var(--surface-1) 92%, transparent)
+  );
+  --composer-plan-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 78%, var(--warning) 10%),
+    color-mix(in srgb, var(--surface-1) 92%, transparent)
+  );
+  --ui-timeline-card-bg: color-mix(in srgb, var(--surface-2) 88%, var(--accent) 4%);
+  --ui-link: color-mix(in srgb, var(--accent) 86%, white 14%);
+  --ui-link-hover: color-mix(in srgb, var(--accent) 68%, white 32%);
+  --ui-editor-purple: color-mix(in srgb, var(--danger) 62%, var(--accent) 38%);
+  --ui-editor-yellow: color-mix(in srgb, var(--warning) 90%, white 10%);
+  --ui-editor-green: color-mix(in srgb, var(--success) 84%, white 16%);
 }
 
 .composer-select--model,

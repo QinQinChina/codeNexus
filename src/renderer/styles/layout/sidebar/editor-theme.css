@@ -1,4 +1,4 @@
-:root[data-theme="dark"] .workspace-editor-pane {
+:root[data-tone="dark"] .workspace-editor-pane {
   --we-tabs-bg: color-mix(in srgb, var(--surface-2) 74%, var(--surface-1) 26%);
   --we-tab-active-bg: color-mix(in srgb, var(--surface-2) 56%, var(--surface-1) 44%);
   --we-tab-active-border: color-mix(in srgb, var(--border) 94%, transparent);

@@ -54,7 +54,7 @@
   --lsb-control-border: color-mix(in srgb, var(--light-border, var(--border)) 82%, var(--accent) 18%);
 }
 
-:root[data-theme="dark"] .sidebar-left {
+:root[data-tone="dark"] .sidebar-left {
   --lsb-bg: color-mix(in srgb, var(--surface-1) 92%, black 8%);
   --lsb-bg-strong: color-mix(in srgb, var(--surface-1) 86%, var(--surface-2, var(--surface-1)) 14%);
   --lsb-surface: color-mix(in srgb, var(--surface-1) 74%, transparent);
