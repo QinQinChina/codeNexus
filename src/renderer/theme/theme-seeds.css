@@ -58,17 +58,17 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --theme-seed-bg: rgb(31 31 31);
-  --theme-seed-surface-1: rgb(24 24 24);
-  --theme-seed-surface-2: rgb(32 32 32);
-  --theme-seed-surface-3: rgb(43 43 43);
+  --theme-seed-bg: rgb(24 24 24);
+  --theme-seed-surface-1: rgb(17 17 17);
+  --theme-seed-surface-2: rgb(31 31 31);
+  --theme-seed-surface-3: rgb(42 42 42);
   --theme-seed-elevated: rgb(34 34 34);
-  --theme-seed-text: rgb(204 204 204);
-  --theme-seed-text-muted: rgb(157 157 157);
-  --theme-seed-border-source: rgb(106 106 106);
+  --theme-seed-text: rgb(212 212 212);
+  --theme-seed-text-muted: rgb(138 138 138);
+  --theme-seed-border-source: rgb(120 120 120);
   --theme-seed-shadow-source: rgb(0 0 0);
-  --theme-seed-accent: rgb(0 120 212);
-  --theme-seed-accent-contrast: rgb(255 255 255);
+  --theme-seed-accent: rgb(157 191 232);
+  --theme-seed-accent-contrast: rgb(10 12 15);
   --theme-seed-success: rgb(46 160 67);
   --theme-seed-warning: rgb(226 192 141);
   --theme-seed-danger: rgb(248 81 73);
