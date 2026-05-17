@@ -2,38 +2,50 @@
   <div>
     <div v-if="parsed.truncated && showTruncatedHint" class="mono dim mb-1.5 text-[11px]">Diff 过大，已截断展示。</div>
     <div
+      ref="scrollEl"
       class="unified-diff-scroll app-scrollbar overflow-auto rounded-[4px] border border-[var(--ui-code-border)] bg-[var(--ui-code-bg)] text-[var(--ui-code-text)]"
-      :class="[maxHeightClass, compact ? '' : '']"
+      :class="[maxHeightClass, compact ? '' : '', { 'is-stream-locked': animateUpdates }]"
       role="table"
       :aria-label="ariaLabel"
+      @wheel="onLockedScrollInput"
+      @touchmove="onLockedScrollInput"
     >
-      <template v-for="(line, idx) in parsed.lines" :key="`${diffKey}:${idx}`">
-        <div v-if="line.kind === 'hunk'" aria-hidden="true">
+      <template v-for="row in renderedLines" :key="row.domKey">
+        <div v-if="row.line.kind === 'hunk'" aria-hidden="true">
           <div :class="compact ? 'h-[6px]' : 'h-[8px]'"></div>
         </div>
-        <div v-else class="grid items-start py-[1px]" :class="[gridLayoutClass, diffLineClass(displayLineKind(line))]">
+        <div
+          v-else
+          class="grid items-start py-[1px]"
+          :class="[gridLayoutClass, diffLineClass(displayLineKind(row.line))]"
+          :data-line-key="row.lineKey"
+        >
           <span class="mono select-none pt-[1px] text-right text-[var(--ui-code-text-muted)] opacity-60">{{
-            visibleNewNo(line)
+            visibleNewNo(row.line)
           }}</span>
-          <span v-if="line.kind === 'meta'" :class="metaLineClass">{{ line.text }}</span>
+          <span v-if="row.line.kind === 'meta'" :class="metaLineClass">{{ row.line.text }}</span>
           <span
             v-else
-            :class="[rowContentBaseClass, compact ? 'gap-1' : 'gap-1.5', lineContentClass(displayLineKind(line))]"
+            :class="[
+              rowContentBaseClass,
+              compact ? 'gap-1' : 'gap-1.5',
+              lineContentClass(displayLineKind(row.line)),
+            ]"
           >
             <span
               class="flex-none select-none pt-[1px] text-center text-[var(--ui-code-text-muted)] opacity-85"
-              :class="[compact ? 'w-[8px]' : 'w-[9px]', linePrefixClass(displayLineKind(line))]"
-              >{{ linePrefix(displayLineKind(line)) }}</span
+              :class="[compact ? 'w-[8px]' : 'w-[9px]', linePrefixClass(displayLineKind(row.line))]"
+              >{{ linePrefix(displayLineKind(row.line)) }}</span
             >
-            <span v-if="tokensForLine(idx).length > 0" :class="tokenLineClass">
+            <span v-if="shouldRenderTokensForRow(row)" :class="tokenLineClass">
               <span
-                v-for="(token, tokenIdx) in tokensForLine(idx)"
-                :key="`${diffKey}:${idx}:tok:${tokenIdx}`"
+                v-for="(token, tokenIdx) in visibleTokensForRow(row)"
+                :key="`${row.domKey}:tok:${tokenIdx}`"
                 :style="token.style"
                 >{{ token.content }}</span
               >
             </span>
-            <span v-else :class="plainLineClass">{{ lineContent(line, displayLineKind(line)) }}</span>
+            <span v-else :class="plainLineClass">{{ visibleLineContent(row) }}</span>
           </span>
         </div>
       </template>
@@ -62,6 +74,7 @@ const props = withDefaults(
     filePathHint?: string;
     fileKind?: string;
     wrapLines?: boolean;
+    animateUpdates?: boolean;
   }>(),
   {
     ariaLabel: "diff-view",
@@ -72,14 +85,24 @@ const props = withDefaults(
     filePathHint: "",
     fileKind: "",
     wrapLines: true,
+    animateUpdates: false,
   }
 );
 
 const parsed = computed(() => getParsedDiffCached(props.diffText));
 const highlightedTokensByLine = ref<Record<number, DiffHighlightToken[]>>({});
 const tone = ref<DiffHighlightTone>("dark");
+const revealCharsByLineKey = ref(new Map<string, number>());
+const scrollEl = ref<HTMLElement | null>(null);
 let toneObserver: MutationObserver | null = null;
 let highlightTaskSeq = 0;
+let revealFrameId: number | null = null;
+let scrollFrameId: number | null = null;
+let scrollAnimationFrameId: number | null = null;
+let previousDiffKey = "";
+let previousLineKeys = new Set<string>();
+let lastPatchAtMs = 0;
+let lastStreamScrollAtMs = 0;
 
 const gridLayoutClass = computed(() => {
   const cols = props.wrapLines
@@ -132,6 +155,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
   toneObserver?.disconnect();
   toneObserver = null;
+  stopRevealAnimation();
+  stopScheduledScroll();
+  stopScrollAnimation();
 });
 
 watch(
@@ -160,10 +186,23 @@ watch(
 
 const tokensForLine = (index: number) => highlightedTokensByLine.value[index] ?? [];
 
-const isRawAddedFile = computed(() => props.fileKind === "add" && !parsed.value.isUnified);
+const isRawFileChange = computed(() => !parsed.value.isUnified);
+
+const rawLineKindFromPrefix = (line: DiffLine): DiffLine["kind"] | null => {
+  if (line.kind !== "ctx") return null;
+  const text = String(line.text ?? "");
+  if (text.startsWith("+") && !text.startsWith("+++")) return "add";
+  if (text.startsWith("-") && !text.startsWith("---")) return "del";
+  return null;
+};
 
 const displayLineKind = (line: DiffLine): DiffLine["kind"] => {
-  if (isRawAddedFile.value && line.kind === "ctx") return "add";
+  const prefixed = rawLineKindFromPrefix(line);
+  if (prefixed) return prefixed;
+  if (isRawFileChange.value && line.kind === "ctx") {
+    if (props.fileKind === "add") return "add";
+    if (props.fileKind === "delete") return "del";
+  }
   return line.kind;
 };
 
@@ -202,12 +241,319 @@ const lineContentClass = (kind: DiffLine["kind"]) => {
 
 const lineContent = (line: DiffLine, kind = displayLineKind(line)) => {
   const text = String(line.text ?? "");
-  if (line.kind === "add" || line.kind === "del") {
-    return /^[+-]/.test(text) ? text.slice(1) : text;
+  if (kind === "add" || kind === "del") {
+    if (line.kind === "add" || line.kind === "del" || rawLineKindFromPrefix(line)) {
+      return /^[+-]/.test(text) ? text.slice(1) : text;
+    }
+    return text;
   }
   if (kind === "ctx") {
     return text.startsWith(" ") ? text.slice(1) : text;
   }
   return text;
 };
+
+const lineSignature = (line: DiffLine) => {
+  const kind = displayLineKind(line);
+  const oldNo = line.oldNo == null ? "" : String(line.oldNo);
+  const newNo = line.newNo == null ? "" : String(line.newNo);
+  return `${kind}:${oldNo}:${newNo}:${String(line.text ?? "")}`;
+};
+
+const isStreamAnimatableLine = (line: DiffLine) => {
+  const kind = displayLineKind(line);
+  return kind === "add" || kind === "del";
+};
+
+const lineRevealLength = (line: DiffLine) => lineContent(line, displayLineKind(line)).length;
+
+const buildLineKeys = (lines: DiffLine[]) => {
+  const seen = new Map<string, number>();
+  return lines.map((line) => {
+    const signature = lineSignature(line);
+    const count = seen.get(signature) ?? 0;
+    seen.set(signature, count + 1);
+    return `${signature}:${count}`;
+  });
+};
+
+const renderedLines = computed(() => {
+  const keys = buildLineKeys(parsed.value.lines);
+  return parsed.value.lines.map((line, index) => ({
+    line,
+    index,
+    lineKey: keys[index] ?? "",
+    domKey: `${props.diffKey}:${index}`,
+  }));
+});
+
+type RenderedDiffLine = (typeof renderedLines.value)[number];
+
+const stopRevealAnimation = () => {
+  if (revealFrameId == null || typeof cancelAnimationFrame !== "function") return;
+  cancelAnimationFrame(revealFrameId);
+  revealFrameId = null;
+};
+
+const stopScheduledScroll = () => {
+  if (scrollFrameId == null || typeof cancelAnimationFrame !== "function") return;
+  cancelAnimationFrame(scrollFrameId);
+  scrollFrameId = null;
+};
+
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+const stopScrollAnimation = () => {
+  if (scrollAnimationFrameId == null || typeof cancelAnimationFrame !== "function") return;
+  cancelAnimationFrame(scrollAnimationFrameId);
+  scrollAnimationFrameId = null;
+};
+
+const animateScrollTop = (el: HTMLElement, targetTopValue: number, force: boolean) => {
+  const maxTop = Math.max(0, el.scrollHeight - el.clientHeight);
+  const targetTop = clamp(targetTopValue, 0, maxTop);
+  const startTop = el.scrollTop;
+  const distance = targetTop - startTop;
+  if (Math.abs(distance) <= 2 || typeof requestAnimationFrame !== "function") {
+    stopScrollAnimation();
+    el.scrollTop = targetTop;
+    return;
+  }
+
+  stopScrollAnimation();
+  const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+  const duration = force ? 110 : clamp(Math.abs(distance) * 0.32, 90, 170);
+  const step = (nowValue: number) => {
+    const now = Number.isFinite(nowValue) ? nowValue : Date.now();
+    const progress = clamp((now - startedAt) / duration, 0, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    el.scrollTop = startTop + distance * eased;
+    if (progress < 1) {
+      scrollAnimationFrameId = requestAnimationFrame(step);
+      return;
+    }
+    scrollAnimationFrameId = null;
+  };
+  scrollAnimationFrameId = requestAnimationFrame(step);
+};
+
+const onLockedScrollInput = (event: Event) => {
+  if (!props.animateUpdates) return;
+  event.preventDefault();
+};
+
+const scheduleScrollToLine = (lineKey?: string, force = false) => {
+  if (!props.animateUpdates) return;
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  if (!force && now - lastStreamScrollAtMs < 90) return;
+  lastStreamScrollAtMs = now;
+  stopScheduledScroll();
+  const run = () => {
+    scrollFrameId = null;
+    const el = scrollEl.value;
+    if (!el) return;
+    const target = lineKey
+      ? [...el.querySelectorAll<HTMLElement>("[data-line-key]")].find((node) => node.dataset.lineKey === lineKey) ?? null
+      : null;
+    if (!target) {
+      animateScrollTop(el, el.scrollHeight, force);
+      return;
+    }
+    const nextTop = target.offsetTop + target.offsetHeight - el.clientHeight + 18;
+    animateScrollTop(el, Math.max(0, nextTop), force);
+  };
+  if (typeof requestAnimationFrame === "function") {
+    scrollFrameId = requestAnimationFrame(run);
+  } else {
+    run();
+  }
+};
+
+const revealDurationFromPatchInterval = (intervalMs: number, totalChars: number) => {
+  const interval = Number.isFinite(intervalMs) && intervalMs > 0 ? intervalMs : 900;
+  const cadenceDuration = clamp(interval * 0.82, 260, 1800);
+  const contentDuration = clamp(totalChars * 12, 260, 2400);
+  return clamp(Math.min(cadenceDuration, contentDuration), 240, 2200);
+};
+
+type RevealTarget = { key: string; length: number };
+
+const animateRevealToTargets = (targets: RevealTarget[], durationMs: number) => {
+  stopRevealAnimation();
+  if (targets.length === 0) return;
+
+  const queue = targets.filter((target) => (revealCharsByLineKey.value.get(target.key) ?? 0) < target.length);
+  if (queue.length === 0) return;
+  const totalRemainingChars = queue.reduce((sum, target) => {
+    const current = revealCharsByLineKey.value.get(target.key) ?? 0;
+    return sum + Math.max(0, target.length - current);
+  }, 0);
+  if (totalRemainingChars <= 0) return;
+
+  if (typeof requestAnimationFrame !== "function") {
+    revealCharsByLineKey.value = new Map(targets.map((target) => [target.key, target.length]));
+    return;
+  }
+
+  const charsPerMs = totalRemainingChars / Math.max(1, durationMs);
+  let queueIndex = 0;
+  let lastFrameAt = 0;
+  let carryChars = 0;
+
+  const step = (nowValue: number) => {
+    const now = Number.isFinite(nowValue) ? nowValue : Date.now();
+    if (lastFrameAt <= 0) lastFrameAt = now;
+    const elapsed = Math.max(0, now - lastFrameAt);
+    lastFrameAt = now;
+    carryChars += Math.max(1, elapsed * charsPerMs);
+
+    const next = new Map(revealCharsByLineKey.value);
+    let activeTarget: RevealTarget | null = null;
+
+    while (carryChars >= 1 && queueIndex < queue.length) {
+      const currentTarget = queue[queueIndex];
+      activeTarget = currentTarget;
+      const current = clamp(next.get(currentTarget.key) ?? 0, 0, currentTarget.length);
+      const remaining = currentTarget.length - current;
+      if (remaining <= 0) {
+        queueIndex += 1;
+        carryChars = Math.max(0, carryChars - 1);
+        continue;
+      }
+      const advance = Math.min(remaining, Math.floor(carryChars));
+      next.set(currentTarget.key, current + advance);
+      carryChars -= advance;
+      if (current + advance >= currentTarget.length) queueIndex += 1;
+      break;
+    }
+
+    revealCharsByLineKey.value = next;
+    const scrollTarget = activeTarget ?? queue[Math.min(queueIndex, queue.length - 1)];
+    if (scrollTarget) scheduleScrollToLine(scrollTarget.key);
+
+    if (queueIndex >= queue.length) {
+      revealFrameId = null;
+      if (scrollTarget) scheduleScrollToLine(scrollTarget.key, true);
+      return;
+    }
+
+    revealFrameId = requestAnimationFrame(step);
+  };
+
+  revealFrameId = requestAnimationFrame(step);
+};
+
+const visibleCharCountForRow = (row: RenderedDiffLine) => {
+  const full = lineRevealLength(row.line);
+  if (!props.animateUpdates || !isStreamAnimatableLine(row.line)) return full;
+  return clamp(revealCharsByLineKey.value.get(row.lineKey) ?? full, 0, full);
+};
+
+const sliceTokens = (tokens: DiffHighlightToken[], maxChars: number) => {
+  if (maxChars <= 0) return [];
+  const sliced: DiffHighlightToken[] = [];
+  let remaining = maxChars;
+  for (const token of tokens) {
+    if (remaining <= 0) break;
+    const content = String(token.content ?? "");
+    if (!content) continue;
+    const nextContent = content.length <= remaining ? content : content.slice(0, remaining);
+    sliced.push({ ...token, content: nextContent });
+    remaining -= nextContent.length;
+  }
+  return sliced;
+};
+
+const visibleTokensForRow = (row: RenderedDiffLine) => {
+  const tokens = normalizedTokensForRow(row);
+  if (tokens.length === 0) return [];
+  return sliceTokens(tokens, visibleCharCountForRow(row));
+};
+
+const shouldRenderTokensForRow = (row: RenderedDiffLine) => {
+  if (normalizedTokensForRow(row).length === 0) return false;
+  return true;
+};
+
+const visibleLineContent = (row: RenderedDiffLine) =>
+  lineContent(row.line, displayLineKind(row.line)).slice(0, visibleCharCountForRow(row));
+
+const normalizedTokensForRow = (row: RenderedDiffLine) => {
+  const tokens = tokensForLine(row.index);
+  const kind = displayLineKind(row.line);
+  if ((kind !== "add" && kind !== "del") || tokens.length === 0) return tokens;
+  if (!rawLineKindFromPrefix(row.line)) return tokens;
+  const first = tokens[0];
+  const content = String(first?.content ?? "");
+  if (!/^[+-]/.test(content)) return tokens;
+  const nextContent = content.slice(1);
+  if (!nextContent) return tokens.slice(1);
+  return [{ ...first, content: nextContent }, ...tokens.slice(1)];
+};
+
+watch(
+  () => [props.diffKey, props.diffText, props.animateUpdates] as const,
+  ([diffKey, _diffText, animateUpdates]) => {
+    const currentKeys = buildLineKeys(parsed.value.lines);
+    const currentKeySet = new Set(currentKeys);
+    const keyChanged = previousDiffKey !== diffKey;
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    const patchInterval = lastPatchAtMs > 0 ? now - lastPatchAtMs : 900;
+    lastPatchAtMs = now;
+    const animatableEntries = currentKeys.flatMap((key, index) => {
+      const line = parsed.value.lines[index];
+      return line && isStreamAnimatableLine(line) ? [{ key, length: lineRevealLength(line) }] : [];
+    });
+
+    if (!animateUpdates || keyChanged) {
+      stopRevealAnimation();
+      revealCharsByLineKey.value = new Map(
+        currentKeys.map((key, index) => {
+          const line = parsed.value.lines[index];
+          const length = line ? lineRevealLength(line) : 0;
+          return [key, animateUpdates && line && isStreamAnimatableLine(line) ? 0 : length];
+        })
+      );
+      previousDiffKey = diffKey;
+      previousLineKeys = currentKeySet;
+      if (animateUpdates) {
+        const totalChars = animatableEntries.reduce((sum, entry) => sum + entry.length, 0);
+        animateRevealToTargets(animatableEntries, revealDurationFromPatchInterval(patchInterval, totalChars));
+      }
+      return;
+    }
+
+    const nextVisible = new Map<string, number>();
+    for (const [key, visible] of revealCharsByLineKey.value) {
+      if (currentKeySet.has(key)) nextVisible.set(key, visible);
+    }
+    for (let index = 0; index < currentKeys.length; index += 1) {
+      const key = currentKeys[index];
+      const line = parsed.value.lines[index];
+      if (!line) continue;
+      if (!isStreamAnimatableLine(line)) {
+        nextVisible.set(key, lineRevealLength(line));
+        continue;
+      }
+      if (!nextVisible.has(key)) nextVisible.set(key, previousLineKeys.has(key) ? lineRevealLength(line) : 0);
+    }
+    revealCharsByLineKey.value = nextVisible;
+
+    const totalChars = animatableEntries.reduce((sum, entry) => {
+      const current = nextVisible.get(entry.key) ?? 0;
+      return sum + Math.max(0, entry.length - current);
+    }, 0);
+    animateRevealToTargets(animatableEntries, revealDurationFromPatchInterval(patchInterval, totalChars));
+    previousDiffKey = diffKey;
+    previousLineKeys = currentKeySet;
+  },
+  { immediate: true }
+);
+
 </script>
+
+<style scoped>
+.unified-diff-scroll.is-stream-locked {
+  overflow: hidden !important;
+}
+</style>

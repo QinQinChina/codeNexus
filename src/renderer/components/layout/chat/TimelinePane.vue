@@ -11,9 +11,7 @@
       >
         <template #trigger="{ triggerProps }">
           <div :class="eventMetaClass(node.event, true)" v-bind="triggerProps">
-            <span :class="eventTagClass(node.event)">{{
-              eventTagText(node.event)
-            }}</span>
+            <span :class="eventTagClass(node.event)">{{ eventTagText(node.event) }}</span>
             <span
               v-if="viewPrefs.showTimestamps"
               class="mono dim text-[11px] opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
@@ -81,9 +79,7 @@
 
       <div v-else class="event" :class="eventShellClass(node.event)">
         <div :class="eventMetaClass(node.event, false)">
-          <span :class="eventTagClass(node.event)">{{
-            eventTagText(node.event)
-          }}</span>
+          <span :class="eventTagClass(node.event)">{{ eventTagText(node.event) }}</span>
           <span
             v-if="viewPrefs.showTimestamps"
             class="mono dim text-[11px] opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
@@ -213,20 +209,9 @@
 
     <template v-else-if="node.kind === 'fileChange'">
       <FileChangeCardContent
-        v-for="file in fileChangeRenderableFiles(node.item)"
-        :key="`${node.item.id}:${file?.pathAbs ?? 'empty'}`"
         mode="timeline"
         class="mb-2.5 last:mb-0"
-        :statusText="fileChangeStatusText(node.item.status)"
-        :fileChangeEventClass="fileChangeEventClass(node.item)"
-        :file="file"
-        :fileChangeKindClass="fileChangeKindClass"
-        :fileChangeKindText="fileChangeKindText"
-        :fileChangeDiffMetaText="fileChangeDiffMetaText"
-        :isRunning="node.item.isStreaming"
-        :streamUpdateCount="node.item.streamUpdateCount"
-        :lastPatchUpdatedAt="node.item.lastPatchUpdatedAt"
-        :settledAt="node.item.settledAt"
+        :item="node.item"
         :wrapDiffLines="false"
       />
     </template>
@@ -366,17 +351,10 @@ import {
   type McpResourceReadNode,
   type TimelineRenderNode,
   type ReasoningBlockNode,
-  type FileChangeNode,
-  type FileChangeFile,
 } from "../../../features/timeline/renderModel/buildTimelineNodes";
 import {
   commandGroupItemActionText,
   commandGroupItemActionDetailText,
-  fileChangeDiffMetaText,
-  fileChangeEventClass,
-  fileChangeKindClass,
-  fileChangeKindText,
-  fileChangeStatusText,
   formatTime,
   isLocalThinkingEvent,
   isMarkdownEvent,
@@ -603,11 +581,6 @@ const getTurnDiffText = (event: TimelineEventItem) => {
   const payload = toEventParamsObject(event);
   if (typeof payload?.diff === "string") return String(payload.diff);
   return String(event.paramsText ?? "");
-};
-
-const fileChangeRenderableFiles = (item: FileChangeNode): Array<FileChangeFile | null> => {
-  if (Array.isArray(item.files) && item.files.length > 0) return item.files;
-  return [null];
 };
 
 const eventShellClass = (event: TimelineEventItem) => {

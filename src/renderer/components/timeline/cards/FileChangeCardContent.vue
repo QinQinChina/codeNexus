@@ -1,212 +1,265 @@
 <template>
-  <div
-    class="event simple-file-change-event file-change-card group min-w-0 max-w-full rounded-[4px] border border-[var(--ui-well-border)] bg-[var(--ui-timeline-card-bg)] p-[var(--file-change-card-padding,var(--timeline-card-padding,10px))] shadow-[var(--ui-timeline-card-shadow)]"
-    :class="[fileChangeEventClass, modeClass, { 'is-streaming': isRunning }]"
+  <article
+    class="event simple-file-change-event file-change-card group min-w-0 max-w-full"
+    :class="[fileChangeEventClass(item), modeClass, stateClass]"
+    :aria-busy="isRunning"
   >
-    <div class="file-change-card-header flex w-full min-w-0 items-start gap-2.5 rounded-[4px] px-1 py-1">
-      <FileDiff
-        class="mt-[3px] h-[13px] w-[13px] flex-none text-[color:var(--accent)] [stroke-width:2.2]"
-        aria-hidden="true"
-      />
-      <div class="file-change-card-main flex min-w-0 flex-1 items-start gap-2.5">
-        <div class="mono min-w-0 flex-1 truncate text-[12.5px] text-[var(--text)]">
-          {{ pathText }}
+    <header class="file-change-card-summary">
+      <span class="file-change-card-mark" aria-hidden="true">
+        <FileDiff class="file-change-card-icon" />
+      </span>
+
+      <div class="file-change-card-copy">
+        <div class="file-change-card-title-line">
+          <span class="file-change-card-title">文件变更</span>
+          <span class="file-change-status mono" :class="statusClass">{{ statusText }}</span>
         </div>
-        <div
-          class="file-change-card-meta mono flex-none whitespace-nowrap pt-[1px] text-[10.5px] text-[var(--text-muted)]"
-        >
-          <span v-if="diffMeta.kind === 'lines'" class="file-change-line-stats">
-            <span
-              class="file-change-line-count file-change-line-add"
-              :class="{ 'is-zero': diffMeta.add === 0 }"
-              :aria-label="`新增 ${diffMeta.add} 行`"
-            >
-              <span class="file-change-line-count-prefix">+</span>
-              <span class="file-change-line-count-value" aria-hidden="true">
-                <Transition name="file-change-count-roll">
-                  <span :key="diffMeta.add" class="file-change-line-count-number">{{ diffMeta.add }}</span>
-                </Transition>
-              </span>
-            </span>
-            <span
-              class="file-change-line-count file-change-line-del"
-              :class="{ 'is-zero': diffMeta.del === 0 }"
-              :aria-label="`删除 ${diffMeta.del} 行`"
-            >
-              <span class="file-change-line-count-prefix">-</span>
-              <span class="file-change-line-count-value" aria-hidden="true">
-                <Transition name="file-change-count-roll">
-                  <span :key="diffMeta.del" class="file-change-line-count-number">{{ diffMeta.del }}</span>
-                </Transition>
-              </span>
-            </span>
-          </span>
-          <span v-else>{{ diffMeta.text }}</span>
-          <span v-if="streamMetaText" class="dim"> &middot; {{ streamMetaText }}</span>
+        <div class="file-change-card-meta mono">
+          <span>{{ filesSummaryText }}</span>
+          <span v-if="streamMetaText" class="file-change-card-separator" aria-hidden="true">/</span>
+          <span v-if="streamMetaText">{{ streamMetaText }}</span>
         </div>
       </div>
-      <span class="file-change-card-actions inline-flex flex-none items-center gap-1.5">
-        <button
-          v-if="hasDiff"
-          type="button"
-          class="file-change-toggle mono inline-flex h-[20px] flex-none items-center justify-center rounded-[4px] border px-1.5 text-[10px] leading-none"
-          :aria-expanded="isDiffExpanded ? 'true' : 'false'"
-          @click="isDiffExpanded = !isDiffExpanded"
-        >
-          {{ isDiffExpanded ? "收起" : "展开" }}
-        </button>
-        <span
-          v-if="file"
-          class="inline-flex flex-none items-center rounded-[4px] border px-1.5 py-0.5 text-[10px]"
-          :class="fileChangeKindClass(file.kind)"
-          >{{ fileChangeKindText(file.kind) }}</span
-        >
-      </span>
-    </div>
 
-    <div
-      v-if="isRunning"
-      class="file-change-stream-strip mono mx-1 mb-1 flex min-w-0 items-center gap-2 rounded-[4px] border px-1.5 py-1 text-[10.5px]"
-    >
-      <span class="file-change-stream-beacon" aria-hidden="true"></span>
-      <div class="min-w-0 flex-1">
-        <ExecutionWaveText class="min-w-0 truncate" :text="streamStripText" :cycle-max-chars="96" />
-        <span class="file-change-stream-rail" aria-hidden="true">
-          <span class="file-change-stream-rail-fill" :style="{ width: streamRailWidth }"></span>
-        </span>
+      <div class="file-change-card-total mono" :aria-label="totalLineStatsAriaLabel">
+        <span class="file-change-total-stat file-change-total-stat--add">+{{ totalLineStats.add }}</span>
+        <span class="file-change-total-stat file-change-total-stat--del">-{{ totalLineStats.del }}</span>
       </div>
-      <span v-if="diffMeta.kind === 'lines'" class="file-change-stream-deltas" aria-hidden="true">
-        <span class="file-change-stream-delta file-change-stream-delta--add">+{{ diffMeta.add }}</span>
-        <span class="file-change-stream-delta file-change-stream-delta--del">-{{ diffMeta.del }}</span>
-      </span>
-      <span class="file-change-stream-count flex-none">{{ streamCountText }}</span>
-    </div>
+    </header>
 
-    <div v-if="shouldShowDiffBody" class="px-1 pb-1">
-      <UnifiedDiffViewer
-        v-if="shouldShowDiffViewer && file"
-        :diffText="file.diffText"
-        :diffKey="file.pathAbs"
-        :filePathHint="file.pathRelTo || file.pathRel || file.pathAbsTo || file.pathAbs"
-        :fileKind="file.kind"
-        maxHeightClass="max-h-[340px]"
-        :wrapLines="wrapDiffLines"
-        ariaLabel="diff-view"
-      />
-      <div
-        v-else
-        class="mono rounded-[4px] border border-[var(--ui-code-border)] bg-[var(--ui-code-bg)] p-1.5 text-[11px] text-[var(--ui-code-text-muted)]"
+    <div class="file-change-file-list">
+      <section
+        v-for="entry in fileEntries"
+        :key="entry.key"
+        class="file-change-file-item"
+        :class="{
+          'is-expanded': entry.isExpanded,
+          'is-running': isRunning,
+          'is-empty': !entry.file,
+        }"
       >
-        <ExecutionWaveText class="mono" text="正在修改文件…" />
-      </div>
+        <header class="file-change-file-header">
+          <span class="file-change-file-index mono" aria-hidden="true">{{ entry.indexLabel }}</span>
+
+          <div class="file-change-file-main">
+            <div class="file-change-path-line">
+              <span class="file-change-path mono" :title="entry.pathTitle">{{ entry.pathText }}</span>
+              <span
+                v-if="entry.file"
+                class="file-change-kind-badge"
+                :class="fileChangeKindClass(entry.file.kind)"
+              >
+                {{ fileChangeKindText(entry.file.kind) }}
+              </span>
+            </div>
+            <div class="file-change-file-subline mono">
+              <span>{{ entry.statusLineText }}</span>
+              <span v-if="entry.secondaryMetaText" class="file-change-card-separator" aria-hidden="true">/</span>
+              <span v-if="entry.secondaryMetaText">{{ entry.secondaryMetaText }}</span>
+            </div>
+          </div>
+
+          <div class="file-change-stat-cluster mono" :aria-label="entry.lineStatsAriaLabel">
+            <template v-if="entry.lineStats.kind === 'lines'">
+              <span class="file-change-stat file-change-stat--add" :class="{ 'is-zero': entry.lineStats.add === 0 }">
+                +{{ entry.lineStats.add }}
+              </span>
+              <span class="file-change-stat file-change-stat--del" :class="{ 'is-zero': entry.lineStats.del === 0 }">
+                -{{ entry.lineStats.del }}
+              </span>
+            </template>
+            <span v-else class="file-change-stat file-change-stat--plain">{{ entry.lineStats.text }}</span>
+          </div>
+
+          <button
+            v-if="entry.hasDiff"
+            type="button"
+            class="file-change-expand-button"
+            :aria-label="entry.isExpanded ? '收起 diff' : '展开 diff'"
+            :aria-expanded="entry.isExpanded ? 'true' : 'false'"
+            @click="toggleEntryExpanded(entry.key)"
+          >
+            <ChevronDown class="file-change-expand-icon" :class="{ 'is-open': entry.isExpanded }" aria-hidden="true" />
+            <span class="file-change-expand-text mono">{{ entry.isExpanded ? "收起" : "展开" }}</span>
+          </button>
+        </header>
+
+        <section v-if="entry.shouldShowDiffBody" class="file-change-diff-body">
+          <UnifiedDiffViewer
+            v-if="entry.shouldShowDiffViewer && entry.file"
+            :diffText="entry.file.diffText"
+            :diffKey="entry.file.pathAbs || entry.key"
+            :filePathHint="entry.file.pathRelTo || entry.file.pathRel || entry.file.pathAbsTo || entry.file.pathAbs"
+            :fileKind="entry.file.kind"
+            maxHeightClass="max-h-[340px]"
+            :wrapLines="wrapDiffLines"
+            :animateUpdates="isRunning"
+            ariaLabel="diff-view"
+          />
+          <div v-else class="file-change-empty-diff mono">
+            <ExecutionWaveText class="mono" text="正在修改文件..." />
+          </div>
+        </section>
+      </section>
     </div>
-  </div>
+  </article>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { FileDiff } from "lucide-vue-next";
+import { ChevronDown, FileDiff } from "lucide-vue-next";
 import UnifiedDiffViewer from "./UnifiedDiffViewer.vue";
 import ExecutionWaveText from "../../ui/ExecutionWaveText.vue";
 import { getDiffLineStats } from "../../../features/timeline/renderModel/diff";
-
-export type FileChangeFile = {
-  pathAbs: string;
-  pathRel: string;
-  pathAbsTo?: string | null;
-  pathRelTo?: string | null;
-  kind: string;
-  diffText: string;
-  updatedAt: number;
-};
+import type { FileChangeFile, FileChangeNode } from "../../../features/timeline/renderModel/buildTimelineNodes";
+import {
+  fileChangeDiffMetaText,
+  fileChangeEventClass,
+  fileChangeKindClass,
+  fileChangeKindText,
+  fileChangeStatusText,
+} from "../../../features/timeline/renderModel/formatters";
 
 const props = withDefaults(
   defineProps<{
+    item: FileChangeNode;
     mode?: "timeline" | "chat";
-    statusText: string;
-    fileChangeEventClass: string;
-    file: FileChangeFile | null;
-    fileChangeKindClass: (kind: string) => any;
-    fileChangeKindText: (kind: string) => string;
-    fileChangeDiffMetaText: (diffText: string, fileKind?: string) => string;
-    isRunning?: boolean;
-    streamUpdateCount?: number;
-    lastPatchUpdatedAt?: number | null;
-    settledAt?: number | null;
     wrapDiffLines?: boolean;
   }>(),
   {
     mode: "timeline",
-    isRunning: false,
-    streamUpdateCount: 0,
-    lastPatchUpdatedAt: null,
-    settledAt: null,
     wrapDiffLines: true,
   }
 );
 
-type DiffMeta = { kind: "lines"; add: number; del: number } | { kind: "text"; text: string };
+type LineStats = { kind: "lines"; add: number; del: number } | { kind: "text"; text: string };
+type RenderableFile = FileChangeFile | null;
 
-const pathText = computed(() => {
-  if (!props.file) return props.statusText === "进行中" ? "等待文件路径…" : "暂无结构化文件路径";
-  const from = String(props.file.pathRel ?? props.file.pathAbs ?? "").trim() || props.file.pathAbs;
-  const to = String(props.file.pathRelTo ?? props.file.pathAbsTo ?? "").trim();
-  if (props.file.kind === "rename" && to) return `${from} -> ${to}`;
+const userExpandedByKey = ref<Record<string, boolean>>({});
+
+const isRunning = computed(() => Boolean(props.item.isStreaming));
+const modeClass = computed(() => (props.mode === "chat" ? "file-change-card--chat" : ""));
+const statusText = computed(() => fileChangeStatusText(props.item.status));
+const statusClass = computed(() => `file-change-status--${props.item.status}`);
+const renderableFiles = computed<RenderableFile[]>(() =>
+  Array.isArray(props.item.files) && props.item.files.length > 0 ? props.item.files : [null]
+);
+
+const fileIdentity = (file: RenderableFile, index: number) => {
+  if (!file) return `${props.item.id}:empty:${index}`;
+  return [
+    props.item.id,
+    file.pathAbs || file.pathRel || "unknown",
+    file.pathAbsTo || file.pathRelTo || "",
+    file.kind,
+    index,
+  ].join(":");
+};
+
+const hasFileDiff = (file: RenderableFile) => Boolean(file?.diffText?.trim());
+
+const pathTextForFile = (file: RenderableFile) => {
+  if (!file) return statusText.value === "进行中" ? "等待文件路径..." : "暂无结构化文件路径";
+  const from = String(file.pathRel ?? file.pathAbs ?? "").trim() || file.pathAbs;
+  const to = String(file.pathRelTo ?? file.pathAbsTo ?? "").trim();
+  if (file.kind === "rename" && to) return `${from} -> ${to}`;
   return from;
-});
+};
 
-const diffMeta = computed<DiffMeta>(() => {
-  if (!props.file) return { kind: "text", text: "--" };
-  const stats = getDiffLineStats(props.file.diffText, props.file.kind);
+const pathTitleForFile = (file: RenderableFile) => {
+  if (!file) return pathTextForFile(file);
+  const from = String(file.pathAbs ?? file.pathRel ?? "").trim() || file.pathRel;
+  const to = String(file.pathAbsTo ?? file.pathRelTo ?? "").trim();
+  if (file.kind === "rename" && to) return `${from} -> ${to}`;
+  return from;
+};
+
+const lineStatsForFile = (file: RenderableFile): LineStats => {
+  if (!file) return { kind: "text", text: "--" };
+  const stats = getDiffLineStats(file.diffText, file.kind);
   if (stats.add > 0 || stats.del > 0) return { kind: "lines", add: stats.add, del: stats.del };
-  return { kind: "text", text: props.fileChangeDiffMetaText(props.file.diffText, props.file.kind) };
+  return { kind: "text", text: fileChangeDiffMetaText(file.diffText, file.kind) };
+};
+
+const totalLineStats = computed(() =>
+  renderableFiles.value.reduce(
+    (total, file) => {
+      if (!file) return total;
+      const stats = getDiffLineStats(file.diffText, file.kind);
+      total.add += stats.add;
+      total.del += stats.del;
+      return total;
+    },
+    { add: 0, del: 0 }
+  )
+);
+
+const totalLineStatsAriaLabel = computed(() => `总新增 ${totalLineStats.value.add} 行，总删除 ${totalLineStats.value.del} 行`);
+
+const filesSummaryText = computed(() => {
+  const fileCount = props.item.files.length;
+  if (fileCount <= 0) return "等待结构化文件变更";
+  const parts: string[] = [];
+  if (props.item.counts.add) parts.push(`新增 ${props.item.counts.add}`);
+  if (props.item.counts.modify) parts.push(`修改 ${props.item.counts.modify}`);
+  if (props.item.counts.delete) parts.push(`删除 ${props.item.counts.delete}`);
+  if (props.item.counts.rename) parts.push(`重命名 ${props.item.counts.rename}`);
+  return parts.length > 0 ? parts.join(" / ") : `${fileCount} 个文件`;
 });
-
-const isDiffExpanded = ref(false);
-
-const hasDiff = computed(() => Boolean(props.file?.diffText?.trim()));
-
-const isRunning = computed(() => Boolean(props.isRunning));
-
-const shouldShowDiffViewer = computed(() => hasDiff.value && isDiffExpanded.value);
-
-const shouldShowStreamingPlaceholder = computed(() => !hasDiff.value && isRunning.value);
-
-const shouldShowDiffBody = computed(() => shouldShowDiffViewer.value || shouldShowStreamingPlaceholder.value);
 
 const streamMetaText = computed(() => {
-  if (props.isRunning) {
-    if (props.streamUpdateCount > 0) return `更新 ${props.streamUpdateCount} 次`;
-    return "等待 diff";
-  }
-  if (props.streamUpdateCount > 0 && props.statusText !== "已完成") return `${props.streamUpdateCount} 次更新`;
+  if (isRunning.value) return props.item.streamUpdateCount > 0 ? `更新 ${props.item.streamUpdateCount} 次` : "实时";
+  if (props.item.streamUpdateCount > 0 && props.item.status !== "completed") return `更新 ${props.item.streamUpdateCount} 次`;
   return "";
 });
 
-const modeClass = computed(() => (props.mode === "chat" ? "file-change-card--chat" : "file-change-card--timeline"));
+const stateClass = computed(() => ({
+  "is-streaming": isRunning.value,
+  "has-multiple-files": renderableFiles.value.length > 1,
+}));
 
-const streamStripText = computed(() => {
-  if (props.isRunning) {
-    if (!props.file) return "正在解析补丁…";
-    return props.streamUpdateCount > 0 ? "正在生成变更…" : "等待结构化 diff…";
-  }
-  return "补丁状态已更新";
-});
+const fileEntries = computed(() =>
+  renderableFiles.value.map((file, index) => {
+    const key = fileIdentity(file, index);
+    const hasDiff = hasFileDiff(file);
+    const autoExpanded = isRunning.value && hasDiff;
+    const isExpanded = userExpandedByKey.value[key] ?? autoExpanded;
+    const lineStats = lineStatsForFile(file);
+    const secondaryMetaText = !isRunning.value && props.item.streamUpdateCount > 0 && props.item.status !== "completed"
+      ? `更新 ${props.item.streamUpdateCount} 次`
+      : "";
+    return {
+      file,
+      key,
+      indexLabel: String(index + 1).padStart(2, "0"),
+      pathText: pathTextForFile(file),
+      pathTitle: pathTitleForFile(file),
+      statusLineText: isRunning.value ? "生成中" : statusText.value || "文件变更",
+      secondaryMetaText,
+      lineStats,
+      lineStatsAriaLabel:
+        lineStats.kind === "lines" ? `新增 ${lineStats.add} 行，删除 ${lineStats.del} 行` : `diff 规模 ${lineStats.text}`,
+      hasDiff,
+      isExpanded,
+      shouldShowDiffViewer: hasDiff && isExpanded,
+      shouldShowDiffBody: (hasDiff && isExpanded) || (!hasDiff && isRunning.value),
+    };
+  })
+);
 
-const streamCountText = computed(() => {
-  if (props.streamUpdateCount <= 0) return "实时";
-  return `${props.streamUpdateCount} 次`;
-});
-
-const streamRailWidth = computed(() => {
-  const updates = Math.max(0, Math.min(9, props.streamUpdateCount));
-  return `${28 + updates * 7}%`;
-});
+const toggleEntryExpanded = (key: string) => {
+  const entry = fileEntries.value.find((candidate) => candidate.key === key);
+  if (!entry) return;
+  userExpandedByKey.value = {
+    ...userExpandedByKey.value,
+    [key]: !entry.isExpanded,
+  };
+};
 
 watch(
-  () => [props.file?.pathAbs ?? "", props.file?.pathAbsTo ?? ""],
+  () => props.item.id,
   () => {
-    isDiffExpanded.value = false;
+    userExpandedByKey.value = {};
   }
 );
 </script>
@@ -215,292 +268,306 @@ watch(
 .simple-file-change-event {
   --file-change-add-fg: color-mix(in srgb, var(--success, var(--fg-success)) 86%, var(--text) 14%);
   --file-change-del-fg: color-mix(in srgb, var(--danger, var(--fg-danger)) 86%, var(--text) 14%);
-}
+  --file-change-card-bg: color-mix(in srgb, var(--ui-timeline-card-bg) 94%, var(--ui-well-bg) 6%);
 
-.file-change-line-stats {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.file-change-line-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 1px;
-  min-width: 5.5ch;
-  justify-content: flex-end;
-  border-radius: 3px;
-  padding: 2px 4px;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  background: color-mix(in srgb, currentColor 9%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 22%, transparent);
-}
-
-.file-change-line-count.is-zero {
-  opacity: 0.48;
-}
-
-.file-change-line-count-prefix {
-  flex: none;
-}
-
-.file-change-line-count-value {
   position: relative;
-  display: inline-grid;
-  min-width: 2.8ch;
-  height: 1em;
   overflow: hidden;
-  text-align: right;
+  border: 1px solid var(--ui-well-border);
+  border-radius: 7px;
+  background: var(--file-change-card-bg);
+  box-shadow: var(--ui-timeline-card-shadow);
 }
 
-.file-change-line-count-number {
-  grid-area: 1 / 1;
-  min-width: 100%;
-  text-align: right;
-}
-
-.file-change-count-roll-enter-active,
-.file-change-count-roll-leave-active {
-  transition:
-    transform 180ms cubic-bezier(0.25, 1, 0.5, 1),
-    opacity 140ms ease-out;
-}
-
-.file-change-count-roll-leave-active {
+.simple-file-change-event::before {
+  content: "";
   position: absolute;
-  inset: 0;
-}
-
-.file-change-count-roll-enter-from {
-  opacity: 0;
-  transform: translateY(72%);
-}
-
-.file-change-count-roll-leave-to {
-  opacity: 0;
-  transform: translateY(-72%);
-}
-
-.file-change-line-add {
-  color: var(--file-change-add-fg);
-}
-
-.file-change-line-del {
-  color: var(--file-change-del-fg);
-}
-
-.file-change-card {
-  --file-change-card-padding: 7px;
-
-  transition:
-    border-color 160ms ease,
-    background-color 160ms ease,
-    box-shadow 160ms ease;
+  inset-block: 0;
+  left: 0;
+  width: 2px;
+  background: color-mix(in srgb, var(--text-muted) 34%, transparent);
 }
 
 .file-change-card--chat {
-  --file-change-card-padding: 6px;
+  border-radius: 6px;
 }
 
 .file-change-card.is-streaming {
-  box-shadow:
-    var(--ui-timeline-card-shadow),
-    inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--ui-well-border));
 }
 
-.file-change-status-pill {
-  gap: 5px;
-  color: var(--text-muted);
-  border-color: color-mix(in srgb, var(--text-muted) 22%, transparent);
-  background: color-mix(in srgb, var(--ui-well-bg) 72%, transparent);
+.file-change-card.is-streaming::before {
+  background: color-mix(in srgb, var(--accent) 82%, var(--text) 18%);
 }
 
-.file-change-status-pill--running {
-  color: color-mix(in srgb, var(--accent) 76%, var(--text) 24%);
-  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
-  background: color-mix(in srgb, var(--accent) 10%, var(--ui-well-bg));
+.file-change-card-summary {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px 8px 12px;
 }
 
-.file-change-status-pill--completed {
+.file-change-card-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.file-change-card-icon {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.2;
+}
+
+.file-change-card-copy,
+.file-change-file-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.file-change-card-title-line,
+.file-change-path-line,
+.file-change-card-meta,
+.file-change-file-subline {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.file-change-card-title {
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.file-change-status {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: 10px;
+  line-height: 1;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 20%, transparent);
+}
+
+.file-change-status--running {
+  color: color-mix(in srgb, var(--accent) 78%, var(--text) 22%);
+}
+
+.file-change-status--completed {
   color: var(--file-change-add-fg);
-  border-color: color-mix(in srgb, var(--success, var(--fg-success)) 32%, transparent);
 }
 
-.file-change-status-pill--failed {
+.file-change-status--failed {
   color: var(--file-change-del-fg);
-  border-color: color-mix(in srgb, var(--danger, var(--fg-danger)) 36%, transparent);
 }
 
-.file-change-status-pill--declined {
+.file-change-status--declined {
   color: var(--warning, var(--fg-warning));
-  border-color: color-mix(in srgb, var(--warning, var(--fg-warning)) 34%, transparent);
 }
 
-.file-change-toggle {
+.file-change-status--unknown {
   color: var(--text-muted);
-  border-color: color-mix(in srgb, var(--text-muted) 22%, transparent);
-  background: color-mix(in srgb, var(--ui-well-bg) 72%, transparent);
+}
+
+.file-change-card-meta,
+.file-change-file-subline {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 10.5px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.file-change-card-separator {
+  opacity: 0.42;
+}
+
+.file-change-card-total,
+.file-change-stat-cluster {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.file-change-total-stat,
+.file-change-stat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 5ch;
+  height: 20px;
+  border-radius: 4px;
+  padding: 0 5px;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 18%, transparent);
+}
+
+.file-change-total-stat--add,
+.file-change-stat--add {
+  color: var(--file-change-add-fg);
+}
+
+.file-change-total-stat--del,
+.file-change-stat--del {
+  color: var(--file-change-del-fg);
+}
+
+.file-change-stat.is-zero {
+  opacity: 0.48;
+}
+
+.file-change-stat--plain {
+  min-width: 0;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--ui-well-bg) 68%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-muted) 18%, transparent);
+}
+
+.file-change-file-list {
+  display: grid;
+  gap: 1px;
+  border-top: 1px solid color-mix(in srgb, var(--ui-well-border) 78%, transparent);
+  background: color-mix(in srgb, var(--ui-well-border) 55%, transparent);
+}
+
+.file-change-file-item {
+  min-width: 0;
+  background: color-mix(in srgb, var(--file-change-card-bg) 92%, var(--ui-code-bg) 8%);
+}
+
+.file-change-file-item.is-expanded {
+  background: color-mix(in srgb, var(--file-change-card-bg) 86%, var(--ui-code-bg) 14%);
+}
+
+.file-change-file-header {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 10px 8px 12px;
+}
+
+.file-change-file-index {
+  color: color-mix(in srgb, var(--text-muted) 70%, transparent);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.file-change-path {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 620;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-change-kind-badge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: 18px;
+  border-radius: 4px;
+  border-width: 1px;
+  padding: 0 6px;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.file-change-expand-button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  gap: 3px;
+  border: 1px solid color-mix(in srgb, var(--text-muted) 18%, transparent);
+  border-radius: 5px;
+  padding: 0 7px 0 5px;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--ui-well-bg) 58%, transparent);
   transition:
     border-color 160ms ease,
     background-color 160ms ease,
     color 160ms ease;
 }
 
-.file-change-toggle:hover {
+.file-change-expand-button:hover {
   color: var(--text);
   border-color: color-mix(in srgb, var(--accent) 34%, transparent);
-  background: color-mix(in srgb, var(--accent) 9%, var(--ui-well-bg));
+  background: color-mix(in srgb, var(--accent) 8%, var(--ui-well-bg));
 }
 
-.file-change-status-dot,
-.file-change-stream-pulse {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  flex: none;
-  border-radius: 999px;
-  background: currentColor;
-  animation: file-change-stream-pulse 1.25s ease-in-out infinite;
+.file-change-expand-icon {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2.4;
+  transition: transform 160ms ease;
 }
 
-.file-change-stream-strip {
-  color: color-mix(in srgb, var(--accent) 76%, var(--text) 24%);
-  border-color: color-mix(in srgb, var(--accent) 24%, transparent);
-  background:
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--accent) 10%, transparent),
-      transparent 42%,
-      color-mix(in srgb, var(--success, var(--fg-success)) 8%, transparent)
-    ),
-    color-mix(in srgb, var(--ui-well-bg) 86%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent);
+.file-change-expand-icon.is-open {
+  transform: rotate(180deg);
 }
 
-.file-change-stream-beacon {
-  position: relative;
-  width: 7px;
-  height: 7px;
-  flex: none;
-  border-radius: 999px;
-  background: var(--accent);
-  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 72%, transparent);
-}
-
-.file-change-stream-beacon::after {
-  content: "";
-  position: absolute;
-  inset: -4px;
-  border-radius: inherit;
-  border: 1px solid color-mix(in srgb, var(--accent) 52%, transparent);
-  animation: file-change-beacon-ring 1.35s cubic-bezier(0.22, 1, 0.36, 1) infinite;
-}
-
-.file-change-stream-rail {
-  position: relative;
-  display: block;
-  width: min(220px, 100%);
-  height: 2px;
-  margin-top: 4px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-}
-
-.file-change-stream-rail-fill {
-  position: absolute;
-  inset-block: 0;
-  left: 0;
-  min-width: 42px;
-  border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--accent) 42%, transparent),
-    color-mix(in srgb, var(--success, var(--fg-success)) 64%, var(--accent) 36%),
-    color-mix(in srgb, var(--accent) 34%, transparent)
-  );
-  animation: file-change-stream-flow 1.05s linear infinite;
-}
-
-.file-change-stream-deltas {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 4px;
-}
-
-.file-change-stream-delta,
-.file-change-stream-count {
-  display: inline-flex;
-  align-items: center;
-  height: 18px;
-  border-radius: 3px;
-  padding: 0 5px;
-  font-variant-numeric: tabular-nums;
+.file-change-expand-text {
+  font-size: 10px;
   line-height: 1;
-  background: color-mix(in srgb, var(--ui-well-bg) 72%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 18%, transparent);
 }
 
-.file-change-stream-delta--add {
-  color: var(--file-change-add-fg);
+.file-change-diff-body {
+  padding: 0 10px 10px 12px;
 }
 
-.file-change-stream-delta--del {
-  color: var(--file-change-del-fg);
+.file-change-empty-diff {
+  border: 1px solid var(--ui-code-border);
+  border-radius: 5px;
+  background: var(--ui-code-bg);
+  padding: 7px 8px;
+  color: var(--ui-code-text-muted);
+  font-size: 11px;
 }
 
-.file-change-stream-count {
-  color: color-mix(in srgb, var(--text-muted) 88%, var(--accent) 12%);
-}
+@media (max-width: 640px) {
+  .file-change-card-summary,
+  .file-change-file-header {
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+  }
 
-@keyframes file-change-stream-pulse {
-  0%,
-  100% {
-    opacity: 0.38;
-    transform: scale(0.88);
+  .file-change-card-total,
+  .file-change-stat-cluster {
+    grid-column: 2 / -1;
+    justify-self: start;
   }
-  50% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
 
-@keyframes file-change-beacon-ring {
-  0% {
-    opacity: 0.62;
-    transform: scale(0.72);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1.65);
-  }
-}
-
-@keyframes file-change-stream-flow {
-  0% {
-    filter: brightness(0.92);
-    transform: translateX(-10%);
-  }
-  50% {
-    filter: brightness(1.16);
-  }
-  100% {
-    filter: brightness(0.92);
-    transform: translateX(10%);
+  .file-change-expand-button {
+    grid-column: 3;
+    grid-row: 1;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .file-change-card,
-  .file-change-status-dot,
-  .file-change-stream-pulse,
-  .file-change-stream-beacon::after,
-  .file-change-stream-rail-fill,
-  .file-change-count-roll-enter-active,
-  .file-change-count-roll-leave-active {
-    animation: none;
+  .file-change-expand-icon {
     transition: none;
   }
 }

@@ -296,14 +296,11 @@ body::-webkit-scrollbar-button {
   }
 }
 
-.event.simple-file-change-event .ui-collapsible-content,
 .event.simple-mcp-tool-event .ui-collapsible-content,
-.event.simple-file-change-event .ui-collapsible-content.is-open,
 .event.simple-mcp-tool-event .ui-collapsible-content.is-open {
   transform: none;
 }
 
-.event.simple-file-change-event .ui-collapsible-content,
 .event.simple-mcp-tool-event .ui-collapsible-content {
   will-change: grid-template-rows, opacity;
 }

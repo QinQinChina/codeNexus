@@ -125,7 +125,7 @@ export function fileChangeDiffMetaText(diffText: string, fileKind = "") {
   if (!text.trim()) return "—";
   const { add, del, lineCount } = getDiffLineStats(text, fileKind);
   if (add > 0 || del > 0) return `+${add} -${del}`;
-  return `${lineCount.toLocaleString()} 行`;
+  return `diff ${lineCount.toLocaleString()} 行`;
 }
 
 export function commandGroupItemStatusText(item: CommandGroupItem) {

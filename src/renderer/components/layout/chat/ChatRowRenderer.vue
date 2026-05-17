@@ -150,14 +150,10 @@
   />
 
   <div v-else-if="renderedRow.kind === 'fileChange'" :class="CHAT_ROW_TOOL_CLASS">
-    <ChatFileChangeCard
+    <FileChangeCardContent
       :item="(renderedRow as any).item"
-      :renderableFiles="fileChangeRenderableFiles((renderedRow as any).item)"
-      :statusText="fileChangeStatusText((renderedRow as any).item.status)"
-      :eventClass="fileChangeEventClass((renderedRow as any).item)"
-      :fileChangeKindClass="fileChangeKindClass as any"
-      :fileChangeKindText="fileChangeKindText as any"
-      :fileChangeDiffMetaText="fileChangeDiffMetaText as any"
+      mode="chat"
+      :wrapDiffLines="false"
     />
   </div>
 
@@ -228,9 +224,9 @@ import ChatImageToolCard from "../../chat/ChatImageToolCard.vue";
 import ChatWebSearchCard from "../../chat/ChatWebSearchCard.vue";
 import ChatSshToolActivity from "../../chat/ChatSshToolActivity.vue";
 import ChatTokenUsageSummary from "../../chat/ChatTokenUsageSummary.vue";
-import ChatFileChangeCard from "../../chat/ChatFileChangeCard.vue";
 import ChatCommandActionRow from "../../chat/ChatCommandActionRow.vue";
 import DynamicToolCallCardContent from "../../timeline/cards/DynamicToolCallCardContent.vue";
+import FileChangeCardContent from "../../timeline/cards/FileChangeCardContent.vue";
 import McpResourceReadCardContent from "../../timeline/cards/McpResourceReadCardContent.vue";
 import McpToolCardContent from "../../timeline/cards/McpToolCardContent.vue";
 import CommandReadActivityRow from "../../timeline/activities/CommandReadActivityRow.vue";
@@ -243,17 +239,8 @@ import type { TimelineEventItem, TurnPlanState } from "../../../domain/types";
 import { tryParseStructuredFinalAnswerV1 } from "../../../domain/structuredFinalAnswer";
 import { renderMarkdownToSafeHtml } from "../../../features/timeline/markdownRenderer";
 import { useMarkdownRendererRefresh } from "../../../features/timeline/useMarkdownRendererRefresh";
-import type {
-  FileChangeNode,
-  McpResourceReadNode,
-  McpToolGroupNode,
-} from "../../../features/timeline/renderModel/buildTimelineNodes";
+import type { McpResourceReadNode, McpToolGroupNode } from "../../../features/timeline/renderModel/buildTimelineNodes";
 import {
-  fileChangeDiffMetaText,
-  fileChangeEventClass,
-  fileChangeKindClass,
-  fileChangeKindText,
-  fileChangeStatusText,
   formatTime,
   mcpToolGroupClass,
   mcpToolGroupStatsText,
@@ -336,9 +323,6 @@ defineProps<{
   onInlineRewriteCancel?: () => void;
   onInlineRewriteSend?: () => void;
 }>();
-
-const fileChangeRenderableFiles = (item: FileChangeNode) =>
-  Array.isArray(item.files) && item.files.length > 0 ? item.files : [null];
 
 const reasoningDurationText = (durationMs: number | null | undefined) => {
   if (durationMs == null) return "";

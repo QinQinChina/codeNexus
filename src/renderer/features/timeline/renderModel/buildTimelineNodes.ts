@@ -178,9 +178,7 @@ export type FileChangeNode = {
   startedAt: number | null;
   completedAt: number | null;
   streamUpdateCount: number;
-  lastPatchUpdatedAt: number | null;
   isStreaming: boolean;
-  settledAt: number | null;
   counts: { add: number; modify: number; delete: number; rename: number; unknown: number };
   files: FileChangeFile[];
 };
@@ -1527,7 +1525,6 @@ type FileChangeAccumulator = {
   status: FileChangeStatus;
   filesByAbs: Map<string, FileChangeFile>;
   streamUpdateCount: number;
-  lastPatchUpdatedAt: number | null;
 };
 
 type FileChangeVisualAccumulator = Omit<FileChangeAccumulator, "filesByAbs"> & {
@@ -1608,8 +1605,8 @@ const mergeFileChangeStatus = (current: FileChangeStatus, incoming: FileChangeSt
   fileChangeStatusPriority(incoming) > fileChangeStatusPriority(current) ? incoming : current;
 
 const fileChangePathSignature = (turnId: string, file: FileChangeFile): string => {
-  const from = normalizeFsPath(file.pathAbs || file.pathRel).toLowerCase();
-  const to = normalizeFsPath(file.pathAbsTo || file.pathRelTo || "").toLowerCase();
+  const from = normalizeFsPath(file.pathRel || file.pathAbs).toLowerCase();
+  const to = normalizeFsPath(file.pathRelTo || file.pathAbsTo || "").toLowerCase();
   return `${turnId}:${from}:${to}`;
 };
 
@@ -1880,10 +1877,6 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
       const status = existing?.status === "failed" ? "failed" : nextStatus;
       const streamUpdateCount =
         (existing?.streamUpdateCount ?? 0) + (fileEvent.method === "item/fileChange/patchUpdated" ? 1 : 0);
-      const lastPatchUpdatedAt =
-        fileEvent.method === "item/fileChange/patchUpdated"
-          ? fileEvent.createdAt
-          : (existing?.lastPatchUpdatedAt ?? null);
 
       const startedAt =
         fileEvent.method === "item/completed"
@@ -1905,7 +1898,6 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
         status: completedAt != null && status === "running" ? "completed" : status,
         filesByAbs,
         streamUpdateCount,
-        lastPatchUpdatedAt,
       });
       continue;
     }
@@ -2217,7 +2209,6 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
         status: entry.status,
         file,
         streamUpdateCount: entry.streamUpdateCount,
-        lastPatchUpdatedAt: entry.lastPatchUpdatedAt,
       };
       const existing = fileChangeVisualItemsByPath.get(signature);
       if (!existing) {
@@ -2247,12 +2238,6 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
         status: mergeFileChangeStatus(existing.status, candidate.status),
         file: mergeFileChangeFile(existing.file, candidate.file),
         streamUpdateCount: existing.streamUpdateCount + candidate.streamUpdateCount,
-        lastPatchUpdatedAt:
-          existing.lastPatchUpdatedAt == null
-            ? candidate.lastPatchUpdatedAt
-            : candidate.lastPatchUpdatedAt == null
-              ? existing.lastPatchUpdatedAt
-              : Math.max(existing.lastPatchUpdatedAt, candidate.lastPatchUpdatedAt),
       });
     }
   }
@@ -2263,7 +2248,6 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
     const createdAt = entry.startedAt ?? entry.firstCreatedAt;
     const nodeId = `filechg:${params.timelineKey}:${entry.turnId}:${entry.itemId}:${entry.file.pathAbs}`;
     const isStreaming = entry.status === "running" && entry.completedAt == null;
-    const settledAt = entry.status === "running" ? null : entry.completedAt;
     renderNodes.push({
       index: entry.firstIndex,
       createdAt,
@@ -2279,9 +2263,7 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
           startedAt: entry.startedAt,
           completedAt: entry.completedAt,
           streamUpdateCount: entry.streamUpdateCount,
-          lastPatchUpdatedAt: entry.lastPatchUpdatedAt,
           isStreaming,
-          settledAt,
           counts,
           files: [entry.file],
         },
