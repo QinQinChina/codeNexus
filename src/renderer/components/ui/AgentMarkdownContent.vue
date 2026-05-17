@@ -90,9 +90,6 @@ defineOptions({
 
 const props = defineProps<{
   html: string;
-  streaming?: boolean;
-  animateTextGrowth?: boolean;
-  suppressTextEnterAnimations?: boolean;
 }>();
 
 const rootRef = ref<HTMLElement | null>(null);
@@ -143,8 +140,6 @@ let mermaidFailureByKey = new Map<string, string>();
 let mermaidSourceByKey = new Map<string, string>();
 let codeCopyResetTimerByButton = new Map<HTMLButtonElement, ReturnType<typeof setTimeout>>();
 const isInViewport = ref(true);
-let lastRenderedPlainText = "";
-let hasRenderedHtmlOnce = false;
 
 let lightboxDragPointerId: number | null = null;
 let lightboxDragStartClientX = 0;
@@ -617,64 +612,6 @@ function clearMermaidFailures() {
   mermaidFailureByKey.clear();
 }
 
-function hasStreamingTextForbiddenAncestor(node: Node): boolean {
-  let current = node.parentElement;
-  while (current) {
-    const tag = current.tagName;
-    if (tag === "CODE" || tag === "PRE" || tag === "A" || tag === "SVG" || tag === "BUTTON") return true;
-    if (current.classList.contains("agent-mermaid-block")) return true;
-    current = current.parentElement;
-  }
-  return false;
-}
-
-function wrapStreamingTextNode(node: Text, startOffset: number) {
-  const value = String(node.nodeValue ?? "");
-  if (!value) return;
-  const start = Math.max(0, Math.min(value.length, startOffset));
-  if (start >= value.length) return;
-
-  const fragment = document.createDocumentFragment();
-  const prefix = value.slice(0, start);
-  const animatedText = value.slice(start);
-  if (prefix) fragment.append(document.createTextNode(prefix));
-
-  const span = document.createElement("span");
-  span.className = "agent-streaming-text-enter";
-  span.textContent = animatedText;
-  fragment.append(span);
-
-  node.parentNode?.replaceChild(fragment, node);
-}
-
-function markStreamingTextTail(root: HTMLElement, tailStartOffset: number) {
-  if (typeof document === "undefined") return;
-  if (typeof NodeFilter === "undefined") return;
-  const tailStart = Math.max(0, Math.round(tailStartOffset));
-  let textOffset = 0;
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  const targets: Array<{ node: Text; startOffset: number }> = [];
-
-  while (true) {
-    const node = walker.nextNode();
-    if (!node) break;
-    if (!(node instanceof Text)) continue;
-    const value = String(node.nodeValue ?? "");
-    const length = value.length;
-    if (length <= 0) continue;
-
-    const nodeStart = textOffset;
-    const nodeEnd = nodeStart + length;
-    textOffset = nodeEnd;
-
-    if (nodeEnd <= tailStart) continue;
-    if (hasStreamingTextForbiddenAncestor(node)) continue;
-    targets.push({ node, startOffset: Math.max(0, tailStart - nodeStart) });
-  }
-
-  for (const target of targets) wrapStreamingTextNode(target.node, target.startOffset);
-}
-
 function syncRenderedHtml() {
   const host = rootRef.value;
   if (!host) return;
@@ -684,15 +621,6 @@ function syncRenderedHtml() {
   // Keep diagram SVG blocks stable while the parent HTML updates (streaming output).
   const template = document.createElement("div");
   template.innerHTML = props.html;
-  const nextPlainText = String(template.textContent ?? "");
-  const canAnimateInitialText = !hasRenderedHtmlOnce && nextPlainText.length > 0;
-  const canAnimateGrowingText =
-    hasRenderedHtmlOnce &&
-    nextPlainText.length > lastRenderedPlainText.length &&
-    nextPlainText.startsWith(lastRenderedPlainText);
-  const textEnterAnimationsEnabled =
-    !props.suppressTextEnterAnimations && (Boolean(props.streaming) || Boolean(props.animateTextGrowth));
-  const shouldAnimateStreamingTail = textEnterAnimationsEnabled && (canAnimateInitialText || canAnimateGrowingText);
 
   const nextFrozenMermaidBlocks = new Map<string, HTMLElement>();
   const nextMermaidFailures = new Map<string, string>();
@@ -728,13 +656,7 @@ function syncRenderedHtml() {
     }
   }
 
-  if (shouldAnimateStreamingTail) {
-    markStreamingTextTail(template, hasRenderedHtmlOnce ? lastRenderedPlainText.length : 0);
-  }
-
   host.replaceChildren(...Array.from(template.childNodes));
-  lastRenderedPlainText = nextPlainText;
-  hasRenderedHtmlOnce = true;
   frozenMermaidBlocks = nextFrozenMermaidBlocks;
   mermaidFailureByKey = nextMermaidFailures;
   mermaidSourceByKey = nextMermaidSources;

@@ -33,8 +33,6 @@
         :reasoningEffortOptions="reasoningEffortOptions as any"
         :sandboxModeOptions="sandboxModeOptions as any"
         :turnPlanForPlanDeltaEvent="turnPlanForPlanDeltaEvent"
-        :isEventStreaming="isEventTurnRunning"
-        :suppressTextEnterAnimations="suppressTextEnterAnimations"
         :userMessageParts="userMessageParts"
         :userMessageImageCount="userMessageImageCount"
         :visibleUserMessageImageEntries="visibleUserMessageImageEntries"
@@ -131,7 +129,12 @@
               <button class="composer-lightbox-action" type="button" v-tooltip="'放大'" @click="zoomImageLightboxIn">
                 <ZoomIn aria-hidden="true" />
               </button>
-              <button class="composer-lightbox-action" type="button" v-tooltip="'重置视图'" @click="resetImageLightboxView">
+              <button
+                class="composer-lightbox-action"
+                type="button"
+                v-tooltip="'重置视图'"
+                @click="resetImageLightboxView"
+              >
                 <RotateCcw aria-hidden="true" />
               </button>
               <button
@@ -198,7 +201,6 @@ const props = defineProps<{
   trailingContextCompactionEvent: TimelineEventItem | null;
   timelineKey: string;
   scrollElement: HTMLElement | null;
-  suppressTextEnterAnimations?: boolean;
   onLayoutChange?: () => void;
   onViewportAdapterChange?: (adapter: TimelineViewportAdapter | null) => void;
 }>();
@@ -214,7 +216,7 @@ const { getMarkdownEventHtml } = useAgentMarkdownRenderer({ key: () => runtimeSt
 const mcpToolDefinitions = computed(() => buildMcpToolDefinitionIndex(mcpStore.servers));
 
 // 1. 基础时间线与状态逻辑
-const { isTurnRunning, turnPlanForPlanDeltaEvent, isEventTurnRunning } = useChatTimeline();
+const { isTurnRunning, turnPlanForPlanDeltaEvent } = useChatTimeline();
 
 // 2. 布局与 Handoff 诊断逻辑
 const { hiddenImageIds, handoffDiagnosticsBanner } = useChatLayout();
