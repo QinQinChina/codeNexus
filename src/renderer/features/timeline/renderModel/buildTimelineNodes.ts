@@ -1604,10 +1604,10 @@ const fileChangeStatusPriority = (status: FileChangeStatus): number => {
 const mergeFileChangeStatus = (current: FileChangeStatus, incoming: FileChangeStatus): FileChangeStatus =>
   fileChangeStatusPriority(incoming) > fileChangeStatusPriority(current) ? incoming : current;
 
-const fileChangePathSignature = (turnId: string, file: FileChangeFile): string => {
+const fileChangePathSignature = (turnId: string, itemId: string, file: FileChangeFile): string => {
   const from = normalizeFsPath(file.pathRel || file.pathAbs).toLowerCase();
   const to = normalizeFsPath(file.pathRelTo || file.pathAbsTo || "").toLowerCase();
-  return `${turnId}:${from}:${to}`;
+  return `${turnId}:${itemId}:${from}:${to}`;
 };
 
 const fileChangeDiffScore = (file: FileChangeFile): number => {
@@ -2196,7 +2196,7 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
     );
 
     for (const file of files) {
-      const signature = fileChangePathSignature(entry.turnId, file);
+      const signature = fileChangePathSignature(entry.turnId, entry.itemId, file);
       const candidate: FileChangeVisualAccumulator = {
         key: `${entry.key}:${file.pathAbs}`,
         turnId: entry.turnId,

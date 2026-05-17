@@ -103,6 +103,7 @@ let previousDiffKey = "";
 let previousLineKeys = new Set<string>();
 let lastPatchAtMs = 0;
 let lastStreamScrollAtMs = 0;
+const STREAM_SCROLL_MIN_INTERVAL_MS = 32;
 
 const gridLayoutClass = computed(() => {
   const cols = props.wrapLines
@@ -253,10 +254,14 @@ const lineContent = (line: DiffLine, kind = displayLineKind(line)) => {
   return text;
 };
 
-const lineSignature = (line: DiffLine) => {
+const lineSignature = (line: DiffLine, index: number) => {
   const kind = displayLineKind(line);
   const oldNo = line.oldNo == null ? "" : String(line.oldNo);
   const newNo = line.newNo == null ? "" : String(line.newNo);
+  if (kind === "add" || kind === "del") {
+    if (oldNo || newNo) return `stream:${kind}:${oldNo}:${newNo}`;
+    return `stream:${kind}:index:${index}`;
+  }
   return `${kind}:${oldNo}:${newNo}:${String(line.text ?? "")}`;
 };
 
@@ -269,8 +274,8 @@ const lineRevealLength = (line: DiffLine) => lineContent(line, displayLineKind(l
 
 const buildLineKeys = (lines: DiffLine[]) => {
   const seen = new Map<string, number>();
-  return lines.map((line) => {
-    const signature = lineSignature(line);
+  return lines.map((line, index) => {
+    const signature = lineSignature(line, index);
     const count = seen.get(signature) ?? 0;
     seen.set(signature, count + 1);
     return `${signature}:${count}`;
@@ -345,7 +350,7 @@ const onLockedScrollInput = (event: Event) => {
 const scheduleScrollToLine = (lineKey?: string, force = false) => {
   if (!props.animateUpdates) return;
   const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-  if (!force && now - lastStreamScrollAtMs < 90) return;
+  if (!force && now - lastStreamScrollAtMs < STREAM_SCROLL_MIN_INTERVAL_MS) return;
   lastStreamScrollAtMs = now;
   stopScheduledScroll();
   const run = () => {
@@ -412,19 +417,19 @@ const animateRevealToTargets = (targets: RevealTarget[], durationMs: number) => 
 
     while (carryChars >= 1 && queueIndex < queue.length) {
       const currentTarget = queue[queueIndex];
-      activeTarget = currentTarget;
       const current = clamp(next.get(currentTarget.key) ?? 0, 0, currentTarget.length);
       const remaining = currentTarget.length - current;
       if (remaining <= 0) {
         queueIndex += 1;
-        carryChars = Math.max(0, carryChars - 1);
         continue;
       }
       const advance = Math.min(remaining, Math.floor(carryChars));
+      if (advance <= 0) break;
       next.set(currentTarget.key, current + advance);
       carryChars -= advance;
+      activeTarget = currentTarget;
       if (current + advance >= currentTarget.length) queueIndex += 1;
-      break;
+      else break;
     }
 
     revealCharsByLineKey.value = next;
