@@ -1,4 +1,4 @@
-import type { TimelineEventItem } from "../../../domain/types";
+import type { TimelineEventItem, TimelineUserMessageParams } from "../../../domain/types";
 import { buildStructuredTextSegments } from "../../../domain/composeFileMentions";
 import { basenameFromPath } from "../../../domain/workspaceFiles";
 import { useWorkspaceFilesStore } from "../../../stores/workspaceFiles.store";
@@ -13,13 +13,6 @@ import type {
   ImageToolImageEntry,
 } from "../types/chat.types";
 
-type UserMessageSnapshotBuildState = {
-  textParts: string[];
-  images: string[];
-  localImages: string[];
-  textElements: unknown;
-};
-
 export function useChatMessageParts(hiddenImageIds: () => Set<string>, onLayoutChange?: () => void) {
   const workspaceFilesStore = useWorkspaceFilesStore();
 
@@ -30,109 +23,28 @@ export function useChatMessageParts(hiddenImageIds: () => Set<string>, onLayoutC
       ? value.map((item) => String(item ?? "")).filter((item) => (opts?.keepEmpty ? true : !!item.trim()))
       : [];
 
-  const pushText = (parts: string[], value: unknown) => {
-    if (typeof value !== "string") return;
-    if (!value) return;
-    parts.push(value);
-  };
-
-  const pushStringArray = (target: string[], value: unknown, opts?: { keepEmpty?: boolean }) => {
-    target.push(...toStringArray(value, opts));
-  };
-
-  const readUserContent = (content: unknown, target: UserMessageSnapshotBuildState) => {
-    if (typeof content === "string") {
-      pushText(target.textParts, content);
-      return;
-    }
-    if (!Array.isArray(content)) return;
-
-    for (const part of content) {
-      if (typeof part === "string") {
-        pushText(target.textParts, part);
-        continue;
-      }
-      const record = toRecord(part);
-      if (!record) continue;
-      const type = String(record.type ?? "").trim();
-
-      if (type === "text" || type === "input_text" || type === "output_text") {
-        pushText(target.textParts, record.text);
-        if (target.textElements == null && Array.isArray(record.text_elements)) {
-          target.textElements = record.text_elements;
-        }
-        continue;
-      }
-
-      if (type === "image") {
-        pushText(target.images, record.url);
-        continue;
-      }
-
-      if (type === "input_image") {
-        pushText(target.images, record.image_url);
-        continue;
-      }
-
-      if (type === "localImage") {
-        pushText(target.localImages, record.path);
-        continue;
-      }
-
-      if (type === "mention") {
-        pushText(target.textParts, record.path);
-        continue;
-      }
-
-      pushText(target.textParts, record.text);
-    }
+  const asTimelineUserMessageParams = (event: TimelineEventItem): TimelineUserMessageParams | null => {
+    if (event.method !== "user") return null;
+    const params = toRecord(event.params);
+    if (params?.role !== "user") return null;
+    return params as TimelineUserMessageParams;
   };
 
   const getUserMessageSnapshot = (event: TimelineEventItem): ChatUserMessageSnapshot => {
-    const params = toRecord(event?.params);
-    const item = toRecord(params?.item);
-    const message = toRecord(params?.message) ?? toRecord(params?.payload);
-    const state: UserMessageSnapshotBuildState = {
-      textParts: [],
-      images: [],
-      localImages: [],
-      textElements: params?.text_elements,
-    };
-
-    pushText(state.textParts, params?.text);
-    pushText(state.textParts, params?.message);
-    pushStringArray(state.images, params?.images, { keepEmpty: true });
-    pushStringArray(state.localImages, params?.local_images);
-    pushText(state.images, params?.image_url);
-    pushText(state.images, params?.url);
-    pushText(state.localImages, params?.localImage);
-    pushText(state.localImages, params?.local_image);
-
-    if (item) {
-      pushText(state.textParts, item.text);
-      pushStringArray(state.images, item.images, { keepEmpty: true });
-      pushStringArray(state.localImages, item.local_images);
-      readUserContent(item.content, state);
+    const params = asTimelineUserMessageParams(event);
+    if (!params) {
+      return {
+        text: "",
+        textElements: undefined,
+        images: [],
+        localImages: [],
+      };
     }
-
-    if (message) {
-      pushText(state.textParts, message.text);
-      if (state.textElements == null && Array.isArray(message.text_elements))
-        state.textElements = message.text_elements;
-      pushStringArray(state.images, message.images, { keepEmpty: true });
-      pushStringArray(state.localImages, message.local_images);
-      readUserContent(message.content, state);
-    }
-
-    readUserContent(params?.content, state);
-
-    const text =
-      state.textParts.length > 0 ? state.textParts.join("\n").replace(/\r\n?/g, "\n") : String(event?.paramsText ?? "");
     return {
-      text,
-      textElements: state.textElements,
-      images: state.images,
-      localImages: state.localImages,
+      text: String(params.text ?? "").replace(/\r\n?/g, "\n"),
+      textElements: params.text_elements,
+      images: toStringArray(params.images, { keepEmpty: true }),
+      localImages: toStringArray(params.local_images),
     };
   };
 

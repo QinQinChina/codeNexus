@@ -27,14 +27,13 @@
     :event="renderedRow.event"
     :assistantPlanMessageFormat="assistantPlanMessageFormat"
     :turnPlan="turnPlanForPlanDeltaEvent(renderedRow.event)"
-    :isStructuredFinalAnswer="Boolean(tryParseStructuredFinalAnswerV1(renderedRow.event.paramsText))"
-    :markdownHtml="getMarkdownEventHtml(renderedRow.event)"
+    :isStructuredFinalAnswer="isStructuredFinalAnswerEvent(renderedRow.event)"
+    :markdownHtml="assistantMarkdownHtml(renderedRow.event)"
     :execState="planExecStateByEventId[renderedRow.event.id] ?? null"
     :modelOptions="modelOptions"
     :isTurnRunning="isTurnRunning"
     :reasoningEffortOptions="reasoningEffortOptions"
     :sandboxModeOptions="sandboxModeOptions"
-    :sandboxSelectClass="sandboxSelectClass(planExecStateByEventId[renderedRow.event.id]?.sandboxMode || '')"
     @execute-plan="executePlanFromPlanDelta"
     @update:model="(value) => updatePlanExecModel(renderedRow.event.id, value)"
     @update:reasoning-effort="(value) => updatePlanExecReasoningEffort(renderedRow.event.id, value)"
@@ -150,11 +149,14 @@
   />
 
   <div v-else-if="renderedRow.kind === 'fileChange'" :class="CHAT_ROW_TOOL_CLASS">
-    <FileChangeCardContent
-      :item="(renderedRow as any).item"
-      mode="chat"
-      :wrapDiffLines="false"
-    />
+    <div class="chat-tool-wrap w-full max-w-full min-w-0">
+      <FileChangeCardContent
+        :item="(renderedRow as any).item"
+        mode="chat"
+        :wrapDiffLines="false"
+        @layout-change="handleLayoutChange?.()"
+      />
+    </div>
   </div>
 
   <ChatCommandActionRow
@@ -233,7 +235,7 @@ import CommandReadActivityRow from "../../timeline/activities/CommandReadActivit
 import CommandListActivityRow from "../../timeline/activities/CommandListActivityRow.vue";
 import CommandSearchActivityRow from "../../timeline/activities/CommandSearchActivityRow.vue";
 import { CHAT_ROW_ACTIVITY_CLASS, CHAT_ROW_TOOL_CLASS } from "./chatPresentation";
-import { chatActivityToneClass, chatSandboxToneClass } from "./chatStyle";
+import { chatActivityToneClass } from "./chatStyle";
 
 import type { TimelineEventItem, TurnPlanState } from "../../../domain/types";
 import { tryParseStructuredFinalAnswerV1 } from "../../../domain/structuredFinalAnswer";
@@ -281,7 +283,7 @@ const isSshMcpToolGroup = (group: McpToolGroupNode | null | undefined): boolean 
   });
 };
 
-defineProps<{
+const props = defineProps<{
   renderedRow: ChatRenderedRow;
   workspaceRoot: string;
   viewPrefs: { showTimestamps: boolean };
@@ -339,7 +341,16 @@ const toReasoningHtml = (text: string) => {
 };
 
 const activityDotClass = chatActivityToneClass;
-const sandboxSelectClass = chatSandboxToneClass;
+const isStructuredFinalAnswerEvent = (event: TimelineEventItem): boolean => {
+  if (event.method === "item/plan/delta") return false;
+  return Boolean(tryParseStructuredFinalAnswerV1(event.paramsText));
+};
+
+const assistantMarkdownHtml = (event: TimelineEventItem): string => {
+  if (event.method === "item/plan/delta") return "";
+  if (isStructuredFinalAnswerEvent(event)) return "";
+  return props.getMarkdownEventHtml(event);
+};
 </script>
 
 <style scoped>

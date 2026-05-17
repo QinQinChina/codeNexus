@@ -12,7 +12,7 @@ type AgentMarkdownRenderEntry = {
   rendererVersion: number;
 };
 
-const AGENT_MARKDOWN_MIN_INTERVAL_MS = 24;
+const AGENT_MARKDOWN_MIN_INTERVAL_MS = 48;
 const AGENT_MARKDOWN_EVENT_CACHE_MAX = 240;
 const AGENT_MARKDOWN_EVENT_CACHE_KEEP = 180;
 
@@ -37,7 +37,7 @@ export function useAgentMarkdownRenderer(params: { key: () => string }) {
   };
 
   const renderWithCurrentMarkdownRenderer = (text: string) => {
-    const renderedHtml = renderMarkdownToSafeHtml(text);
+    const renderedHtml = renderMarkdownToSafeHtml(text, { cache: false });
     const rendererVersion = getMarkdownRendererVersion();
     if (rendererVersion === 0) scheduleMarkdownReadyRefresh();
     return { renderedHtml, rendererVersion };

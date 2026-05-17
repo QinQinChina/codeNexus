@@ -34,7 +34,7 @@
       >
         <div class="chat-aux-activity__body-frame">
           <div ref="scrollerRef" class="chat-aux-activity__body app-scrollbar" @scroll="onBodyScroll">
-            <div class="chat-aux-activity__items">
+            <div ref="contentRef" class="chat-aux-activity__items">
               <div v-for="item in items" :key="item.id" class="chat-aux-activity__item" :data-aux-kind="item.kind">
                 <slot :item="item" />
               </div>
@@ -47,10 +47,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { Activity, ChevronDown } from "lucide-vue-next";
 import type { ChatAuxActivityStatus, ChatAuxActivitySummaryItem, ChatAuxiliaryRow } from "../layout/types/chat.types";
 import { CHAT_ROW_BASE_CLASS } from "../layout/chat/chatPresentation";
+import { useFollowBottomScroller } from "./useFollowBottomScroller";
 
 const props = defineProps<{
   id: string;
@@ -71,9 +72,17 @@ const emit = defineEmits<{
 
 const open = ref(!props.defaultCollapsed);
 const userTouched = ref(false);
-const followBottom = ref(true);
-const scrollerRef = ref<HTMLElement | null>(null);
-let pendingScrollRaf: number | null = null;
+const {
+  contentRef,
+  scrollerRef,
+  onScroll: onBodyScroll,
+  resetFollowBottom,
+  scheduleScrollToBottom,
+} = useFollowBottomScroller({
+  bottomThresholdPx: 24,
+  enabled: () => open.value,
+  onContentResize: () => emit("layout-change"),
+});
 
 const titleText = computed(() => (props.status === "running" ? "正在处理辅助活动" : "辅助活动"));
 
@@ -87,34 +96,13 @@ const activityClass = computed(() => ({
   "is-running": props.status === "running",
 }));
 
-function distanceToBottom(element: HTMLElement): number {
-  return Math.max(0, element.scrollHeight - element.clientHeight - element.scrollTop);
-}
-
-function scheduleScrollToBottom() {
-  if (!open.value || !followBottom.value) return;
-  if (pendingScrollRaf != null) cancelAnimationFrame(pendingScrollRaf);
-  pendingScrollRaf = requestAnimationFrame(() => {
-    pendingScrollRaf = null;
-    const element = scrollerRef.value;
-    if (!element) return;
-    element.scrollTop = element.scrollHeight;
-  });
-}
-
-function onBodyScroll() {
-  const element = scrollerRef.value;
-  if (!element) return;
-  followBottom.value = distanceToBottom(element) <= 24;
-}
-
 function toggleOpen() {
   userTouched.value = true;
   open.value = !open.value;
   if (open.value) {
-    followBottom.value = true;
+    resetFollowBottom();
     void nextTick(() => {
-      scheduleScrollToBottom();
+      scheduleScrollToBottom({ force: true });
       emit("layout-change");
     });
     return;
@@ -131,10 +119,10 @@ watch(
   () => props.id,
   () => {
     userTouched.value = false;
-    followBottom.value = true;
+    resetFollowBottom();
     open.value = !props.defaultCollapsed;
     void nextTick(() => {
-      scheduleScrollToBottom();
+      scheduleScrollToBottom({ force: true });
       emit("layout-change");
     });
   }
@@ -150,8 +138,9 @@ watch(
     }
     if (!userTouched.value) {
       open.value = true;
+      resetFollowBottom();
       void nextTick(() => {
-        scheduleScrollToBottom();
+        scheduleScrollToBottom({ force: true });
         emit("layout-change");
       });
     }
@@ -168,9 +157,4 @@ watch(
   },
   { flush: "post" }
 );
-
-onBeforeUnmount(() => {
-  if (pendingScrollRaf != null) cancelAnimationFrame(pendingScrollRaf);
-  pendingScrollRaf = null;
-});
 </script>

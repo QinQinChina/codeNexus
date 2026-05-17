@@ -305,6 +305,11 @@ type ComposerScrollSnapshot = {
 function bindComposerInputRef(el: HTMLDivElement | null) {
   internalComposerInputRef.value = el;
   props.composerInputRef(el);
+  if (el) {
+    nextTick(() => {
+      if (internalComposerInputRef.value === el) syncDomFromProps();
+    });
+  }
 }
 
 const hasPendingComposerUserInput = computed(() => {

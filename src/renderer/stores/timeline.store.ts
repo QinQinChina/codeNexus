@@ -3,7 +3,7 @@ import { defineStore } from "pinia";
 import type { TimelineEventItem, TimelineEventLevel } from "../domain/types";
 
 const MAX_EVENT_PARAMS_CHARS = 60_000;
-const STREAM_FLUSH_DELAY_MS = 16;
+const STREAM_FLUSH_DELAY_MS = 33;
 const STREAM_FLUSH_FALLBACK_DELAY_MS = 120;
 
 type PendingAppend = {
@@ -33,7 +33,8 @@ type ThreadTimelineState = {
   renderIndexById: Map<string, number>;
   eventsById: Map<string, TimelineEventItem>;
   byTurnId: Map<string, Set<string>>;
-  revision: number;
+  contentRevision: number;
+  structureRevision: number;
 };
 
 const EMPTY_TIMELINE_EVENTS: TimelineEventItem[] = [];
@@ -90,12 +91,14 @@ function createEmptyThreadState(): ThreadTimelineState {
     renderIndexById: new Map<string, number>(),
     eventsById: new Map<string, TimelineEventItem>(),
     byTurnId: new Map<string, Set<string>>(),
-    revision: 0,
+    contentRevision: 0,
+    structureRevision: 0,
   };
 }
 
-function touchThreadRevision(state: ThreadTimelineState) {
-  state.revision += 1;
+function touchThreadRevision(state: ThreadTimelineState, kind: "content" | "structure" = "structure") {
+  if (kind === "structure") state.structureRevision += 1;
+  state.contentRevision += 1;
 }
 
 function rebuildRenderEventIndexes(state: ThreadTimelineState) {
@@ -160,10 +163,16 @@ export const useTimelineStore = defineStore("timeline", {
         return t.renderEvents;
       };
     },
-    threadRevisionForThread(state): (threadId: string) => number {
+    threadContentRevisionForThread(state): (threadId: string) => number {
       return (threadIdValue: string) => {
         const threadId = ensureThreadId(threadIdValue);
-        return state.threads.get(threadId)?.revision ?? 0;
+        return state.threads.get(threadId)?.contentRevision ?? 0;
+      };
+    },
+    threadStructureRevisionForThread(state): (threadId: string) => number {
+      return (threadIdValue: string) => {
+        const threadId = ensureThreadId(threadIdValue);
+        return state.threads.get(threadId)?.structureRevision ?? 0;
       };
     },
   },
@@ -173,7 +182,7 @@ export const useTimelineStore = defineStore("timeline", {
       if (pendingAppendsByKey.size === 0) return;
       const entries = Array.from(pendingAppendsByKey.values());
       pendingAppendsByKey.clear();
-      const changedThreadIds = new Set<string>();
+      const changedThreads = new Map<string, "content" | "structure">();
 
       for (const params of entries) {
         const chunk = String(params.chunk ?? "");
@@ -208,19 +217,21 @@ export const useTimelineStore = defineStore("timeline", {
         };
 
         state.eventsById.set(id, next);
+        const changeKind = existing ? "content" : "structure";
         if (!existing) {
           state.order.push(id);
           pushRenderEvent(state, next);
         } else {
           replaceRenderEvent(state, next);
         }
-        changedThreadIds.add(threadId);
+        const previousKind = changedThreads.get(threadId);
+        changedThreads.set(threadId, previousKind === "structure" ? "structure" : changeKind);
       }
 
-      for (const threadId of changedThreadIds) {
+      for (const [threadId, kind] of changedThreads) {
         const state = this.threads.get(threadId);
         if (!state) continue;
-        touchThreadRevision(state);
+        touchThreadRevision(state, kind);
       }
     },
     // 确保线程状态容器存在（惰性创建）。
@@ -273,7 +284,7 @@ export const useTimelineStore = defineStore("timeline", {
       state.eventsById.set(id, event);
       pushRenderEvent(state, event);
       addTurnIndex(state, event.turnId, id);
-      touchThreadRevision(state);
+      touchThreadRevision(state, "structure");
     },
     // 存在则更新，不存在则创建。
     upsertEvent(params: {
@@ -327,7 +338,7 @@ export const useTimelineStore = defineStore("timeline", {
       } else {
         replaceRenderEvent(state, next);
       }
-      touchThreadRevision(state);
+      touchThreadRevision(state, existing ? "content" : "structure");
     },
     // 给流式事件追加文本 chunk（如 delta 增量）。
     appendToEvent(params: {
@@ -421,7 +432,7 @@ export const useTimelineStore = defineStore("timeline", {
       const next = { ...existing, ...patch, turnId: nextTurnId, paramsText: nextParamsText };
       state.eventsById.set(existing.id, next);
       replaceRenderEvent(state, next);
-      touchThreadRevision(state);
+      touchThreadRevision(state, "structure");
     },
     // 删除单个事件。
     removeEvent(params: { threadId: string; id: string }) {
@@ -437,7 +448,7 @@ export const useTimelineStore = defineStore("timeline", {
       const idx = state.order.indexOf(id);
       if (idx >= 0) state.order.splice(idx, 1);
       removeRenderEvent(state, id);
-      touchThreadRevision(state);
+      touchThreadRevision(state, "structure");
     },
     // 跨线程搬移事件（切会话时的本地补偿场景）。
     moveEvent(params: { fromThreadId: string; toThreadId: string; id: string }) {
@@ -471,9 +482,11 @@ export const useTimelineStore = defineStore("timeline", {
         return;
       }
 
-      const prevRevision = this.threads.get(threadId)?.revision ?? 0;
+      const prevContentRevision = this.threads.get(threadId)?.contentRevision ?? 0;
+      const prevStructureRevision = this.threads.get(threadId)?.structureRevision ?? 0;
       const nextState = createEmptyThreadState();
-      nextState.revision = prevRevision + 1;
+      nextState.contentRevision = prevContentRevision + 1;
+      nextState.structureRevision = prevStructureRevision + 1;
 
       const seenIds = new Set<string>();
       for (const rawEvent of incoming) {
@@ -519,7 +532,7 @@ export const useTimelineStore = defineStore("timeline", {
         addTurnIndex(toState, moved.turnId, id);
       }
       this.threads.delete(fromThreadId);
-      touchThreadRevision(toState);
+      touchThreadRevision(toState, "structure");
     },
     // 按 turn 批量删除事件（回滚时使用）。
     removeTurnEvents(threadIdValue: string, turnIds: string[]) {
@@ -545,7 +558,7 @@ export const useTimelineStore = defineStore("timeline", {
       }
       state.renderEvents = state.renderEvents.filter((event) => !idsToRemove.has(event.id));
       rebuildRenderEventIndexes(state);
-      touchThreadRevision(state);
+      touchThreadRevision(state, "structure");
     },
     // 清空某个线程的全部事件状态。
     clearThread(threadIdValue: string) {

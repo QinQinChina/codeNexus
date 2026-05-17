@@ -118,9 +118,10 @@ function renderMarkdown(text: string): string {
   }
 }
 
-export function renderMarkdownToSafeHtml(text: string): string {
+export function renderMarkdownToSafeHtml(text: string, options: { cache?: boolean } = {}): string {
   const source = String(text ?? "");
-  const cached = htmlCache.get(source);
+  const shouldCache = options.cache !== false;
+  const cached = shouldCache ? htmlCache.get(source) : null;
   if (cached != null) return cached;
   if (!markdown || !DOMPurify) {
     void loadMarkdownDeps().catch((error) => {
@@ -131,8 +132,10 @@ export function renderMarkdownToSafeHtml(text: string): string {
   // 渲染后再做 DOMPurify 清洗，防止脚本/危险属性注入。
   const rendered = renderMarkdown(source);
   const sanitized = String(DOMPurify.sanitize(rendered, sanitizeOptions));
-  htmlCache.set(source, sanitized);
-  pruneCacheIfNeeded();
+  if (shouldCache) {
+    htmlCache.set(source, sanitized);
+    pruneCacheIfNeeded();
+  }
   return sanitized;
 }
 

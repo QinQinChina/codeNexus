@@ -46,6 +46,7 @@ export function usePlanExecution(contentEvents: () => TimelineEventItem[], isTur
           reasoningEffort: runtimeStore.reasoningEffort,
           sandboxMode: runtimeStore.sandboxMode,
           executing: false,
+          collapseWhileExecuting: false,
         };
       }
       for (const key of Object.keys(planExecStateByEventId)) {
@@ -53,6 +54,16 @@ export function usePlanExecution(contentEvents: () => TimelineEventItem[], isTur
       }
     },
     { immediate: true }
+  );
+
+  watch(
+    () => isTurnRunning(),
+    (running) => {
+      if (running) return;
+      for (const state of Object.values(planExecStateByEventId)) {
+        if (!state.executing) state.collapseWhileExecuting = false;
+      }
+    }
   );
 
   const cloneComposeAttachments = () => {
@@ -72,6 +83,7 @@ export function usePlanExecution(contentEvents: () => TimelineEventItem[], isTur
     if (isTurnRunning()) return;
 
     state.executing = true;
+    state.collapseWhileExecuting = true;
     const prevModel = runtimeStore.model;
     const prevEffort = runtimeStore.reasoningEffort;
     const prevSandbox = runtimeStore.sandboxMode;
@@ -116,6 +128,7 @@ export function usePlanExecution(contentEvents: () => TimelineEventItem[], isTur
       }));
       runtimeStore.historyRewriteSavedMentions = prevRewriteSavedMentions.map((item) => ({ ...item }));
       state.executing = false;
+      if (!isTurnRunning()) state.collapseWhileExecuting = false;
     }
   };
 

@@ -108,6 +108,20 @@ body::-webkit-scrollbar-button {
   overflow-y: auto;
   --timeline-edge-fade-top: 0px;
   --timeline-edge-fade-bottom: 0px;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--timeline-edge-fade-top),
+    #000 calc(100% - var(--timeline-edge-fade-bottom)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--timeline-edge-fade-top),
+    #000 calc(100% - var(--timeline-edge-fade-bottom)),
+    transparent 100%
+  );
   overscroll-behavior: contain;
   padding: 0 2px 12px 0;
   border-radius: 0;

@@ -213,6 +213,7 @@
         class="mb-2.5 last:mb-0"
         :item="node.item"
         :wrapDiffLines="false"
+        @layout-change="props.onLayoutChange?.()"
       />
     </template>
 

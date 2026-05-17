@@ -29,6 +29,8 @@ const STREAM_NOTIFICATION_ACTIVITY_METHODS = new Set([
   "command/exec/outputDelta",
   "item/commandExecution/terminalInteraction",
 ]);
+const paramsObjectSignatureIds = new WeakMap<object, number>();
+let nextParamsObjectSignatureId = 1;
 
 function shortenActivityText(value: unknown, max = 220): string {
   const text = String(value ?? "")
@@ -42,6 +44,17 @@ function toEventParamsObject(event: TimelineEventItem): Record<string, any> {
   return event.params && typeof event.params === "object" && !Array.isArray(event.params)
     ? (event.params as Record<string, any>)
     : {};
+}
+
+function paramsObjectSignature(value: unknown): string {
+  if (!value || typeof value !== "object") return "";
+  let id = paramsObjectSignatureIds.get(value);
+  if (id == null) {
+    id = nextParamsObjectSignatureId;
+    nextParamsObjectSignatureId += 1;
+    paramsObjectSignatureIds.set(value, id);
+  }
+  return String(id);
 }
 
 function decodeBase64Utf8(value: unknown): string {
@@ -217,12 +230,19 @@ function buildAuxActivityGroup(params: {
 
 export function useChatRenderModel(
   contentEvents: () => TimelineEventItem[],
+  contentRevision: () => number,
   workspaceRoot: () => string,
   mcpToolDefinitions: () => any,
   onLayoutChange?: () => void
 ) {
   const runtimeStore = useRuntimeStore();
   const threadStore = useThreadStore();
+  let baseRowsCache:
+    | {
+        signature: string;
+        rows: ChatRow[];
+      }
+    | null = null;
 
   const toWebSearchChatItem = (event: TimelineEventItem): ChatWebSearchItem | null => {
     const normalized = extractWebSearchTimelineItem(event);
@@ -463,16 +483,75 @@ export function useChatRenderModel(
     return rows;
   };
 
+  const isDirectStreamingMessageEvent = (event: TimelineEventItem): boolean => {
+    return event.method === "item/plan/delta" || event.method === "item/agentMessage/delta";
+  };
+
+  const eventStructureSignature = (event: TimelineEventItem) => {
+    const params = toEventParamsObject(event);
+    const item = params.item && typeof params.item === "object" ? (params.item as Record<string, any>) : null;
+    const base = [
+      event.id,
+      event.method,
+      event.turnId ?? "",
+      event.level ?? "",
+      event.localKind ?? "",
+      event.localState ?? "",
+      event.thinkingPhase ?? "",
+      event.hidden ? "1" : "0",
+      item ? String(item.type ?? "") : "",
+      item ? String(item.id ?? "") : "",
+      item ? String(item.status ?? "") : "",
+    ];
+    if (!isDirectStreamingMessageEvent(event)) {
+      base.push(String(event.paramsText?.length ?? 0));
+      base.push(paramsObjectSignature(event.params));
+    }
+    return base.join(":");
+  };
+
+  const buildRowsStructureSignature = (events: TimelineEventItem[], threadKey: string, definitions: any) => {
+    const definitionsSignature =
+      definitions instanceof Map ? [...definitions.keys()].sort().join("|") : String(definitions ? "custom" : "");
+    return [threadKey, workspaceRoot(), definitionsSignature, ...events.map(eventStructureSignature)].join("\n");
+  };
+
+  const updateDirectStreamingRows = (rows: ChatRow[], events: TimelineEventItem[]): ChatRow[] => {
+    const eventsById = new Map(events.map((event) => [event.id, event]));
+    let changed = false;
+    const nextRows = rows.map((row) => {
+      if (row.kind === "assistant") {
+        const event = eventsById.get(row.event.id);
+        if (!event || event === row.event) return row;
+        changed = true;
+        return { ...row, event };
+      }
+      return row;
+    });
+    return changed ? nextRows : rows;
+  };
+
   const baseChatRows = computed<ChatRow[]>(() => {
+    void contentRevision();
     const threadKey = String(runtimeStore.timelineKey ?? "__app__").trim() || "__app__";
+    const events = contentEvents();
+    const definitions = mcpToolDefinitions();
+    const structureSignature = buildRowsStructureSignature(events, threadKey, definitions);
+    if (baseRowsCache?.signature === structureSignature) {
+      const rows = updateDirectStreamingRows(baseRowsCache.rows, events);
+      baseRowsCache = { signature: structureSignature, rows };
+      return rows;
+    }
     const nodes = buildTimelineRenderNodes({
-      events: contentEvents(),
+      events,
       timelineKey: runtimeStore.timelineKey,
       workspaceRoot: workspaceRoot(),
       debug: false,
-      mcpToolDefinitions: mcpToolDefinitions(),
+      mcpToolDefinitions: definitions,
     });
-    return buildChatRowsFromNodes(nodes, threadKey);
+    const rows = buildChatRowsFromNodes(nodes, threadKey);
+    baseRowsCache = { signature: structureSignature, rows };
+    return rows;
   });
 
   const rowsWithTokenUsageSummaries = computed<ChatRow[]>(() => {

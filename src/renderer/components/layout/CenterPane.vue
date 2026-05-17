@@ -29,6 +29,7 @@
             <ChatPane
               v-else
               :contentEvents="contentTimelineEvents"
+              :contentRevision="timelineContentRevision"
               :workspaceRoot="workspaceRoot"
               :trailingThinkingEvent="trailingThinkingEvent"
               :trailingContextCompactionEvent="trailingContextCompactionEvent"
@@ -40,20 +41,15 @@
             />
           </div>
 
-          <button
-            v-if="shouldShowQueueFab"
-            :ref="bindQueuePopoverToggleRef"
-            class="composer-queue-fab mono dim composer-queue-toggle absolute right-[14px] z-30 inline-flex h-8 items-center gap-2 rounded-full px-3 text-[11px] shadow-[var(--ui-shadow-fab)] backdrop-blur-[12px] transition-[border-color,background,color,box-shadow,transform,opacity] duration-150 hover:-translate-y-0.5"
-            :style="queueFabStyle"
-            type="button"
-            aria-haspopup="dialog"
-            :aria-expanded="queuePopoverVisible ? 'true' : 'false'"
-            @pointerenter="onQueuePopoverPointerEnter"
-            @pointerleave="onQueuePopoverPointerLeave"
-          >
-            <span class="inline-flex h-2 w-2 rounded-full bg-[var(--warning)]"></span>
-            <span>排队 {{ queueItems.length }}</span>
-          </button>
+          <ComposerQueueList
+            v-if="shouldShowQueueTray"
+            :items="queueItems"
+            :expanded="queueTrayExpanded"
+            @update:expanded="queueTrayExpanded = $event"
+            @edit="onEditQueuedMessage"
+            @send-now="onSendQueuedMessageNow"
+            @remove="onRemoveQueuedMessage"
+          />
 
           <ComposerPanel
             v-if="shouldShowComposerPanel"
@@ -106,27 +102,6 @@
       </div>
     </div>
   </section>
-
-  <Teleport to="body">
-    <Transition name="composer-queue-popover">
-      <div
-        v-if="queuePopoverVisible"
-        ref="queuePopoverRef"
-        class="composer-queue-popover app-scrollbar"
-        :style="queuePopoverStyle"
-        :data-dir="queuePopoverDirection"
-        @pointerenter="onQueuePopoverPointerEnter"
-        @pointerleave="onQueuePopoverPointerLeave"
-      >
-        <ComposerQueueList
-          :items="queueItems"
-          @edit="onEditQueuedMessage"
-          @send-now="onSendQueuedMessageNow"
-          @remove="onRemoveQueuedMessage"
-        />
-      </div>
-    </Transition>
-  </Teleport>
 
   <Teleport to="body">
     <Transition name="composer-slash-popover">
@@ -252,13 +227,10 @@ const composerPanelRef = ref<HTMLDivElement | null>(null);
 const composerInputRef = ref<HTMLDivElement | null>(null);
 const composerImageInputRef = ref<HTMLInputElement | null>(null);
 const composeLightboxCloseRef = ref<HTMLButtonElement | null>(null);
-const queuePopoverToggleRef = ref<HTMLButtonElement | null>(null);
-const queuePopoverRef = ref<HTMLDivElement | null>(null);
 const slashPopoverRef = ref<HTMLDivElement | null>(null);
-const queuePopoverOpen = ref(false);
+const queueTrayExpanded = ref(false);
 const activeSlashIndex = ref(-1);
 const composeLightboxAttachmentId = ref("");
-const queuePopoverPlacement = ref<PopoverPlacement | null>(null);
 const slashPopoverPlacement = ref<PopoverPlacement | null>(null);
 const composerDockHeightPx = ref(0);
 const centerContentWidthPx = ref(0);
@@ -267,14 +239,10 @@ const COMPOSER_DOCK_FALLBACK_HEIGHT_PX = 84;
 const COMPOSER_DOCK_BOTTOM_INSET_PX = 14;
 const COMPOSER_DOCK_GAP_PX = 8;
 const TIMELINE_EDGE_FADE_PX = 15;
-let pendingQueuePopoverPlacementRafId: number | null = null;
 let pendingSlashPopoverPlacementRafId: number | null = null;
-let queuePopoverResizeObserver: ResizeObserver | null = null;
 let slashPopoverResizeObserver: ResizeObserver | null = null;
 let composerResizeObserver: ResizeObserver | null = null;
 let centerContentResizeObserver: ResizeObserver | null = null;
-let pendingQueuePopoverCloseTimeout: ReturnType<typeof setTimeout> | null = null;
-const QUEUE_POPOVER_CLOSE_DELAY_MS = 100;
 
 function bindComposerPanelRef(el: HTMLDivElement | null) {
   composerPanelRef.value = el;
@@ -286,10 +254,6 @@ function bindComposerInputRef(el: HTMLDivElement | null) {
 
 function bindComposerImageInputRef(el: HTMLInputElement | null) {
   composerImageInputRef.value = el;
-}
-
-function bindQueuePopoverToggleRef(el: HTMLButtonElement | null) {
-  queuePopoverToggleRef.value = el;
 }
 
 function onBottomComposerInteract() {
@@ -335,8 +299,10 @@ const timelineKey = computed(() => String(runtimeStore.timelineKey ?? "__app__")
 const currentThreadId = computed(() => String(runtimeStore.currentThreadId ?? "").trim());
 const workspaceRoot = computed(() => String(runtimeStore.workspacePath ?? "").trim());
 const contentTimelineEvents = computed<TimelineEventItem[]>(() => timelineStore.eventsForThread(timelineKey.value));
-const timelineRevision = computed(() => timelineStore.threadRevisionForThread(timelineKey.value));
+const timelineContentRevision = computed(() => timelineStore.threadContentRevisionForThread(timelineKey.value));
+const timelineRevision = computed(() => timelineStore.threadStructureRevisionForThread(timelineKey.value));
 const queueItems = computed(() => messageQueueStore.queueByThread.get(timelineKey.value) ?? []);
+const queueFailedCount = computed(() => queueItems.value.filter((item) => item.status === "failed").length);
 const emptyStateMode = computed<"default" | "pendingThread">(() => {
   const tid = currentThreadId.value;
   if (isPendingThreadId(tid)) return "pendingThread";
@@ -370,6 +336,7 @@ const timelineScrollController = useTimelineScrollController({
   timelineRef,
   timelineKey,
   timelineRevision,
+  timelineContentRevision,
   activeTurnId: activeTimelineTurnId,
   isTimelineLoading,
   loadOlderHistoryTurns: (threadId) => runtime.loadOlderHistoryTurns(threadId),
@@ -379,7 +346,6 @@ const {
   hasTopEdgeFade,
   hasBottomEdgeFade,
   forceFollowBottom,
-  requestFollowBottom,
   notifyTimelineLayoutChange,
   onTimelineScroll,
   scheduleTimelineViewportStateUpdate,
@@ -395,7 +361,7 @@ const shouldShowComposerPanel = computed(() => {
   if (skillsUiStore.managerOpen) return false;
   return true;
 });
-const shouldShowQueueFab = computed(() => shouldShowComposerPanel.value && queueItems.value.length > 0);
+const shouldShowQueueTray = computed(() => shouldShowComposerPanel.value && queueItems.value.length > 0);
 const shouldShowCenterEmptyState = computed(() => {
   if (contentTimelineEvents.value.length > 0) return false;
   if (emptyStateMode.value === "pendingThread") return true;
@@ -589,18 +555,8 @@ const slashPopoverVisible = computed(() => {
   const text = stripComposeFileTokenChars(String(runtimeStore.composeInput ?? ""));
   return shouldShowComposerPanel.value && text.trimStart().startsWith("/");
 });
-const queuePopoverVisible = computed(
-  () => shouldShowComposerPanel.value && queuePopoverOpen.value && queueItems.value.length > 0
-);
-const queuePopoverDirection = computed<PopoverDirection>(() => queuePopoverPlacement.value?.dir ?? "up");
 const slashPopoverDirection = computed<PopoverDirection>(() => slashPopoverPlacement.value?.dir ?? "up");
-const queuePopoverStyle = computed(() => popoverStyleFromPlacement(queuePopoverPlacement.value));
 const slashPopoverStyle = computed(() => popoverStyleFromPlacement(slashPopoverPlacement.value));
-const queueFabStyle = computed(() => {
-  return {
-    bottom: `${composerDockSpacePx.value}px`,
-  } as Record<string, string>;
-});
 
 const sendTitle = computed(() => {
   if (isPendingThreadId(currentThreadId.value)) return "发送消息（初始化完成后自动发送）";
@@ -726,17 +682,6 @@ function resolvePopoverPlacement(
   return { top, left, width, maxHeight: allowedHeight, dir };
 }
 
-function isEventInsideElement(event: Event, element: HTMLElement | null): boolean {
-  if (!element) return false;
-  const anyEvent = event as Event & { composedPath?: () => EventTarget[] };
-  if (typeof anyEvent.composedPath === "function") {
-    const path = anyEvent.composedPath();
-    if (Array.isArray(path) && path.includes(element)) return true;
-  }
-  const target = event.target;
-  return target instanceof Node ? element.contains(target) : false;
-}
-
 function firstEnabledSlashIndex(commands: SlashCommandDef[]): number {
   return commands.findIndex((command) => !command.disabled);
 }
@@ -768,63 +713,6 @@ function findNextEnabledSlashIndex(commands: SlashCommandDef[], startIndex: numb
     if (!commands[cursor]?.disabled) return cursor;
   }
   return -1;
-}
-
-function refreshQueuePopoverPlacement() {
-  if (!queuePopoverVisible.value) return;
-  const toggle = queuePopoverToggleRef.value;
-  const composer = composerPanelRef.value;
-  if (!toggle || !composer) return;
-  const composerRect = composer.getBoundingClientRect();
-  const viewportWidth = Math.max(window.innerWidth || 0, document.documentElement?.clientWidth || 0);
-  const viewportMargin = 12;
-  const maxWidthByViewport = Math.max(220, viewportWidth - viewportMargin * 2);
-  const composerWidth = Math.max(0, Math.round(composerRect.width));
-  const popoverWidth = clampNumber(composerWidth, 280, maxWidthByViewport);
-  queuePopoverPlacement.value = resolvePopoverPlacement(toggle, queuePopoverRef.value, {
-    align: "start",
-    minWidth: popoverWidth,
-    preferredWidth: popoverWidth,
-    maxWidth: popoverWidth,
-    maxHeight: 320,
-    gap: 10,
-    defaultDir: "up",
-    anchorRectOverride: {
-      top: toggle.getBoundingClientRect().top,
-      bottom: toggle.getBoundingClientRect().bottom,
-      left: composerRect.left,
-      right: composerRect.left + popoverWidth,
-    },
-  });
-}
-
-function scheduleQueuePopoverPlacementRefresh() {
-  if (!queuePopoverVisible.value) return;
-  if (pendingQueuePopoverPlacementRafId != null) cancelAnimationFrame(pendingQueuePopoverPlacementRafId);
-  pendingQueuePopoverPlacementRafId = requestAnimationFrame(() => {
-    pendingQueuePopoverPlacementRafId = null;
-    refreshQueuePopoverPlacement();
-  });
-}
-
-function observeQueuePopoverSize() {
-  const element = queuePopoverRef.value;
-  if (!element) return;
-  if (!queuePopoverResizeObserver) {
-    queuePopoverResizeObserver = new ResizeObserver(() => {
-      scheduleQueuePopoverPlacementRefresh();
-    });
-  }
-  queuePopoverResizeObserver.disconnect();
-  queuePopoverResizeObserver.observe(element);
-}
-
-function stopObservingQueuePopoverSize() {
-  if (queuePopoverResizeObserver) queuePopoverResizeObserver.disconnect();
-  if (pendingQueuePopoverPlacementRafId != null) {
-    cancelAnimationFrame(pendingQueuePopoverPlacementRafId);
-    pendingQueuePopoverPlacementRafId = null;
-  }
 }
 
 function refreshSlashPopoverPlacement() {
@@ -875,51 +763,8 @@ function stopObservingSlashPopoverSize() {
 }
 
 function refreshOpenPopoversPlacement() {
-  if (!queuePopoverVisible.value && !slashPopoverVisible.value) return;
-  refreshQueuePopoverPlacement();
+  if (!slashPopoverVisible.value) return;
   refreshSlashPopoverPlacement();
-}
-
-function clearPendingQueuePopoverClose() {
-  if (pendingQueuePopoverCloseTimeout == null) return;
-  clearTimeout(pendingQueuePopoverCloseTimeout);
-  pendingQueuePopoverCloseTimeout = null;
-}
-
-async function openQueuePopover() {
-  clearPendingQueuePopoverClose();
-  if (queueItems.value.length === 0) return;
-  if (!queuePopoverOpen.value) queuePopoverOpen.value = true;
-  await nextTick();
-  scheduleQueuePopoverPlacementRefresh();
-}
-
-function closeQueuePopover() {
-  clearPendingQueuePopoverClose();
-  queuePopoverOpen.value = false;
-}
-
-function scheduleQueuePopoverClose() {
-  clearPendingQueuePopoverClose();
-  pendingQueuePopoverCloseTimeout = setTimeout(() => {
-    pendingQueuePopoverCloseTimeout = null;
-    closeQueuePopover();
-  }, QUEUE_POPOVER_CLOSE_DELAY_MS);
-}
-
-function onQueuePopoverPointerEnter() {
-  void openQueuePopover();
-}
-
-function onQueuePopoverPointerLeave() {
-  scheduleQueuePopoverClose();
-}
-
-function onWindowPointerDown(event: PointerEvent) {
-  if (!queuePopoverVisible.value) return;
-  if (isEventInsideElement(event, queuePopoverRef.value)) return;
-  if (isEventInsideElement(event, queuePopoverToggleRef.value)) return;
-  closeQueuePopover();
 }
 
 function onWindowKeydown(event: KeyboardEvent) {
@@ -930,7 +775,7 @@ function onWindowKeydown(event: KeyboardEvent) {
     return;
   }
   if (event.key !== "Escape") return;
-  if (queuePopoverVisible.value) closeQueuePopover();
+  if (queueTrayExpanded.value) queueTrayExpanded.value = false;
 }
 
 function isToggleDebugTimelineShortcut(event: KeyboardEvent) {
@@ -1203,9 +1048,9 @@ function onComposerKeydown(event: KeyboardEvent) {
     return;
   }
   if (event.key === "Escape") {
-    if (queuePopoverVisible.value) {
+    if (queueTrayExpanded.value) {
       event.preventDefault();
-      closeQueuePopover();
+      queueTrayExpanded.value = false;
     }
     return;
   }
@@ -1251,7 +1096,7 @@ async function onInterruptTurnClick() {
 
 async function onEditQueuedMessage(messageId: string) {
   await runtime.editQueuedMessage(messageId);
-  closeQueuePopover();
+  queueTrayExpanded.value = false;
   await nextTick();
   resizeComposerInput();
   composerInputRef.value?.focus();
@@ -1259,7 +1104,6 @@ async function onEditQueuedMessage(messageId: string) {
 
 async function onSendQueuedMessageNow(messageId: string) {
   await runtime.sendQueuedMessageNow(messageId);
-  closeQueuePopover();
   forceFollowBottom("send-queued");
 }
 
@@ -1311,38 +1155,22 @@ watch(
 );
 
 watch(
-  queuePopoverVisible,
-  (visible) => {
-    if (!visible) {
-      queuePopoverPlacement.value = null;
-      stopObservingQueuePopoverSize();
-      return;
-    }
-    nextTick(() => {
-      observeQueuePopoverSize();
-      scheduleQueuePopoverPlacementRefresh();
-    });
-  },
-  { flush: "post" }
-);
-
-watch(
-  () => queueItems.value.length,
-  (nextLength) => {
+  () => [queueItems.value.length, queueFailedCount.value] as const,
+  ([nextLength, nextFailedCount], [prevLength, prevFailedCount]) => {
     if (nextLength <= 0) {
-      closeQueuePopover();
+      queueTrayExpanded.value = false;
       return;
     }
-    if (!queuePopoverVisible.value) return;
-    nextTick(() => scheduleQueuePopoverPlacementRefresh());
+    if (nextFailedCount > prevFailedCount || (prevLength <= 0 && nextFailedCount > 0)) {
+      queueTrayExpanded.value = true;
+    }
   }
 );
 
 watch(
   () => runtimeStore.timelineKey,
   () => {
-    closeQueuePopover();
-    queuePopoverPlacement.value = null;
+    queueTrayExpanded.value = false;
     slashPopoverPlacement.value = null;
   },
   { flush: "post" }
@@ -1351,7 +1179,7 @@ watch(
 watch(
   () => runtimeStore.timelineScrollToBottomSeq,
   () => {
-    requestFollowBottom("runtime-request");
+    forceFollowBottom("runtime-request");
   },
   { flush: "post" }
 );
@@ -1395,12 +1223,12 @@ watch(composeLightboxAttachment, (value) => {
 });
 
 watch(currentThreadId, () => {
-  if (queuePopoverVisible.value) closeQueuePopover();
+  queueTrayExpanded.value = false;
 });
 
 watch(shouldShowComposerPanel, (visible) => {
   if (!visible) {
-    if (queuePopoverVisible.value) closeQueuePopover();
+    queueTrayExpanded.value = false;
     if (composerResizeObserver) {
       composerResizeObserver.disconnect();
       composerResizeObserver = null;
@@ -1418,7 +1246,7 @@ watch(
   () => skillsUiStore.managerOpen,
   (open, prev) => {
     if (open && !prev) {
-      closeQueuePopover();
+      queueTrayExpanded.value = false;
       return;
     }
     if (!open && prev) {
@@ -1443,7 +1271,6 @@ onMounted(() => {
   observeTimelineElement();
   window.addEventListener("resize", onWindowLayoutChange);
   window.addEventListener("scroll", onWindowViewportChange, true);
-  window.addEventListener("pointerdown", onWindowPointerDown, true);
   window.addEventListener("keydown", onWindowKeydown);
   scheduleTimelineViewportStateUpdate();
 });
@@ -1451,19 +1278,12 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener("resize", onWindowLayoutChange);
   window.removeEventListener("scroll", onWindowViewportChange, true);
-  window.removeEventListener("pointerdown", onWindowPointerDown, true);
   window.removeEventListener("keydown", onWindowKeydown);
   window.removeEventListener("keydown", onComposeLightboxWindowKeydown, true);
-  if (pendingQueuePopoverPlacementRafId != null) cancelAnimationFrame(pendingQueuePopoverPlacementRafId);
   if (pendingSlashPopoverPlacementRafId != null) cancelAnimationFrame(pendingSlashPopoverPlacementRafId);
-  clearPendingQueuePopoverClose();
   if (centerContentResizeObserver) {
     centerContentResizeObserver.disconnect();
     centerContentResizeObserver = null;
-  }
-  if (queuePopoverResizeObserver) {
-    queuePopoverResizeObserver.disconnect();
-    queuePopoverResizeObserver = null;
   }
   if (slashPopoverResizeObserver) {
     slashPopoverResizeObserver.disconnect();

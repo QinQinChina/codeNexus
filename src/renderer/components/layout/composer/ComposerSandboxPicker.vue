@@ -4,6 +4,7 @@
     type="button"
     class="composer-sandbox-trigger composer-select--sandbox mono"
     :class="[sandboxToneClass, { 'is-open': open }]"
+    :disabled="disabled"
     aria-haspopup="listbox"
     :aria-expanded="open ? 'true' : 'false'"
     aria-label="权限"
@@ -62,6 +63,7 @@ const props = defineProps<{
   tooltipText: string;
   preservePointerFocus?: boolean;
   interactionOwnerId?: string;
+  disabled?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -92,6 +94,7 @@ function normalizeToneKey(value: unknown): string {
 }
 
 const sandboxToneClass = computed(() => `is-${normalizeToneKey(props.modelValue)}`);
+const disabled = computed(() => Boolean(props.disabled));
 
 const selectedLabel = computed(() => {
   const hit = props.options.find((option) => option.value === props.modelValue);
@@ -111,7 +114,10 @@ function updatePopoverPosition() {
   if (!trigger) return;
   const rect = trigger.getBoundingClientRect();
   const width = POPOVER_WIDTH_PX;
-  const left = Math.max(VIEWPORT_PADDING_PX, Math.min(Math.round(rect.left), window.innerWidth - width - VIEWPORT_PADDING_PX));
+  const left = Math.max(
+    VIEWPORT_PADDING_PX,
+    Math.min(Math.round(rect.left), window.innerWidth - width - VIEWPORT_PADDING_PX)
+  );
   const spaceBelow = Math.max(0, window.innerHeight - VIEWPORT_PADDING_PX - rect.bottom - POPOVER_GAP_PX);
   const spaceAbove = Math.max(0, rect.top - POPOVER_GAP_PX - VIEWPORT_PADDING_PX);
   const openBelow = spaceBelow >= 120 || spaceBelow >= spaceAbove;
@@ -129,6 +135,7 @@ function updatePopoverPosition() {
 }
 
 async function openPicker() {
+  if (disabled.value) return;
   open.value = true;
   await nextTick();
   updatePopoverPosition();
@@ -140,6 +147,7 @@ function closePicker() {
 }
 
 async function onTriggerClick() {
+  if (disabled.value) return;
   if (open.value) {
     closePicker();
     return;
@@ -153,6 +161,7 @@ function onOptionClick(value: string) {
 }
 
 async function onTriggerKeydown(event: KeyboardEvent) {
+  if (disabled.value) return;
   if (event.key === "Escape") {
     closePicker();
     return;
@@ -186,6 +195,10 @@ watch(open, (next) => {
   window.removeEventListener("pointerdown", onWindowPointerDownCapture, true);
   window.removeEventListener("resize", onWindowResizeOrScroll, true);
   window.removeEventListener("scroll", onWindowResizeOrScroll, true);
+});
+
+watch(disabled, (next) => {
+  if (next) closePicker();
 });
 
 onBeforeUnmount(() => {

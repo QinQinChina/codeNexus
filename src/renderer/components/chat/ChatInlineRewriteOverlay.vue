@@ -38,12 +38,7 @@
       @set-compose-mode="emit('update', { composeMode: $event })"
       @cancel-rewrite="emit('cancel')"
       @send="emit('send')"
-      @interrupt-turn="noop"
-      @pick-images="noop"
       @composer-keydown="onInlineComposerKeydown"
-      @composer-paste="noop"
-      @composer-image-change="noop"
-      @preview-attachment="noop"
       @remove-attachment="onRemoveAttachment"
     />
   </div>
@@ -98,8 +93,6 @@ function onInlineComposerKeydown(event: KeyboardEvent) {
   event.stopPropagation();
   emit("cancel");
 }
-
-function noop() {}
 
 function onRemoveAttachment(attachmentId: string) {
   const id = String(attachmentId ?? "").trim();

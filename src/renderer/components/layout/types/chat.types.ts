@@ -127,6 +127,7 @@ export type PlanDeltaExecUiState = {
   reasoningEffort: string;
   sandboxMode: SandboxMode;
   executing: boolean;
+  collapseWhileExecuting: boolean;
 };
 
 export type ChatInlineRewriteDraft = {

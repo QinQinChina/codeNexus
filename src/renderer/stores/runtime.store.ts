@@ -190,7 +190,6 @@ export const useRuntimeStore = defineStore("runtime", {
     timelineDebugEnabled: false,
     pendingThreadInitSendCountByThread: new Map<string, number>(),
     timelineScrollToBottomSeq: 0,
-    suppressNextScrollToBottomOncePending: false,
   }),
   getters: {
     // 未选线程时使用全局时间线 key，避免渲染层出现空 key 分支判断。
@@ -709,16 +708,6 @@ export const useRuntimeStore = defineStore("runtime", {
     // Request the chat timeline to scroll back to the latest content.
     requestScrollTimelineToBottom() {
       this.timelineScrollToBottomSeq += 1;
-    },
-    // Skip the next auto-scroll-to-bottom request exactly once.
-    suppressNextScrollToBottomOnce() {
-      this.suppressNextScrollToBottomOncePending = true;
-    },
-    // Consume the one-shot auto-scroll suppression flag.
-    consumeSuppressNextScrollToBottomOnce(): boolean {
-      if (!this.suppressNextScrollToBottomOncePending) return false;
-      this.suppressNextScrollToBottomOncePending = false;
-      return true;
     },
   },
 });

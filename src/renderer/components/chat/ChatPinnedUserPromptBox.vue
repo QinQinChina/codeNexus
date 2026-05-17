@@ -9,12 +9,28 @@
     @keydown.enter.prevent="emit('locate')"
     @keydown.space.prevent="emit('locate')"
   >
-    <span class="chat-pinned-prompt__text">{{ displayText }}</span>
+    <span class="chat-pinned-prompt__content-clip">
+      <Transition :name="contentTransitionName">
+        <span :key="contentKey" class="chat-pinned-prompt__content">
+          <span class="chat-pinned-prompt__text">{{ displayText }}</span>
+        </span>
+      </Transition>
+    </span>
     <template #meta>
-      <span v-if="showTimestamp" class="mono dim">{{ formattedTime }}</span>
-      <span v-if="hasMeta" class="chat-pinned-prompt__tags" aria-hidden="true">
-        <span v-if="normalizedFileCount > 0" class="chat-pinned-prompt__tag">+{{ normalizedFileCount }} 文件</span>
-        <span v-if="normalizedImageCount > 0" class="chat-pinned-prompt__tag">+{{ normalizedImageCount }} 图片</span>
+      <span v-if="showMeta" class="chat-pinned-prompt__meta-clip">
+        <Transition :name="contentTransitionName">
+          <span :key="`${contentKey}:meta`" class="chat-pinned-prompt__meta">
+            <span v-if="showTimestamp" class="mono dim">{{ formattedTime }}</span>
+            <span v-if="hasMeta" class="chat-pinned-prompt__tags" aria-hidden="true">
+              <span v-if="normalizedFileCount > 0" class="chat-pinned-prompt__tag"
+                >+{{ normalizedFileCount }} 文件</span
+              >
+              <span v-if="normalizedImageCount > 0" class="chat-pinned-prompt__tag"
+                >+{{ normalizedImageCount }} 图片</span
+              >
+            </span>
+          </span>
+        </Transition>
       </span>
     </template>
   </ChatUserBubbleFrame>
@@ -31,6 +47,8 @@ const props = defineProps<{
   imageCount?: number;
   showTimestamp?: boolean;
   formattedTime?: string;
+  contentKey?: string;
+  transitionDirection?: "up" | "down";
 }>();
 
 const emit = defineEmits<{
@@ -46,7 +64,17 @@ const normalizedFileCount = computed(() => normalizeCount(props.fileCount));
 const normalizedImageCount = computed(() => normalizeCount(props.imageCount));
 const hasMeta = computed(() => normalizedFileCount.value > 0 || normalizedImageCount.value > 0);
 const showTimestamp = computed(() => Boolean(props.showTimestamp && String(props.formattedTime ?? "").trim()));
+const showMeta = computed(() => showTimestamp.value || hasMeta.value);
 const formattedTime = computed(() => String(props.formattedTime ?? "").trim());
-const displayText = computed(() => String(props.text ?? "").replace(/\s+/g, " ").trim() || "用户消息");
+const displayText = computed(
+  () =>
+    String(props.text ?? "")
+      .replace(/\s+/g, " ")
+      .trim() || "用户消息"
+);
 const tooltipText = computed(() => String(props.title ?? "").trim() || displayText.value);
+const contentKey = computed(() => String(props.contentKey ?? displayText.value).trim() || displayText.value);
+const contentTransitionName = computed(() =>
+  props.transitionDirection === "down" ? "chat-pinned-prompt-content-down" : "chat-pinned-prompt-content-up"
+);
 </script>

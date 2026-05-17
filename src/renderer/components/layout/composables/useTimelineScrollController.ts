@@ -4,6 +4,7 @@ import {
   resolveTimelineScrollIntent,
   restorePrependScrollTop,
   snapshotTimelineViewport,
+  type TimelineFollowState,
   type TimelineViewportSnapshot,
   type TimelineVisibleRowAnchor,
   type TimelineViewportAdapter,
@@ -14,6 +15,7 @@ type UseTimelineScrollControllerOptions = {
   timelineRef: Ref<HTMLElement | null>;
   timelineKey: ComputedRef<string>;
   timelineRevision: ComputedRef<number>;
+  timelineContentRevision?: ComputedRef<number>;
   activeTurnId: ComputedRef<string>;
   isTimelineLoading: ComputedRef<boolean>;
   loadOlderHistoryTurns: (threadId: string) => Promise<boolean>;
@@ -52,6 +54,21 @@ export function useTimelineScrollController(options: UseTimelineScrollController
     if (adapterMetrics) return adapterMetrics;
     const element = options.timelineRef.value;
     return element ? snapshotTimelineViewport(element) : null;
+  }
+
+  function readViewportFollowState(): TimelineFollowState | null {
+    const snapshot = captureViewport();
+    if (!snapshot) return null;
+    const followState = classifyViewportFollowState(snapshot);
+    if (followState === "following") autoFollowEnabled.value = true;
+    return followState;
+  }
+
+  function effectiveFollowState(): TimelineFollowState {
+    const liveFollowState = readViewportFollowState();
+    // Keep the pre-change follow intent when new content has already expanded the scroll height.
+    if (liveFollowState === "following" || autoFollowEnabled.value) return "following";
+    return "detached";
   }
 
   function timelineRows(element: HTMLElement): HTMLElement[] {
@@ -212,10 +229,12 @@ export function useTimelineScrollController(options: UseTimelineScrollController
     scheduleAutoScrollToBottom();
   }
 
-  function requestFollowBottom(_reason: string = "stream-update") {
+  function requestFollowBottom(reason: "stream-update" | "layout-change" | "turn-changed" = "stream-update") {
     const intent = resolveTimelineScrollIntent({
-      reason: "stream-update",
-      followState: autoFollowEnabled.value ? "following" : "detached",
+      reason,
+      followState: effectiveFollowState(),
+      previousTurnId: lastActiveTurnId,
+      nextTurnId: options.activeTurnId.value,
     });
     if (intent.kind === "scroll-to-bottom") scheduleAutoScrollToBottom();
     else scheduleTimelineViewportStateUpdate();
@@ -284,7 +303,7 @@ export function useTimelineScrollController(options: UseTimelineScrollController
     }
     const intent = resolveTimelineScrollIntent({
       reason: "stream-update",
-      followState: autoFollowEnabled.value ? "following" : "detached",
+      followState: effectiveFollowState(),
     });
     if (intent.kind === "scroll-to-bottom") scheduleAutoScrollToBottom();
     scheduleTimelineViewportStateUpdate();
@@ -293,7 +312,7 @@ export function useTimelineScrollController(options: UseTimelineScrollController
   function applyContentChangeIntent(reason: "stream-update" | "layout-change" | "turn-changed") {
     const intent = resolveTimelineScrollIntent({
       reason,
-      followState: autoFollowEnabled.value ? "following" : "detached",
+      followState: effectiveFollowState(),
       previousTurnId: lastActiveTurnId,
       nextTurnId: options.activeTurnId.value,
     });
@@ -305,7 +324,7 @@ export function useTimelineScrollController(options: UseTimelineScrollController
     const before = captureViewport();
     const beforeElement = options.timelineRef.value;
     const anchor = beforeElement ? captureVisibleRowAnchor(beforeElement) : null;
-    const wasFollowing = autoFollowEnabled.value;
+    const wasFollowing = effectiveFollowState() === "following";
     void nextTick(() => {
       const element = options.timelineRef.value;
       if (!element) {
@@ -423,12 +442,19 @@ export function useTimelineScrollController(options: UseTimelineScrollController
   );
 
   watch(
-    () => [options.timelineKey.value, options.timelineRevision.value] as const,
+    () =>
+      [
+        options.timelineKey.value,
+        options.timelineRevision.value,
+        options.timelineContentRevision?.value ?? options.timelineRevision.value,
+      ] as const,
     (next, prev) => {
       const nextKey = next?.[0] ?? "";
       const nextRevision = next?.[1] ?? 0;
+      const nextContentRevision = next?.[2] ?? 0;
       const prevKey = prev?.[0] ?? "";
       const prevRevision = prev?.[1] ?? 0;
+      const prevContentRevision = prev?.[2] ?? 0;
       if (!timelineSignatureInitialized.value) {
         timelineSignatureInitialized.value = true;
         if (options.isTimelineLoading.value) {
@@ -439,7 +465,7 @@ export function useTimelineScrollController(options: UseTimelineScrollController
         return;
       }
       if (options.isTimelineLoading.value) return;
-      if (nextKey === prevKey && nextRevision === prevRevision) return;
+      if (nextKey === prevKey && nextRevision === prevRevision && nextContentRevision === prevContentRevision) return;
       void nextTick(async () => {
         if (pendingInitialScrollToBottomKey.value === options.timelineKey.value) {
           await stabilizeInitialViewportAtBottom();

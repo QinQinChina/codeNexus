@@ -7,65 +7,52 @@
         :rawText="event.paramsText"
         :turnPlan="turnPlan"
       />
+      <MarkdownPlanOutputCard
+        v-else-if="isMarkdownPlanOutput"
+        :rawText="event.paramsText"
+        :forceCollapsed="shouldCollapseMarkdownPlan"
+      >
+        <template v-if="execState" #actions>
+          <ChatPlanDeltaActions
+            :execState="execState"
+            :modelOptions="modelOptions"
+            :reasoningEffortOptions="reasoningEffortOptions"
+            :sandboxModeOptions="sandboxModeOptions"
+            :disabled="planActionDisabled"
+            :embedded="true"
+            @execute-plan="$emit('execute-plan', event)"
+            @update:model="(value) => $emit('update:model', value)"
+            @update:reasoning-effort="(value) => $emit('update:reasoning-effort', value)"
+            @update:sandbox-mode="(value) => $emit('update:sandbox-mode', value)"
+          />
+        </template>
+      </MarkdownPlanOutputCard>
       <StructuredFinalAnswerCard
         v-else-if="isStructuredFinalAnswer"
         class="chat-bubble-body min-w-0"
         :rawText="event.paramsText"
       />
       <AgentMarkdownContent v-else class="chat-bubble-body agent-markdown-body min-w-0" :html="markdownHtml" />
-      <div
-        v-if="event.method === 'item/plan/delta' && execState"
-        class="plan-delta-actions mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-[var(--border)] pt-2.5"
-      >
-        <SelectDropdown
-          :id="`plan-delta-model-${event.id}`"
-          :modelValue="execState.model"
-          class="mono inline-flex h-7 w-[clamp(108px,14vw,152px)] min-w-0 cursor-pointer items-center justify-between gap-2 rounded-[4px] border border-[color:var(--input-border)] bg-[color:var(--input-bg)] px-2 text-[color:var(--input-text)] shadow-none transition-[border-color,box-shadow,background,color] duration-150 hover:border-[color:var(--button-border-hover)] hover:bg-[color:var(--button-bg-hover)] max-[1500px]:w-[clamp(100px,16vw,136px)]"
-          :options="modelOptions"
-          :minPopoverWidth="0"
-          aria-label="模型"
-          :disabled="isTurnRunning || execState.executing"
-          @update:modelValue="(value) => $emit('update:model', String(value ?? ''))"
-        />
-        <SelectDropdown
-          :id="`plan-delta-effort-${event.id}`"
-          :modelValue="execState.reasoningEffort"
-          class="mono inline-flex h-7 min-w-0 w-[min(100%,70px)] max-w-[70px] cursor-pointer items-center justify-between gap-2 rounded-[4px] border border-[color:var(--input-border)] bg-[color:var(--input-bg)] px-2 text-[color:var(--input-text)] shadow-none transition-[border-color,box-shadow,background,color] duration-150 hover:border-[color:var(--button-border-hover)] hover:bg-[color:var(--button-bg-hover)] max-[1500px]:w-[min(100%,66px)] max-[1500px]:max-w-[66px]"
-          :minPopoverWidth="0"
-          :options="reasoningEffortOptions"
-          aria-label="思考强度"
-          :disabled="isTurnRunning || execState.executing"
-          @update:modelValue="(value) => $emit('update:reasoning-effort', String(value ?? ''))"
-        />
-        <SelectDropdown
-          :id="`plan-delta-sandbox-${event.id}`"
-          :modelValue="execState.sandboxMode"
-          class="mono inline-flex h-7 min-w-0 w-[min(100%,64px)] max-w-[64px] cursor-pointer items-center justify-between gap-1.5 rounded-[4px] border border-[color:var(--input-border)] bg-[color:var(--input-bg)] px-1.5 text-[color:var(--input-text)] shadow-none transition-[border-color,box-shadow,background,color] duration-150 hover:border-[color:var(--button-border-hover)] hover:bg-[color:var(--button-bg-hover)] max-[1500px]:w-[min(100%,60px)] max-[1500px]:max-w-[60px]"
-          :class="sandboxSelectClass"
-          :minPopoverWidth="0"
-          :options="sandboxModeOptions"
-          aria-label="权限"
-          :disabled="isTurnRunning || execState.executing"
-          @update:modelValue="(value) => $emit('update:sandbox-mode', String(value ?? '') as SandboxMode)"
-        />
-        <button
-          class="!inline-flex !h-7 !items-center !justify-center !rounded-xl !border !border-[color:var(--border-warning)] !bg-gradient-to-b !from-[color:var(--bg-warning-soft)] !to-[color:var(--button-bg)] !px-3 !tracking-[0.1px] !text-[color:var(--fg-warning)] !shadow-none transition-[border-color,background,box-shadow,color] duration-150 hover:!border-[color:var(--border-warning-hover)] hover:!to-[color:var(--button-bg-hover)] focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-[color:var(--bg-warning-soft)] active:!translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
-          type="button"
-          :disabled="isTurnRunning || execState.executing"
-          @click="$emit('execute-plan', event)"
-        >
-          <span v-if="execState.executing">执行中...</span>
-          <span v-else>执行计划</span>
-        </button>
-      </div>
+      <ChatPlanDeltaActions
+        v-if="showStandalonePlanActions && execState"
+        :execState="execState"
+        :modelOptions="modelOptions"
+        :reasoningEffortOptions="reasoningEffortOptions"
+        :sandboxModeOptions="sandboxModeOptions"
+        :disabled="planActionDisabled"
+        @execute-plan="$emit('execute-plan', event)"
+        @update:model="(value) => $emit('update:model', value)"
+        @update:reasoning-effort="(value) => $emit('update:reasoning-effort', value)"
+        @update:sandbox-mode="(value) => $emit('update:sandbox-mode', value)"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { defineAsyncComponent, defineComponent, h } from "vue";
+import { computed, defineAsyncComponent, defineComponent, h } from "vue";
 import AgentMarkdownContent from "../ui/AgentMarkdownContent.vue";
-import SelectDropdown from "../ui/SelectDropdown.vue";
+import ChatPlanDeltaActions from "./ChatPlanDeltaActions.vue";
 import type { TimelineEventItem, TurnPlanState } from "../../domain/types";
 import type { PlanDeltaExecUiState } from "../layout/types/chat.types";
 import type { SandboxMode } from "../../stores/runtime.store";
@@ -95,13 +82,18 @@ const PlanOutputCard = defineAsyncComponent({
   loadingComponent: AssistantCardLoading,
   delay: 120,
 });
+const MarkdownPlanOutputCard = defineAsyncComponent({
+  loader: () => import("../ui/MarkdownPlanOutputCard.vue"),
+  loadingComponent: AssistantCardLoading,
+  delay: 120,
+});
 const StructuredFinalAnswerCard = defineAsyncComponent({
   loader: () => import("../ui/StructuredFinalAnswerCard.vue"),
   loadingComponent: AssistantCardLoading,
   delay: 120,
 });
 
-defineProps<{
+const props = defineProps<{
   event: TimelineEventItem;
   assistantPlanMessageFormat: string;
   turnPlan: TurnPlanState | null;
@@ -112,8 +104,19 @@ defineProps<{
   isTurnRunning: boolean;
   reasoningEffortOptions: readonly OptionInput[];
   sandboxModeOptions: readonly OptionInput[];
-  sandboxSelectClass: string;
 }>();
+
+const isPlanDelta = computed(() => props.event.method === "item/plan/delta");
+const isMarkdownPlanOutput = computed(() => isPlanDelta.value && props.assistantPlanMessageFormat !== "plan-card-v1");
+const planActionDisabled = computed(() => props.isTurnRunning || Boolean(props.execState?.executing));
+const showStandalonePlanActions = computed(
+  () => isPlanDelta.value && !isMarkdownPlanOutput.value && Boolean(props.execState)
+);
+const shouldCollapseMarkdownPlan = computed(() => {
+  const state = props.execState;
+  if (!state?.collapseWhileExecuting) return false;
+  return Boolean(state.executing || props.isTurnRunning);
+});
 
 defineEmits<{
   (e: "execute-plan", event: TimelineEventItem): void;

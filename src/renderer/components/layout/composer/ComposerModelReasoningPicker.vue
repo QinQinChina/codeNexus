@@ -4,6 +4,7 @@
     type="button"
     class="composer-model-reasoning-trigger"
     :class="['composer-select--model', modelToneClass, { 'is-open': open }]"
+    :disabled="disabled"
     aria-haspopup="dialog"
     :aria-expanded="open ? 'true' : 'false'"
     @pointerdown="onPreservePointerFocus"
@@ -122,6 +123,7 @@ const props = defineProps<{
   reasoningEffortOptions: readonly SelectOption[];
   preservePointerFocus?: boolean;
   interactionOwnerId?: string;
+  disabled?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -159,6 +161,7 @@ function normalizeToneKey(value: unknown): string {
 
 const modelToneClass = computed(() => `is-${normalizeToneKey(props.model)}`);
 const reasoningToneClass = computed(() => `is-${normalizeToneKey(props.reasoningEffort)}`);
+const disabled = computed(() => Boolean(props.disabled));
 
 const selectedReasoningLabel = computed(() => {
   const hit = props.reasoningEffortOptions.find((option) => option.value === props.reasoningEffort);
@@ -222,7 +225,9 @@ function updateReasoningPopoverPosition() {
   const rowRect = row?.getBoundingClientRect() ?? rect;
   const width = REASONING_POPOVER_WIDTH_PX;
   const canOpenRight = rect.right + POPOVER_GAP_PX + width <= window.innerWidth - VIEWPORT_PADDING_PX;
-  const left = canOpenRight ? rect.right + POPOVER_GAP_PX : Math.max(VIEWPORT_PADDING_PX, rect.left - width - POPOVER_GAP_PX);
+  const left = canOpenRight
+    ? rect.right + POPOVER_GAP_PX
+    : Math.max(VIEWPORT_PADDING_PX, rect.left - width - POPOVER_GAP_PX);
   const desiredHeight = reasoningPopoverRef.value?.scrollHeight || 204;
   const height = Math.min(desiredHeight, window.innerHeight - VIEWPORT_PADDING_PX * 2);
   const top = Math.max(
@@ -240,6 +245,7 @@ function updateReasoningPopoverPosition() {
 }
 
 async function openPicker() {
+  if (disabled.value) return;
   activeModel.value = props.model;
   open.value = true;
   await nextTick();
@@ -255,6 +261,7 @@ function closePicker() {
 }
 
 async function onTriggerClick() {
+  if (disabled.value) return;
   if (open.value) {
     closePicker();
     return;
@@ -280,6 +287,7 @@ function onReasoningClick(value: string) {
 }
 
 async function onTriggerKeydown(event: KeyboardEvent) {
+  if (disabled.value) return;
   if (event.key === "Escape") {
     closePicker();
     return;
@@ -314,6 +322,10 @@ watch(open, (next) => {
   window.removeEventListener("pointerdown", onWindowPointerDownCapture, true);
   window.removeEventListener("resize", onWindowResizeOrScroll, true);
   window.removeEventListener("scroll", onWindowResizeOrScroll, true);
+});
+
+watch(disabled, (next) => {
+  if (next) closePicker();
 });
 
 onBeforeUnmount(() => {

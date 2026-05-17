@@ -209,10 +209,6 @@
   margin: 0 auto var(--composer-dock-bottom-inset, 14px);
 }
 
-.timeline-pane--chat .composer-queue-fab {
-  right: max(14px, calc((100% - var(--chat-content-max-w)) / 2 + 14px));
-}
-
 /* === Low-glare light workbench tuning === */
 :root[data-tone="light"] .timeline-pane--chat {
   background: var(--chat-pane-bg);

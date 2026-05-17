@@ -18,10 +18,12 @@
       <Transition name="chat-pinned-prompt">
         <ChatPinnedUserPromptBox
           v-if="pinnedUserMessage"
+          :contentKey="pinnedUserMessage.rowId"
           :text="pinnedUserMessage.text"
           :title="pinnedUserMessage.title"
           :fileCount="pinnedUserMessage.fileCount"
           :imageCount="pinnedUserMessage.imageCount"
+          :transitionDirection="pinnedPromptTransitionDirection"
           :showTimestamp="viewPrefs.showTimestamps"
           :formattedTime="pinnedUserMessage.formattedTime"
           @locate="onPinnedUserClick"
@@ -215,6 +217,7 @@ import type { McpToolItem } from "../../timeline/cards/McpToolCardContent.vue";
 
 const props = defineProps<{
   contentEvents: TimelineEventItem[];
+  contentRevision: number;
   workspaceRoot: string;
   trailingThinkingEvent: TimelineEventItem | null;
   trailingContextCompactionEvent: TimelineEventItem | null;
@@ -233,8 +236,9 @@ const viewPrefs = useViewPrefsStore();
 const modelCatalogStore = useModelCatalogStore();
 const localViewportAdapter = ref<TimelineViewportAdapter | null>(null);
 const pinnedUserRowId = ref("");
+const pinnedPromptTransitionDirection = ref<"up" | "down">("up");
 const pinnedPromptLayerRef = ref<HTMLElement | null>(null);
-const PINNED_PROMPT_TOP_GAP_PX = 8;
+const PINNED_PROMPT_TOP_GAP_PX = 0;
 
 const { getMarkdownEventHtml } = useAgentMarkdownRenderer({ key: () => runtimeStore.timelineKey });
 const mcpToolDefinitions = computed(() => buildMcpToolDefinitionIndex(mcpStore.servers));
@@ -280,6 +284,7 @@ const {
   setMcpResourceOpen,
 } = useChatRenderModel(
   () => props.contentEvents,
+  () => props.contentRevision,
   () => props.workspaceRoot,
   () => mcpToolDefinitions.value,
   props.onLayoutChange
@@ -371,7 +376,16 @@ function setLocalViewportAdapter(adapter: TimelineViewportAdapter | null) {
 }
 
 function setPinnedUserRowId(rowId: string) {
-  pinnedUserRowId.value = String(rowId ?? "").trim();
+  const nextRowId = String(rowId ?? "").trim();
+  const previousRowId = pinnedUserRowId.value;
+  if (nextRowId && previousRowId && nextRowId !== previousRowId) {
+    const previousIndex = chatRenderedRows.value.findIndex((item) => item.id === previousRowId);
+    const nextIndex = chatRenderedRows.value.findIndex((item) => item.id === nextRowId);
+    if (previousIndex >= 0 && nextIndex >= 0) {
+      pinnedPromptTransitionDirection.value = nextIndex > previousIndex ? "up" : "down";
+    }
+  }
+  pinnedUserRowId.value = nextRowId;
 }
 
 const pinnedUserRow = computed(() => {
