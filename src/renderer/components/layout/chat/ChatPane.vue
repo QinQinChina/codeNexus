@@ -234,6 +234,7 @@ const modelCatalogStore = useModelCatalogStore();
 const localViewportAdapter = ref<TimelineViewportAdapter | null>(null);
 const pinnedUserRowId = ref("");
 const pinnedPromptLayerRef = ref<HTMLElement | null>(null);
+const PINNED_PROMPT_TOP_GAP_PX = 8;
 
 const { getMarkdownEventHtml } = useAgentMarkdownRenderer({ key: () => runtimeStore.timelineKey });
 const mcpToolDefinitions = computed(() => buildMcpToolDefinitionIndex(mcpStore.servers));
@@ -409,7 +410,7 @@ const pinnedUserMessage = computed(() => {
 function pinnedPromptLocateOffsetPx() {
   const prompt = pinnedPromptLayerRef.value?.querySelector<HTMLElement>(".chat-pinned-prompt") ?? null;
   const promptHeight = Math.ceil(prompt?.getBoundingClientRect().height ?? 0);
-  return Math.max(8, promptHeight + 5);
+  return Math.max(8, promptHeight + PINNED_PROMPT_TOP_GAP_PX + 5);
 }
 
 function scrollDomRowToTop(rowId: string, offsetPx = 0) {

@@ -13,7 +13,7 @@
             v-tooltip="part.title"
             @click.stop="$emit('file-token-click', part.path)"
           >
-            <span class="chat-inline-file-token__icon" aria-hidden="true"></span>
+            <Icon class="chat-inline-file-token__icon" :icon="part.icon" aria-hidden="true" />
             <span class="chat-inline-file-token__label">{{ part.label }}</span>
           </button>
         </template>
@@ -56,6 +56,7 @@
 </template>
 
 <script setup lang="ts">
+import { Icon } from "@iconify/vue";
 import LazyImageThumb from "../ui/LazyImageThumb.vue";
 import ChatUserBubbleFrame from "./ChatUserBubbleFrame.vue";
 import ChatInlineRewriteOverlay from "./ChatInlineRewriteOverlay.vue";

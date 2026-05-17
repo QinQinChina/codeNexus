@@ -136,20 +136,22 @@ const toggleOpen = async () => {
 }
 
 .chat-token-usage__details {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
-  gap: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 22px;
+  row-gap: 6px;
+  align-items: center;
   margin: 2px 10px 4px 25px;
   padding: 8px 10px;
   border-left: 1px solid color-mix(in srgb, var(--chat-status-ok) 42%, var(--border) 58%);
 }
 
 .chat-token-usage__detail {
-  display: flex;
+  display: inline-flex;
   min-width: 0;
+  flex: 0 1 auto;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 5px;
 }
 
 .chat-token-usage__detail span {

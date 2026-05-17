@@ -22,11 +22,7 @@
         @drop="onComposerDrop"
       >
         <UserInputDock v-if="variant !== 'inline' && hasPendingComposerUserInput" />
-        <div
-          v-if="isWorkspaceFileDragOver"
-          class="composer-file-drop-overlay"
-          aria-hidden="true"
-        >
+        <div v-if="isWorkspaceFileDragOver" class="composer-file-drop-overlay" aria-hidden="true">
           松开鼠标，将工作区文件添加到当前提问
         </div>
         <div
@@ -56,12 +52,8 @@
           @change="onComposerImageInputChange"
         />
 
-        <div v-if="variant !== 'inline' && composeAttachments.length > 0" class="composer-attachments">
-          <div
-            v-for="attachment in composeAttachments"
-            :key="attachment.id"
-            class="composer-attachment"
-          >
+        <div v-if="composeAttachments.length > 0" class="composer-attachments">
+          <div v-for="attachment in composeAttachments" :key="attachment.id" class="composer-attachment">
             <button
               class="composer-attachment-preview"
               type="button"
@@ -88,27 +80,19 @@
 
         <div class="composer-toolbar">
           <div class="composer-toolbar-main">
-            <div
-              v-if="historyRewriteActive && variant !== 'inline'"
-              class="composer-rewrite-chip mono"
-            >
+            <div v-if="historyRewriteActive && variant !== 'inline'" class="composer-rewrite-chip mono">
               <span>{{ historyRewriteSource === "queue" ? "编辑排队消息" : "重写历史消息" }}</span>
-              <button class="btn-mini composer-rewrite-cancel" type="button" @click="emit('cancel-rewrite')">取消</button>
+              <button class="btn-mini composer-rewrite-cancel" type="button" @click="emit('cancel-rewrite')">
+                取消
+              </button>
             </div>
 
-            <div
-              class="composer-mode-group"
-              role="group"
-              aria-label="协作模式"
-            >
+            <div class="composer-mode-group" role="group" aria-label="协作模式">
               <div class="composer-mode-thumb"></div>
               <button
                 class="btn-mini composer-mode-button"
                 type="button"
-                :class="[
-                  'is-agent',
-                  composeMode === 'default' ? 'is-active' : '',
-                ]"
+                :class="['is-agent', composeMode === 'default' ? 'is-active' : '']"
                 @click="emit('set-compose-mode', 'default')"
               >
                 <Bot class="composer-mode-icon" aria-hidden="true" /><span>执行</span>
@@ -116,10 +100,7 @@
               <button
                 class="btn-mini composer-mode-button"
                 type="button"
-                :class="[
-                  'is-plan',
-                  composeMode === 'plan' ? 'is-active' : '',
-                ]"
+                :class="['is-plan', composeMode === 'plan' ? 'is-active' : '']"
                 @click="emit('set-compose-mode', 'plan')"
               >
                 <ListTodo class="composer-mode-icon" aria-hidden="true" /><span>计划</span>
@@ -164,10 +145,7 @@
               <ImagePlus class="composer-icon-button-icon" />
             </button>
 
-            <div
-              v-if="variant !== 'inline'"
-              class="composer-context"
-            >
+            <div v-if="variant !== 'inline'" class="composer-context">
               <WaterBallProgress
                 class="composer-context-ball"
                 :percent="contextUsagePercent"
@@ -190,13 +168,8 @@
               :aria-label="sendTitle"
               @click="emit('send')"
             >
-              <div
-                v-if="!sendDisabled && !isTurnRunning"
-                class="composer-send-ping"
-              ></div>
-              <SendHorizontal
-                class="composer-send-icon"
-              />
+              <div v-if="!sendDisabled && !isTurnRunning" class="composer-send-ping"></div>
+              <SendHorizontal class="composer-send-icon" />
               <span class="composer-send-label">发送</span>
             </button>
             <button
@@ -212,10 +185,7 @@
           </div>
         </div>
 
-        <div
-          v-if="statusText"
-          class="composer-status-line"
-        >
+        <div v-if="statusText" class="composer-status-line">
           <WaveText class="composer-status-text mono dim" :text="statusText" />
         </div>
       </div>
@@ -377,12 +347,7 @@ function isSameComposeDraft(left: ComposeDraftState, right: ComposeDraftState): 
 function buildMentionTokenElement(mention: ComposeWorkspaceFileMention): HTMLSpanElement {
   const root = document.createElement("span");
   const kind = mention.kind === "directory" ? "directory" : "file";
-  root.className = [
-    "composer-inline-file-token",
-    `composer-inline-file-token--${kind}`,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  root.className = ["composer-inline-file-token", `composer-inline-file-token--${kind}`].filter(Boolean).join(" ");
   root.contentEditable = "false";
   root.dataset.composeMentionId = mention.id;
   root.dataset.composeMentionPath = mention.path;
@@ -724,7 +689,10 @@ function getMentionIndexById(mentionIdValue: string): number {
   return props.composeFileMentions.findIndex((mention) => mention.id === mentionId);
 }
 
-function insertDroppedFiles(paths: Array<{ path: string; kind?: ComposeWorkspaceFileMention["kind"] }>, offsetValue: number) {
+function insertDroppedFiles(
+  paths: Array<{ path: string; kind?: ComposeWorkspaceFileMention["kind"] }>,
+  offsetValue: number
+) {
   const offset = Math.max(0, Math.min(String(props.composeInput ?? "").length, Math.round(offsetValue)));
   const insertedMentions = paths
     .map((item) => createComposeFileMention(item.path, { kind: item.kind }))

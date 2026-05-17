@@ -157,47 +157,31 @@
 .timeline-pane--chat {
   --timeline-inline-pad: 12px;
   --timeline-scrollbar-gutter-w: 11px;
-  --timeline-bottom-occluder-bg: var(--chat-pane-bg);
   --chat-column-w: min(
     calc(100cqw - (var(--timeline-inline-pad) * 2) - (var(--timeline-scrollbar-gutter-w) * 2)),
     var(--chat-content-max-w)
   );
   container-type: inline-size;
+  grid-template-rows: minmax(0, 1fr) auto;
   padding: 0;
   gap: 0;
   background: var(--chat-pane-bg);
-}
-
-.timeline-pane--chat::after {
-  position: absolute;
-  z-index: 20;
-  right: var(--timeline-scrollbar-gutter-w);
-  bottom: 0;
-  left: var(--timeline-scrollbar-gutter-w);
-  height: var(--composer-dock-space, 120px);
-  pointer-events: none;
-  background: linear-gradient(
-    180deg,
-    transparent 0,
-    var(--timeline-bottom-occluder-bg) 22px,
-    var(--timeline-bottom-occluder-bg) 100%
-  );
-  content: "";
 }
 
 .timeline-pane--chat #timeline,
 .timeline-pane--chat .timeline {
   box-sizing: border-box;
   width: 100%;
-  height: 100%;
+  height: auto;
+  min-height: 0;
   margin-left: 0;
   margin-right: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  padding: var(--timeline-inline-pad) var(--timeline-inline-pad) var(--composer-dock-space, 120px);
-  scroll-padding-bottom: var(--composer-dock-space, 120px);
+  padding: var(--timeline-inline-pad);
+  scroll-padding-bottom: var(--timeline-inline-pad);
   scrollbar-gutter: stable both-edges;
 }
 
@@ -213,20 +197,16 @@
 }
 
 .timeline-pane--chat #timeline > .timeline-empty-state-shell {
-  min-height: calc(100% - var(--composer-dock-space, 120px));
+  min-height: 100%;
   display: grid;
   place-items: center;
 }
 
 .timeline-pane--chat > .composer {
-  position: absolute;
-  left: 50%;
-  bottom: var(--composer-dock-bottom-inset, 14px);
+  position: relative;
   z-index: 30;
   width: var(--chat-column-w);
-  margin-left: 0;
-  margin-right: 0;
-  transform: translateX(-50%);
+  margin: 0 auto var(--composer-dock-bottom-inset, 14px);
 }
 
 .timeline-pane--chat .composer-queue-fab {
@@ -235,7 +215,6 @@
 
 /* === Low-glare light workbench tuning === */
 :root[data-tone="light"] .timeline-pane--chat {
-  --timeline-bottom-occluder-bg: var(--chat-pane-bg);
   background: var(--chat-pane-bg);
 }
 

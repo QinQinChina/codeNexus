@@ -5,6 +5,7 @@ import type {
   TimelineEventItem,
   TokenUsageState,
 } from "../../../domain/types";
+import type { IconifyIcon } from "@iconify/vue";
 import type { DynamicToolTimelineItem } from "../../../domain/dynamicTools";
 import type {
   ReasoningBlockNode,
@@ -150,7 +151,7 @@ export type ChatUserMessageSnapshot = {
 
 export type ChatUserMessagePart =
   | { key: string; type: "text"; text: string }
-  | { key: string; type: "file"; path: string; label: string; title: string };
+  | { key: string; type: "file"; path: string; label: string; title: string; icon: IconifyIcon };
 
 export type ImageToolImageEntry = {
   id: string;

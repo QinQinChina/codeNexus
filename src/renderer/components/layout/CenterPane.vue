@@ -378,8 +378,8 @@ const timelineScrollController = useTimelineScrollController({
 const {
   hasTopEdgeFade,
   hasBottomEdgeFade,
+  forceFollowBottom,
   requestFollowBottom,
-  scrollLastRowByKindToTop,
   notifyTimelineLayoutChange,
   onTimelineScroll,
   scheduleTimelineViewportStateUpdate,
@@ -1241,7 +1241,7 @@ async function onSendClick() {
   await runtime.send();
   await nextTick();
   resizeComposerInput();
-  void scrollLastRowByKindToTop("user", 8, "auto");
+  forceFollowBottom("send");
 }
 
 async function onInterruptTurnClick() {
@@ -1260,7 +1260,7 @@ async function onEditQueuedMessage(messageId: string) {
 async function onSendQueuedMessageNow(messageId: string) {
   await runtime.sendQueuedMessageNow(messageId);
   closeQueuePopover();
-  void scrollLastRowByKindToTop("user", 8, "auto");
+  forceFollowBottom("send-queued");
 }
 
 async function onRemoveQueuedMessage(messageId: string) {

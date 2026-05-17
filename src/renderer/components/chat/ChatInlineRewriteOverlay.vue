@@ -1,10 +1,5 @@
 <template>
-  <div
-    ref="overlayRef"
-    class="chat-inline-rewrite-overlay"
-    @click.stop
-    @pointerdown.stop
-  >
+  <div ref="overlayRef" class="chat-inline-rewrite-overlay" @click.stop @pointerdown.stop>
     <ComposerPanel
       :composeInput="draft.composeInput"
       :composeAttachments="draft.composeAttachments"
@@ -49,7 +44,7 @@
       @composer-paste="noop"
       @composer-image-change="noop"
       @preview-attachment="noop"
-      @remove-attachment="noop"
+      @remove-attachment="onRemoveAttachment"
     />
   </div>
 </template>
@@ -105,6 +100,14 @@ function onInlineComposerKeydown(event: KeyboardEvent) {
 }
 
 function noop() {}
+
+function onRemoveAttachment(attachmentId: string) {
+  const id = String(attachmentId ?? "").trim();
+  if (!id) return;
+  emit("update", {
+    composeAttachments: props.draft.composeAttachments.filter((attachment) => attachment.id !== id),
+  });
+}
 
 function isOwnedTeleportTarget(target: Element) {
   return Boolean(target.closest(`[data-composer-owner="${INLINE_REWRITE_OWNER_ID}"]`));
