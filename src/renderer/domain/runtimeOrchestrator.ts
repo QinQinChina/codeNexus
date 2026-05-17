@@ -99,6 +99,7 @@ import type {
   McpResourceParameterEntry,
   McpServerState,
   SkillState,
+  LocalThreadItem,
   ThreadHistoryItem,
   TimelineEventItem,
   UserTurnInput,
@@ -313,8 +314,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const replayWindowStateByThread = new Map<string, ThreadReplayWindowState>();
   const replayRequestSeqByThread = new Map<string, number>();
   const olderHistoryLoadPromiseByThread = new Map<string, Promise<boolean>>();
-  const UNPERSISTED_THREAD_TTL_MS = 10 * 60_000;
-  const unpersistedThreadsById = new Map<string, { createdAt: number; item: ThreadHistoryItem }>();
+  const LOCAL_THREAD_TTL_MS = 10 * 60_000;
   const threadStartConfigOverridesByThreadId = new Map<string, ThreadStartConfigOverrides>();
   const threadContentCacheByKey = new Map<string, ThreadContentCacheEntry>();
   const serverIdByWorkspace = new Map<string, string>();
@@ -596,15 +596,22 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     workspaceByThreadId.delete(threadId);
   };
 
+  const findThreadListItem = (threadIdValue: string): ThreadHistoryItem | LocalThreadItem | undefined => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId) return undefined;
+    return (
+      threadStore.threadHistory.find((item) => item.id === threadId) ??
+      threadStore.localThreads.find((item) => item.id === threadId)
+    );
+  };
+
   // 线程对应工作区的解析优先级：内存映射 > 历史记录 > 当前工作区。
   const getWorkspaceForThread = (threadIdValue: string): string => {
     const threadId = String(threadIdValue ?? "").trim();
     if (!threadId) return "";
     const mapped = normalizeWorkspacePath(workspaceByThreadId.get(threadId) ?? "");
     if (mapped) return mapped;
-    const fromHistory = normalizeWorkspacePath(
-      String(threadStore.threadHistory.find((item) => item.id === threadId)?.cwd ?? "")
-    );
+    const fromHistory = normalizeWorkspacePath(String(findThreadListItem(threadId)?.cwd ?? ""));
     if (fromHistory) {
       workspaceByThreadId.set(threadId, fromHistory);
       return fromHistory;
@@ -1383,7 +1390,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     const threadId = String(threadIdValue ?? "").trim();
     if (!threadId || threadId === APP_TIMELINE_ID) return;
 
-    const historyItem = threadStore.threadHistory.find((item) => String(item.id ?? "").trim() === threadId);
+    const historyItem = findThreadListItem(threadId);
     const parentThreadId = historyItem ? resolveThreadParentIdForGraph(historyItem) : "";
     if (!parentThreadId) {
       threadStore.clearThreadHandoffDiagnostics(threadId);
@@ -2035,7 +2042,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     const id = String(threadIdValue ?? "").trim();
     if (!id) return;
     threadStore.threadHistory = threadStore.threadHistory.filter((item) => item.id !== id);
-    unpersistedThreadsById.delete(id);
     threadStore.clearThreadState(id);
     timelineStore.clearThread(id);
     // 删除线程时同步清理“排队消息”的线程级持久化，避免幽灵队列残留。
@@ -2205,7 +2211,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const canRecreateEmptyUnpersistedThreadForModelConfig = (threadIdValue: string): boolean => {
     const threadId = String(threadIdValue ?? "").trim();
     if (!threadId) return false;
-    if (!unpersistedThreadsById.has(threadId)) return false;
+    if (!threadStore.hasLocalThread(threadId)) return false;
     if (threadStore.runningThreadIds.has(threadId)) return false;
     return !hasStartedConversationActivity(threadId);
   };
@@ -2223,7 +2229,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (!oldThreadId || !workspace || !serverId) throw new Error("invalid thread recreation params");
 
     const existing = threadStore.threadHistory.find((item) => item.id === oldThreadId);
-    const oldStub = unpersistedThreadsById.get(oldThreadId);
+    const oldLocalThread = threadStore.localThreads.find((item) => item.id === oldThreadId);
     const { params: threadStartParams, configOverrides } = buildThreadStartParamsForModel({
       model,
       workspace,
@@ -2245,32 +2251,28 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     const newThreadId = String(res.result?.thread?.id ?? "").trim();
     if (!newThreadId) throw new Error("thread/start did not return thread id");
 
-    const oldTitle = String(existing?.title ?? oldStub?.item?.title ?? "").trim();
+    const oldTitle = String(existing?.title ?? oldLocalThread?.title ?? "").trim();
     const oldFallback = fallbackThreadTitle(oldThreadId);
     const nextTitle = oldTitle && oldTitle !== oldFallback ? oldTitle : fallbackThreadTitle(newThreadId);
     const now = Date.now();
-    const nextHistoryItem: ThreadHistoryItem = {
-      ...(oldStub?.item ?? existing ?? {}),
+    const nextLocalThread: LocalThreadItem = {
+      ...(oldLocalThread ?? {}),
       id: newThreadId,
       title: nextTitle,
-      meta: String(existing?.meta ?? oldStub?.item?.meta ?? workspace).trim() || "无工作区",
+      meta: String(existing?.meta ?? oldLocalThread?.meta ?? workspace).trim() || "无工作区",
       cwd: workspace || undefined,
+      createdAt: oldLocalThread?.createdAt ?? now,
       updatedAt: now,
       running: false,
-      unpersisted: true,
+      status: "ready",
     };
 
     runtimeStore.moveThreadComposeState(oldThreadId, newThreadId);
     runtimeStore.movePendingThreadInitSendCount(oldThreadId, newThreadId);
     timelineStore.moveThread(oldThreadId, newThreadId);
-    threadStore.replaceThreadId(oldThreadId, newThreadId, nextHistoryItem);
+    threadStore.replaceThreadId(oldThreadId, newThreadId);
+    threadStore.replaceLocalThreadId(oldThreadId, newThreadId, nextLocalThread);
     messageQueueStore.moveThreadQueue(oldThreadId, newThreadId);
-
-    unpersistedThreadsById.delete(oldThreadId);
-    unpersistedThreadsById.set(newThreadId, {
-      createdAt: oldStub?.createdAt ?? now,
-      item: { ...nextHistoryItem },
-    });
     resumedThreadIds.delete(oldThreadId);
     resumedThreadIds.add(newThreadId);
     resumePromisesByThread.delete(oldThreadId);
@@ -2375,22 +2377,18 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       const threadId = String(item?.id ?? "").trim();
       if (threadId) incomingThreadIds.add(threadId);
     }
-    for (const [threadId, stub] of unpersistedThreadsById.entries()) {
-      if (!threadId) {
-        unpersistedThreadsById.delete(threadId);
-        continue;
-      }
-      if (incomingThreadIds.has(threadId)) {
-        unpersistedThreadsById.delete(threadId);
-        continue;
-      }
-      if (now - stub.createdAt > UNPERSISTED_THREAD_TTL_MS) {
-        unpersistedThreadsById.delete(threadId);
-      }
-    }
     const previousTitleById = new Map(
-      threadStore.threadHistory.map((item) => [String(item.id ?? "").trim(), String(item.title ?? "").trim()])
+      [...threadStore.threadHistory, ...threadStore.localThreads].map((item) => [
+        String(item.id ?? "").trim(),
+        String(item.title ?? "").trim(),
+      ])
     );
+    threadStore.localThreads = threadStore.localThreads.filter((item) => {
+      const threadId = String(item.id ?? "").trim();
+      if (!threadId || incomingThreadIds.has(threadId)) return false;
+      const createdAt = Number(item.createdAt ?? item.updatedAt ?? now);
+      return now - createdAt <= LOCAL_THREAD_TTL_MS;
+    });
     const historyItems = items
       .map((item) => {
         const historyItem = toThreadHistoryItemFromHistory(item);
@@ -2404,17 +2402,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         return historyItem;
       })
       .sort((a, b) => b.updatedAt - a.updatedAt);
-    const mergedItems: ThreadHistoryItem[] = [...historyItems];
-    const mergedThreadIds = new Set(mergedItems.map((item) => String(item?.id ?? "").trim()).filter(Boolean));
-    for (const [threadId, stub] of unpersistedThreadsById.entries()) {
-      const tid = String(threadId ?? "").trim();
-      if (!tid || mergedThreadIds.has(tid)) continue;
-      mergedItems.push({ ...stub.item });
-      mergedThreadIds.add(tid);
-    }
-    mergedItems.sort((a, b) => b.updatedAt - a.updatedAt);
 
-    threadStore.threadHistory = mergedItems;
+    threadStore.threadHistory = historyItems;
     for (const item of items) {
       const threadId = String(item.id ?? "").trim();
       if (!threadId) continue;
@@ -2423,7 +2412,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       threadStore.setThreadRunning(threadId, running);
       threadStore.setActiveTurn(threadId, activeTurnId);
     }
-    for (const item of mergedItems) {
+    for (const item of [...historyItems, ...threadStore.localThreads]) {
       setThreadWorkspace(item.id, item.cwd);
     }
   };
@@ -2540,20 +2529,17 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     setThreadWorkspace(optimisticThreadId, workspaceBeforeStart);
     runtimeStore.clearPendingThreadInitSendCount(optimisticThreadId);
     const optimisticCreatedAt = Date.now();
-    const optimisticHistoryItem: ThreadHistoryItem = {
+    const optimisticLocalThread: LocalThreadItem = {
       id: optimisticThreadId,
       title: "创建中",
       meta: workspaceBeforeStart || "无工作区",
       cwd: workspaceBeforeStart || undefined,
+      createdAt: optimisticCreatedAt,
       updatedAt: optimisticCreatedAt,
       running: false,
-      unpersisted: true,
+      status: "creating",
     };
-    threadStore.upsertThreadHistory(optimisticHistoryItem);
-    unpersistedThreadsById.set(optimisticThreadId, {
-      createdAt: optimisticCreatedAt,
-      item: { ...optimisticHistoryItem },
-    });
+    threadStore.upsertLocalThread(optimisticLocalThread);
     runtimeStore.setCurrentThread(optimisticThreadId);
     threadStore.setCurrentThread(optimisticThreadId);
     appendDebugLog("thread.create", "optimistic thread shown", {
@@ -2666,32 +2652,18 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       runtimeStore.moveThreadComposeState(optimisticThreadId, id);
       runtimeStore.clearPendingThreadInitSendCount(optimisticThreadId);
       timelineStore.moveThread(optimisticThreadId, id);
-      const finalizedHistoryItem: ThreadHistoryItem = {
+      const finalizedLocalThread: LocalThreadItem = {
         id,
         title: `Thread ${id.slice(-8)}`,
         meta: workspace || "无工作区",
         cwd: workspace || undefined,
+        createdAt: optimisticCreatedAt,
         updatedAt: Date.now(),
         running: false,
-        unpersisted: true,
+        status: "ready",
       };
-      threadStore.replaceThreadId(optimisticThreadId, id, {
-        title: finalizedHistoryItem.title,
-        meta: finalizedHistoryItem.meta,
-        cwd: finalizedHistoryItem.cwd,
-        updatedAt: finalizedHistoryItem.updatedAt,
-        running: finalizedHistoryItem.running,
-      });
-      const stub = unpersistedThreadsById.get(optimisticThreadId);
-      if (stub) {
-        unpersistedThreadsById.delete(optimisticThreadId);
-        unpersistedThreadsById.set(id, {
-          createdAt: stub.createdAt,
-          item: { ...stub.item, ...finalizedHistoryItem },
-        });
-      } else {
-        unpersistedThreadsById.set(id, { createdAt: Date.now(), item: { ...finalizedHistoryItem } });
-      }
+      threadStore.replaceThreadId(optimisticThreadId, id);
+      threadStore.replaceLocalThreadId(optimisticThreadId, id, finalizedLocalThread);
       messageQueueStore.moveThreadQueue(optimisticThreadId, id);
       resumedThreadIds.add(id);
       setThreadWorkspace(id, workspace);
@@ -2701,6 +2673,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         attemptId,
         threadId: id,
         threadHistorySize: threadStore.threadHistory.length,
+        localThreadSize: threadStore.localThreads.length,
         elapsedMs: elapsedMs(applyStateStartedAt),
         totalElapsedMs: elapsedMs(createStartedAt),
       });
@@ -2750,7 +2723,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     const id = String(threadId ?? "").trim();
     if (!id) return;
     const switchStartedAt = perfNow();
-    const target = threadStore.threadHistory.find((item) => item.id === id);
+    const target = findThreadListItem(id);
     const targetRunning = threadStore.runningThreadIds.has(id);
     const existingTimelineEvents = timelineStore.eventsForThread(id);
     const canFastActivateRunningThread = targetRunning && existingTimelineEvents.length > 0;
@@ -2834,6 +2807,13 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const deleteHistoryThread = async (threadId: string) => {
     const id = String(threadId ?? "").trim();
     if (!id) return;
+    const hasHistoryThread = threadStore.threadHistory.some((item) => item.id === id);
+    if (!hasHistoryThread && threadStore.hasLocalThread(id)) {
+      invalidateThreadContentCache(threadContentCacheByKey, id);
+      clearThreadRuntimeState(id);
+      pushEvent("history", "已移除本地会话", { threadId: APP_TIMELINE_ID });
+      return;
+    }
     try {
       await codexDesktop.history.deleteThread({ threadId: id });
       invalidateThreadContentCache(threadContentCacheByKey, id);
@@ -3044,7 +3024,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     }
 
     {
-      const existing = threadStore.threadHistory.find((item) => item.id === threadId);
+      const existing = findThreadListItem(threadId);
       const currentTitle = String(existing?.title ?? "").trim();
       const placeholder = fallbackThreadTitle(threadId);
       const titleSeedText =
@@ -3055,7 +3035,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       if (!currentTitle || currentTitle === placeholder) {
         if (!isBootstrapThreadTitleSource(titleSeedText)) {
           const nextTitle = titleFromFirstUserMessage(titleSeedText) || placeholder;
-          threadStore.upsertThreadHistory({
+          const titlePatch = {
             id: threadId,
             title: nextTitle,
             meta: String(existing?.meta ?? threadWorkspace ?? "").trim() || "无工作区",
@@ -3063,7 +3043,12 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
             modelProvider: String(existing?.modelProvider ?? "").trim() || undefined,
             updatedAt: Date.now(),
             running: threadStore.runningThreadIds.has(threadId),
-          });
+          };
+          if (threadStore.hasLocalThread(threadId)) {
+            threadStore.patchLocalThread(threadId, titlePatch);
+          } else {
+            threadStore.upsertThreadHistory(titlePatch);
+          }
         }
       }
     }
@@ -3147,7 +3132,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     }
 
     setLocalUserEventState("sending", "info");
-    if (unpersistedThreadsById.has(threadId)) {
+    if (threadStore.hasLocalThread(threadId)) {
       upsertThreadPreparingEvent(threadId);
     }
     const started = await startTurnWithInput({
@@ -3275,7 +3260,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       clearThreadPreparingEvent(threadId);
       return;
     }
-    if (unpersistedThreadsById.has(threadId)) {
+    if (threadStore.hasLocalThread(threadId)) {
       upsertThreadPreparingEvent(threadId);
     }
     const started = await startTurnWithInput({ threadId, threadWorkspace, threadServerId, input: queueInput });
@@ -3292,7 +3277,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const notifyCompletedTurnIfBackground = async (threadIdValue: string) => {
     const threadId = String(threadIdValue ?? "").trim();
     if (!threadId) return;
-    const historyItem = threadStore.threadHistory.find((item) => String(item.id ?? "").trim() === threadId);
+    const historyItem = findThreadListItem(threadId);
     const threadTitle = threadStore.displayThreadTitle(threadId, historyItem?.title ?? threadId);
     try {
       const windowState = await codexDesktop.window.getState();
@@ -3483,7 +3468,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       return;
     }
 
-    if (unpersistedThreadsById.has(threadId)) {
+    if (threadStore.hasLocalThread(threadId)) {
       upsertThreadPreparingEvent(threadId);
     }
     const started = await startTurnWithInput({ threadId, threadWorkspace, threadServerId, input: queueInput });

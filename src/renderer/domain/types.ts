@@ -58,7 +58,25 @@ export type ThreadHistoryItem = {
   cwd?: string;
   modelProvider?: string;
   running?: boolean;
-  unpersisted?: boolean;
+  threadSourceKind?: ThreadSourceKind;
+  forkedFromId?: string;
+  agentNickname?: string;
+  agentRole?: string;
+  agentPath?: string;
+};
+
+export type LocalThreadStatus = "creating" | "ready";
+
+export type LocalThreadItem = {
+  id: string;
+  title: string;
+  meta: string;
+  createdAt: number;
+  updatedAt: number;
+  status: LocalThreadStatus;
+  cwd?: string;
+  modelProvider?: string;
+  running?: boolean;
   threadSourceKind?: ThreadSourceKind;
   forkedFromId?: string;
   agentNickname?: string;

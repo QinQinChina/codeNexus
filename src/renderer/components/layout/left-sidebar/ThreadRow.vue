@@ -45,11 +45,6 @@
             <span v-else class="lsb-thread-title-text" @dblclick.stop.prevent="beginRename">{{ displayTitle }}</span>
           </template>
           <span
-            v-if="shouldShowUnpersistedBadge"
-            class="lsb-badge is-main"
-            >临时</span
-          >
-          <span
             v-if="hasUserInputQuestion"
             class="lsb-badge is-question"
             >问答</span
@@ -119,7 +114,7 @@ type ThreadRowItem = {
     updatedAt: number;
     cwd?: string;
     agentNickname?: string;
-    unpersisted?: boolean;
+    localStatus?: "creating" | "ready";
   };
   depth: number;
 };
@@ -149,11 +144,6 @@ const agentNicknameBadge = computed(() => {
   const raw = String(props.row.item.agentNickname ?? "").trim();
   if (!raw) return "";
   return raw.length > 12 ? `${raw.slice(0, 12)}…` : raw;
-});
-
-const shouldShowUnpersistedBadge = computed(() => {
-  if (!props.row.item.unpersisted) return false;
-  return !props.isPendingThreadId(props.row.item.id);
 });
 
 const threadStore = useThreadStore();

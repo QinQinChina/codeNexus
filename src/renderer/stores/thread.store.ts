@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import type {
   CompletedTurnState,
   ThreadHandoffDiagnosticsState,
+  LocalThreadItem,
   PlanStepState,
   ThreadHistoryItem,
   TokenUsageBreakdownState,
@@ -107,6 +108,7 @@ export const useThreadStore = defineStore("thread", {
     currentThreadId: "" as string,
     loadingThreadId: "" as string,
     threadHistory: [] as ThreadHistoryItem[],
+    localThreads: [] as LocalThreadItem[],
     runningThreadIds: new Set<string>(),
     attentionThreadIds: new Set<string>(),
     recentlyCompletedThreadIds: new Set<string>(),
@@ -190,6 +192,49 @@ export const useThreadStore = defineStore("thread", {
       else this.threadHistory.push(item);
       this.threadHistory.sort((a, b) => b.updatedAt - a.updatedAt);
     },
+    upsertLocalThread(item: LocalThreadItem) {
+      const idx = this.localThreads.findIndex((x) => x.id === item.id);
+      if (idx >= 0) this.localThreads[idx] = item;
+      else this.localThreads.push(item);
+      this.localThreads.sort((a, b) => b.updatedAt - a.updatedAt);
+    },
+    patchLocalThread(threadIdValue: string, patch: Partial<LocalThreadItem>) {
+      const threadId = normalizeThreadId(threadIdValue);
+      if (!threadId) return;
+      const idx = this.localThreads.findIndex((item) => item.id === threadId);
+      if (idx < 0) return;
+      this.localThreads[idx] = {
+        ...this.localThreads[idx],
+        ...patch,
+        id: threadId,
+      };
+      this.localThreads.sort((a, b) => b.updatedAt - a.updatedAt);
+    },
+    removeLocalThread(threadIdValue: string) {
+      const threadId = normalizeThreadId(threadIdValue);
+      if (!threadId) return;
+      this.localThreads = this.localThreads.filter((item) => item.id !== threadId);
+    },
+    hasLocalThread(threadIdValue: string): boolean {
+      const threadId = normalizeThreadId(threadIdValue);
+      return Boolean(threadId && this.localThreads.some((item) => item.id === threadId));
+    },
+    replaceLocalThreadId(fromThreadIdValue: string, toThreadIdValue: string, patch?: Partial<LocalThreadItem>) {
+      const fromId = normalizeThreadId(fromThreadIdValue);
+      const toId = normalizeThreadId(toThreadIdValue);
+      if (!fromId || !toId || fromId === toId) return;
+      const fromLocal = this.localThreads.find((item) => item.id === fromId);
+      const toLocal = this.localThreads.find((item) => item.id === toId);
+      this.localThreads = this.localThreads.filter((item) => item.id !== fromId && item.id !== toId);
+      const mergedLocal = {
+        ...(fromLocal ?? {}),
+        ...(toLocal ?? {}),
+        ...(patch ?? {}),
+        id: toId,
+      } as LocalThreadItem;
+      if (mergedLocal.id) this.localThreads.push(mergedLocal);
+      this.localThreads.sort((a, b) => b.updatedAt - a.updatedAt);
+    },
     applyThreadTitleOverrides(overrides: Record<string, string> | null | undefined) {
       const next = new Map<string, string>();
       if (overrides && typeof overrides === "object") {
@@ -228,15 +273,17 @@ export const useThreadStore = defineStore("thread", {
 
       const fromHistory = this.threadHistory.find((item) => item.id === fromId);
       const toHistory = this.threadHistory.find((item) => item.id === toId);
-      this.threadHistory = this.threadHistory.filter((item) => item.id !== fromId && item.id !== toId);
-      const mergedHistory = {
-        ...(fromHistory ?? {}),
-        ...(toHistory ?? {}),
-        ...(patch ?? {}),
-        id: toId,
-      } as ThreadHistoryItem;
-      if (mergedHistory.id) this.threadHistory.push(mergedHistory);
-      this.threadHistory.sort((a, b) => b.updatedAt - a.updatedAt);
+      if (fromHistory || toHistory) {
+        this.threadHistory = this.threadHistory.filter((item) => item.id !== fromId && item.id !== toId);
+        const mergedHistory = {
+          ...(fromHistory ?? {}),
+          ...(toHistory ?? {}),
+          ...(patch ?? {}),
+          id: toId,
+        } as ThreadHistoryItem;
+        if (mergedHistory.id) this.threadHistory.push(mergedHistory);
+        this.threadHistory.sort((a, b) => b.updatedAt - a.updatedAt);
+      }
 
       this.attentionThreadIds = renameInSet(this.attentionThreadIds, fromId, toId);
       this.recentlyCompletedThreadIds = renameInSet(this.recentlyCompletedThreadIds, fromId, toId);
@@ -552,6 +599,7 @@ export const useThreadStore = defineStore("thread", {
       const tid = String(threadId ?? "").trim();
       if (!tid) return;
       if (this.loadingThreadId === tid) this.loadingThreadId = "";
+      this.removeLocalThread(tid);
       this.runningThreadIds.delete(tid);
       this.attentionThreadIds = removeFromSet(this.attentionThreadIds, tid);
       this.recentlyCompletedThreadIds.delete(tid);

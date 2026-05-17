@@ -63,8 +63,8 @@
     </div>
 
     <div id="thread-history" class="lsb-scroll app-scrollbar">
-      <div class="lsb-thread-groups" :class="{ dim: threadStore.threadHistory.length === 0 }">
-        <template v-if="threadStore.threadHistory.length === 0">
+      <div class="lsb-thread-groups" :class="{ dim: totalThreadListCount === 0 }">
+        <template v-if="totalThreadListCount === 0">
           <div class="lsb-empty lsb-thread-empty mono">
             <div class="dim">暂无线程</div>
             <button class="lsb-nav-row lsb-nav-row--workspace" type="button" @click="runtime.createThread">
@@ -140,7 +140,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { ChevronDown, Folder, RefreshCw, Search, SquarePen, X } from "lucide-vue-next";
-import type { ThreadHistoryItem } from "../../../domain/types";
+import type { LocalThreadItem, ThreadHistoryItem } from "../../../domain/types";
 import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
 import { codexDesktop } from "../../../api/codexDesktopClient";
 import { useAppShellStore } from "../../../stores/appShell.store";
@@ -160,12 +160,13 @@ type ThreadListItem = Pick<
   | "meta"
   | "updatedAt"
   | "cwd"
-  | "unpersisted"
   | "forkedFromId"
   | "agentNickname"
   | "agentRole"
   | "agentPath"
->;
+> & {
+  localStatus?: LocalThreadItem["status"];
+};
 type ThreadRowModel = {
   item: ThreadListItem;
   depth: number;
@@ -233,9 +234,34 @@ const compareWorkspaceTitle = (a: string, b: string) =>
 const sortByUpdatedAtDesc = (a: ThreadListItem, b: ThreadListItem) =>
   a.updatedAt !== b.updatedAt ? b.updatedAt - a.updatedAt : a.title.localeCompare(b.title);
 
-const threadHistoryById = computed(() => {
+const visibleThreadItems = computed<ThreadListItem[]>(() => {
   const map = new Map<string, ThreadListItem>();
   for (const item of threadStore.threadHistory) {
+    const id = normalizeThreadId(item.id);
+    if (id) map.set(id, item);
+  }
+  for (const item of threadStore.localThreads) {
+    const id = normalizeThreadId(item.id);
+    if (!id || map.has(id)) continue;
+    map.set(id, {
+      id,
+      title: String(item.title ?? ""),
+      meta: String(item.meta ?? ""),
+      updatedAt: Number(item.updatedAt ?? item.createdAt ?? Date.now()),
+      cwd: item.cwd,
+      forkedFromId: item.forkedFromId,
+      agentNickname: item.agentNickname,
+      agentRole: item.agentRole,
+      agentPath: item.agentPath,
+      localStatus: item.status,
+    });
+  }
+  return [...map.values()].sort(sortByUpdatedAtDesc);
+});
+
+const threadHistoryById = computed(() => {
+  const map = new Map<string, ThreadListItem>();
+  for (const item of visibleThreadItems.value) {
     const id = normalizeThreadId(item.id);
     if (id) map.set(id, item);
   }
@@ -247,18 +273,18 @@ const threadGroups = computed<ThreadGroup[]>(() => {
     string,
     { key: string; title: string; cwdFull: string; updatedAt: number; items: ThreadListItem[] }
   >();
-  for (const sourceItem of threadStore.threadHistory) {
+  for (const sourceItem of visibleThreadItems.value) {
     const item: ThreadListItem = {
       id: String(sourceItem.id ?? ""),
       title: threadStore.displayThreadTitle(sourceItem.id, sourceItem.title),
       meta: String(sourceItem.meta ?? ""),
       updatedAt: Number(sourceItem.updatedAt ?? 0),
       cwd: sourceItem.cwd,
-      unpersisted: Boolean(sourceItem.unpersisted),
       forkedFromId: sourceItem.forkedFromId,
       agentNickname: sourceItem.agentNickname,
       agentRole: sourceItem.agentRole,
       agentPath: sourceItem.agentPath,
+      localStatus: sourceItem.localStatus,
     };
     const cwd = String(item.cwd ?? "").trim();
     const key = cwd ? normalizeFsPath(cwd) : "__no_workspace__";
@@ -331,8 +357,9 @@ const visibleThreadGroups = computed<ThreadGroup[]>(() => {
 });
 
 const runningThreadsCount = computed(() => threadStore.runningThreadIds.size);
+const totalThreadListCount = computed(() => visibleThreadItems.value.length);
 const threadsCountText = computed(() => {
-  const total = threadStore.threadHistory.length;
+  const total = totalThreadListCount.value;
   if (!threadFilterActive.value) return `总计 ${total}`;
   const matched = visibleThreadGroups.value.reduce((acc, g) => acc + g.rows.length, 0);
   return `匹配 ${matched} / ${total}`;

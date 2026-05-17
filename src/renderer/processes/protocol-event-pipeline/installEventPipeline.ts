@@ -1097,10 +1097,12 @@ export function installEventPipeline(pinia: Pinia) {
       if (threadId) {
         const cwdText = String(thread.cwd ?? "").trim();
         const existingTitle = String(
-          threadStore.threadHistory.find((item) => item.id === threadId)?.title ?? ""
+          threadStore.threadHistory.find((item) => item.id === threadId)?.title ??
+            threadStore.localThreads.find((item) => item.id === threadId)?.title ??
+            ""
         ).trim();
         const historyMetadata = buildThreadHistoryMetadataFromServerThread(thread);
-        threadStore.upsertThreadHistory({
+        const nextThreadPatch = {
           id: threadId,
           title: resolveThreadTitle(threadId, existingTitle || `Thread ${threadId.slice(-8)}`),
           meta: cwdText || "无工作区",
@@ -1109,7 +1111,15 @@ export function installEventPipeline(pinia: Pinia) {
           ...historyMetadata,
           updatedAt: Date.now(),
           running: false,
-        });
+        };
+        if (threadStore.hasLocalThread(threadId)) {
+          threadStore.patchLocalThread(threadId, {
+            ...nextThreadPatch,
+            status: "ready",
+          });
+        } else {
+          threadStore.upsertThreadHistory(nextThreadPatch);
+        }
       }
       timelineStore.appendEvent({
         threadId: threadId || "__app__",
