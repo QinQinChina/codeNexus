@@ -183,9 +183,7 @@ export function useTimelineScrollController(options: UseTimelineScrollController
       return true;
     }
     const element = options.timelineRef.value;
-    const row = element
-      ? timelineRows(element).find((item) => String(item.dataset.rowId ?? "").trim() === id)
-      : null;
+    const row = element ? timelineRows(element).find((item) => String(item.dataset.rowId ?? "").trim() === id) : null;
     const scrolled = row ? scrollDomRowToTop(row, offsetPx, behavior) : false;
     if (scrolled) autoFollowEnabled.value = false;
     return scrolled;

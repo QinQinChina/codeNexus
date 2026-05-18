@@ -63,7 +63,8 @@ export function useChatLayout() {
     const postHandoffTurns = d.postHandoffTurns;
     const details: string[] = [];
 
-    if (parentTurns != null) details.push(translate("chatPane.parentThreadTurns", { thread: parentLabel, count: parentTurns }));
+    if (parentTurns != null)
+      details.push(translate("chatPane.parentThreadTurns", { thread: parentLabel, count: parentTurns }));
     else details.push(translate("chatPane.parentThreadSummaryUnavailable", { thread: parentLabel }));
 
     details.push(translate("chatPane.currentTurns", { count: currentTurns }));

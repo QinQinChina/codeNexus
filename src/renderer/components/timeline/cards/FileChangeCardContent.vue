@@ -20,11 +20,7 @@
           <div class="file-change-file-main">
             <div class="file-change-path-line">
               <span class="file-change-path mono" :title="entry.pathTitle">{{ entry.pathText }}</span>
-              <span
-                v-if="entry.file"
-                class="file-change-kind-badge"
-                :class="fileChangeKindClass(entry.file.kind)"
-              >
+              <span v-if="entry.file" class="file-change-kind-badge" :class="fileChangeKindClass(entry.file.kind)">
                 {{ fileChangeKindText(entry.file.kind) }}
               </span>
             </div>

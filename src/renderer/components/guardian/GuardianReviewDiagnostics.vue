@@ -103,7 +103,8 @@ const guardianMetaText = (item: GuardianApprovalReviewDiagnosticItem) => {
   const parts: string[] = [];
   parts.push(formatTime(item.createdAt));
   if (item.riskText) parts.push(t("guardianDiagnostics.risk", { value: item.riskText }));
-  if (item.userAuthorizationText) parts.push(t("guardianDiagnostics.authorization", { value: item.userAuthorizationText }));
+  if (item.userAuthorizationText)
+    parts.push(t("guardianDiagnostics.authorization", { value: item.userAuthorizationText }));
   if (item.decisionSourceText) parts.push(t("guardianDiagnostics.source", { value: item.decisionSourceText }));
   if (item.targetItemId) parts.push(`target ${item.targetItemId.slice(0, 12)}`);
   return parts.join(" ｜ ");

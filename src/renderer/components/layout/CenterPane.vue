@@ -596,9 +596,7 @@ const composerStatusText = computed(() => {
   if (!isPendingThreadId(tid)) return "";
   const pending = runtimeStore.pendingThreadInitSendCountByThread.get(tid) ?? 0;
   if (!Number.isFinite(pending) || pending <= 0) return "";
-  return pending === 1
-    ? t("composer.initializingThread")
-    : t("composer.initializingThreadQueued", { count: pending });
+  return pending === 1 ? t("composer.initializingThread") : t("composer.initializingThreadQueued", { count: pending });
 });
 
 function onComposeInputUpdate(value: string) {

@@ -20,11 +20,7 @@
 
   <Transition name="topbar-fly">
     <div v-if="props.open" class="topbar-menu-shell topbar-menu-shell--approval" @click.stop>
-      <div
-        class="topbar-dropdown topbar-menu app-scrollbar"
-        role="menu"
-        :aria-label="t('topbarApproval.approval')"
-      >
+      <div class="topbar-dropdown topbar-menu app-scrollbar" role="menu" :aria-label="t('topbarApproval.approval')">
         <div class="topbar-menu-section">
           <div class="row" style="align-items: baseline; justify-content: space-between; gap: 10px">
             <div class="topbar-menu-heading">{{ t("topbarApproval.approval") }}</div>
@@ -383,5 +379,4 @@ const applyPatchFiles = (
   out.sort((a, b) => a.path.localeCompare(b.path));
   return out;
 };
-
 </script>

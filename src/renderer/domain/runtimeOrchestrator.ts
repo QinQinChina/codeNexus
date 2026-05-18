@@ -978,7 +978,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     timelineStore.removeTurnEvents(tid, rollback.turnIds);
     threadStore.removeTurnsFromState(tid, rollback.turnIds);
     if (!noVisibleOutputBelowAnchor) {
-      showToast({ kind: "success", title: "历史已回退", message: `已撤回 ${rollback.count} 个回合，正在发送编辑内容。` });
+      showToast({
+        kind: "success",
+        title: "历史已回退",
+        message: `已撤回 ${rollback.count} 个回合，正在发送编辑内容。`,
+      });
     }
     return true;
   };

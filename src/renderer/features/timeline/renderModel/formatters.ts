@@ -619,7 +619,8 @@ export function commandGroupItemActionText(item: CommandGroupItem) {
     firstLower.endsWith("/python.exe") ||
     firstLower.endsWith("python.exe")
   ) {
-    if (tokens.includes("-V") || tokens.includes("--version")) return withPrefix(translate("timelineFormat.command.pythonVersion"));
+    if (tokens.includes("-V") || tokens.includes("--version"))
+      return withPrefix(translate("timelineFormat.command.pythonVersion"));
     const cIdx = tokens.findIndex((t) => String(t ?? "").toLowerCase() === "-c");
     if (cIdx >= 0) return withPrefix(translate("timelineFormat.command.pythonExecC"));
     const manageIdx = tokens.findIndex((t) => /manage\.py$/i.test(String(t ?? "")));
@@ -649,7 +650,8 @@ export function commandGroupItemActionText(item: CommandGroupItem) {
   // 文件操作
   if (/^new-item\b/i.test(cmd) && /\b-itemtype\b/i.test(cmd) && /\bdirectory\b/i.test(cmd)) {
     const path = extractFlagValue(cmd, "-Path") || extractFirstQuoted(cmd) || String(tokens[tokens.length - 1] ?? "");
-    if (path) return withPrefix(translate("timelineFormat.command.createDirectoryWithPath", { path: unquoteToken(path) }));
+    if (path)
+      return withPrefix(translate("timelineFormat.command.createDirectoryWithPath", { path: unquoteToken(path) }));
     return withPrefix(translate("timelineFormat.command.createDirectory"));
   }
 
@@ -686,7 +688,8 @@ export function commandGroupItemActionText(item: CommandGroupItem) {
       .join(" ")
       .trim();
     const tail = args ? ` ${shortenText(args, 72)}` : "";
-    if (scope) return withPrefix(translate("timelineFormat.command.executeWithScope", { command: `${exe}${tail}`, scope }));
+    if (scope)
+      return withPrefix(translate("timelineFormat.command.executeWithScope", { command: `${exe}${tail}`, scope }));
     return withPrefix(translate("timelineFormat.command.execute", { command: `${exe}${tail}` }));
   }
 
@@ -819,7 +822,10 @@ export function mcpToolGroupSummaryText(group: McpToolGroupNode) {
       failed: group.stats.failed,
     });
   if (group.stats.completed > 0)
-    return translate("timelineFormat.mcp.summaryCompleted", { completed: group.stats.completed, total: group.stats.total });
+    return translate("timelineFormat.mcp.summaryCompleted", {
+      completed: group.stats.completed,
+      total: group.stats.total,
+    });
   return translate("timelineFormat.mcp.summaryPending", { total: group.stats.total });
 }
 

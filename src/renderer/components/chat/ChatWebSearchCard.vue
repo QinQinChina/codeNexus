@@ -46,7 +46,8 @@ const { t } = useI18n();
 const waveEnabled = computed(() => props.item.status === "running");
 
 const activityText = computed(() => {
-  const target = props.item.primaryText || props.item.summaryText || props.item.title || t("chat.activity.webOperation");
+  const target =
+    props.item.primaryText || props.item.summaryText || props.item.title || t("chat.activity.webOperation");
   if (props.item.status === "running") {
     if (props.item.actionType === "openPage") return t("chat.activity.openingWeb", { target });
     if (props.item.actionType === "findInPage") return t("chat.activity.findingWeb", { target });

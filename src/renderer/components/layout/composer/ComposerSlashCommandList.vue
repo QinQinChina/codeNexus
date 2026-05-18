@@ -24,16 +24,10 @@
         >
           <span class="composer-slash-code mono">/{{ command.code }}</span>
           <span class="composer-slash-title">{{ command.title }}</span>
-          <span
-            v-if="command.disabled && command.disabledHint"
-            class="composer-slash-hint mono"
-            >{{ command.disabledHint }}</span
-          >
-          <span
-            v-else-if="command.hint"
-            class="composer-slash-hint mono"
-            >{{ command.hint }}</span
-          >
+          <span v-if="command.disabled && command.disabledHint" class="composer-slash-hint mono">{{
+            command.disabledHint
+          }}</span>
+          <span v-else-if="command.hint" class="composer-slash-hint mono">{{ command.hint }}</span>
         </button>
       </div>
     </Transition>

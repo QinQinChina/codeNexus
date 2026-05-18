@@ -94,7 +94,9 @@
           </div>
           <div class="status-row">
             <span class="dim">{{ t("settingsRemoteSync.loginStatus") }}</span>
-            <span class="mono">{{ state.authenticated ? t("settingsRemoteSync.loggedIn") : t("settingsRemoteSync.loggedOut") }}</span>
+            <span class="mono">{{
+              state.authenticated ? t("settingsRemoteSync.loggedIn") : t("settingsRemoteSync.loggedOut")
+            }}</span>
           </div>
           <div class="status-row">
             <span class="dim">{{ t("settingsRemoteSync.desktopId") }}</span>

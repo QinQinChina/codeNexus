@@ -1081,7 +1081,9 @@ export class HistoryStore {
       const scanMs = Number((performance.now() - scanStart).toFixed(1));
 
       const previousById = new Map(this.threadById);
-      this.updateSnapshot(diskHistory.map((item) => mergeHistoryThreadMetadataIntoItem(item, previousById.get(item.id))));
+      this.updateSnapshot(
+        diskHistory.map((item) => mergeHistoryThreadMetadataIntoItem(item, previousById.get(item.id)))
+      );
 
       const writeStart = performance.now();
       await this.writeCache(this.snapshot);

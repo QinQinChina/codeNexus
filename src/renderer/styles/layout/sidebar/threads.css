@@ -418,9 +418,7 @@
 
 .lsb-thread-item:hover {
   border-color: color-mix(in srgb, var(--lsb-thread-state-border) 58%, var(--lsb-accent) 24%);
-  background:
-    linear-gradient(90deg, var(--lsb-thread-state-soft), transparent 46%),
-    var(--lsb-surface-hover);
+  background: linear-gradient(90deg, var(--lsb-thread-state-soft), transparent 46%), var(--lsb-surface-hover);
 }
 
 .lsb-thread-row.active .lsb-thread-item {

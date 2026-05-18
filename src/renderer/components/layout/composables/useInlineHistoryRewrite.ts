@@ -47,7 +47,11 @@ function buildInlineRewriteAttachments(
   snapshot.localImages.forEach((path, index) => {
     const source = String(path ?? "").trim();
     if (!source) return;
-    const name = source.split(/[\\/]+/).filter(Boolean).pop() || `local-image-${index + 1}`;
+    const name =
+      source
+        .split(/[\\/]+/)
+        .filter(Boolean)
+        .pop() || `local-image-${index + 1}`;
     attachments.push({
       id: `${event.id}:inline-local-image:${index}`,
       name,
@@ -136,13 +140,10 @@ export function useInlineHistoryRewrite(options: UseInlineHistoryRewriteOptions)
   }
 
   if (options.closeSeq) {
-    watch(
-      options.closeSeq,
-      (next, prev) => {
-        if (next === prev) return;
-        closeInlineRewrite();
-      }
-    );
+    watch(options.closeSeq, (next, prev) => {
+      if (next === prev) return;
+      closeInlineRewrite();
+    });
   }
 
   return {

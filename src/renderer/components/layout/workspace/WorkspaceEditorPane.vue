@@ -71,7 +71,11 @@
             </div>
           </div>
           <div v-else class="workspace-editor-code-shell">
-            <div ref="editorHostRef" class="workspace-editor-code-view" :aria-label="t('workspaceEditor.codeEditorAria')"></div>
+            <div
+              ref="editorHostRef"
+              class="workspace-editor-code-view"
+              :aria-label="t('workspaceEditor.codeEditorAria')"
+            ></div>
           </div>
           <div class="workspace-editor-statusbar">
             <span class="mono dim workspace-editor-statusbar__language">{{ activeLanguageLabel }}</span>
@@ -80,9 +84,9 @@
               <span class="mono dim">{{ activeLineEndingLabel }}</span>
               <span class="mono dim">{{ activeCursorLabel }}</span>
               <span class="mono dim">{{ activeSelectionLabel }}</span>
-              <span class="mono dim"
-                >{{ t("workspaceEditor.charCount", { count: n(workspaceFilesStore.activeFileDraftContent.length) }) }}</span
-              >
+              <span class="mono dim">{{
+                t("workspaceEditor.charCount", { count: n(workspaceFilesStore.activeFileDraftContent.length) })
+              }}</span>
             </template>
             <template v-else-if="activeIsImagePreview">
               <span class="mono dim">{{ activeImageMimeLabel }}</span>

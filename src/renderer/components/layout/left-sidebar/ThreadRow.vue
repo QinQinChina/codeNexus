@@ -44,14 +44,8 @@
             />
             <span v-else class="lsb-thread-title-text" @dblclick.stop.prevent="beginRename">{{ displayTitle }}</span>
           </template>
-          <span
-            v-if="hasUserInputQuestion"
-            class="lsb-badge is-question"
-            >{{ t("threadRow.qa") }}</span
-          >
-          <span v-if="agentNicknameBadge" class="lsb-badge">{{
-            agentNicknameBadge
-          }}</span>
+          <span v-if="hasUserInputQuestion" class="lsb-badge is-question">{{ t("threadRow.qa") }}</span>
+          <span v-if="agentNicknameBadge" class="lsb-badge">{{ agentNicknameBadge }}</span>
           <span v-if="isInvalidWorkspaceItem(row.item)" class="lsb-badge">{{ t("threadRow.invalid") }}</span>
         </span>
 

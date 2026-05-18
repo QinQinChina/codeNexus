@@ -98,9 +98,7 @@ const statusText = computed(() => {
     return props.item.itemType === "imageView" ? t("chat.imageTool.read") : t("chat.imageTool.generated");
   }
   if (props.item.status === "failed") {
-    return props.item.itemType === "imageView"
-      ? t("chat.imageTool.readFailed")
-      : t("chat.imageTool.generationFailed");
+    return props.item.itemType === "imageView" ? t("chat.imageTool.readFailed") : t("chat.imageTool.generationFailed");
   }
   return t("chat.imageTool.unknown");
 });

@@ -488,9 +488,7 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
       const dirty = tabPath ? this.isTabDirty(tabPath) : false;
       const confirmed = await confirmModalLazy({
         title: translate("workspaceFiles.deleteTitle"),
-        message: dirty
-          ? translate("workspaceFiles.deleteDirtyMessage")
-          : translate("workspaceFiles.deleteMessage"),
+        message: dirty ? translate("workspaceFiles.deleteDirtyMessage") : translate("workspaceFiles.deleteMessage"),
         detail: targetPath,
         confirmText: translate("workspaceFiles.deleteFile"),
         cancelText: translate("common.cancel"),

@@ -34,10 +34,7 @@
             {{ workspaceMenuActionLabel }}
           </button>
         </div>
-        <div
-          class="workspace-path-inline mono"
-          :class="{ dim: !runtimeStore.workspacePath }"
-        >
+        <div class="workspace-path-inline mono" :class="{ dim: !runtimeStore.workspacePath }">
           {{ runtimeStore.workspacePath || t("topbarExtra.noWorkspaceFull") }}
         </div>
         <div class="topbar-menu-note">{{ t("topbarExtra.workspaceNote") }}</div>

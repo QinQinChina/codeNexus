@@ -81,9 +81,12 @@ const skillsStateText = computed(() => {
   if (!runtimeStore.workspacePath) return t("skills.noWorkspace");
   if (skillsStore.loadState === "loading") return t("skills.loading");
   if (skillsStore.loadState === "error")
-    return skillsStore.errorText ? t("skills.loadFailedWithMessage", { message: skillsStore.errorText }) : t("skills.loadFailed");
+    return skillsStore.errorText
+      ? t("skills.loadFailedWithMessage", { message: skillsStore.errorText })
+      : t("skills.loadFailed");
   if (skillsStore.items.length === 0) {
-    if (skillsStore.parseErrors.length > 0) return t("skills.emptyWithErrors", { count: skillsStore.parseErrors.length });
+    if (skillsStore.parseErrors.length > 0)
+      return t("skills.emptyWithErrors", { count: skillsStore.parseErrors.length });
     return t("skills.empty");
   }
   return "";

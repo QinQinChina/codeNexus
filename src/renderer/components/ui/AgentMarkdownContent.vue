@@ -24,9 +24,9 @@
         <div class="composer-lightbox-stage agent-mermaid-lightbox-stage" @click.self="closeMermaidLightbox">
           <div ref="lightboxPanelRef" class="agent-mermaid-lightbox-panel" tabindex="-1">
             <div class="agent-mermaid-lightbox-toolbar">
-              <span class="agent-mermaid-lightbox-status"
-                >{{ t("agentMarkdown.mermaidPreviewWithZoom", { percent: Math.round(lightboxUserZoom * 100) }) }}</span
-              >
+              <span class="agent-mermaid-lightbox-status">{{
+                t("agentMarkdown.mermaidPreviewWithZoom", { percent: Math.round(lightboxUserZoom * 100) })
+              }}</span>
               <button
                 type="button"
                 class="agent-mermaid-lightbox-copy"
@@ -795,9 +795,7 @@ function layoutMermaidBlock(block: HTMLElement) {
         ? t("agentMarkdown.fitPercent", { percent: Math.round(fitScale * 100) })
         : t("agentMarkdown.originalSize");
     status.textContent =
-      userZoom === 1
-        ? fitText
-        : t("agentMarkdown.fitAndZoom", { fit: fitText, percent: Math.round(userZoom * 100) });
+      userZoom === 1 ? fitText : t("agentMarkdown.fitAndZoom", { fit: fitText, percent: Math.round(userZoom * 100) });
   }
 
   const expandButton = block.querySelector<HTMLButtonElement>("[data-agent-mermaid-action='lightbox']");

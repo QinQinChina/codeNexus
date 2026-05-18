@@ -50,7 +50,9 @@
                     :isExpanded="row.isExpanded"
                   />
                   <span class="workspace-file-tree-row__label">{{ row.label }}</span>
-                  <span v-if="row.isLoading" class="workspace-file-tree-row__meta">{{ t("workspaceFiles.loading") }}</span>
+                  <span v-if="row.isLoading" class="workspace-file-tree-row__meta">{{
+                    t("workspaceFiles.loading")
+                  }}</span>
                 </button>
 
                 <div

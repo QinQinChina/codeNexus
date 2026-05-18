@@ -108,7 +108,9 @@ function statusText(status: GuardianApprovalReviewDisplayStatus, lifecycle: Guar
   if (status === "approved") return translate("guardianReview.status.approved");
   if (status === "denied") return translate("guardianReview.status.denied");
   if (status === "aborted") return translate("guardianReview.status.aborted");
-  return lifecycle === "started" ? translate("guardianReview.status.inProgress") : translate("guardianReview.status.completed");
+  return lifecycle === "started"
+    ? translate("guardianReview.status.inProgress")
+    : translate("guardianReview.status.completed");
 }
 
 function riskText(value: GuardianRiskLevel | null): string {
@@ -158,7 +160,10 @@ function actionSummary(actionValue: unknown): { actionType: string; actionSummar
       .join(" ");
     return {
       actionType,
-      actionSummary: shorten(translate("guardianReview.action.exec", { command: `${programLabel}${argvPreview ? ` ${argvPreview}` : ""}` }), 96),
+      actionSummary: shorten(
+        translate("guardianReview.action.exec", { command: `${programLabel}${argvPreview ? ` ${argvPreview}` : ""}` }),
+        96
+      ),
     };
   }
 
@@ -278,9 +283,15 @@ export function buildGuardianApprovalReviewActivity(
   const action = actionSummary(payload.action);
 
   const title = action.actionSummary
-    ? translate("guardianReview.titleWithAction", { status: statusText(status, lifecycle), action: action.actionSummary })
+    ? translate("guardianReview.titleWithAction", {
+        status: statusText(status, lifecycle),
+        action: action.actionSummary,
+      })
     : targetItemId
-      ? translate("guardianReview.titleWithTarget", { status: statusText(status, lifecycle), target: shortId(targetItemId) })
+      ? translate("guardianReview.titleWithTarget", {
+          status: statusText(status, lifecycle),
+          target: shortId(targetItemId),
+        })
       : translate("guardianReview.title", { status: statusText(status, lifecycle) });
 
   const summaryText = joinSummaryParts([
@@ -292,7 +303,9 @@ export function buildGuardianApprovalReviewActivity(
     lifecycle === "completed" && decisionSource
       ? translate("guardianReview.sourceLabel", { source: decisionSourceText(decisionSource) })
       : "",
-    lifecycle === "completed" && rationale ? translate("guardianReview.reasonLabel", { reason: shorten(rationale, 96) }) : "",
+    lifecycle === "completed" && rationale
+      ? translate("guardianReview.reasonLabel", { reason: shorten(rationale, 96) })
+      : "",
   ]);
 
   return {

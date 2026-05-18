@@ -3,7 +3,11 @@ import { codexDesktop } from "../api/codexDesktopClient";
 import { getCachedUserLocalSettings } from "../domain/localSettings";
 import { translate } from "../i18n/translate";
 import { showToast } from "../ui/toast";
-import type { ImageGenerationGenerateArgs, ImageGenerationHistoryItem, ImageGenerationTaskItem } from "../../shared/ipc/contracts";
+import type {
+  ImageGenerationGenerateArgs,
+  ImageGenerationHistoryItem,
+  ImageGenerationTaskItem,
+} from "../../shared/ipc/contracts";
 
 export type ImageWorkbenchMode = "generate" | "edit";
 export type ImageWorkbenchHistoryStatus = "ready" | "pending" | "failed";
@@ -174,7 +178,9 @@ export const useImageWorkbenchStore = defineStore("imageWorkbench", {
       if (next.length === 0) this.maskDataUrl = null;
     },
     async appendFiles(files: FileList | File[]) {
-      const picked = Array.from(files).filter((file) => file.type.startsWith("image/")).slice(0, 4);
+      const picked = Array.from(files)
+        .filter((file) => file.type.startsWith("image/"))
+        .slice(0, 4);
       const next: InputImage[] = [...this.inputImages];
       for (const file of picked) {
         if (next.length >= 4) break;
@@ -276,7 +282,11 @@ export const useImageWorkbenchStore = defineStore("imageWorkbench", {
         if (loadSeq !== this.historyLoadSeq) return;
         this.historyErrorText = String(error?.message ?? error ?? "unknown error");
         logImageWorkbench("loadHistory failed", { seq: loadSeq, message: this.historyErrorText });
-        showToast({ kind: "error", title: translate("imageWorkbench.historyLoadFailed"), message: this.historyErrorText });
+        showToast({
+          kind: "error",
+          title: translate("imageWorkbench.historyLoadFailed"),
+          message: this.historyErrorText,
+        });
       } finally {
         if (loadSeq === this.historyLoadSeq) this.historyLoading = false;
       }

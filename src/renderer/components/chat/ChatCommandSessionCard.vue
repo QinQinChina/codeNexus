@@ -114,11 +114,13 @@ const titleText = computed(() => {
 });
 
 const latestOutputLine = (value: string) => {
-  return String(value ?? "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .pop() ?? "";
+  return (
+    String(value ?? "")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .pop() ?? ""
+  );
 };
 
 const previewText = computed(() => {
@@ -344,5 +346,4 @@ function toggleOpen() {
   font-size: 11px;
   line-height: 1.45;
 }
-
 </style>

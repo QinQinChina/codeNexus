@@ -25,7 +25,7 @@ const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
 
 app.setName("CodeNexus");
 if (process.platform === "win32") {
-  app.setAppUserModelId("com.throughstate.desktop");
+  app.setAppUserModelId("com.codenexus.desktop");
 }
 
 let mainWindow: BrowserWindow | null = null;

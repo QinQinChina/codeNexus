@@ -1,5 +1,11 @@
 <template>
-  <div v-if="hasPendingUserInput" class="grid gap-2.5" :class="rootClass" role="region" :aria-label="t('userInput.title')">
+  <div
+    v-if="hasPendingUserInput"
+    class="grid gap-2.5"
+    :class="rootClass"
+    role="region"
+    :aria-label="t('userInput.title')"
+  >
     <div class="row" style="align-items: baseline; justify-content: space-between; gap: 10px">
       <div class="row" style="align-items: center; gap: 8px">
         <span class="attn-dot" aria-hidden="true"></span>

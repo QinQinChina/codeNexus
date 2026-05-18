@@ -193,7 +193,11 @@ async function withCopyFeedback(stateRef: { value: CopyState }, text: string, ok
     if (okToast) showToast({ kind: "success", title: t("clipboard.copied"), message: okToast });
   } catch (error) {
     stateRef.value = "error";
-    showToast({ kind: "error", title: t("clipboard.copyFailed"), message: String((error as any)?.message ?? error ?? "") });
+    showToast({
+      kind: "error",
+      title: t("clipboard.copyFailed"),
+      message: String((error as any)?.message ?? error ?? ""),
+    });
   } finally {
     copyBusy.value = false;
     scheduleCopyReset();
@@ -220,7 +224,11 @@ const onCopySingleCommand = async (cmd: string) => {
     await copyTextToClipboard(cmd);
     showToast({ kind: "success", title: t("clipboard.copied"), message: t("structuredAnswer.commandsCopied") });
   } catch (error) {
-    showToast({ kind: "error", title: t("clipboard.copyFailed"), message: String((error as any)?.message ?? error ?? "") });
+    showToast({
+      kind: "error",
+      title: t("clipboard.copyFailed"),
+      message: String((error as any)?.message ?? error ?? ""),
+    });
   } finally {
     copyBusy.value = false;
   }

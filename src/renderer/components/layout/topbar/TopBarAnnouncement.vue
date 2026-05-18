@@ -1,11 +1,5 @@
 <template>
-  <div
-    ref="tickerViewportRef"
-    class="topbar-announcement"
-    :class="tickerClass"
-    role="status"
-    aria-live="polite"
-  >
+  <div ref="tickerViewportRef" class="topbar-announcement" :class="tickerClass" role="status" aria-live="polite">
     <span
       ref="tickerTrackRef"
       class="topbar-announcement-track"

@@ -21,9 +21,7 @@
             raw === "moss"
           ) {
             const theme =
-              raw === "light" || raw === "pink" || raw === "dark" || raw === "tech" || raw === "hacker"
-                ? raw
-                : "dark";
+              raw === "light" || raw === "pink" || raw === "dark" || raw === "tech" || raw === "hacker" ? raw : "dark";
             document.documentElement.dataset.theme = theme;
             document.documentElement.dataset.tone = theme === "light" || theme === "pink" ? "light" : "dark";
           }

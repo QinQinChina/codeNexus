@@ -35,9 +35,7 @@
             </span>
             <span class="mono dim flex-none whitespace-nowrap text-[10px]">{{ itemMetricsText(item) }}</span>
           </div>
-          <div
-            class="mono dim whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[10px]"
-          >
+          <div class="mono dim whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[10px]">
             {{ itemTitle(item) }}
           </div>
           <div class="mono dim whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[10px]">

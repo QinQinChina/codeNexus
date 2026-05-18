@@ -255,12 +255,10 @@ export function useChatRenderModel(
 ) {
   const runtimeStore = useRuntimeStore();
   const threadStore = useThreadStore();
-  let baseRowsCache:
-    | {
-        signature: string;
-        rows: ChatRow[];
-      }
-    | null = null;
+  let baseRowsCache: {
+    signature: string;
+    rows: ChatRow[];
+  } | null = null;
   const turnRowsCacheByKey = new Map<
     string,
     {
@@ -303,7 +301,9 @@ export function useChatRenderModel(
       pattern = normalized.action.pattern || "";
       host = extractUrlHost(url);
       primaryText = pattern || translate("timeline.findInPage");
-      secondaryText = url ? `${host || translate("timeline.page")}${pattern ? `${translate("timelineFormat.separator")}${url}` : ""}` : "";
+      secondaryText = url
+        ? `${host || translate("timeline.page")}${pattern ? `${translate("timelineFormat.separator")}${url}` : ""}`
+        : "";
       summaryText = pattern
         ? url
           ? translate("timeline.keywordAndPage", { pattern, url })
@@ -696,8 +696,7 @@ export function useChatRenderModel(
       const groupStatus = mergeAuxActivityStatus(pending);
       const matchesActiveTurn = Boolean(activeTurnKey && pending.some((row) => row.turnKey === activeTurnKey));
       const shouldStayOpen =
-        !interruptedByMainContent &&
-        (groupStatus === "running" || (currentThreadRunning && matchesActiveTurn));
+        !interruptedByMainContent && (groupStatus === "running" || (currentThreadRunning && matchesActiveTurn));
       grouped.push(
         buildAuxActivityGroup({
           items: pending,

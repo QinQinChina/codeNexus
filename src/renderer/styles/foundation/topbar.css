@@ -6,7 +6,10 @@
   --tb-bg: var(--topbar-bg);
   --tb-bg-raised: var(--shell-surface-strong, var(--surface-1));
   --tb-bg-base: var(--shell-surface, var(--surface-1));
-  --tb-control-bg: var(--topbar-control-bg, var(--control-surface, color-mix(in srgb, var(--topbar-bg) 84%, transparent)));
+  --tb-control-bg: var(
+    --topbar-control-bg,
+    var(--control-surface, color-mix(in srgb, var(--topbar-bg) 84%, transparent))
+  );
   --tb-control-hover: var(--topbar-hover-bg);
   --tb-control-active: var(--topbar-active-bg);
   --tb-control-border: var(--topbar-control-border, var(--topbar-border));

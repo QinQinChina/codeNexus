@@ -35,8 +35,7 @@ export function createAppApi(ipcRenderer: IpcRenderer): CodexDesktopApi["app"] {
     // 图片生成历史：跨重启保存的批次记录。
     listImageGenerationHistory: () => ipcRenderer.invoke(IPC_APP_CHANNELS.appImageGenerationHistoryList),
     // 删除图片生成历史：同步清理安全范围内的生成文件。
-    deleteImageGenerationHistory: (args) =>
-      ipcRenderer.invoke(IPC_APP_CHANNELS.appImageGenerationHistoryDelete, args),
+    deleteImageGenerationHistory: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appImageGenerationHistoryDelete, args),
     listImageGenerationTasks: () => ipcRenderer.invoke(IPC_APP_CHANNELS.appImageGenerationTaskList),
     submitImageGenerationTask: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appImageGenerationTaskSubmit, args),
     cancelImageGenerationTask: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appImageGenerationTaskCancel, args),

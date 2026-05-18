@@ -95,10 +95,7 @@ function normalizeTask(value: unknown): ImageGenerationTaskItem | null {
     args,
     historyId: toNullableText(record.historyId),
     result: null,
-    errorText:
-      persistedStatus === status
-        ? toNullableText(record.errorText)
-        : "应用重启前任务未完成，请重试。",
+    errorText: persistedStatus === status ? toNullableText(record.errorText) : "应用重启前任务未完成，请重试。",
     retryOf: toNullableText(record.retryOf),
     attempt: Math.max(1, Math.round(Number(record.attempt) || 1)),
   };
@@ -143,7 +140,11 @@ export class ImageGenerationTaskService {
     return this.snapshot();
   }
 
-  async submit(args: ImageGenerationGenerateArgs, retryOf: string | null = null, attempt = 1): Promise<{ task: ImageGenerationTaskItem; tasks: ImageGenerationTaskItem[] }> {
+  async submit(
+    args: ImageGenerationGenerateArgs,
+    retryOf: string | null = null,
+    attempt = 1
+  ): Promise<{ task: ImageGenerationTaskItem; tasks: ImageGenerationTaskItem[] }> {
     await this.ensureLoaded();
     const now = Date.now();
     const task: ImageGenerationTaskItem = {
@@ -166,7 +167,9 @@ export class ImageGenerationTaskService {
     return { task: { ...task }, tasks: this.snapshot() };
   }
 
-  async cancel(idValue: unknown): Promise<{ canceled: boolean; task: ImageGenerationTaskItem | null; tasks: ImageGenerationTaskItem[] }> {
+  async cancel(
+    idValue: unknown
+  ): Promise<{ canceled: boolean; task: ImageGenerationTaskItem | null; tasks: ImageGenerationTaskItem[] }> {
     await this.ensureLoaded();
     const id = toText(idValue);
     const task = this.tasks.find((item) => item.id === id) ?? null;
@@ -210,7 +213,7 @@ export class ImageGenerationTaskService {
     let shouldRewrite = false;
     try {
       const raw = await readFile(this.filePath, "utf8");
-      shouldRewrite = raw.includes("\"dataUrl\"") || raw.includes("\"result\"");
+      shouldRewrite = raw.includes('"dataUrl"') || raw.includes('"result"');
       this.tasks = normalizeState(tryParseJson(raw)).tasks;
     } catch {
       this.tasks = [];

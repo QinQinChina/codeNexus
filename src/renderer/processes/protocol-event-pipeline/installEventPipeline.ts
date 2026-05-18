@@ -134,9 +134,7 @@ function toReasoningSummaryTexts(value: unknown): string[] {
 // 提取原始推理正文分片
 function toReasoningRawContentTexts(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  return value
-    .map((part) => (typeof part === "string" ? part : ""))
-    .filter((part) => part.trim().length > 0);
+  return value.map((part) => (typeof part === "string" ? part : "")).filter((part) => part.trim().length > 0);
 }
 
 // 思考阶段类型
@@ -637,7 +635,11 @@ export function installEventPipeline(pinia: Pinia) {
             commandProcess.itemId
           ),
           method: "item/completed",
-          paramsText: toPrettyJson({ threadId: commandProcess.threadId, turnId: commandProcess.turnId, item: completedItem }),
+          paramsText: toPrettyJson({
+            threadId: commandProcess.threadId,
+            turnId: commandProcess.turnId,
+            item: completedItem,
+          }),
           params: { threadId: commandProcess.threadId, turnId: commandProcess.turnId, item: completedItem },
           turnId: commandProcess.turnId || undefined,
         });

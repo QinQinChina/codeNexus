@@ -1,11 +1,6 @@
 <template>
   <span class="chat-animated-count" :style="{ '--count-duration': `${normalizedDuration}ms` }">
-    <span
-      v-for="cell in digitCells"
-      :key="cell.place"
-      class="chat-count-digit-cell"
-      aria-hidden="true"
-    >
+    <span v-for="cell in digitCells" :key="cell.place" class="chat-count-digit-cell" aria-hidden="true">
       <Transition name="chat-count-digit" mode="out-in">
         <span :key="cell.char" class="chat-count-digit-value">{{ cell.char }}</span>
       </Transition>

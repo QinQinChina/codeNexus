@@ -604,7 +604,7 @@ export default {
     search: "搜索",
     readFile: "读取文件：{target}",
     listFiles: "列出文件：{scope}",
-    searchInScope: "搜索：\"{query}\"{scope}",
+    searchInScope: '搜索："{query}"{scope}',
     searchScope: "（{scope}）",
     itemCount: "{count} 项",
   },

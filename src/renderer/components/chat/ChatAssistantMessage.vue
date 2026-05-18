@@ -1,11 +1,7 @@
 <template>
   <div :class="[CHAT_ROW_BASE_CLASS, 'chat-row--assistant']">
     <div class="chat-bubble chat-bubble-assistant w-full max-w-full min-w-0">
-      <MarkdownPlanOutputCard
-        v-if="isPlanDelta"
-        :rawText="event.paramsText"
-        :forceCollapsed="shouldCollapsePlan"
-      >
+      <MarkdownPlanOutputCard v-if="isPlanDelta" :rawText="event.paramsText" :forceCollapsed="shouldCollapsePlan">
         <template v-if="execState" #actions>
           <ChatPlanDeltaActions
             :execState="execState"

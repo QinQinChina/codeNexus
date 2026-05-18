@@ -1,6 +1,6 @@
 # CodeNexus
 
-`CodeNexus`（仓库早期命名为 `through_state`）是一个面向 Windows 的非官方 Codex 桌面 GUI，基于 `Electron + Vue 3 + Pinia + codex app-server`。
+`CodeNexus` 是一个面向 Windows 的非官方 Codex 桌面 GUI，基于 `Electron + Vue 3 + Pinia + codex app-server`。
 
 ## 项目定位
 
@@ -49,12 +49,10 @@ pnpm run dev
 
 ## 构建与发布
 
-| 命令                    | 说明                           |
-| ----------------------- | ------------------------------ |
-| `pnpm run build`        | 构建 renderer / main / preload |
-| `pnpm run dist`         | 生成 Electron 安装包           |
-| `pnpm run upload:minio` | 上传现有安装包到 MinIO         |
-| `pnpm run dist:minio`   | 构建并上传到 MinIO             |
+| 命令             | 说明                           |
+| ---------------- | ------------------------------ |
+| `pnpm run build` | 构建 renderer / main / preload |
+| `pnpm run dist`  | 生成 Electron 安装包           |
 
 ## 协议类型更新
 
@@ -65,41 +63,22 @@ pnpm run codex:types
 pnpm run typecheck
 ```
 
-## MinIO 说明
-
-| 项目          | 当前约定                                            |
-| ------------- | --------------------------------------------------- |
-| `productName` | `CodeNexus`                                         |
-| 历史发布前缀  | `through_state/win/x64`                             |
-| 现状          | ✅ 发布脚本仍沿用历史对象前缀，避免打断现有更新通道 |
-
-示例 `.env.minio.local`：
-
-```dotenv
-MINIO_ENDPOINT_URL=https://minio.huiqing.cyou
-MINIO_ACCESS_KEY=your-access-key
-MINIO_SECRET_KEY=your-secret-key
-MINIO_BUCKET=campus-second-hand-market
-MINIO_PREFIX=through_state/win/x64
-```
-
 ## 目录结构
 
-| 目录                     | 说明                                        |
-| ------------------------ | ------------------------------------------- |
-| `src/main`               | Electron 主进程、窗口、IPC、服务编排        |
-| `src/preload`            | `contextBridge` 安全桥接层                  |
-| `src/renderer`           | Vue 界面、Pinia 状态、运行时编排            |
-| `src/shared`             | 跨进程共享契约与协议类型                    |
-| `scripts`                | 开发、构建、图标、发布脚本                  |
-| `src/README.md`          | 应用功能文档入口                            |
-| `server`                 | 远程同步后端（Spring Boot + MySQL + Redis） |
-| `android/remote_monitor` | Android 远程查看端（Flutter）               |
+| 目录            | 说明                                 |
+| --------------- | ------------------------------------ |
+| `src/main`      | Electron 主进程、窗口、IPC、服务编排 |
+| `src/preload`   | `contextBridge` 安全桥接层           |
+| `src/renderer`  | Vue 界面、Pinia 状态、运行时编排     |
+| `src/shared`    | 跨进程共享契约与协议类型             |
+| `scripts`       | 开发、构建、图标、发布脚本           |
+| `src/README.md` | 应用功能文档入口                     |
 
 ## 边界说明
 
 - ✅ 仓库包含当前项目需要的界面代码、构建脚本与少量原生辅助程序
 - ✅ 应用窗口标题、图标与安装包名已切换到 `CodeNexus`
+- ⚠️ 字体、图标与内置提示音等二进制资源需单独确认授权，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 - ❌ 仓库不提供 OpenAI 账号、Token 或托管服务
 - ❌ 运行本项目产生的模型调用费用与本地数据安全责任由使用者自行承担
 

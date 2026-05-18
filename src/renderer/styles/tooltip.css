@@ -5,12 +5,11 @@
   padding: 7px 9px;
   border-radius: var(--radius-sm, 4px);
   border: 1px solid color-mix(in srgb, var(--floating-border, var(--border)) 82%, transparent);
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--surface-elevated, var(--surface-2)) 96%, transparent),
-      color-mix(in srgb, var(--surface-1) 92%, var(--bg) 8%)
-    );
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-elevated, var(--surface-2)) 96%, transparent),
+    color-mix(in srgb, var(--surface-1) 92%, var(--bg) 8%)
+  );
   color: var(--text);
   box-shadow:
     0 10px 28px color-mix(in srgb, var(--bg) 32%, transparent),

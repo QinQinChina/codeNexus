@@ -48,7 +48,11 @@
               @pointerdown="onImagePointerDown(image.path, $event)"
               @wheel="onImageWheel(image.path, $event)"
             >
-              <Loader2 v-if="imageDataUrlLoading[image.path]" class="image-workbench__image-state is-spinning" aria-hidden="true" />
+              <Loader2
+                v-if="imageDataUrlLoading[image.path]"
+                class="image-workbench__image-state is-spinning"
+                aria-hidden="true"
+              />
               <img
                 v-else-if="imageDataUrlByPath[image.path]"
                 :src="imageDataUrlByPath[image.path]"
@@ -84,7 +88,11 @@
             >
               <div class="image-workbench__history-preview" :class="{ 'is-single': item.images.length === 1 }">
                 <template v-if="isPendingHistoryItem(item)">
-                  <div v-for="n in historySkeletonTileCount(item)" :key="`${item.id}:pending:${n}`" class="image-workbench__history-skeleton">
+                  <div
+                    v-for="n in historySkeletonTileCount(item)"
+                    :key="`${item.id}:pending:${n}`"
+                    class="image-workbench__history-skeleton"
+                  >
                     <Loader2 class="image-workbench__history-skeleton-icon is-spinning" aria-hidden="true" />
                   </div>
                 </template>
@@ -176,13 +184,15 @@
                 </template>
               </div>
             </article>
-            </div>
+          </div>
         </section>
       </div>
 
       <div v-else class="image-workbench__empty">
         <ImageIcon class="image-workbench__empty-icon" aria-hidden="true" />
-        <div>{{ workbench.historyLoading ? t("imageWorkbench.loadingHistory") : t("imageWorkbench.emptyHistory") }}</div>
+        <div>
+          {{ workbench.historyLoading ? t("imageWorkbench.loadingHistory") : t("imageWorkbench.emptyHistory") }}
+        </div>
       </div>
     </section>
   </section>
@@ -1125,5 +1135,4 @@ onBeforeUnmount(() => {
     transform: translate3d(100%, 0, 0);
   }
 }
-
 </style>

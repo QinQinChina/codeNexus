@@ -103,7 +103,12 @@
                   <div v-if="currentSkillRoots.length > 0" class="integrations-root-list">
                     <div v-for="root in currentSkillRoots" :key="root" class="integrations-root-row">
                       <span class="mono">{{ root }}</span>
-                      <button class="btn-mini" type="button" :disabled="codexSkillRootsStore.saving" @click="onRemoveSkillRoot(root)">
+                      <button
+                        class="btn-mini"
+                        type="button"
+                        :disabled="codexSkillRootsStore.saving"
+                        @click="onRemoveSkillRoot(root)"
+                      >
                         {{ t("integrations.remove") }}
                       </button>
                     </div>
@@ -141,7 +146,11 @@
                       placeholder='{"mcpServers":{"filesystem":{"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","."]}}}'
                       :disabled="!canWriteMcpConfig"
                     ></textarea>
-                    <div v-if="mcpJsonResultText" class="integrations-section-subtitle mono" :class="{ 'is-error': mcpJsonResultIsError }">
+                    <div
+                      v-if="mcpJsonResultText"
+                      class="integrations-section-subtitle mono"
+                      :class="{ 'is-error': mcpJsonResultIsError }"
+                    >
                       {{ mcpJsonResultText }}
                     </div>
                   </section>
@@ -219,7 +228,12 @@
                     </div>
                     <div v-if="mcpFormError" class="global-field-error">{{ mcpFormError }}</div>
                     <div class="integrations-form-actions">
-                      <button class="btn-mini" type="button" :disabled="!canWriteMcpConfig || mcpFormPending" @click="onSaveMcpForm">
+                      <button
+                        class="btn-mini"
+                        type="button"
+                        :disabled="!canWriteMcpConfig || mcpFormPending"
+                        @click="onSaveMcpForm"
+                      >
                         {{ t("integrations.saveMcp") }}
                       </button>
                       <button
@@ -263,10 +277,7 @@
                         <div class="mcp-dot" :class="mcpDotClass(server)"></div>
                         <div class="mcp-title-wrap">
                           <div class="mcp-title">{{ server.id }}</div>
-                          <div
-                            v-if="mcpSummarySubtext(server)"
-                            class="mcp-subtitle mono dim"
-                          >
+                          <div v-if="mcpSummarySubtext(server)" class="mcp-subtitle mono dim">
                             {{ mcpSummarySubtext(server) }}
                           </div>
                         </div>
@@ -289,7 +300,11 @@
                           <div v-if="typeof server.authenticated === 'boolean'" class="mcp-meta-row">
                             <div class="mcp-meta-key dim">{{ t("integrations.auth") }}</div>
                             <div class="mcp-meta-val mono">
-                              {{ server.authenticated ? t("integrations.authenticated") : t("integrations.unauthenticated") }}
+                              {{
+                                server.authenticated
+                                  ? t("integrations.authenticated")
+                                  : t("integrations.unauthenticated")
+                              }}
                             </div>
                           </div>
                         </div>
@@ -316,7 +331,11 @@
                           >
                             {{ t("integrations.oauthLogin") }}
                           </button>
-                          <button type="button" class="btn-mini danger" @click.prevent.stop="onDeleteMcpServer(server.id)">
+                          <button
+                            type="button"
+                            class="btn-mini danger"
+                            @click.prevent.stop="onDeleteMcpServer(server.id)"
+                          >
                             {{ t("integrations.delete") }}
                           </button>
                         </div>
@@ -422,13 +441,17 @@ const activeHintText = computed(() => {
     if (!runtimeStore.workspacePath) return t("skills.noWorkspace");
     if (skillsStore.loadState === "loading") return t("skills.loading");
     if (skillsStore.loadState === "error")
-      return skillsStore.errorText ? t("skills.loadFailedWithMessage", { message: skillsStore.errorText }) : t("skills.loadFailed");
+      return skillsStore.errorText
+        ? t("skills.loadFailedWithMessage", { message: skillsStore.errorText })
+        : t("skills.loadFailed");
     return t("integrations.skillsReadyHint");
   }
   if (!runtimeStore.serverId) return t("skills.disconnected");
   if (mcpStore.loadState === "loading") return t("skills.loading");
   if (mcpStore.loadState === "error")
-    return mcpStore.errorText ? t("skills.loadFailedWithMessage", { message: mcpStore.errorText }) : t("skills.loadFailed");
+    return mcpStore.errorText
+      ? t("skills.loadFailedWithMessage", { message: mcpStore.errorText })
+      : t("skills.loadFailed");
   return t("integrations.mcpReadyHint");
 });
 
@@ -444,7 +467,9 @@ const skillsStateText = computed(() => {
   if (!runtimeStore.workspacePath) return t("skills.noWorkspace");
   if (skillsStore.loadState === "loading") return t("skills.loading");
   if (skillsStore.loadState === "error")
-    return skillsStore.errorText ? t("skills.loadFailedWithMessage", { message: skillsStore.errorText }) : t("skills.loadFailed");
+    return skillsStore.errorText
+      ? t("skills.loadFailedWithMessage", { message: skillsStore.errorText })
+      : t("skills.loadFailed");
   if (skillsStore.items.length === 0) {
     if (skillsStore.parseErrors.length > 0)
       return t("skills.emptyWithErrorsRaw", { count: skillsStore.parseErrors.length });
@@ -505,7 +530,9 @@ const mcpStateText = computed(() => {
   if (!runtimeStore.serverId) return t("skills.disconnected");
   if (mcpStore.loadState === "loading") return t("skills.loading");
   if (mcpStore.loadState === "error")
-    return mcpStore.errorText ? t("skills.loadFailedWithMessage", { message: mcpStore.errorText }) : t("skills.loadFailed");
+    return mcpStore.errorText
+      ? t("skills.loadFailedWithMessage", { message: mcpStore.errorText })
+      : t("skills.loadFailed");
   if (mcpStore.servers.length === 0) return t("integrations.noMcpConfig");
   return "";
 });

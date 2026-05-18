@@ -66,7 +66,14 @@
           @dragleave="onDropzoneDragLeave"
           @drop="onDrop"
         >
-          <input ref="imageInputRef" class="image-workbench__file" type="file" accept="image/*" multiple @change="onPickImages" />
+          <input
+            ref="imageInputRef"
+            class="image-workbench__file"
+            type="file"
+            accept="image/*"
+            multiple
+            @change="onPickImages"
+          />
           <button class="image-workbench__dropzone-btn" type="button" @click="triggerPickImages">
             <Upload class="btn-mini__icon" aria-hidden="true" />
             <span>{{ t("imageSidebar.addReference") }}</span>
@@ -111,7 +118,12 @@
 
       <div v-if="workbench.errorText" class="image-workbench__error mono">{{ workbench.errorText }}</div>
 
-      <button class="image-settings-sidebar__generate" type="button" :disabled="!workbench.canGenerate" @click="workbench.generate">
+      <button
+        class="image-settings-sidebar__generate"
+        type="button"
+        :disabled="!workbench.canGenerate"
+        @click="workbench.generate"
+      >
         <Wand2 class="btn-mini__icon" aria-hidden="true" />
         <span>{{ t("imageSidebar.generate") }}</span>
       </button>
@@ -147,7 +159,6 @@
           </div>
         </div>
       </section>
-
     </div>
   </aside>
 </template>

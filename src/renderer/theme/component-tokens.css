@@ -209,15 +209,15 @@
 
 :root[data-tone="light"] {
   --shell-surface: color-mix(in srgb, var(--light-panel-bg, var(--surface-1)) 94%, var(--light-shell-bg, var(--bg)) 6%);
-  --shell-surface-strong: color-mix(
-    in srgb,
-    var(--light-elevated-bg, var(--surface-1)) 86%,
-    var(--surface-1) 14%
-  );
+  --shell-surface-strong: color-mix(in srgb, var(--light-elevated-bg, var(--surface-1)) 86%, var(--surface-1) 14%);
   --pane-surface: color-mix(in srgb, var(--light-shell-bg, var(--bg)) 84%, var(--light-panel-bg, var(--surface-1)) 16%);
   --pane-surface-strong: color-mix(in srgb, var(--light-panel-bg, var(--surface-1)) 92%, var(--bg) 8%);
   --panel-surface: color-mix(in srgb, var(--light-panel-bg, var(--surface-1)) 88%, transparent);
-  --panel-surface-strong: color-mix(in srgb, var(--light-elevated-bg, var(--surface-elevated)) 92%, var(--surface-1) 8%);
+  --panel-surface-strong: color-mix(
+    in srgb,
+    var(--light-elevated-bg, var(--surface-elevated)) 92%,
+    var(--surface-1) 8%
+  );
   --theme-shell-solid-surface: var(--shell-surface);
   --theme-shell-solid-surface-strong: var(--shell-surface-strong);
   --diff-add-bg: color-mix(in srgb, var(--success) 16%, var(--surface-1) 84%);

@@ -32,10 +32,9 @@
             {{ kindLabel(file.kind) }}
           </span>
           <span class="turn-diff-file-content min-w-0 flex flex-1 items-center gap-1.5">
-            <span
-              class="turn-diff-file-title block min-w-0 flex-1 truncate mono text-[11.5px] text-[var(--text)]"
-              >{{ file.label }}</span
-            >
+            <span class="turn-diff-file-title block min-w-0 flex-1 truncate mono text-[11.5px] text-[var(--text)]">{{
+              file.label
+            }}</span>
             <span
               v-if="file.add > 0 || file.del > 0"
               class="turn-diff-file-meta turn-diff-line-stats mono text-[10.5px] text-[var(--text-muted)]"

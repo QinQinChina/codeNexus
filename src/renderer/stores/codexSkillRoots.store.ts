@@ -64,7 +64,9 @@ export const useCodexSkillRootsStore = defineStore("codexSkillRoots", {
       await this.setRootsForWorkspace(workspacePath, roots);
     },
     async removeRootForWorkspace(workspacePath: string, root: string) {
-      const target = String(root ?? "").trim().toLowerCase();
+      const target = String(root ?? "")
+        .trim()
+        .toLowerCase();
       const roots = this.rootsForWorkspace(workspacePath).filter((item) => item.toLowerCase() !== target);
       await this.setRootsForWorkspace(workspacePath, roots);
     },

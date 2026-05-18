@@ -7,13 +7,9 @@
   >
     <template v-for="(ch, i) in chars" :key="`c:${i}`">
       <br v-if="ch === '\n'" aria-hidden="true" />
-      <span
-        v-else
-        class="inline-block opacity-[var(--wave-min-op)]"
-        aria-hidden="true"
-        :style="charStyle(i)"
-        >{{ ch }}</span
-      >
+      <span v-else class="inline-block opacity-[var(--wave-min-op)]" aria-hidden="true" :style="charStyle(i)">{{
+        ch
+      }}</span>
     </template>
   </component>
 </template>

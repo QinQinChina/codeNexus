@@ -4,7 +4,10 @@ import type {
   CodexProviderProfileInput,
   CodexProviderProfilesState,
 } from "../../shared/codexProfiles";
-import { createDefaultCodexProviderProfilesState, normalizeCodexProviderProfilesState } from "../../shared/codexProfiles";
+import {
+  createDefaultCodexProviderProfilesState,
+  normalizeCodexProviderProfilesState,
+} from "../../shared/codexProfiles";
 import { codexDesktop } from "../api/codexDesktopClient";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
@@ -29,7 +32,9 @@ export const useCodexProfilesStore = defineStore("codexProfiles", {
   },
   actions: {
     applyStateSnapshot(snapshot: { path?: string; exists?: boolean; state?: CodexProviderProfilesState }) {
-      const normalized = normalizeCodexProviderProfilesState(snapshot?.state ?? createDefaultCodexProviderProfilesState());
+      const normalized = normalizeCodexProviderProfilesState(
+        snapshot?.state ?? createDefaultCodexProviderProfilesState()
+      );
       this.path = String(snapshot?.path ?? "").trim();
       this.exists = Boolean(snapshot?.exists);
       this.activeProfileId = normalized.activeProfileId;

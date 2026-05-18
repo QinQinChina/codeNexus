@@ -98,7 +98,9 @@ const { t } = useI18n();
 const isRunning = computed(() => props.item.status === "running");
 // Tool events expose no success/failure text; only running state uses the shimmer label.
 
-const displayResourceLabel = computed(() => props.item.resourceLabel || props.item.uri || t("mcpResources.untitledResource"));
+const displayResourceLabel = computed(
+  () => props.item.resourceLabel || props.item.uri || t("mcpResources.untitledResource")
+);
 const displayToolNames = computed(() => props.item.toolNames ?? []);
 const displayParameterEntries = computed(() => props.item.parameterEntries ?? []);
 

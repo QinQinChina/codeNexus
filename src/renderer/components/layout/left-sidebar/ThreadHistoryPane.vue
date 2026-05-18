@@ -5,10 +5,7 @@
         <div class="lsb-pane-title">{{ t("threadHistory.title") }}</div>
         <div class="lsb-head-badges">
           <span class="lsb-head-badge is-accent mono">{{ threadsCountText }}</span>
-          <span
-            v-if="runningThreadsCount > 0"
-            class="lsb-head-badge is-success mono"
-          >
+          <span v-if="runningThreadsCount > 0" class="lsb-head-badge is-success mono">
             {{ t("threadHistory.runningCount", { count: runningThreadsCount }) }}
           </span>
         </div>
@@ -89,19 +86,11 @@
             >
               <template #trigger="{ open, triggerProps }">
                 <div role="heading" aria-level="3">
-                  <button
-                    class="lsb-group-head lsb-group-head-toggle"
-                    type="button"
-                    v-bind="triggerProps"
-                  >
+                  <button class="lsb-group-head lsb-group-head-toggle" type="button" v-bind="triggerProps">
                     <span class="lsb-group-head-left">
                       <Folder class="lsb-group-icon" aria-hidden="true" />
                       <span class="lsb-group-title">{{ group.title }}</span>
-                      <span
-                        v-if="threadFilterActive"
-                        class="lsb-head-badge mono"
-                        >{{ group.rows.length }}</span
-                      >
+                      <span v-if="threadFilterActive" class="lsb-head-badge mono">{{ group.rows.length }}</span>
                     </span>
                     <ChevronDown class="lsb-chevron" :class="{ open }" aria-hidden="true" />
                   </button>
@@ -156,15 +145,7 @@ import { showToast } from "../../../ui/toast";
 
 type ThreadListItem = Pick<
   ThreadHistoryItem,
-  | "id"
-  | "title"
-  | "meta"
-  | "updatedAt"
-  | "cwd"
-  | "forkedFromId"
-  | "agentNickname"
-  | "agentRole"
-  | "agentPath"
+  "id" | "title" | "meta" | "updatedAt" | "cwd" | "forkedFromId" | "agentNickname" | "agentRole" | "agentPath"
 > & {
   localStatus?: LocalThreadItem["status"];
 };

@@ -66,7 +66,12 @@
                 >
                   <FlaskConical aria-hidden="true" />
                 </button>
-                <button class="btn-icon" type="button" :title="t('codexProfiles.status')" @click="showProfileStats(profile)">
+                <button
+                  class="btn-icon"
+                  type="button"
+                  :title="t('codexProfiles.status')"
+                  @click="showProfileStats(profile)"
+                >
                   <BarChart3 aria-hidden="true" />
                 </button>
                 <button
@@ -790,7 +795,11 @@ async function autoImportCurrentCodexConfig() {
     ].join("\n"),
     order: orderedProfiles.value.length,
   });
-  showToast({ kind: "success", title: t("codexProfiles.importedCurrentConfigTitle"), message: `${providerId} / ${model}` });
+  showToast({
+    kind: "success",
+    title: t("codexProfiles.importedCurrentConfigTitle"),
+    message: `${providerId} / ${model}`,
+  });
 }
 
 async function refresh() {

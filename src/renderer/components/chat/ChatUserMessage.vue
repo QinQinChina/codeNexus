@@ -1,9 +1,7 @@
 <template>
   <div :class="[CHAT_ROW_BASE_CLASS, 'chat-row--user', 'chat-row--user-shell']">
     <div class="chat-user-bubble-stack" :class="{ 'is-editing': inlineRewriteDraft }">
-      <ChatUserBubbleFrame
-        @click="$emit('click', event)"
-      >
+      <ChatUserBubbleFrame @click="$emit('click', event)">
         <template v-for="part in messageParts" :key="part.key">
           <span v-if="part.type === 'text'">{{ part.text }}</span>
           <button

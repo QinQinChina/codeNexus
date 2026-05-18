@@ -135,7 +135,9 @@ export function buildImageToolItemFromProtocolItem(item: unknown, eventMethod: s
   const savedPaths = Array.isArray((generationItem as any).savedPaths)
     ? ((generationItem as any).savedPaths as unknown[]).map((value) => String(value ?? "").trim()).filter(Boolean)
     : [];
-  const pendingImageCount = normalizePendingImageCount((generationItem as any).pendingImageCount ?? (generationItem as any).n);
+  const pendingImageCount = normalizePendingImageCount(
+    (generationItem as any).pendingImageCount ?? (generationItem as any).n
+  );
   const allSavedPaths = [...new Set([savedPath, ...savedPaths].filter(Boolean))];
   const resultSources =
     allSavedPaths.length > 0
@@ -171,7 +173,9 @@ export function buildImageToolItemFromProtocolItem(item: unknown, eventMethod: s
     ]
       .filter(Boolean)
       .join("\n"),
-    errorText: explicitErrorText || (status === "failed" ? (statusText ? `status=${statusText}` : translate("imageTool.generationFailed")) : ""),
+    errorText:
+      explicitErrorText ||
+      (status === "failed" ? (statusText ? `status=${statusText}` : translate("imageTool.generationFailed")) : ""),
     revisedPrompt: revisedPrompt ? translate("imageTool.revisedPromptWithText", { prompt: revisedPrompt }) : "",
     images,
   };

@@ -28,11 +28,7 @@
           <span v-if="row.line.kind === 'meta'" :class="metaLineClass">{{ row.line.text }}</span>
           <span
             v-else
-            :class="[
-              rowContentBaseClass,
-              compact ? 'gap-1' : 'gap-1.5',
-              lineContentClass(displayLineKind(row.line)),
-            ]"
+            :class="[rowContentBaseClass, compact ? 'gap-1' : 'gap-1.5', lineContentClass(displayLineKind(row.line))]"
           >
             <span
               class="flex-none select-none pt-[1px] text-center text-[var(--ui-code-text-muted)] opacity-85"
@@ -367,7 +363,8 @@ const scheduleScrollToLine = (lineKey?: string, force = false) => {
     const el = scrollEl.value;
     if (!el) return;
     const target = lineKey
-      ? [...el.querySelectorAll<HTMLElement>("[data-line-key]")].find((node) => node.dataset.lineKey === lineKey) ?? null
+      ? ([...el.querySelectorAll<HTMLElement>("[data-line-key]")].find((node) => node.dataset.lineKey === lineKey) ??
+        null)
       : null;
     if (!target) {
       animateScrollTop(el, el.scrollHeight, force);
@@ -568,7 +565,6 @@ watch(
   },
   { immediate: true }
 );
-
 </script>
 
 <style scoped>

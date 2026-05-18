@@ -152,18 +152,10 @@
               <button class="composer-lightbox-action" type="button" @click="zoomImageLightboxIn">
                 <ZoomIn aria-hidden="true" />
               </button>
-              <button
-                class="composer-lightbox-action"
-                type="button"
-                @click="resetImageLightboxView"
-              >
+              <button class="composer-lightbox-action" type="button" @click="resetImageLightboxView">
                 <RotateCcw aria-hidden="true" />
               </button>
-              <button
-                class="composer-lightbox-action"
-                type="button"
-                @click="downloadImageLightboxImage"
-              >
+              <button class="composer-lightbox-action" type="button" @click="downloadImageLightboxImage">
                 <Download aria-hidden="true" />
               </button>
               <button
@@ -487,19 +479,24 @@ function onPinnedUserClick() {
   scrollDomRowToTop(rowId, offsetPx);
 }
 
-const reasoningEffortOptions = computed(() => [
-  { value: "low", label: t("composer.low") },
-  { value: "medium", label: t("composer.medium") },
-  { value: "high", label: t("composer.high") },
-  { value: "xhigh", label: t("composer.xhigh") },
-] as const);
-const sandboxModeOptions = computed(() => [
-  { value: "read-only", label: t("composer.readOnlyShort") },
-  { value: "workspace-write", label: t("composer.workspaceWriteShort") },
-  { value: "danger-full-access", label: t("composer.dangerFullAccessShort") },
-] as const);
+const reasoningEffortOptions = computed(
+  () =>
+    [
+      { value: "low", label: t("composer.low") },
+      { value: "medium", label: t("composer.medium") },
+      { value: "high", label: t("composer.high") },
+      { value: "xhigh", label: t("composer.xhigh") },
+    ] as const
+);
+const sandboxModeOptions = computed(
+  () =>
+    [
+      { value: "read-only", label: t("composer.readOnlyShort") },
+      { value: "workspace-write", label: t("composer.workspaceWriteShort") },
+      { value: "danger-full-access", label: t("composer.dangerFullAccessShort") },
+    ] as const
+);
 const modelOptions = computed(() =>
   buildModelPickerOptions({ customIds: modelCatalogStore.customIds, current: runtimeStore.model })
 );
-
 </script>

@@ -31,9 +31,7 @@ export function createSkillsRuntime(deps: SkillsRuntimeDeps): SkillsRuntime {
     const params: SkillsListParams = {
       cwds: cwd ? [cwd] : [],
       forceReload,
-      ...(cwd && extraUserRoots.length > 0
-        ? { perCwdExtraUserRoots: [{ cwd, extraUserRoots }] }
-        : {}),
+      ...(cwd && extraUserRoots.length > 0 ? { perCwdExtraUserRoots: [{ cwd, extraUserRoots }] } : {}),
     };
     const { result } = await codexDesktop.codexServer.rpc({
       serverId,

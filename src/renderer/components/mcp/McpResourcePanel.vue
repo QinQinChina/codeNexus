@@ -46,7 +46,9 @@
 
     <template v-if="selectedServer">
       <div v-if="activeTab === 'resources'" class="grid gap-2">
-        <div class="text-[12px] font-medium text-[color:var(--text-muted)]">{{ t("mcpResources.readableResources") }}</div>
+        <div class="text-[12px] font-medium text-[color:var(--text-muted)]">
+          {{ t("mcpResources.readableResources") }}
+        </div>
         <div
           v-if="selectedServer.resources.length === 0"
           class="rounded-[10px] border border-dashed border-[var(--ui-well-border)] px-3 py-2 text-[12px] leading-[1.35] text-[color:var(--text-muted)]"
@@ -68,7 +70,9 @@
       </div>
 
       <div v-else class="grid gap-2">
-        <div class="text-[12px] font-medium text-[color:var(--text-muted)]">{{ t("mcpResources.resourceTemplates") }}</div>
+        <div class="text-[12px] font-medium text-[color:var(--text-muted)]">
+          {{ t("mcpResources.resourceTemplates") }}
+        </div>
         <div
           v-if="selectedServer.resourceTemplates.length === 0"
           class="rounded-[10px] border border-dashed border-[var(--ui-well-border)] px-3 py-2 text-[12px] leading-[1.35] text-[color:var(--text-muted)]"
@@ -146,7 +150,9 @@
 
         <template v-else>
           <div class="text-[12px] leading-[1.4] text-[color:var(--text-muted)]">
-            {{ activeTab === "resources" ? t("mcpResources.selectResourceHint") : t("mcpResources.selectTemplateHint") }}
+            {{
+              activeTab === "resources" ? t("mcpResources.selectResourceHint") : t("mcpResources.selectTemplateHint")
+            }}
           </div>
         </template>
 
@@ -172,12 +178,16 @@
         <template v-if="summaryResourceLabel">
           <div class="grid gap-2 rounded-[10px] border border-[var(--ui-well-border)] bg-[var(--ui-well-bg)] p-3">
             <div class="grid gap-1">
-              <div class="text-[12px] font-medium text-[color:var(--text-muted)]">{{ t("mcpResources.resourceName") }}</div>
+              <div class="text-[12px] font-medium text-[color:var(--text-muted)]">
+                {{ t("mcpResources.resourceName") }}
+              </div>
               <div class="text-[12px] font-medium">{{ summaryResourceLabel }}</div>
             </div>
             <div class="grid gap-1">
               <div class="text-[12px] font-medium text-[color:var(--text-muted)]">{{ t("mcpResources.tools") }}</div>
-              <div v-if="summaryToolNames.length === 0" class="mono dim text-[11px]">{{ t("mcpResources.noTools") }}</div>
+              <div v-if="summaryToolNames.length === 0" class="mono dim text-[11px]">
+                {{ t("mcpResources.noTools") }}
+              </div>
               <div v-else class="flex flex-wrap gap-1.5">
                 <span
                   v-for="toolName in summaryToolNames"
@@ -189,7 +199,9 @@
               </div>
             </div>
             <div class="grid gap-1">
-              <div class="text-[12px] font-medium text-[color:var(--text-muted)]">{{ t("mcpResources.parameters") }}</div>
+              <div class="text-[12px] font-medium text-[color:var(--text-muted)]">
+                {{ t("mcpResources.parameters") }}
+              </div>
               <div v-if="summaryParameterEntries.length === 0" class="mono dim text-[11px]">
                 {{ t("mcpResources.noParameters") }}
               </div>
@@ -267,12 +279,20 @@ function toReadTargetKey(threadIdValue: unknown, serverIdValue: unknown, uriValu
 }
 
 function resourceDisplayTitle(resource: Resource): string {
-  return normalizeText(resource.title) || normalizeText(resource.name) || normalizeText(resource.uri) || t("mcpResources.untitledResource");
+  return (
+    normalizeText(resource.title) ||
+    normalizeText(resource.name) ||
+    normalizeText(resource.uri) ||
+    t("mcpResources.untitledResource")
+  );
 }
 
 function templateDisplayTitle(template: ResourceTemplate): string {
   return (
-    normalizeText(template.title) || normalizeText(template.name) || normalizeText(template.uriTemplate) || t("mcpResources.untitledTemplate")
+    normalizeText(template.title) ||
+    normalizeText(template.name) ||
+    normalizeText(template.uriTemplate) ||
+    t("mcpResources.untitledTemplate")
   );
 }
 

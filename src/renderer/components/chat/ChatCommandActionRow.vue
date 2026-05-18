@@ -91,11 +91,13 @@ const actionText = computed(() => {
 });
 const isRunning = computed(() => props.item.item.status === "running");
 const latestOutputLine = (value: string) => {
-  return String(value ?? "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .pop() ?? "";
+  return (
+    String(value ?? "")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .pop() ?? ""
+  );
 };
 const runningOutputPreview = computed(() => {
   if (!isRunning.value) return "";

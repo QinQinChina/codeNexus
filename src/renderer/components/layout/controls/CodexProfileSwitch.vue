@@ -15,11 +15,7 @@
     <button v-else class="codex-profile-switch__empty" type="button" @click="openProfileSettings">
       {{ t("codexProfileSwitch.label") }}
     </button>
-    <button
-      class="btn-icon codex-profile-switch__settings"
-      type="button"
-      @click="openProfileSettings"
-    >
+    <button class="btn-icon codex-profile-switch__settings" type="button" @click="openProfileSettings">
       <Settings2 aria-hidden="true" />
     </button>
   </div>

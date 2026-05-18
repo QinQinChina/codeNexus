@@ -32,9 +32,9 @@
           <h2 class="text-sm max-[1500px]:text-[13px] font-bold text-[var(--text-muted)] flex items-center gap-2">
             <History class="w-4 h-4" /> {{ t("centerEmpty.history") }}
           </h2>
-          <span class="text-[12px] max-[1500px]:text-[11px] text-[var(--text-muted)] opacity-60"
-            >{{ t("centerEmpty.recentCount", { count: historyItems.length }) }}</span
-          >
+          <span class="text-[12px] max-[1500px]:text-[11px] text-[var(--text-muted)] opacity-60">{{
+            t("centerEmpty.recentCount", { count: historyItems.length })
+          }}</span>
         </div>
 
         <div class="grid grid-cols-2 gap-3 max-[1500px]:gap-2.5">

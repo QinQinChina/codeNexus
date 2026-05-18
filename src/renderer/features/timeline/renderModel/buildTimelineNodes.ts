@@ -360,7 +360,12 @@ const LONG_RUNNING_COMMAND_PATTERNS = [
 const isPotentialLongRunningCommand = (cmd: string, source: string) => {
   const text = normalizeWhitespace(cmd);
   if (!text) return false;
-  if (String(source ?? "").toLowerCase().includes("startup")) return true;
+  if (
+    String(source ?? "")
+      .toLowerCase()
+      .includes("startup")
+  )
+    return true;
   return LONG_RUNNING_COMMAND_PATTERNS.some((pattern) => pattern.test(text));
 };
 

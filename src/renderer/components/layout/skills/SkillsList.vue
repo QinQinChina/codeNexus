@@ -34,7 +34,9 @@
                 <span class="skill-status-pill" :class="skill.enabled ? 'is-enabled' : 'is-disabled'">
                   {{ skill.enabled ? t("skills.enabled") : t("skills.disabled") }}
                 </span>
-                <span class="skill-meta-pill">{{ skill.configurable ? t("skills.configurable") : t("skills.fixed") }}</span>
+                <span class="skill-meta-pill">{{
+                  skill.configurable ? t("skills.configurable") : t("skills.fixed")
+                }}</span>
               </div>
             </div>
 

@@ -28,7 +28,11 @@
             <ArrowLeft class="btn-mini__icon" aria-hidden="true" />
             <span>{{ t("imageWorkbench.historyBack") }}</span>
           </button>
-          <button class="btn-mini btn-mini--danger" type="button" @click="workbench.deleteHistoryItem(selectedHistoryItem.id)">
+          <button
+            class="btn-mini btn-mini--danger"
+            type="button"
+            @click="workbench.deleteHistoryItem(selectedHistoryItem.id)"
+          >
             <Trash2 class="btn-mini__icon" aria-hidden="true" />
             <span>{{ t("common.delete") }}</span>
           </button>
@@ -57,7 +61,11 @@
               @pointerdown="onImagePointerDown(image.path, $event)"
               @wheel="onImageWheel(image.path, $event)"
             >
-              <Loader2 v-if="imageDataUrlLoading[image.path]" class="image-workbench__image-state is-spinning" aria-hidden="true" />
+              <Loader2
+                v-if="imageDataUrlLoading[image.path]"
+                class="image-workbench__image-state is-spinning"
+                aria-hidden="true"
+              />
               <img
                 v-else-if="imageDataUrlByPath[image.path]"
                 :src="imageDataUrlByPath[image.path]"
@@ -107,87 +115,97 @@
         @wheel="onHistoryWheel"
       >
         <div class="image-workbench__history-grid">
-        <article
-          v-for="item in workbench.historyItems"
-          :key="item.id"
-          class="image-workbench__history-card"
-          :class="{
-            'is-pending': isPendingHistoryItem(item),
-            'is-failed': isFailedHistoryItem(item),
-          }"
-          :role="isSelectableHistoryItem(item) ? 'button' : undefined"
-          :tabindex="isSelectableHistoryItem(item) ? 0 : -1"
-          :aria-busy="isPendingHistoryItem(item) ? 'true' : 'false'"
-          @click="onHistoryCardClick(item)"
-          @keydown.enter.prevent="onHistoryCardClick(item)"
-          @keydown.space.prevent="onHistoryCardClick(item)"
-        >
-          <div class="image-workbench__history-preview" :class="{ 'is-single': item.images.length === 1 }" :style="historyPreviewStyle(item)">
-            <template v-if="isPendingHistoryItem(item)">
-              <div v-for="n in historySkeletonTileCount(item)" :key="`${item.id}:pending:${n}`" class="image-workbench__history-skeleton">
-                <Loader2 class="image-workbench__history-skeleton-icon is-spinning" aria-hidden="true" />
-              </div>
-            </template>
-            <template v-else-if="isFailedHistoryItem(item)">
-              <div class="image-workbench__history-skeleton is-failed">
-                <AlertTriangle class="image-workbench__history-skeleton-icon" aria-hidden="true" />
-              </div>
-            </template>
-            <template v-else>
-              <template v-for="(image, index) in item.images.slice(0, 4)" :key="image.path">
-                <img
-                  v-if="imageDataUrlByPath[image.path]"
-                  :class="{ 'is-full': item.images.length === 1 && index === 0 }"
-                  :src="imageDataUrlByPath[image.path]"
-                  :alt="image.path"
-                  @load="onHistoryImageLoad(image.path, $event)"
-                />
-                <div v-else class="image-workbench__history-tile">
-                  <ImageIcon aria-hidden="true" />
+          <article
+            v-for="item in workbench.historyItems"
+            :key="item.id"
+            class="image-workbench__history-card"
+            :class="{
+              'is-pending': isPendingHistoryItem(item),
+              'is-failed': isFailedHistoryItem(item),
+            }"
+            :role="isSelectableHistoryItem(item) ? 'button' : undefined"
+            :tabindex="isSelectableHistoryItem(item) ? 0 : -1"
+            :aria-busy="isPendingHistoryItem(item) ? 'true' : 'false'"
+            @click="onHistoryCardClick(item)"
+            @keydown.enter.prevent="onHistoryCardClick(item)"
+            @keydown.space.prevent="onHistoryCardClick(item)"
+          >
+            <div
+              class="image-workbench__history-preview"
+              :class="{ 'is-single': item.images.length === 1 }"
+              :style="historyPreviewStyle(item)"
+            >
+              <template v-if="isPendingHistoryItem(item)">
+                <div
+                  v-for="n in historySkeletonTileCount(item)"
+                  :key="`${item.id}:pending:${n}`"
+                  class="image-workbench__history-skeleton"
+                >
+                  <Loader2 class="image-workbench__history-skeleton-icon is-spinning" aria-hidden="true" />
                 </div>
               </template>
-            </template>
-          </div>
-          <div class="image-workbench__history-body">
-            <template v-if="isPendingHistoryItem(item)">
-              <div class="image-workbench__history-skeleton-line is-title"></div>
-              <div class="image-workbench__history-skeleton-line is-meta"></div>
-              <div class="image-workbench__history-skeleton-line is-model"></div>
-            </template>
-            <template v-else-if="isFailedHistoryItem(item)">
-              <div class="image-workbench__history-title is-failed">{{ t("imageWorkbench.generationFailed") }}</div>
-              <div class="image-workbench__history-meta">
-                <span class="mono">{{ t("imageWorkbench.waitingRetry") }}</span>
-                <button
-                  class="btn-mini btn-mini--danger image-workbench__history-delete"
-                  type="button"
-                  :aria-label="t('imageWorkbench.deleteFailedRecord')"
-                  @click.stop="workbench.deleteHistoryItem(item.id)"
-                  @keydown.stop
-                >
-                  <Trash2 class="btn-mini__icon" aria-hidden="true" />
-                  <span>{{ t("common.delete") }}</span>
-                </button>
-              </div>
-              <div class="image-workbench__history-model mono">
-                {{ item.errorText || t("imageWorkbench.imageGenerationFailed") }}
-              </div>
-            </template>
-            <template v-else>
-              <div class="image-workbench__history-title">{{ item.prompt }}</div>
-              <div class="image-workbench__history-meta">
-                <span class="mono">{{ formatDateTime(item.createdAt) }}</span>
-                <span class="mono">{{ item.model }}</span>
-              </div>
-            </template>
-          </div>
-        </article>
+              <template v-else-if="isFailedHistoryItem(item)">
+                <div class="image-workbench__history-skeleton is-failed">
+                  <AlertTriangle class="image-workbench__history-skeleton-icon" aria-hidden="true" />
+                </div>
+              </template>
+              <template v-else>
+                <template v-for="(image, index) in item.images.slice(0, 4)" :key="image.path">
+                  <img
+                    v-if="imageDataUrlByPath[image.path]"
+                    :class="{ 'is-full': item.images.length === 1 && index === 0 }"
+                    :src="imageDataUrlByPath[image.path]"
+                    :alt="image.path"
+                    @load="onHistoryImageLoad(image.path, $event)"
+                  />
+                  <div v-else class="image-workbench__history-tile">
+                    <ImageIcon aria-hidden="true" />
+                  </div>
+                </template>
+              </template>
+            </div>
+            <div class="image-workbench__history-body">
+              <template v-if="isPendingHistoryItem(item)">
+                <div class="image-workbench__history-skeleton-line is-title"></div>
+                <div class="image-workbench__history-skeleton-line is-meta"></div>
+                <div class="image-workbench__history-skeleton-line is-model"></div>
+              </template>
+              <template v-else-if="isFailedHistoryItem(item)">
+                <div class="image-workbench__history-title is-failed">{{ t("imageWorkbench.generationFailed") }}</div>
+                <div class="image-workbench__history-meta">
+                  <span class="mono">{{ t("imageWorkbench.waitingRetry") }}</span>
+                  <button
+                    class="btn-mini btn-mini--danger image-workbench__history-delete"
+                    type="button"
+                    :aria-label="t('imageWorkbench.deleteFailedRecord')"
+                    @click.stop="workbench.deleteHistoryItem(item.id)"
+                    @keydown.stop
+                  >
+                    <Trash2 class="btn-mini__icon" aria-hidden="true" />
+                    <span>{{ t("common.delete") }}</span>
+                  </button>
+                </div>
+                <div class="image-workbench__history-model mono">
+                  {{ item.errorText || t("imageWorkbench.imageGenerationFailed") }}
+                </div>
+              </template>
+              <template v-else>
+                <div class="image-workbench__history-title">{{ item.prompt }}</div>
+                <div class="image-workbench__history-meta">
+                  <span class="mono">{{ formatDateTime(item.createdAt) }}</span>
+                  <span class="mono">{{ item.model }}</span>
+                </div>
+              </template>
+            </div>
+          </article>
         </div>
       </div>
 
       <div v-else class="image-workbench__empty">
         <ImageIcon class="image-workbench__empty-icon" aria-hidden="true" />
-        <div>{{ workbench.historyLoading ? t("imageWorkbench.loadingHistory") : t("imageWorkbench.emptyHistory") }}</div>
+        <div>
+          {{ workbench.historyLoading ? t("imageWorkbench.loadingHistory") : t("imageWorkbench.emptyHistory") }}
+        </div>
       </div>
     </section>
   </section>
@@ -498,7 +516,7 @@ function historyPreviewStyle(item: WorkbenchHistoryItem): CSSProperties {
   const naturalSize = path ? imageNaturalSizeByPath.value[path] : null;
   const ratio = naturalSize
     ? `${naturalSize.width} / ${naturalSize.height}`
-    : parseImageSizeRatio(item.size) ?? undefined;
+    : (parseImageSizeRatio(item.size) ?? undefined);
   return ratio ? ({ "--image-workbench-history-preview-ratio": ratio } as CSSProperties) : {};
 }
 
