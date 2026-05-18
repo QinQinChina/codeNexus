@@ -1,31 +1,21 @@
-// 轻量 Toast 提示：用于在页面右上角展示短时反馈信息。
-export type ToastKind = "info" | "success" | "warn" | "error";
+import type { ToastKind, ToastOptions } from "./toast";
 
-export type ToastOptions = {
-  title?: string;
-  message: string;
-  kind?: ToastKind;
-  timeoutMs?: number;
-};
+let centerToastHost: HTMLDivElement | null = null;
+const CENTER_TOAST_EXIT_ANIMATION_MS = 180;
 
-let toastHost: HTMLDivElement | null = null;
-const TOAST_EXIT_ANIMATION_MS = 180;
-
-// 延迟创建 toast 容器，避免启动阶段额外 DOM 噪音。
-function ensureToastHost(): HTMLDivElement {
-  if (toastHost && toastHost.isConnected) return toastHost;
+function ensureCenterToastHost(): HTMLDivElement {
+  if (centerToastHost && centerToastHost.isConnected) return centerToastHost;
   const host = document.createElement("div");
-  host.className = "codex-toast-host";
+  host.className = "codex-center-toast-host";
   host.setAttribute("aria-live", "polite");
   host.setAttribute("aria-relevant", "additions");
   document.body.appendChild(host);
-  toastHost = host;
+  centerToastHost = host;
   return host;
 }
 
-// 展示 toast 并自动回收；hover 时暂停自动关闭计时。
-export function showToast(options: ToastOptions): void {
-  const host = ensureToastHost();
+export function showCenterToast(options: ToastOptions): void {
+  const host = ensureCenterToastHost();
   const message = String(options?.message ?? "").trim();
   if (!message) return;
 
@@ -33,10 +23,10 @@ export function showToast(options: ToastOptions): void {
   const timeoutMs =
     typeof options?.timeoutMs === "number" && Number.isFinite(options.timeoutMs)
       ? Math.max(800, Math.min(15_000, Math.round(options.timeoutMs)))
-      : 2600;
+      : 2400;
 
   const toast = document.createElement("div");
-  toast.className = `codex-toast ${kind}`;
+  toast.className = `codex-toast codex-center-toast ${kind}`;
   toast.setAttribute("role", kind === "error" ? "alert" : "status");
 
   if (options?.title) {
@@ -71,7 +61,7 @@ export function showToast(options: ToastOptions): void {
       try {
         toast.remove();
       } catch {}
-    }, TOAST_EXIT_ANIMATION_MS);
+    }, CENTER_TOAST_EXIT_ANIMATION_MS);
   };
 
   close.onclick = (evt) => {

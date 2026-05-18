@@ -13,7 +13,7 @@
           class="chat-inline-activity__text command-activity-text"
           color="var(--accent)"
           :text="activityText"
-          :cycle-max-chars="128"
+          :cycle-max-chars="0"
         />
         <span v-else class="chat-inline-activity__text command-activity-text">
           {{ activityText }}

@@ -140,6 +140,23 @@ function normalizeOpenAiModelsEndpoint(baseUrlValue: unknown): string {
   return `${baseUrl}/v1/models`;
 }
 
+function normalizeOpenAiModelIds(value: unknown): string[] {
+  const record =
+    value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  const data = Array.isArray(record?.data) ? record.data : [];
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  for (const item of data) {
+    const itemRecord =
+      item && typeof item === "object" && !Array.isArray(item) ? (item as Record<string, unknown>) : null;
+    const id = String(itemRecord?.id ?? itemRecord?.model ?? "").trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
+}
+
 const IMAGE_MIME_BY_EXT: Record<string, string> = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
@@ -772,18 +789,22 @@ export function registerAppHandlers(deps: {
     return { ok: true as const, path: authPath, exists, apiKey, maskedApiKey: maskSecret(apiKey) };
   });
 
-  ipcMain.handle(IPC_APP_CHANNELS.appCodexAuthWriteApiKey, async (_evt, args: { apiKey: string }) => {
-    const apiKey = String(args?.apiKey ?? "").trim();
-    const authPath = join(homedir(), ".codex", "auth.json");
-    let existing: Record<string, unknown> = {};
-    try {
-      existing = tryParseObjectJson(await readFile(authPath, "utf8"));
-    } catch {}
-    const next = { ...existing, OPENAI_API_KEY: apiKey };
-    await mkdir(dirname(authPath), { recursive: true });
-    await writeFile(authPath, `${JSON.stringify(next, null, 2)}\n`, "utf8");
-    return { ok: true as const, path: authPath };
-  });
+  ipcMain.handle(
+    IPC_APP_CHANNELS.appCodexAuthWriteApiKey,
+    async (_evt, args: { apiKey: string; filePath?: string | null }) => {
+      const apiKey = String(args?.apiKey ?? "").trim();
+      const customPath = String(args?.filePath ?? "").trim();
+      const authPath = customPath || join(homedir(), ".codex", "auth.json");
+      let existing: Record<string, unknown> = {};
+      try {
+        existing = tryParseObjectJson(await readFile(authPath, "utf8"));
+      } catch {}
+      const next = { ...existing, OPENAI_API_KEY: apiKey };
+      await mkdir(dirname(authPath), { recursive: true });
+      await writeFile(authPath, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+      return { ok: true as const, path: authPath };
+    }
+  );
 
   ipcMain.handle(
     IPC_APP_CHANNELS.appCodexProviderTest,
@@ -794,6 +815,7 @@ export function registerAppHandlers(deps: {
       const timeoutMs = toIntegerInRange(args?.timeoutMs, 15_000, 3_000, 60_000);
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const startedAt = Date.now();
       try {
         const response = await fetch(endpoint, {
           method: "GET",
@@ -803,25 +825,31 @@ export function registerAppHandlers(deps: {
           },
           signal: controller.signal,
         });
+        const elapsedMs = Math.max(0, Date.now() - startedAt);
         const text = await response.text().catch(() => "");
-        let modelCount: number | null = null;
+        let models: string[] = [];
         try {
           const parsed = JSON.parse(text);
-          if (Array.isArray(parsed?.data)) modelCount = parsed.data.length;
+          models = normalizeOpenAiModelIds(parsed);
         } catch {}
+        const modelCount = models.length || null;
         if (!response.ok) {
           return {
             ok: false,
             status: response.status,
             message: truncateText(text, 240) || response.statusText || "连接失败",
             modelCount,
+            models,
+            elapsedMs,
           };
         }
         return {
           ok: true,
           status: response.status,
-          message: modelCount == null ? "连接成功。" : `连接成功，读取到 ${modelCount} 个模型。`,
+          message: `连接成功，响应时间 ${elapsedMs}ms。`,
           modelCount,
+          models,
+          elapsedMs,
         };
       } catch (error: any) {
         return {
@@ -829,6 +857,8 @@ export function registerAppHandlers(deps: {
           status: null,
           message: error?.name === "AbortError" ? "连接超时。" : String(error?.message ?? error ?? "连接失败"),
           modelCount: null,
+          models: [],
+          elapsedMs: Math.max(0, Date.now() - startedAt),
         };
       } finally {
         clearTimeout(timer);

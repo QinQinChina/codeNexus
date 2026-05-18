@@ -229,7 +229,7 @@
           class="terminal-action-text min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"
           color="var(--accent)"
           :text="commandActionDisplayText(node.item)"
-          :cycle-max-chars="128"
+          :cycle-max-chars="0"
         />
         <template v-else>
           <span class="terminal-action-text min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{{

@@ -1,8 +1,5 @@
 import type { LocalRemoteSyncSettings, UserLocalSettings, UserLocalSettingsPatch } from "../localSettings";
-import type {
-  CodexProviderProfileInput,
-  CodexProviderProfilesState,
-} from "../codexProfiles";
+import type { CodexProviderProfileInput, CodexProviderProfilesState } from "../codexProfiles";
 import type { CodexSkillRootsState } from "../codexSkillRoots";
 import type { ThreadSourceKind } from "../../generated/codex-app-server/v2/ThreadSourceKind";
 
@@ -624,6 +621,8 @@ export type CodexProviderTestResult = {
   status: number | null;
   message: string;
   modelCount: number | null;
+  models: string[];
+  elapsedMs: number | null;
 };
 
 export type CodexSkillRootsSnapshot = {
@@ -667,7 +666,7 @@ export type CodexDesktopAppApi = {
   deleteCodexProfile(args: { id: string }): Promise<CodexProviderProfilesMutationResult>;
   setActiveCodexProfile(args: { id: string | null }): Promise<CodexProviderProfilesMutationResult>;
   readCodexAuthApiKey(): Promise<CodexAuthReadApiKeyResult>;
-  writeCodexAuthApiKey(args: { apiKey: string }): Promise<CodexAuthWriteApiKeyResult>;
+  writeCodexAuthApiKey(args: { apiKey: string; filePath?: string | null }): Promise<CodexAuthWriteApiKeyResult>;
   testCodexProvider(args: { baseUrl: string; apiKey: string; timeoutMs?: number }): Promise<CodexProviderTestResult>;
   readCodexSkillRoots(): Promise<CodexSkillRootsSnapshot>;
   setCodexSkillRootsForWorkspace(args: {

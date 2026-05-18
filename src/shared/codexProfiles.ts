@@ -7,6 +7,10 @@ export type CodexProviderProfile = {
   model: string;
   baseUrl: string;
   apiKey: string;
+  authFilePath: string;
+  configFilePath: string;
+  authFileContent: string;
+  configFileContent: string;
   modelReasoningEffort: ReasoningEffort;
   modelContextWindow: number | null;
   modelAutoCompactTokenLimit: number | null;
@@ -27,6 +31,10 @@ export type CodexProviderProfileInput = Partial<
     | "model"
     | "baseUrl"
     | "apiKey"
+    | "authFilePath"
+    | "configFilePath"
+    | "authFileContent"
+    | "configFileContent"
     | "modelReasoningEffort"
     | "modelContextWindow"
     | "modelAutoCompactTokenLimit"
@@ -45,6 +53,8 @@ export type CodexProviderProfilesState = {
 
 export const DEFAULT_CODEX_PROFILE_MODEL = "gpt-5.4";
 export const DEFAULT_CODEX_PROFILE_REASONING_EFFORT: ReasoningEffort = "high";
+export const DEFAULT_CODEX_AUTH_FILE_PATH = "";
+export const DEFAULT_CODEX_CONFIG_FILE_PATH = "";
 
 const VALID_REASONING_EFFORTS = new Set<ReasoningEffort>(["low", "medium", "high", "xhigh"]);
 
@@ -132,6 +142,10 @@ export function normalizeCodexProviderProfile(value: unknown): CodexProviderProf
     model: normalizeCodexProfileModel(record.model),
     baseUrl,
     apiKey,
+    authFilePath: normalizeText(record.authFilePath) || DEFAULT_CODEX_AUTH_FILE_PATH,
+    configFilePath: normalizeText(record.configFilePath) || DEFAULT_CODEX_CONFIG_FILE_PATH,
+    authFileContent: String(record.authFileContent ?? ""),
+    configFileContent: String(record.configFileContent ?? ""),
     modelReasoningEffort: normalizeCodexProfileReasoningEffort(record.modelReasoningEffort),
     modelContextWindow: normalizeNullablePositiveInt(record.modelContextWindow),
     modelAutoCompactTokenLimit: normalizeNullablePositiveInt(record.modelAutoCompactTokenLimit),
@@ -162,7 +176,10 @@ export function normalizeCodexProviderProfilesState(value: unknown): CodexProvid
   };
 }
 
-export function buildCodexProviderProfile(input: CodexProviderProfileInput, existing?: CodexProviderProfile): CodexProviderProfile {
+export function buildCodexProviderProfile(
+  input: CodexProviderProfileInput,
+  existing?: CodexProviderProfile
+): CodexProviderProfile {
   const now = Date.now();
   const modelProviderId = normalizeCodexProviderId(input.modelProviderId ?? existing?.modelProviderId ?? input.name);
   const id = normalizeCodexProfileId(input.id ?? existing?.id ?? modelProviderId);
@@ -173,6 +190,10 @@ export function buildCodexProviderProfile(input: CodexProviderProfileInput, exis
     model: normalizeCodexProfileModel(input.model ?? existing?.model),
     baseUrl: normalizeText(input.baseUrl ?? existing?.baseUrl),
     apiKey: normalizeText(input.apiKey ?? existing?.apiKey),
+    authFilePath: normalizeText(input.authFilePath ?? existing?.authFilePath) || DEFAULT_CODEX_AUTH_FILE_PATH,
+    configFilePath: normalizeText(input.configFilePath ?? existing?.configFilePath) || DEFAULT_CODEX_CONFIG_FILE_PATH,
+    authFileContent: String(input.authFileContent ?? existing?.authFileContent ?? ""),
+    configFileContent: String(input.configFileContent ?? existing?.configFileContent ?? ""),
     modelReasoningEffort: normalizeCodexProfileReasoningEffort(
       input.modelReasoningEffort ?? existing?.modelReasoningEffort
     ),

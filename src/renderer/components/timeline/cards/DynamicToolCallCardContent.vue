@@ -6,7 +6,7 @@
         class="text-[13px] font-semibold"
         color="var(--accent)"
         :text="item.label"
-        :cycle-max-chars="128"
+        :cycle-max-chars="0"
       />
       <span v-else class="text-[13px] font-semibold text-[var(--text)]">
         {{ item.label }}

@@ -8,10 +8,12 @@ export const COMPOSE_FILE_TOKEN_CHAR = "\uFFFC";
 const textEncoder = new TextEncoder();
 
 export type ComposeSegment = { type: "text"; text: string } | { type: "mention"; mention: ComposeWorkspaceFileMention };
+export type ComposeTextElementKind = "file" | "directory";
+export type ComposeTextElement = TextElement & { kind?: ComposeTextElementKind };
 
 export type StructuredTextSegment =
   | { type: "text"; text: string }
-  | { type: "file"; path: string; placeholder: string | null };
+  | { type: "file"; path: string; placeholder: string | null; kind?: ComposeTextElementKind };
 
 function normalizeComposeText(value: string): string {
   return String(value ?? "").replace(/\r\n?/g, "\n");
@@ -61,11 +63,17 @@ function utf16OffsetFromByte(
   return fallbackUtf16;
 }
 
-function dedupeTextElements(values: TextElement[]): TextElement[] {
+function normalizeTextElementKind(value: unknown): ComposeTextElementKind | undefined {
+  return value === "directory" ? "directory" : value === "file" ? "file" : undefined;
+}
+
+function dedupeTextElements(values: ComposeTextElement[]): ComposeTextElement[] {
   const seen = new Set<string>();
-  const result: TextElement[] = [];
+  const result: ComposeTextElement[] = [];
   for (const value of values) {
-    const key = `${value.byteRange.start}:${value.byteRange.end}:${String(value.placeholder ?? "")}`;
+    const key = `${value.byteRange.start}:${value.byteRange.end}:${String(value.placeholder ?? "")}:${String(
+      value.kind ?? ""
+    )}`;
     if (seen.has(key)) continue;
     seen.add(key);
     result.push(value);
@@ -73,7 +81,7 @@ function dedupeTextElements(values: TextElement[]): TextElement[] {
   return result;
 }
 
-function inferAbsolutePathTextElements(textValue: string): TextElement[] {
+function inferAbsolutePathTextElements(textValue: string): ComposeTextElement[] {
   const text = String(textValue ?? "");
   if (!text) return [];
 
@@ -144,7 +152,7 @@ function inferAbsolutePathTextElements(textValue: string): TextElement[] {
           placeholder: basenameFromPath(path) || path,
         };
       })
-      .filter((value): value is TextElement => value != null)
+      .filter((value): value is ComposeTextElement => value != null)
       .sort((a, b) => {
         if (a.byteRange.start !== b.byteRange.start) return a.byteRange.start - b.byteRange.start;
         return a.byteRange.end - b.byteRange.end;
@@ -152,12 +160,13 @@ function inferAbsolutePathTextElements(textValue: string): TextElement[] {
   );
 }
 
-export function normalizeComposeTextElement(value: unknown): TextElement | null {
+export function normalizeComposeTextElement(value: unknown): ComposeTextElement | null {
   const record = toRecord(value);
   const byteRangeRecord = toRecord(record?.byteRange) ?? toRecord(record?.byte_range);
   const start = Number(byteRangeRecord?.start ?? record?.start);
   const end = Number(byteRangeRecord?.end ?? record?.end);
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+  const kind = normalizeTextElementKind(record?.kind);
   return {
     byteRange: {
       start: Math.max(0, Math.round(start)),
@@ -165,22 +174,30 @@ export function normalizeComposeTextElement(value: unknown): TextElement | null 
     },
     placeholder:
       record?.placeholder == null ? (record?.label == null ? null : String(record.label)) : String(record.placeholder),
+    ...(kind ? { kind } : {}),
   };
 }
 
-export function cloneComposeTextElements(values: TextElement[] | undefined): TextElement[] {
+export function cloneComposeTextElements(values: TextElement[] | undefined): ComposeTextElement[] {
   if (!Array.isArray(values) || values.length === 0) return [];
   return values
     .map((value) => normalizeComposeTextElement(value))
-    .filter((value): value is TextElement => value != null);
+    .filter((value): value is ComposeTextElement => value != null);
 }
 
-export function normalizeComposeTextElements(values: unknown): TextElement[] {
+export function cloneProtocolTextElements(values: TextElement[] | undefined): TextElement[] {
+  return cloneComposeTextElements(values).map((value) => ({
+    byteRange: { ...value.byteRange },
+    placeholder: value.placeholder,
+  }));
+}
+
+export function normalizeComposeTextElements(values: unknown): ComposeTextElement[] {
   if (!Array.isArray(values) || values.length === 0) return [];
   return dedupeTextElements(
     values
       .map((value) => normalizeComposeTextElement(value))
-      .filter((value): value is TextElement => value != null)
+      .filter((value): value is ComposeTextElement => value != null)
       .sort((a, b) => {
         if (a.byteRange.start !== b.byteRange.start) return a.byteRange.start - b.byteRange.start;
         return a.byteRange.end - b.byteRange.end;
@@ -192,7 +209,7 @@ export function resolveComposeTextElements(
   textValue: string,
   textElementsValue: unknown,
   options?: { inferAbsolutePaths?: boolean }
-): TextElement[] {
+): ComposeTextElement[] {
   const text = String(textValue ?? "");
   const textElements = normalizeComposeTextElements(textElementsValue);
   if (textElements.length > 0) return textElements;
@@ -300,7 +317,7 @@ export function buildTextUserInputFromComposeDraft(
   mentionsValue: ComposeWorkspaceFileMention[]
 ): TextUserInput | null {
   const textParts: string[] = [];
-  const textElements: TextElement[] = [];
+  const textElements: ComposeTextElement[] = [];
   let currentByte = 0;
 
   for (const segment of buildComposeSegments(composeInputValue, mentionsValue)) {
@@ -322,6 +339,7 @@ export function buildTextUserInputFromComposeDraft(
         end: currentByte,
       },
       placeholder: basenameFromPath(path) || path,
+      kind: segment.mention.kind === "directory" ? "directory" : "file",
     });
   }
 
@@ -371,6 +389,7 @@ export function buildStructuredTextSegments(
         type: "file",
         path,
         placeholder: textElement.placeholder == null ? basenameFromPath(path) || path : String(textElement.placeholder),
+        ...(textElement.kind ? { kind: textElement.kind } : {}),
       });
     } else if (rawPath) {
       segments.push({ type: "text", text: rawPath });
@@ -405,6 +424,7 @@ export function buildComposeDraftFromStructuredText(
     }
     const mention = createComposeFileMention(segment.path, {
       idPrefix: String(options?.idPrefix ?? "queue-file"),
+      kind: segment.kind,
     });
     if (!mention) {
       composeParts.push(segment.path);

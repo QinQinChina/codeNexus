@@ -424,7 +424,7 @@ const pinnedUserMessage = computed(() => {
 function pinnedPromptLocateOffsetPx() {
   const prompt = pinnedPromptLayerRef.value?.querySelector<HTMLElement>(".chat-pinned-prompt") ?? null;
   const promptHeight = Math.ceil(prompt?.getBoundingClientRect().height ?? 0);
-  return Math.max(8, promptHeight + PINNED_PROMPT_TOP_GAP_PX + 5);
+  return Math.max(8, promptHeight + PINNED_PROMPT_TOP_GAP_PX + 15);
 }
 
 function scrollDomRowToTop(rowId: string, offsetPx = 0) {

@@ -22,7 +22,7 @@
           :char-delay-sec="0.045"
           :char-anim-duration-sec="0.78"
           :pause-sec="0.5"
-          :cycle-max-chars="128"
+          :cycle-max-chars="0"
           :min-opacity="item.status === 'running' ? 0.34 : 0.72"
           :max-opacity="1"
         />

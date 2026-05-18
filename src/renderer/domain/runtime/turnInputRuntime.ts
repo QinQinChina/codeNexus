@@ -2,6 +2,7 @@ import { codexDesktop } from "../../api/codexDesktopClient";
 import {
   buildComposeDraftFromUserTurnInputs,
   cloneComposeTextElements,
+  cloneProtocolTextElements,
   buildUserTurnInputsFromComposeDraft,
 } from "../composeFileMentions";
 import type { UserInput as CodexUserInput } from "../../../generated/codex-app-server/v2/UserInput";
@@ -86,7 +87,7 @@ export function createTurnInputRuntime(): TurnInputRuntime {
         return {
           type: "text",
           text: String(value.text ?? ""),
-          text_elements: cloneComposeTextElements(value.text_elements),
+          text_elements: cloneProtocolTextElements(value.text_elements),
         };
       }
       if (value.type === "image") {

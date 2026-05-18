@@ -1,6 +1,5 @@
 <template>
   <section class="settings-page" aria-label="设置页">
-    <SettingsHeader />
     <div class="settings-workspace">
       <aside class="settings-sidebar app-scrollbar" aria-label="设置导航">
         <nav class="settings-nav" role="tablist" aria-label="设置选项卡">
@@ -48,7 +47,6 @@
 import { computed, watch } from "vue";
 import { Bell, Bot, Cloud, Image, PlugZap, Settings2, SlidersHorizontal } from "lucide-vue-next";
 import { useAppShellStore } from "../../stores/appShell.store";
-import SettingsHeader from "./SettingsHeader.vue";
 import GlobalConfigDrawer from "./overlays/GlobalConfigDrawer.vue";
 import EnvSetupDrawer from "./overlays/EnvSetupDrawer.vue";
 import IntegrationsDrawer from "./overlays/IntegrationsDrawer.vue";

@@ -122,7 +122,7 @@ const userExpandedByKey = ref<Record<string, boolean>>({});
 const completingByKey = ref<Record<string, boolean>>({});
 const completionTimersByKey = new Map<string, ReturnType<typeof setTimeout>>();
 const diffTransitionTimers = new WeakMap<Element, ReturnType<typeof setTimeout>>();
-const COMPLETE_SETTLE_MS = 650;
+const COMPLETE_SETTLE_MS = 850;
 const DIFF_COLLAPSE_MS = 220;
 const DIFF_COLLAPSE_EASING = "cubic-bezier(0.25, 1, 0.5, 1)";
 

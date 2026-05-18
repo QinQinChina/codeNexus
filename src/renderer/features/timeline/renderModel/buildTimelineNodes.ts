@@ -456,6 +456,41 @@ const parseCommandListOutputFiles = (output: string): { ok: boolean; files: stri
   return parsePlainFileListOutput(output);
 };
 
+const commandOutputBodyForPreview = (value: string): string => {
+  const text = stripAnsi(String(value ?? ""))
+    .replace(/\r\n/g, "\n")
+    .trimEnd();
+  if (!text.trim()) return "";
+  const marker = /(?:^|\n)\s*output:\s*(?:\n|$)/i.exec(text);
+  return marker ? text.slice(marker.index + marker[0].length).trim() : text;
+};
+
+const summarizeMeaningfulOutputLines = (
+  output: string,
+  maxPreviewLines: number
+): { lineCount: number; previewLines: string[] } => {
+  const body = commandOutputBodyForPreview(output);
+  if (!body.trim()) return { lineCount: 0, previewLines: [] };
+
+  const previewLines: string[] = [];
+  let lineCount = 0;
+  let start = 0;
+
+  while (start <= body.length) {
+    const nextBreak = body.indexOf("\n", start);
+    const end = nextBreak >= 0 ? nextBreak : body.length;
+    const line = body.slice(start, end).replace(/\r$/, "").trimEnd();
+    if (line.trim()) {
+      lineCount += 1;
+      if (previewLines.length < maxPreviewLines) previewLines.push(line);
+    }
+    if (nextBreak < 0) break;
+    start = nextBreak + 1;
+  }
+
+  return { lineCount, previewLines };
+};
+
 const readLineRangeFromAction = (raw: Record<string, any>): { startLine: number | null; endLine: number | null } => {
   const explicitStart =
     toPositiveLineNumberOrNull(raw.startLine) ??
@@ -719,7 +754,7 @@ const buildSpecializedCommandNode = (
 
   const commandFull = item.commandFull || action.command || item.commandShort;
   if (action.type === "read") {
-    const lines = toMeaningfulOutputLines(item.outputFull);
+    const outputSummary = summarizeMeaningfulOutputLines(item.outputFull, 40);
     const actionPath = action.path || "";
     const path = toWorkspaceRelativePath(actionPath, workspaceRoot) || actionPath;
     const fallbackName =
@@ -736,7 +771,7 @@ const buildSpecializedCommandNode = (
         turnId,
         status: ensureCommandGroupItemStatus(item),
         commandFull,
-        outputFull: item.outputFull,
+        outputFull: "",
         outputKey: item.outputKey,
         exitCode: item.exitCode,
         durationMs: item.durationMs,
@@ -744,8 +779,8 @@ const buildSpecializedCommandNode = (
         path,
         startLine: action.startLine,
         endLine: action.endLine,
-        lineCount: lines.length,
-        previewLines: lines.slice(0, 40),
+        lineCount: outputSummary.lineCount,
+        previewLines: outputSummary.previewLines,
       },
     };
   }

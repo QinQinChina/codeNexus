@@ -737,7 +737,9 @@
   color: var(--danger);
 }
 
-textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-modal) {
+textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-modal):not(
+    .codex-file-editor-textarea
+  ) {
   min-height: 84px;
   max-height: 180px;
   padding: 10px 12px;
@@ -748,7 +750,9 @@ textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-
   color: var(--input-text, var(--text));
 }
 
-textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-modal)::placeholder {
+textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-modal):not(
+    .codex-file-editor-textarea
+  )::placeholder {
   color: var(--input-placeholder, var(--text-muted));
 }
 
@@ -916,6 +920,19 @@ textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-
   pointer-events: none;
 }
 
+.codex-center-toast-host {
+  position: fixed;
+  top: calc(var(--topbar-h) + 12px);
+  left: 50%;
+  z-index: 10002;
+  display: grid;
+  gap: 8px;
+  width: min(380px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
 .codex-toast {
   --toast-border: var(--border-accent, var(--panel-border, var(--border)));
   --toast-bg-soft: var(--bg-accent-soft, var(--accent-soft));
@@ -944,6 +961,11 @@ textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-
   transform-origin: top right;
   will-change: transform, opacity;
   animation: toast-in var(--floating-enter-duration) var(--floating-enter-ease) both;
+}
+
+.codex-center-toast.codex-toast {
+  transform-origin: top center;
+  animation-name: center-toast-in;
 }
 
 .codex-toast::before {
@@ -1051,6 +1073,10 @@ textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-
   animation: toast-out 180ms ease both;
 }
 
+.codex-center-toast.codex-toast.closing {
+  animation: center-toast-out 180ms ease both;
+}
+
 @keyframes toast-in {
   from {
     opacity: 0;
@@ -1073,8 +1099,31 @@ textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-
   }
 }
 
+@keyframes center-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes center-toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.992);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .codex-toast,
+  .codex-center-toast,
   .codex-toast.closing {
     animation: none;
   }

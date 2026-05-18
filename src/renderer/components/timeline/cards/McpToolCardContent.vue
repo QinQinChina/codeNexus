@@ -29,7 +29,7 @@
                 class="mono"
                 color="var(--accent)"
                 :text="item.tool"
-                :cycle-max-chars="128"
+                :cycle-max-chars="0"
               />
               <span v-else class="mono">{{ item.tool }}</span>
             </span>

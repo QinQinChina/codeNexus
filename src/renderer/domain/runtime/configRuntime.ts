@@ -14,7 +14,7 @@ type ConfigRuntimeDeps = {
 export type ConfigRuntime = {
   requestConfigRead: () => Promise<ConfigReadResponse>;
   requestConfigRequirementsRead: () => Promise<ConfigRequirementsReadResponse>;
-  requestConfigBatchWrite: (changes: ConfigWriteChange[]) => Promise<void>;
+  requestConfigBatchWrite: (changes: ConfigWriteChange[], filePath?: string | null) => Promise<void>;
 };
 
 type JsonRpcErrorLike = {
@@ -72,16 +72,17 @@ export function createConfigRuntime(deps: ConfigRuntimeDeps): ConfigRuntime {
     return res.result;
   };
 
-  const requestConfigBatchWrite = async (changes: ConfigWriteChange[]): Promise<void> => {
+  const requestConfigBatchWrite = async (changes: ConfigWriteChange[], filePath?: string | null): Promise<void> => {
     const serverId = deps.requireActiveWorkspaceServerId();
     const normalized = normalizeConfigWriteChanges(changes);
+    const targetFilePath = String(filePath ?? "").trim() || null;
     if (normalized.length === 0) return;
 
     const valueWrite = async (keyPath: string, value: unknown) => {
       await codexDesktop.codexServer.rpc({
         serverId,
         method: "config/value/write",
-        params: { keyPath, value: value as JsonValue, mergeStrategy: "replace" },
+        params: { keyPath, value: value as JsonValue, mergeStrategy: "replace", filePath: targetFilePath },
       });
     };
 
@@ -95,6 +96,7 @@ export function createConfigRuntime(deps: ConfigRuntimeDeps): ConfigRuntime {
             value: change.value as JsonValue,
             mergeStrategy: "replace" as const,
           })),
+          filePath: targetFilePath,
         },
       });
     } catch (error) {

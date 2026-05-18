@@ -41,7 +41,7 @@ withDefaults(
     charDelaySec: 0.12,
     charAnimDurationSec: 1,
     pauseSec: 0,
-    cycleMaxChars: 128,
+    cycleMaxChars: 0,
     minOpacity: 0.25,
     maxOpacity: 1,
     as: "span",

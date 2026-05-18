@@ -29,6 +29,11 @@ const STREAM_NOTIFICATION_ACTIVITY_METHODS = new Set([
   "command/exec/outputDelta",
   "item/commandExecution/terminalInteraction",
 ]);
+const DIRECT_STREAMING_MODEL_METHODS = new Set([
+  "item/plan/delta",
+  "item/agentMessage/delta",
+  "item/commandExecution/outputDelta",
+]);
 const paramsObjectSignatureIds = new WeakMap<object, number>();
 let nextParamsObjectSignatureId = 1;
 
@@ -484,7 +489,7 @@ export function useChatRenderModel(
   };
 
   const isDirectStreamingMessageEvent = (event: TimelineEventItem): boolean => {
-    return event.method === "item/plan/delta" || event.method === "item/agentMessage/delta";
+    return DIRECT_STREAMING_MODEL_METHODS.has(event.method);
   };
 
   const eventStructureSignature = (event: TimelineEventItem) => {

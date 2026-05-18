@@ -67,7 +67,7 @@ export function useChatMessageParts(hiddenImageIds: () => Set<string>, onLayoutC
           path: segment.path,
           label,
           title: segment.path,
-          icon: resolveVscodeEntryIcon(segment.path, { isDirectory: false }),
+          icon: resolveVscodeEntryIcon(segment.path, { isDirectory: segment.kind === "directory" }),
         });
       }
       index += 1;

@@ -103,6 +103,7 @@ let previousDiffKey = "";
 let previousLineKeys = new Set<string>();
 let lastPatchAtMs = 0;
 let lastStreamScrollAtMs = 0;
+let streamScrollFloorTop = 0;
 const STREAM_SCROLL_MIN_INTERVAL_MS = 32;
 
 const gridLayoutClass = computed(() => {
@@ -316,7 +317,11 @@ const stopScrollAnimation = () => {
 
 const animateScrollTop = (el: HTMLElement, targetTopValue: number, force: boolean) => {
   const maxTop = Math.max(0, el.scrollHeight - el.clientHeight);
-  const targetTop = clamp(targetTopValue, 0, maxTop);
+  const nextTargetTop = props.animateUpdates
+    ? Math.max(targetTopValue, streamScrollFloorTop, el.scrollTop)
+    : targetTopValue;
+  const targetTop = clamp(nextTargetTop, 0, maxTop);
+  if (props.animateUpdates) streamScrollFloorTop = targetTop;
   const startTop = el.scrollTop;
   const distance = targetTop - startTop;
   if (Math.abs(distance) <= 2 || typeof requestAnimationFrame !== "function") {
@@ -512,6 +517,7 @@ watch(
 
     if (!animateUpdates || keyChanged) {
       stopRevealAnimation();
+      streamScrollFloorTop = 0;
       revealCharsByLineKey.value = new Map(
         currentKeys.map((key, index) => {
           const line = parsed.value.lines[index];

@@ -1593,11 +1593,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
           requires_openai_auth: true,
         },
       },
-      { keyPath: "model_reasoning_effort", value: profile.modelReasoningEffort },
-      { keyPath: "model_context_window", value: profile.modelContextWindow ?? null },
-      { keyPath: "model_auto_compact_token_limit", value: profile.modelAutoCompactTokenLimit ?? null },
     ];
   };
+
+  const buildCodexProfileAuthJsonContent = (profile: CodexProviderProfile) =>
+    `${JSON.stringify({ OPENAI_API_KEY: String(profile.apiKey ?? "").trim() }, null, 2)}\n`;
 
   const applyCodexProfile = async (profileId: string) => {
     const id = String(profileId ?? "").trim();
@@ -1612,13 +1612,29 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
 
     codexProfilesStore.applyingProfileId = id;
     try {
-      await codexDesktop.app.writeCodexAuthApiKey({ apiKey: profile.apiKey });
-      await requestConfigBatchWrite(buildCodexProfileConfigChanges(profile));
+      const authFileContent = String(profile.authFileContent ?? "").trim()
+        ? String(profile.authFileContent ?? "")
+        : buildCodexProfileAuthJsonContent(profile);
+      const configFileContent = String(profile.configFileContent ?? "").trim() ? String(profile.configFileContent) : "";
+      if (String(profile.authFilePath ?? "").trim()) {
+        await codexDesktop.app.writeTextFile({ path: profile.authFilePath, content: authFileContent });
+      } else {
+        await codexDesktop.app.writeCodexAuthApiKey({ apiKey: profile.apiKey });
+      }
+      if (String(profile.configFilePath ?? "").trim() && configFileContent) {
+        await codexDesktop.app.writeTextFile({ path: profile.configFilePath, content: configFileContent });
+      } else {
+        await requestConfigBatchWrite(buildCodexProfileConfigChanges(profile), profile.configFilePath);
+      }
       await codexProfilesStore.setActiveProfile(id);
       await refreshGlobalConfig();
-      pushEvent("codex:profile", `applied ${profile.name}\nprovider=${profile.modelProviderId}\nmodel=${profile.model}`, {
-        threadId: APP_TIMELINE_ID,
-      });
+      pushEvent(
+        "codex:profile",
+        `applied ${profile.name}\nprovider=${profile.modelProviderId}\nmodel=${profile.model}`,
+        {
+          threadId: APP_TIMELINE_ID,
+        }
+      );
       showToast({
         kind: "success",
         title: "模型配置已切换",
@@ -3997,7 +4013,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
               (eventServerId && eventServerId === runtimeStore.serverId ? runtimeStore.workspacePath : "")
           );
           if (workspace) invalidateSkillsSnapshot(workspace);
-          if (workspace && normalizeWorkspacePath(runtimeStore.workspacePath) === workspace) scheduleSkillsRefresh(workspace);
+          if (workspace && normalizeWorkspacePath(runtimeStore.workspacePath) === workspace)
+            scheduleSkillsRefresh(workspace);
           return;
         }
 

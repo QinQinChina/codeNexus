@@ -19,7 +19,7 @@
           class="chat-inline-activity__text chat-inline-activity__text--wrap ssh-tool-text"
           color="var(--accent)"
           :text="activityText"
-          :cycle-max-chars="128"
+          :cycle-max-chars="0"
         />
         <span v-else class="chat-inline-activity__text chat-inline-activity__text--wrap ssh-tool-text">{{
           activityText

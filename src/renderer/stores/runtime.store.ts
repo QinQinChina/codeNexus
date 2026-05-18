@@ -276,7 +276,7 @@ export const useRuntimeStore = defineStore("runtime", {
       this.composeAttachments = next;
       this.saveThreadComposeAttachments(this.currentThreadId);
     },
-    addComposeFileMentions(values: Array<Pick<ComposeWorkspaceFileMention, "path">>) {
+    addComposeFileMentions(values: Array<Pick<ComposeWorkspaceFileMention, "path" | "kind">>) {
       const incoming = Array.isArray(values)
         ? values
             .map((value, index) => {
@@ -285,6 +285,7 @@ export const useRuntimeStore = defineStore("runtime", {
               return {
                 id: `compose-file:${Date.now()}:${index}:${Math.random().toString(16).slice(2)}`,
                 path,
+                ...(value.kind === "directory" || value.kind === "file" ? { kind: value.kind } : {}),
               } satisfies ComposeWorkspaceFileMention;
             })
             .filter((value): value is ComposeWorkspaceFileMention => Boolean(value))

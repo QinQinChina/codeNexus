@@ -17,7 +17,7 @@
         class="chat-inline-activity__text chat-terminal-action-text"
         color="var(--accent)"
         :text="actionText"
-        :cycle-max-chars="128"
+        :cycle-max-chars="0"
       />
       <span v-else class="chat-inline-activity__text chat-terminal-action-text">{{ actionText }}</span>
       <button

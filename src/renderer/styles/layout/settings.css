@@ -3,7 +3,7 @@
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--surface-2) 34%, transparent),
@@ -11,114 +11,12 @@
   );
 }
 
-.settings-header {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--surface-1) 96%, transparent),
-    color-mix(in srgb, var(--surface-1) 82%, transparent)
-  );
-  -webkit-app-region: no-drag;
-}
-
-.settings-header-inner {
-  min-width: 0;
-  width: 100%;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.settings-title-block {
-  min-width: 160px;
-  display: grid;
-  gap: 2px;
-}
-
-.settings-kicker,
 .settings-nav-section {
   color: var(--text-muted);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-.settings-title-block h1 {
-  margin: 0;
-  color: var(--text-1);
-  font-size: 18px;
-  line-height: 1.2;
-  font-weight: 720;
-}
-
-.settings-status-strip {
-  min-width: 0;
-  flex: 1 1 auto;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(120px, 1fr));
-  gap: 8px;
-}
-
-.settings-status-item {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-  padding: 7px 10px;
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--border) 68%, transparent);
-  background: color-mix(in srgb, var(--surface-2) 42%, transparent);
-}
-
-.settings-status-label {
-  color: var(--text-muted);
-  font-size: 11px;
-  line-height: 1.2;
-}
-
-.settings-status-value {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--text);
-  font-size: 12px;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.settings-close {
-  flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  background: color-mix(in srgb, var(--surface-1) 82%, transparent);
-  color: var(--text-muted);
-  cursor: pointer;
-  display: inline-grid;
-  place-items: center;
-  transition:
-    background-color 0.14s ease,
-    border-color 0.14s ease,
-    color 0.14s ease;
-}
-
-.settings-close:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--border-accent, var(--accent-soft)) 42%, var(--border) 58%);
-  background: color-mix(in srgb, var(--accent) 9%, var(--surface-1));
-  color: var(--text);
-}
-
-.settings-close svg {
-  width: 16px;
-  height: 16px;
-  stroke-width: 2.2;
 }
 
 .settings-workspace {
@@ -507,142 +405,101 @@
 
 .codex-providers-page {
   min-width: 0;
+  position: relative;
   display: grid;
-  gap: 14px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  background: color-mix(in srgb, var(--surface-1) 86%, transparent);
+  box-shadow: 0 8px 22px color-mix(in srgb, rgb(from var(--ui-shadow-source) r g b / 0.5) 12%, transparent);
+  overflow: hidden;
 }
 
-.codex-providers-toolbar {
+.codex-providers-list-page,
+.codex-provider-editor-page {
   min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
 }
 
-.codex-providers-title-block {
-  min-width: 0;
+.codex-providers-list-page {
+  padding-bottom: 76px;
+}
+
+.codex-provider-editor-page {
   display: grid;
-  gap: 5px;
+  padding: 12px;
 }
 
-.codex-providers-title-block h2 {
-  margin: 0;
-  font-size: 20px;
-  line-height: 1.2;
-  letter-spacing: 0;
+.codex-provider-page-fade-enter-active,
+.codex-provider-page-fade-leave-active {
+  transition: opacity 160ms ease;
 }
 
-.codex-providers-title-block p {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 13px;
-  line-height: 1.45;
+.codex-provider-page-fade-enter-from,
+.codex-provider-page-fade-leave-to {
+  opacity: 0;
 }
 
-.codex-providers-toolbar-actions {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.codex-providers-toolbar-actions .btn-mini,
 .codex-provider-enable,
-.codex-provider-add-btn {
+.codex-provider-float-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
 }
 
-.codex-providers-toolbar-actions svg,
 .codex-provider-actions svg,
 .codex-editor-head svg,
-.codex-provider-empty svg {
+.codex-provider-empty svg,
+.codex-provider-float-btn svg {
   width: 16px;
   height: 16px;
-}
-
-.codex-provider-cli-state {
-  min-width: 0;
-  max-width: 260px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 6px 9px;
-  border-radius: 7px;
-  border: 1px solid color-mix(in srgb, var(--border) 56%, transparent);
-  color: var(--text-muted);
-  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
-  font-size: 12px;
-}
-
-.codex-provider-cli-state.is-active {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
-}
-
-.codex-provider-add-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
-  border: 0;
-  color: white;
-  background: linear-gradient(135deg, #ff7a1a, #ff4f11);
-  box-shadow: 0 12px 28px color-mix(in srgb, #ff6a18 30%, transparent);
-}
-
-.codex-provider-add-btn svg {
-  width: 22px;
-  height: 22px;
-  stroke-width: 2.4;
 }
 
 .codex-providers-shell {
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
   align-items: start;
+  padding: 12px;
 }
 
 .codex-provider-list {
   min-width: 0;
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
 .codex-provider-card {
   min-width: 0;
-  min-height: 112px;
+  min-height: 88px;
   display: grid;
-  grid-template-columns: 28px 64px minmax(0, 1fr) auto;
+  grid-template-columns: 28px 44px minmax(260px, 1fr) auto;
   align-items: center;
-  gap: 14px;
-  padding: 18px 18px;
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 88%, transparent), color-mix(in srgb, var(--surface-1) 96%, transparent));
+  column-gap: 16px;
+  row-gap: 10px;
+  padding: 14px 16px;
+  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--border) 64%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-2) 58%, transparent),
+    color-mix(in srgb, var(--surface-1) 90%, transparent)
+  );
   transition:
+    background-color 0.14s ease,
     border-color 160ms ease,
-    transform 160ms ease,
-    box-shadow 160ms ease,
-    background 160ms ease;
+    box-shadow 160ms ease;
 }
 
 .codex-provider-card:hover {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+  background: color-mix(in srgb, var(--surface-2) 64%, var(--surface-1));
 }
 
 .codex-provider-card.is-active {
-  border-color: var(--accent);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-1));
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .codex-provider-card.is-dragging {
@@ -651,41 +508,54 @@
 
 .codex-provider-grip {
   width: 28px;
-  height: 44px;
+  height: 40px;
   display: inline-grid;
   place-items: center;
+  padding: 0;
+  border-radius: 5px;
   border: 0;
   color: color-mix(in srgb, var(--text-muted) 82%, transparent);
   background: transparent;
   cursor: grab;
 }
 
+.codex-provider-grip:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-2) 58%, transparent);
+}
+
 .codex-provider-avatar {
-  width: 64px;
-  height: 64px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-  color: color-mix(in srgb, var(--text) 72%, transparent);
-  background: color-mix(in srgb, var(--surface-3, var(--surface-2)) 72%, transparent);
-  font-size: 24px;
-  font-weight: 800;
+  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  color: var(--fg-accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
+  font-size: 14px;
+  font-weight: 760;
 }
 
 .codex-provider-main {
+  width: 100%;
   min-width: 0;
+  height: auto;
+  min-height: 52px;
   display: grid;
+  align-content: center;
   justify-items: start;
   gap: 5px;
+  padding: 0;
   border: 0;
+  color: inherit;
   background: transparent;
   text-align: left;
+  cursor: pointer;
 }
 
 .codex-provider-name,
-.codex-provider-url,
-.codex-provider-meta {
+.codex-provider-url {
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
@@ -695,34 +565,19 @@
 
 .codex-provider-name {
   color: var(--text);
-  font-size: 18px;
-  font-weight: 800;
-  line-height: 1.2;
+  font-size: 14px;
+  font-weight: 680;
+  line-height: 1.25;
 }
 
 .codex-provider-url {
-  color: #3396ff;
-  font-size: 15px;
-}
-
-.codex-provider-meta {
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.codex-provider-test-dot {
-  margin-left: 8px;
-}
-
-.codex-provider-test-dot.is-ok {
-  color: var(--fg-success, #38d67a);
-}
-
-.codex-provider-test-dot.is-error {
-  color: var(--fg-danger, #ff5e57);
+  color: var(--ui-link);
+  font-size: 13px;
+  line-height: 1.25;
 }
 
 .codex-provider-actions {
+  min-width: max-content;
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
@@ -731,21 +586,38 @@
 }
 
 .codex-provider-enable {
-  min-width: 104px;
-  height: 44px;
-  padding: 0 16px;
-  border-radius: 8px;
-  border: 0;
-  color: white;
-  background: linear-gradient(135deg, #1787ff, #0965ed);
-  font-weight: 760;
+  min-width: 70px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 5px;
+  border: 1px solid var(--border-accent);
+  color: var(--fg-accent);
+  background: var(--bg-accent-soft);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    border-color 0.14s ease,
+    background-color 0.14s ease,
+    color 0.14s ease;
+}
+
+.codex-provider-enable:hover:not(:disabled) {
+  border-color: var(--border-accent-hover);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-1));
+  color: var(--text);
+}
+
+.codex-provider-enable:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .codex-provider-actions .btn-icon {
-  width: 34px;
-  min-width: 34px;
-  height: 34px;
-  border-radius: 7px;
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  border-radius: 5px;
   color: color-mix(in srgb, var(--text-muted) 90%, transparent);
 }
 
@@ -755,21 +627,21 @@
 }
 
 .codex-provider-empty {
-  min-height: 180px;
+  min-height: 150px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 14px;
-  padding: 24px;
-  border-radius: 8px;
-  border: 1px dashed color-mix(in srgb, var(--border) 80%, transparent);
+  gap: 12px;
+  padding: 18px;
+  border-radius: 5px;
+  border: 1px dashed color-mix(in srgb, var(--border) 72%, transparent);
   color: var(--text-muted);
-  background: color-mix(in srgb, var(--surface-1) 76%, transparent);
+  background: color-mix(in srgb, var(--surface-2) 38%, transparent);
 }
 
 .codex-provider-empty > svg {
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   color: var(--accent);
 }
 
@@ -784,14 +656,69 @@
 
 .codex-provider-editor {
   min-width: 0;
-  position: sticky;
-  top: 0;
   display: grid;
-  gap: 14px;
-  padding: 14px;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  background: color-mix(in srgb, var(--surface-2) 52%, var(--surface-1));
+}
+
+.codex-providers-floating-actions {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  background: color-mix(in srgb, var(--surface-1) 88%, transparent);
+  box-shadow: 0 14px 34px color-mix(in srgb, rgb(from var(--ui-shadow-source) r g b / 0.5) 18%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.codex-provider-float-btn {
+  min-width: 38px;
+  height: 38px;
+  padding: 0 12px;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
-  background: color-mix(in srgb, var(--surface-2) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-2) 58%, transparent);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    border-color 0.14s ease,
+    background-color 0.14s ease,
+    color 0.14s ease;
+}
+
+.codex-provider-float-btn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-1));
+}
+
+.codex-provider-float-btn--primary {
+  width: 38px;
+  padding: 0;
+  border-color: var(--border-accent);
+  color: var(--fg-accent);
+  background: var(--bg-accent-soft);
+}
+
+.codex-provider-float-btn--primary svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.2;
+}
+
+.codex-provider-float-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .codex-editor-head {
@@ -803,8 +730,9 @@
 }
 
 .codex-editor-title {
-  font-size: 15px;
-  font-weight: 800;
+  color: var(--text-1);
+  font-size: 14px;
+  font-weight: 680;
 }
 
 .codex-editor-subtitle {
@@ -818,22 +746,157 @@
 
 .codex-editor-form {
   display: grid;
+  gap: 8px;
+}
+
+.codex-model-picker {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.codex-model-fetch-btn {
+  height: 32px;
+  white-space: nowrap;
+}
+
+.codex-model-select-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
   gap: 10px;
+  align-items: start;
+  margin-top: -2px;
+}
+
+.codex-model-select-stack {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.codex-model-select {
+  min-width: 0;
+}
+
+.codex-model-status {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.codex-file-editor-block {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.codex-file-editor-head {
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.codex-file-editor-title {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.codex-file-editor-title span {
+  color: var(--text-muted);
+  font-weight: 650;
+}
+
+.codex-file-editor-path {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.codex-file-editor-textarea.app-scrollbar {
+  --app-scrollbar-track: color-mix(in srgb, var(--codex-file-editor-bg) 84%, transparent);
+  --app-scrollbar-track-hover: color-mix(in srgb, var(--accent) 10%, var(--codex-file-editor-bg));
+  --app-scrollbar-thumb: color-mix(in srgb, var(--accent) 34%, var(--border) 38%);
+  --app-scrollbar-thumb-hover: color-mix(in srgb, var(--accent) 54%, var(--border) 28%);
+  --app-scrollbar-thumb-active: color-mix(in srgb, var(--accent) 76%, var(--text) 8%);
+}
+
+.codex-file-editor-textarea {
+  --codex-file-editor-bg: color-mix(in srgb, var(--surface-2) 78%, var(--accent-soft, var(--accent)) 22%);
+  --codex-file-editor-bg-top: color-mix(in srgb, var(--surface-1) 82%, var(--accent-soft, var(--accent)) 18%);
+  --codex-file-editor-line: color-mix(in srgb, var(--accent) 36%, transparent);
+  width: 100%;
+  height: clamp(260px, 34vh, 420px);
+  min-height: 240px;
+  resize: vertical;
+  padding: 12px 14px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border) 76%);
+  outline: none;
+  color: color-mix(in srgb, var(--text) 92%, var(--accent) 8%);
+  caret-color: var(--we-cm-caret, var(--accent));
+  background:
+    linear-gradient(90deg, var(--codex-file-editor-line) 0 3px, transparent 3px 100%),
+    linear-gradient(180deg, var(--codex-file-editor-bg-top), var(--codex-file-editor-bg));
+  font-size: 12px;
+  line-height: 1.55;
+  scrollbar-color: var(--app-scrollbar-thumb) var(--app-scrollbar-track);
+  tab-size: 2;
+  white-space: pre;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 24%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent);
+  transition:
+    border-color 0.14s ease,
+    box-shadow 0.14s ease;
+}
+
+.codex-file-editor-textarea:focus {
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 28%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.codex-file-editor-textarea::selection {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
+html[data-tone="dark"] .codex-file-editor-textarea {
+  --codex-file-editor-bg: color-mix(in srgb, var(--bg) 84%, var(--accent) 16%);
+  --codex-file-editor-bg-top: color-mix(in srgb, var(--surface-1) 72%, var(--accent) 14%);
+  color: color-mix(in srgb, white 90%, var(--accent) 10%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 8%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 .codex-editor-actions {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
+  padding-top: 2px;
 }
 
 @media (max-width: 900px) {
-  .settings-status-strip {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .codex-providers-shell {
     grid-template-columns: 1fr;
   }
@@ -866,51 +929,31 @@
     grid-template-columns: 1fr;
   }
 
-  .codex-providers-toolbar {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .codex-providers-toolbar-actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
   .codex-provider-card {
-    grid-template-columns: 24px 52px minmax(0, 1fr);
+    grid-template-columns: 28px 44px minmax(0, 1fr);
   }
 
   .codex-provider-actions {
-    grid-column: 2 / -1;
+    grid-column: 3 / -1;
     justify-content: flex-start;
+    min-width: 0;
   }
 
   .codex-provider-avatar {
-    width: 52px;
-    height: 52px;
-    font-size: 20px;
-  }
-}
-
-@media (max-width: 680px) {
-  .settings-header-inner {
-    align-items: center;
-    flex-wrap: wrap;
-  }
-
-  .settings-title-block {
-    flex: 1 1 auto;
-  }
-
-  .settings-status-strip {
-    flex-basis: 100%;
-    order: 3;
+    width: 44px;
+    height: 44px;
+    font-size: 14px;
   }
 }
 
 @media (max-width: 560px) {
   .settings-scroll {
     padding: 10px;
+  }
+
+  .codex-providers-floating-actions {
+    right: 14px;
+    bottom: 14px;
   }
 
   .settings-row,
