@@ -78,7 +78,7 @@ pnpm run typecheck
 
 - ✅ 仓库包含当前项目需要的界面代码、构建脚本与少量原生辅助程序
 - ✅ 应用窗口标题、图标与安装包名已切换到 `CodeNexus`
-- ⚠️ 字体、图标与内置提示音等二进制资源需单独确认授权，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+- ✅ 字体、图标与内置提示音等二进制资源授权状态见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 - ❌ 仓库不提供 OpenAI 账号、Token 或托管服务
 - ❌ 运行本项目产生的模型调用费用与本地数据安全责任由使用者自行承担
 
