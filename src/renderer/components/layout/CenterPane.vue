@@ -129,7 +129,7 @@
         class="composer-lightbox-overlay"
         role="dialog"
         aria-modal="true"
-        aria-label="图片预览"
+        :aria-label="t('composer.imagePreview')"
         @click.self="closeComposeLightbox"
       >
         <div class="composer-lightbox-backdrop" @click="closeComposeLightbox"></div>
@@ -145,7 +145,7 @@
             type="button"
             @click="closeComposeLightbox"
           >
-            关闭
+            {{ t("common.close") }}
           </button>
         </div>
       </div>
@@ -155,6 +155,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import ComposerPanel from "./composer/ComposerPanel.vue";
 import CenterPaneEmptyState from "./CenterPaneEmptyState.vue";
 import { ChatPane, ComposerQueueList, ComposerSlashCommandList, SkillsManagerOverlay } from "../asyncViews";
@@ -181,6 +182,8 @@ import { useTimelineStore } from "../../stores/timeline.store";
 import { CENTER_TIMELINE_SOFT_MIN_WIDTH_PX } from "../../domain/layoutWidthBudget";
 import { buildModelPickerOptions } from "../../../shared/modelCatalog";
 import { showToast } from "../../ui/toast";
+
+const { t } = useI18n();
 
 type SlashCommandDef = {
   id: string;
@@ -243,6 +246,7 @@ let pendingSlashPopoverPlacementRafId: number | null = null;
 let slashPopoverResizeObserver: ResizeObserver | null = null;
 let composerResizeObserver: ResizeObserver | null = null;
 let centerContentResizeObserver: ResizeObserver | null = null;
+let lastTimelineStatsLogAt = 0;
 
 function bindComposerPanelRef(el: HTMLDivElement | null) {
   composerPanelRef.value = el;
@@ -283,17 +287,17 @@ function observeComposerPanelSize() {
   measureComposerDockHeight();
 }
 
-const reasoningEffortOptions = [
-  { value: "low", label: "低" },
-  { value: "medium", label: "中" },
-  { value: "high", label: "高" },
-  { value: "xhigh", label: "极高" },
-] as const;
-const sandboxModeOptions = [
-  { value: "read-only", label: "只读" },
-  { value: "workspace-write", label: "可写" },
-  { value: "danger-full-access", label: "完全" },
-] as const;
+const reasoningEffortOptions = computed(() => [
+  { value: "low", label: t("composer.low") },
+  { value: "medium", label: t("composer.medium") },
+  { value: "high", label: t("composer.high") },
+  { value: "xhigh", label: t("composer.xhigh") },
+]);
+const sandboxModeOptions = computed(() => [
+  { value: "read-only", label: t("composer.readOnlyShort") },
+  { value: "workspace-write", label: t("composer.workspaceWriteShort") },
+  { value: "danger-full-access", label: t("composer.dangerFullAccessShort") },
+]);
 
 const timelineKey = computed(() => String(runtimeStore.timelineKey ?? "__app__"));
 const currentThreadId = computed(() => String(runtimeStore.currentThreadId ?? "").trim());
@@ -301,6 +305,7 @@ const workspaceRoot = computed(() => String(runtimeStore.workspacePath ?? "").tr
 const contentTimelineEvents = computed<TimelineEventItem[]>(() => timelineStore.eventsForThread(timelineKey.value));
 const timelineContentRevision = computed(() => timelineStore.threadContentRevisionForThread(timelineKey.value));
 const timelineRevision = computed(() => timelineStore.threadStructureRevisionForThread(timelineKey.value));
+const timelineStats = computed(() => timelineStore.timelineStatsForThread(timelineKey.value));
 const queueItems = computed(() => messageQueueStore.queueByThread.get(timelineKey.value) ?? []);
 const queueFailedCount = computed(() => queueItems.value.filter((item) => item.status === "failed").length);
 const emptyStateMode = computed<"default" | "pendingThread">(() => {
@@ -316,9 +321,9 @@ const modelOptions = computed(() =>
 );
 
 const sandboxRiskText = computed(() => {
-  if (runtimeStore.sandboxMode === "danger-full-access") return "完全权限：请确认命令来源可信。";
-  if (runtimeStore.sandboxMode === "read-only") return "只读权限：无法修改工作区文件。";
-  return "工作区可写：可修改当前工作区文件。";
+  if (runtimeStore.sandboxMode === "danger-full-access") return t("composer.dangerFullAccessRisk");
+  if (runtimeStore.sandboxMode === "read-only") return t("composer.readOnlyRisk");
+  return t("composer.workspaceWriteRisk");
 });
 const isTurnRunning = computed(() => {
   const tid = currentThreadId.value;
@@ -431,8 +436,8 @@ const contextUsageTokensText = computed(() => {
 const contextUsageTooltip = computed(() => {
   const usedTokens = currentTokenUsage.value.usedTokens;
   const contextWindow = currentTokenUsage.value.contextWindow;
-  if (usedTokens == null || contextWindow == null || contextWindow <= 0) return "上下文窗口信息暂不可用";
-  return `上下文使用 ${usedTokens}/${contextWindow} 个 token`;
+  if (usedTokens == null || contextWindow == null || contextWindow <= 0) return t("composer.contextUnavailable");
+  return t("composer.contextUsage", { used: usedTokens, total: contextWindow });
 });
 
 const trailingContextCompactionEvent = computed<TimelineEventItem | null>(() => {
@@ -467,12 +472,12 @@ const composeLightboxAttachment = computed<ComposeImageAttachment | null>(() => 
 });
 const hasCurrentThread = computed(() => Boolean(currentThreadId.value));
 const compactCommandDisabledHint = computed(() => {
-  if (!hasCurrentThread.value) return "需先进入线程";
-  if (isTurnRunning.value) return "线程运行中不可压缩";
+  if (!hasCurrentThread.value) return t("composer.needThread");
+  if (isTurnRunning.value) return t("composer.threadRunningNoCompact");
   return "";
 });
 const threadContentCommandDisabledHint = computed(() => {
-  if (!hasCurrentThread.value) return "需先进入线程";
+  if (!hasCurrentThread.value) return t("composer.needThread");
   return "";
 });
 const slashQuery = computed(() => {
@@ -489,8 +494,8 @@ const slashCommands = computed<SlashCommandDef[]>(() => [
   {
     id: "compact",
     code: "compact",
-    title: "压缩当前线程",
-    hint: "调用线程压缩",
+    title: t("composer.slashCompactTitle"),
+    hint: t("composer.slashCompactHint"),
     disabled: Boolean(compactCommandDisabledHint.value),
     disabledHint: compactCommandDisabledHint.value || undefined,
     run: async () => {
@@ -500,8 +505,8 @@ const slashCommands = computed<SlashCommandDef[]>(() => [
   {
     id: "skills",
     code: "skills",
-    title: "打开技能管理器",
-    hint: "查看并管理 workspace skills",
+    title: t("composer.slashSkillsTitle"),
+    hint: t("composer.slashSkillsHint"),
     run: () => {
       skillsUiStore.openManager();
     },
@@ -509,8 +514,8 @@ const slashCommands = computed<SlashCommandDef[]>(() => [
   {
     id: "thread-content",
     code: "thread-content",
-    title: "读取线程内容",
-    hint: "调试：读取当前线程消息与事件窗口",
+    title: t("composer.slashThreadContentTitle"),
+    hint: t("composer.slashThreadContentHint"),
     disabled: Boolean(threadContentCommandDisabledHint.value),
     disabledHint: threadContentCommandDisabledHint.value || undefined,
     run: async () => {
@@ -524,8 +529,8 @@ const slashCommands = computed<SlashCommandDef[]>(() => [
       if (!result.found) {
         showToast({
           kind: "warn",
-          title: "线程未找到",
-          message: threadId || "当前没有可读取线程。",
+          title: t("composer.threadNotFound"),
+          message: threadId || t("composer.noReadableThread"),
         });
         return;
       }
@@ -535,8 +540,13 @@ const slashCommands = computed<SlashCommandDef[]>(() => [
       const hasMore = result.eventsPage.hasMore;
       showToast({
         kind: "info",
-        title: "线程内容已读取",
-        message: `消息 ${messageCount} 条；事件 ${eventCount}/${totalEvents}${hasMore ? "（可继续分页）" : ""}`,
+        title: t("composer.threadContentRead"),
+        message: t("composer.threadContentSummary", {
+          messageCount,
+          eventCount,
+          totalEvents,
+          suffix: hasMore ? t("composer.threadContentHasMore") : "",
+        }),
       });
     },
   },
@@ -559,8 +569,8 @@ const slashPopoverDirection = computed<PopoverDirection>(() => slashPopoverPlace
 const slashPopoverStyle = computed(() => popoverStyleFromPlacement(slashPopoverPlacement.value));
 
 const sendTitle = computed(() => {
-  if (isPendingThreadId(currentThreadId.value)) return "发送消息（初始化完成后自动发送）";
-  return isTurnRunning.value ? "发送消息（运行中将加入队列）" : "发送消息";
+  if (isPendingThreadId(currentThreadId.value)) return t("composer.sendAfterInit");
+  return isTurnRunning.value ? t("composer.sendQueuedWhenRunning") : t("composer.sendMessage");
 });
 const sendDisabled = computed(() => {
   return (
@@ -569,16 +579,16 @@ const sendDisabled = computed(() => {
     runtimeStore.composeFileMentions.length === 0
   );
 });
-const interruptTitle = computed(() => "停止当前任务");
+const interruptTitle = computed(() => t("composer.stopCurrentTask"));
 const interruptDisabled = computed(() => !isTurnRunning.value);
 const serviceTierLabel = computed(() => {
   if (appShellStore.serverConnState !== "connected") return "";
   if (configStore.loadState !== "ready") return "";
-  return configStore.snapshot.fastModeEnabled ? "快速" : "标准";
+  return configStore.snapshot.fastModeEnabled ? t("composer.fast") : t("composer.standard");
 });
 const serviceTierTooltip = computed(() => {
   if (!serviceTierLabel.value) return "";
-  return `当前生效服务层级：${configStore.snapshot.fastModeEnabled ? "快速" : "标准"}`;
+  return t("composer.activeServiceTier", { tier: serviceTierLabel.value });
 });
 
 const composerStatusText = computed(() => {
@@ -587,8 +597,8 @@ const composerStatusText = computed(() => {
   const pending = runtimeStore.pendingThreadInitSendCountByThread.get(tid) ?? 0;
   if (!Number.isFinite(pending) || pending <= 0) return "";
   return pending === 1
-    ? "正在初始化线程，初始化完成后将自动发送。"
-    : `正在初始化线程，初始化完成后将自动发送（已排队 ${pending} 条）。`;
+    ? t("composer.initializingThread")
+    : t("composer.initializingThreadQueued", { count: pending });
 });
 
 function onComposeInputUpdate(value: string) {
@@ -1180,6 +1190,18 @@ watch(
   () => runtimeStore.timelineScrollToBottomSeq,
   () => {
     forceFollowBottom("runtime-request");
+  },
+  { flush: "post" }
+);
+
+watch(
+  () => [runtimeStore.timelineDebugEnabled, timelineContentRevision.value, timelineRevision.value] as const,
+  () => {
+    if (!import.meta.env.DEV || !runtimeStore.timelineDebugEnabled) return;
+    const now = Date.now();
+    if (now - lastTimelineStatsLogAt < 1000) return;
+    lastTimelineStatsLogAt = now;
+    console.debug("[timeline:stats]", timelineKey.value, timelineStats.value);
   },
   { flush: "post" }
 );

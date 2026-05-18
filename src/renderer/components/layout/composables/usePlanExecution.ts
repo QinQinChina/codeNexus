@@ -3,6 +3,7 @@ import type { TimelineEventItem } from "../../../domain/types";
 import type { PlanDeltaExecUiState } from "../types/chat.types";
 import { useRuntimeStore, type SandboxMode } from "../../../stores/runtime.store";
 import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
+import { translate } from "../../../i18n/translate";
 
 export function usePlanExecution(contentEvents: () => TimelineEventItem[], isTurnRunning: () => boolean) {
   const runtimeStore = useRuntimeStore();
@@ -107,7 +108,7 @@ export function usePlanExecution(contentEvents: () => TimelineEventItem[], isTur
       runtimeStore.setComposeMode("default");
       runtimeStore.composeAttachments = [];
       runtimeStore.composeFileMentions = [];
-      runtimeStore.composeInput = "执行计划";
+      runtimeStore.composeInput = translate("markdownPlan.executing");
       await runtime.send();
     } finally {
       runtimeStore.model = prevModel;

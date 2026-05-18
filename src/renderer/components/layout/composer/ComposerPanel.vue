@@ -23,7 +23,7 @@
       >
         <UserInputDock v-if="variant !== 'inline' && hasPendingComposerUserInput" />
         <div v-if="isWorkspaceFileDragOver" class="composer-file-drop-overlay" aria-hidden="true">
-          松开鼠标，将工作区文件添加到当前提问
+          {{ t("composer.dropFiles") }}
         </div>
         <div
           :ref="bindComposerInputRef"
@@ -33,7 +33,7 @@
           role="textbox"
           aria-multiline="true"
           spellcheck="false"
-          :data-placeholder="inputPlaceholder || '输入任务...'"
+          :data-placeholder="inputPlaceholder || t('composer.inputPlaceholder')"
           @keydown="onComposerKeydown"
           @paste="onComposerPaste"
           @input="onComposerInput"
@@ -57,7 +57,7 @@
             <button
               class="composer-attachment-preview"
               type="button"
-              :aria-label="`预览图片：${attachment.name}`"
+              :aria-label="t('composer.previewImage', { name: attachment.name })"
               @click="onPreviewAttachment(attachment.id)"
             >
               <img
@@ -70,7 +70,7 @@
             <button
               class="composer-attachment-remove"
               type="button"
-              aria-label="移除图片"
+              :aria-label="t('composer.removeImage')"
               @click.stop.prevent="onRemoveAttachment(attachment.id)"
             >
               ×
@@ -81,13 +81,13 @@
         <div class="composer-toolbar">
           <div class="composer-toolbar-main">
             <div v-if="historyRewriteActive && variant !== 'inline'" class="composer-rewrite-chip mono">
-              <span>{{ historyRewriteSource === "queue" ? "编辑排队消息" : "重写历史消息" }}</span>
+              <span>{{ historyRewriteLabel }}</span>
               <button class="btn-mini composer-rewrite-cancel" type="button" @click="emit('cancel-rewrite')">
-                取消
+                {{ t("common.cancel") }}
               </button>
             </div>
 
-            <div class="composer-mode-group" role="group" aria-label="协作模式">
+            <div class="composer-mode-group" role="group" :aria-label="t('composer.collaborationMode')">
               <div class="composer-mode-thumb"></div>
               <button
                 class="btn-mini composer-mode-button"
@@ -95,7 +95,7 @@
                 :class="['is-agent', composeMode === 'default' ? 'is-active' : '']"
                 @click="emit('set-compose-mode', 'default')"
               >
-                <Bot class="composer-mode-icon" aria-hidden="true" /><span>执行</span>
+                <Bot class="composer-mode-icon" aria-hidden="true" /><span>{{ t("composer.execute") }}</span>
               </button>
               <button
                 class="btn-mini composer-mode-button"
@@ -103,7 +103,7 @@
                 :class="['is-plan', composeMode === 'plan' ? 'is-active' : '']"
                 @click="emit('set-compose-mode', 'plan')"
               >
-                <ListTodo class="composer-mode-icon" aria-hidden="true" /><span>计划</span>
+                <ListTodo class="composer-mode-icon" aria-hidden="true" /><span>{{ t("composer.plan") }}</span>
               </button>
             </div>
 
@@ -128,7 +128,7 @@
             <span
               v-if="variant !== 'inline' && serviceTierLabel"
               class="composer-service-tier mono"
-              :class="{ 'is-fast': serviceTierLabel === '快速' }"
+              :class="{ 'is-fast': serviceTierLabel === t('composer.fast') }"
               >{{ serviceTierLabel }}</span
             >
           </div>
@@ -139,7 +139,7 @@
               id="btn-add-image"
               class="btn-mini composer-icon-button"
               type="button"
-              aria-label="添加图片"
+              :aria-label="t('composer.addImage')"
               @click="emit('pick-images')"
             >
               <ImagePlus class="composer-icon-button-icon" />
@@ -170,7 +170,7 @@
             >
               <div v-if="!sendDisabled && !isTurnRunning" class="composer-send-ping"></div>
               <SendHorizontal class="composer-send-icon" />
-              <span class="composer-send-label">发送</span>
+              <span class="composer-send-label">{{ t("composer.send") }}</span>
             </button>
             <button
               v-if="isTurnRunning"
@@ -196,6 +196,7 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, nextTick, ref, watch } from "vue";
 import { Bot, ImagePlus, ListTodo, SendHorizontal, Square } from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
 import type { CollaborationModeKind, ComposeImageAttachment, ComposeWorkspaceFileMention } from "../../../domain/types";
 import {
   COMPOSE_FILE_TOKEN_CHAR,
@@ -286,6 +287,7 @@ const emit = defineEmits<{
   (event: "interact"): void;
 }>();
 
+const { t } = useI18n();
 const internalComposerInputRef = ref<HTMLDivElement | null>(null);
 const runtimeStore = useRuntimeStore();
 const userInputStore = useUserInputStore();
@@ -316,6 +318,10 @@ const hasPendingComposerUserInput = computed(() => {
   const threadId = String(runtimeStore.currentThreadId ?? "").trim();
   return Boolean(threadId && userInputStore.queueSizeForThread(threadId) > 0);
 });
+
+const historyRewriteLabel = computed(() =>
+  props.historyRewriteSource === "queue" ? t("composer.editQueuedMessage") : t("composer.rewriteHistoryMessage")
+);
 
 const mentionSignature = computed(() => {
   return props.composeFileMentions.map((mention) => `${mention.id}\u0001${mention.path}`).join("\u0002");

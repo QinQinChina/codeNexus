@@ -7,12 +7,14 @@
             ref="treeSurfaceRef"
             class="workspace-files-tree-surface app-scrollbar"
             role="tree"
-            aria-label="工作区文件树"
+            :aria-label="t('workspaceFiles.treeAria')"
           >
             <div v-if="!workspaceFilesStore.hasWorkspace" class="workspace-files-placeholder">
-              先选择工作区后再浏览文件。
+              {{ t("workspaceFiles.chooseWorkspaceFirst") }}
             </div>
-            <div v-else-if="treeRows.length === 0" class="workspace-files-placeholder">工作区尚未加载。</div>
+            <div v-else-if="treeRows.length === 0" class="workspace-files-placeholder">
+              {{ t("workspaceFiles.notLoaded") }}
+            </div>
             <template v-else>
               <template v-for="row in treeRows" :key="row.key">
                 <button
@@ -77,7 +79,7 @@
         class="workspace-file-context-menu"
         :style="contextMenuStyle"
         role="menu"
-        aria-label="文件操作"
+        :aria-label="t('workspaceFiles.fileActions')"
         @click.stop
         @contextmenu.prevent
       >
@@ -89,7 +91,7 @@
           @click="onDeleteContextFile"
         >
           <Trash2 class="workspace-file-context-menu__icon" aria-hidden="true" />
-          <span>删除文件</span>
+          <span>{{ t("workspaceFiles.deleteFile") }}</span>
         </button>
       </div>
     </Teleport>
@@ -98,6 +100,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { ChevronRight, Trash2 } from "lucide-vue-next";
 import WorkspaceTreeEntryIcon from "./WorkspaceTreeEntryIcon.vue";
 import { useWorkspaceFilesStore } from "../../../stores/workspaceFiles.store";
@@ -106,6 +109,7 @@ import { normalizeAbsoluteFsPath } from "../../../domain/workspacePath";
 import { writeWorkspaceFileDragData } from "../../../domain/workspaceFileDrag";
 
 const workspaceFilesStore = useWorkspaceFilesStore();
+const { t } = useI18n();
 const treeSurfaceRef = ref<HTMLElement | null>(null);
 const draggingTreePath = ref("");
 const contextMenu = ref({
@@ -181,7 +185,7 @@ const treeRows = computed<TreeRow[]>(() => {
         key: `dirempty:${normalizedPath}`,
         path: normalizedPath,
         depth: depth + 1,
-        text: "空目录",
+        text: t("workspaceFiles.emptyDirectory"),
         tone: "dim",
       });
       return;
@@ -242,8 +246,8 @@ const treeMessageStyle = (row: Extract<TreeRow, { kind: "message" }>) => {
 };
 
 const treeRowMetaText = (row: Extract<TreeRow, { kind: "entry" }>) => {
-  if (workspaceFilesStore.isFileDeleting(row.path)) return "删除中";
-  if (row.isLoading) return "加载中";
+  if (workspaceFilesStore.isFileDeleting(row.path)) return t("workspaceFiles.deleting");
+  if (row.isLoading) return t("workspaceFiles.loading");
   return "";
 };
 

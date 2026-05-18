@@ -1,6 +1,7 @@
 import { computed, ref, watch } from "vue";
 import { useThreadStore } from "../../../stores/thread.store";
 import { useRuntimeStore } from "../../../stores/runtime.store";
+import { translate } from "../../../i18n/translate";
 import type { ActivityTone } from "../types/chat.types";
 
 export function useChatLayout() {
@@ -22,7 +23,7 @@ export function useChatLayout() {
 
   const resolveThreadLabelForDiagnostics = (threadIdValue: unknown): string => {
     const tid = normalizeThreadId(threadIdValue);
-    if (!tid) return "未知线程";
+    if (!tid) return translate("chatPane.unknownThread");
     const history = threadHistoryById.value.get(tid);
     const nickname = String(history?.agentNickname ?? "").trim();
     const title = String(history?.title ?? "").trim();
@@ -46,7 +47,9 @@ export function useChatLayout() {
 
     if (threadStore.handoffDiagnosticsLoadingThreadIds.has(threadId) && !currentThreadHandoffDiagnostics.value) {
       return {
-        text: `正在读取 ${resolveThreadLabelForDiagnostics(parentThreadId)} 的 handoff transcript 摘要...`,
+        text: translate("chatPane.readingHandoffSummary", {
+          thread: resolveThreadLabelForDiagnostics(parentThreadId),
+        }),
         tone: "running",
       };
     }
@@ -60,12 +63,16 @@ export function useChatLayout() {
     const postHandoffTurns = d.postHandoffTurns;
     const details: string[] = [];
 
-    if (parentTurns != null) details.push(`父线程「${parentLabel}」${parentTurns} 轮`);
-    else details.push(`父线程「${parentLabel}」摘要暂不可用`);
+    if (parentTurns != null) details.push(translate("chatPane.parentThreadTurns", { thread: parentLabel, count: parentTurns }));
+    else details.push(translate("chatPane.parentThreadSummaryUnavailable", { thread: parentLabel }));
 
-    details.push(`当前 ${currentTurns} 轮`);
+    details.push(translate("chatPane.currentTurns", { count: currentTurns }));
     if (postHandoffTurns != null)
-      details.push(postHandoffTurns > 0 ? `handoff 后 +${postHandoffTurns}` : "当前仍停留在继承 transcript 阶段");
+      details.push(
+        postHandoffTurns > 0
+          ? translate("chatPane.postHandoffTurns", { count: postHandoffTurns })
+          : translate("chatPane.inheritedTranscriptStage")
+      );
 
     const latestDurationText = (() => {
       const ms = typeof d.current.lastTurnDurationMs === "number" ? d.current.lastTurnDurationMs : NaN;
@@ -77,7 +84,7 @@ export function useChatLayout() {
       const remainSeconds = seconds % 60;
       return remainSeconds > 0 ? `${minutes}m${remainSeconds}s` : `${minutes}m`;
     })();
-    if (latestDurationText) details.push(`最近回合 ${latestDurationText}`);
+    if (latestDurationText) details.push(translate("chatPane.latestTurnDuration", { duration: latestDurationText }));
 
     return { text: details.join("｜"), tone: postHandoffTurns == null ? "warn" : postHandoffTurns > 0 ? "ok" : "warn" };
   });

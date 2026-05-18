@@ -5,7 +5,7 @@
       class="app-closing-overlay"
       role="dialog"
       aria-modal="true"
-      aria-label="应用正在关闭"
+      :aria-label="t('appClosing.aria')"
     >
       <div class="app-closing-overlay-backdrop"></div>
       <section class="app-closing-panel">
@@ -14,19 +14,19 @@
             <span class="running-indicator is-accent"></span>
           </div>
           <div class="app-closing-copy">
-            <p class="app-closing-kicker mono">正在关闭应用</p>
+            <p class="app-closing-kicker mono">{{ t("appClosing.kicker") }}</p>
             <h2 class="app-closing-title">{{ phaseTitle }}</h2>
             <p class="app-closing-subtitle">{{ phaseSubtitle }}</p>
           </div>
         </div>
 
-        <div class="app-closing-step-list" role="list" aria-label="关闭步骤">
+        <div class="app-closing-step-list" role="list" :aria-label="t('appClosing.stepsAria')">
           <div
             v-for="step in appClosingStore.steps"
             :key="`${step.id}:${step.status}`"
             class="app-closing-step-item"
             :class="{ 'is-completed': step.status === 'completed' }"
-            :aria-label="buildStepAriaLabel(step.label, step.status)"
+            :aria-label="buildStepAriaLabel(localizedClosingStepLabel(step), step.status)"
           >
             <span class="app-closing-refresh-badge" aria-hidden="true">
               <CheckCircle2
@@ -35,15 +35,15 @@
               />
               <span v-else class="running-indicator is-accent"></span>
             </span>
-            <span class="app-closing-step-text">{{ step.label }}</span>
+            <span class="app-closing-step-text">{{ localizedClosingStepLabel(step) }}</span>
           </div>
         </div>
 
-        <section v-if="showTaskCard" class="app-closing-task-card" aria-label="当前任务摘要">
+        <section v-if="showTaskCard" class="app-closing-task-card" :aria-label="t('appClosing.currentTaskAria')">
           <div class="app-closing-task-head">
             <span class="running-indicator is-muted" aria-hidden="true"></span>
             <div class="min-w-0">
-              <p class="app-closing-task-kicker mono">当前任务</p>
+              <p class="app-closing-task-kicker mono">{{ t("appClosing.currentTask") }}</p>
               <p class="app-closing-task-title">{{ taskTitle }}</p>
             </div>
           </div>
@@ -75,6 +75,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { CheckCircle2 } from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
 import type { AppClosingStep } from "../../../../shared/ipc";
 import type { PlanStepState, TimelineEventItem, TurnPlanState } from "../../../domain/types";
 import { isLocalThinkingEvent } from "../../../features/timeline/renderModel/formatters";
@@ -87,15 +88,16 @@ const appClosingStore = useAppClosingStore();
 const runtimeStore = useRuntimeStore();
 const threadStore = useThreadStore();
 const timelineStore = useTimelineStore();
+const { t } = useI18n();
 
-const THINKING_PHASE_LABELS: Record<NonNullable<TimelineEventItem["thinkingPhase"]>, string> = {
-  queued: "已排队",
-  preparing: "准备中",
-  reasoning: "思考中",
-  streaming: "生成中",
-  waiting_more: "等待继续",
-  completed: "已完成",
-  failed: "已失败",
+const THINKING_PHASE_KEYS: Record<NonNullable<TimelineEventItem["thinkingPhase"]>, string> = {
+  queued: "appClosing.thinkingQueued",
+  preparing: "appClosing.thinkingPreparing",
+  reasoning: "appClosing.thinkingReasoning",
+  streaming: "appClosing.thinkingStreaming",
+  waiting_more: "appClosing.thinkingWaitingMore",
+  completed: "appClosing.thinkingCompleted",
+  failed: "appClosing.thinkingFailed",
 };
 
 function compactText(value: unknown, maxLength = 140) {
@@ -108,7 +110,17 @@ function compactText(value: unknown, maxLength = 140) {
 }
 
 function buildStepAriaLabel(label: string, status: AppClosingStep["status"] | PlanStepState["status"]) {
-  return `${label}，${status === "completed" ? "已完成" : "正在处理中"}`;
+  return t("appClosing.stepAria", {
+    label,
+    status: status === "completed" ? t("appClosing.completed") : t("appClosing.processing"),
+  });
+}
+
+function localizedClosingStepLabel(step: AppClosingStep) {
+  if (step.id === "prepareUi") return t("appClosing.prepareUi");
+  if (step.id === "stopTasks") return t("appClosing.stopTasks");
+  if (step.id === "exitApp") return t("appClosing.exitApp");
+  return step.label;
 }
 
 const activeThreadId = computed(() => {
@@ -137,17 +149,17 @@ const activeThinkingEvent = computed<TimelineEventItem | null>(() => {
 });
 
 const phaseTitle = computed(() => {
-  if (appClosingStore.phase === "stopping") return "正在停止后台任务";
-  if (appClosingStore.phase === "finalizing") return "正在退出应用";
-  return "正在安全关闭应用";
+  if (appClosingStore.phase === "stopping") return t("appClosing.phaseStopping");
+  if (appClosingStore.phase === "finalizing") return t("appClosing.phaseFinalizing");
+  return t("appClosing.phaseSafeClosing");
 });
 
 const phaseSubtitle = computed(() => {
-  if (appClosingStore.phase === "starting") return "正在切换到关闭过场，避免界面停留在旧状态。";
-  if (appClosingStore.phase === "preparing") return "正在整理当前界面状态并保存临时输入。";
-  if (appClosingStore.phase === "stopping") return "正在结束后台步骤、连接和运行中的服务。";
-  if (appClosingStore.phase === "finalizing") return "所有收尾步骤已完成，应用即将退出。";
-  return "正在准备关闭。";
+  if (appClosingStore.phase === "starting") return t("appClosing.subtitleStarting");
+  if (appClosingStore.phase === "preparing") return t("appClosing.subtitlePreparing");
+  if (appClosingStore.phase === "stopping") return t("appClosing.subtitleStopping");
+  if (appClosingStore.phase === "finalizing") return t("appClosing.subtitleFinalizing");
+  return t("appClosing.subtitleDefault");
 });
 
 const taskPlanSteps = computed<PlanStepState[]>(() => activePlan.value?.plan ?? []);
@@ -159,14 +171,14 @@ const taskTitle = computed(() => {
       plan.plan.find((step) => step.status === "inProgress")?.step ||
       compactText(plan.explanation) ||
       plan.plan[0]?.step ||
-      "正在处理当前任务"
+      t("appClosing.taskFallback")
     );
   }
 
   const event = activeThinkingEvent.value;
   if (!event) return "";
-  if (event.thinkingPhase) return THINKING_PHASE_LABELS[event.thinkingPhase] ?? "思考中";
-  return "思考中";
+  if (event.thinkingPhase) return t(THINKING_PHASE_KEYS[event.thinkingPhase] ?? "appClosing.thinkingReasoning");
+  return t("appClosing.thinkingReasoning");
 });
 
 const taskDescription = computed(() => {

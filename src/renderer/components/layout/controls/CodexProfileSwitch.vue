@@ -8,11 +8,13 @@
       :modelValue="selectedValue"
       :options="profileOptions"
       :disabled="selectDisabled"
-      ariaLabel="Codex 模型配置"
+      :ariaLabel="t('codexProfileSwitch.aria')"
       :minPopoverWidth="220"
       @update:modelValue="onSelectProfile"
     />
-    <button v-else class="codex-profile-switch__empty" type="button" @click="openProfileSettings">模型配置</button>
+    <button v-else class="codex-profile-switch__empty" type="button" @click="openProfileSettings">
+      {{ t("codexProfileSwitch.label") }}
+    </button>
     <button
       class="btn-icon codex-profile-switch__settings"
       type="button"
@@ -25,6 +27,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { Bot, Settings2 } from "lucide-vue-next";
 import SelectDropdown from "../../ui/SelectDropdown.vue";
 import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
@@ -36,10 +39,11 @@ const runtime = getRuntimeOrchestrator();
 const appShellStore = useAppShellStore();
 const runtimeStore = useRuntimeStore();
 const profilesStore = useCodexProfilesStore();
+const { t } = useI18n();
 const switchingId = ref("");
 
 const profileOptions = computed(() => [
-  { value: "", label: "选择模型配置", disabled: true },
+  { value: "", label: t("codexProfileSwitch.choose"), disabled: true },
   ...profilesStore.profiles.map((profile) => ({
     value: profile.id,
     label: `${profile.name} · ${profile.model}`,

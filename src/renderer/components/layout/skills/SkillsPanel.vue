@@ -4,8 +4,8 @@
       <div class="skills-panel-title">
         <Blocks class="skills-panel-icon" aria-hidden="true" />
         <div class="skills-panel-title-copy">
-          <span class="skills-panel-title-text">技能（Skills）</span>
-          <span class="skills-panel-title-subtext mono dim">内置能力开关</span>
+          <span class="skills-panel-title-text">{{ t("skills.panelTitle") }}</span>
+          <span class="skills-panel-title-subtext mono dim">{{ t("skills.panelSubtitle") }}</span>
         </div>
       </div>
 
@@ -17,7 +17,7 @@
           :disabled="!canOpenManager"
           @click="emit('open-manager')"
         >
-          管理器
+          {{ t("skills.manager") }}
         </button>
         <button
           id="btn-refresh-skills"
@@ -26,21 +26,21 @@
           :disabled="!canRefreshSkills"
           @click="refreshSkills"
         >
-          刷新
+          {{ t("skills.refresh") }}
         </button>
       </div>
     </header>
 
     <div v-if="skillsStore.items.length > 0 && !skillsStateText" class="skills-panel-meta mono dim">
-      <span>共 {{ skillsStore.items.length }} 项</span>
-      <span>已启用 {{ enabledCount }} 项</span>
+      <span>{{ t("skills.totalCount", { count: skillsStore.items.length }) }}</span>
+      <span>{{ t("skills.enabledCount", { count: enabledCount }) }}</span>
     </div>
 
     <SkillsList
       :items="skillsStore.items"
       :pendingPath="skillPendingPath"
       :stateText="skillsStateText"
-      emptyText="暂无可用技能"
+      :emptyText="t('skills.empty')"
       mode="compact"
       @toggle-skill="onSkillToggleRequest"
     />
@@ -49,6 +49,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { Blocks } from "lucide-vue-next";
 import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
 import { useRuntimeStore } from "../../../stores/runtime.store";
@@ -61,6 +62,7 @@ const emit = defineEmits<{
 }>();
 
 const runtime = getRuntimeOrchestrator();
+const { t } = useI18n();
 const runtimeStore = useRuntimeStore();
 const skillsStore = useSkillsStore();
 
@@ -75,14 +77,14 @@ const canOpenManager = computed(
 const enabledCount = computed(() => skillsStore.items.filter((item) => item.enabled).length);
 
 const skillsStateText = computed(() => {
-  if (!runtimeStore.serverId) return "未连接服务";
-  if (!runtimeStore.workspacePath) return "未选择工作区";
-  if (skillsStore.loadState === "loading") return "加载中…";
+  if (!runtimeStore.serverId) return t("skills.disconnected");
+  if (!runtimeStore.workspacePath) return t("skills.noWorkspace");
+  if (skillsStore.loadState === "loading") return t("skills.loading");
   if (skillsStore.loadState === "error")
-    return skillsStore.errorText ? `加载失败：${skillsStore.errorText}` : "加载失败";
+    return skillsStore.errorText ? t("skills.loadFailedWithMessage", { message: skillsStore.errorText }) : t("skills.loadFailed");
   if (skillsStore.items.length === 0) {
-    if (skillsStore.parseErrors.length > 0) return `暂无可用技能（错误 ${skillsStore.parseErrors.length} 项）`;
-    return "暂无可用技能";
+    if (skillsStore.parseErrors.length > 0) return t("skills.emptyWithErrors", { count: skillsStore.parseErrors.length });
+    return t("skills.empty");
   }
   return "";
 });

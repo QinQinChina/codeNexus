@@ -22,14 +22,15 @@
       :disabled="disabled"
       @click="$emit('execute-plan')"
     >
-      <span v-if="execState.executing">执行中...</span>
-      <span v-else>执行计划</span>
+      <span v-if="execState.executing">{{ t("chat.planActions.executing") }}</span>
+      <span v-else>{{ t("chat.planActions.executePlan") }}</span>
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import ComposerModelReasoningPicker from "../layout/composer/ComposerModelReasoningPicker.vue";
 import ComposerSandboxPicker from "../layout/composer/ComposerSandboxPicker.vue";
 import type { PlanDeltaExecUiState } from "../layout/types/chat.types";
@@ -57,6 +58,7 @@ const props = defineProps<{
   embedded?: boolean;
 }>();
 
+const { t } = useI18n();
 const rootClass = computed(() =>
   props.embedded ? "mt-0 border-t-0 pt-0" : "mt-3 border-t border-[var(--border)] pt-2.5"
 );

@@ -56,7 +56,7 @@
                 class="composer-queue-action"
                 type="button"
                 :disabled="msg.status === 'sending'"
-                :aria-label="`编辑排队消息：${previewText(msg)}`"
+                :aria-label="t('composer.editQueuedAria', { preview: previewText(msg) })"
                 @click="emit('edit', msg.id)"
               >
                 <Pencil class="composer-queue-action-icon" aria-hidden="true" />
@@ -65,7 +65,7 @@
                 class="composer-queue-action composer-queue-action--primary"
                 type="button"
                 :disabled="msg.status === 'sending'"
-                :aria-label="`发送排队消息：${previewText(msg)}`"
+                :aria-label="t('composer.sendQueuedAria', { preview: previewText(msg) })"
                 @click="emit('send-now', msg.id)"
               >
                 <SendHorizontal class="composer-queue-action-icon" aria-hidden="true" />
@@ -74,7 +74,7 @@
                 class="composer-queue-action composer-queue-action--danger"
                 type="button"
                 :disabled="msg.status === 'sending'"
-                :aria-label="`删除排队消息：${previewText(msg)}`"
+                :aria-label="t('composer.deleteQueuedAria', { preview: previewText(msg) })"
                 @click="emit('remove', msg.id)"
               >
                 <Trash2 class="composer-queue-action-icon" aria-hidden="true" />
@@ -89,6 +89,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   AlertTriangle,
   ChevronDown,
@@ -112,20 +113,21 @@ const emit = defineEmits<{
   (event: "remove", messageId: string): void;
 }>();
 
+const { t } = useI18n();
 const failedCount = computed(() => props.items.filter((msg) => msg.status === "failed").length);
 const sendingCount = computed(() => props.items.filter((msg) => msg.status === "sending").length);
 const firstItem = computed(() => props.items[0] ?? null);
 
 const summaryTitle = computed(() => {
-  if (failedCount.value > 0) return `${failedCount.value} 条发送失败`;
-  if (sendingCount.value > 0) return "正在发送排队消息";
-  return `排队 ${props.items.length} 条`;
+  if (failedCount.value > 0) return t("composer.failedCount", { count: failedCount.value });
+  if (sendingCount.value > 0) return t("composer.sendingQueued");
+  return t("composer.queuedCount", { count: props.items.length });
 });
 
 const summaryPreview = computed(() => {
   const item = firstItem.value;
-  if (!item) return "没有等待发送的消息";
-  const prefix = props.items.length > 1 ? "下一条：" : "";
+  if (!item) return t("composer.noQueuedMessage");
+  const prefix = props.items.length > 1 ? t("composer.nextPrefix") : "";
   return `${prefix}${previewText(item)}`;
 });
 
@@ -136,13 +138,13 @@ function previewText(message: QueuedMessage): string {
   if (text) return text;
   const inputs = Array.isArray(message.inputs) ? message.inputs : [];
   const imageCount = inputs.filter((item) => item?.type === "image" || item?.type === "localImage").length;
-  if (imageCount > 0) return `图片 ${imageCount} 张`;
-  return "（空消息）";
+  if (imageCount > 0) return t("composer.imageCount", { count: imageCount });
+  return t("composer.emptyMessage");
 }
 
 function statusText(message: QueuedMessage): string {
-  if (message.status === "failed") return "发送失败，可编辑后重试";
-  if (message.status === "sending") return "正在发送";
-  return "等待当前回合结束后发送";
+  if (message.status === "failed") return t("composer.failedRetry");
+  if (message.status === "sending") return t("composer.sending");
+  return t("composer.waitingCurrentTurn");
 }
 </script>

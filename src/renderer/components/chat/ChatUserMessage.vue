@@ -18,7 +18,7 @@
           </button>
         </template>
         <div v-if="imageCount > 0" class="chat-user-images mt-2.5 flex flex-col gap-2">
-          <div class="mono dim text-[11px]">附图 {{ imageCount }} 张</div>
+          <div class="mono dim text-[11px]">{{ t("chat.activity.attachedImages", { count: imageCount }) }}</div>
           <div v-if="visibleImages.length > 0" class="chat-user-image-list flex flex-wrap gap-2 max-[1500px]:gap-1.5">
             <LazyImageThumb
               v-for="image in visibleImages"
@@ -56,6 +56,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import { Icon } from "@iconify/vue";
 import LazyImageThumb from "../ui/LazyImageThumb.vue";
 import ChatUserBubbleFrame from "./ChatUserBubbleFrame.vue";
@@ -83,6 +84,8 @@ defineProps<{
   sandboxModeOptions: readonly SelectOption[];
   sendDisabled?: boolean;
 }>();
+
+const { t } = useI18n();
 
 defineEmits<{
   (e: "click", event: TimelineEventItem): void;

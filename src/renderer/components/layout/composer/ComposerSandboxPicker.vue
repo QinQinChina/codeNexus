@@ -7,7 +7,7 @@
     :disabled="disabled"
     aria-haspopup="listbox"
     :aria-expanded="open ? 'true' : 'false'"
-    aria-label="权限"
+    :aria-label="t('composer.permission')"
     @pointerdown="onPreservePointerFocus"
     @click="onTriggerClick"
     @keydown="onTriggerKeydown"
@@ -25,7 +25,7 @@
         :style="popoverStyle"
         :data-composer-owner="interactionOwnerId || undefined"
         role="listbox"
-        aria-label="权限"
+        :aria-label="t('composer.permission')"
         @pointerdown="onPreservePointerFocus"
       >
         <button
@@ -50,6 +50,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { Check, ChevronDown } from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
 import type { SandboxMode } from "../../../stores/runtime.store";
 
 type SelectOption = {
@@ -70,6 +71,7 @@ const emit = defineEmits<{
   (event: "update:modelValue", value: SandboxMode): void;
 }>();
 
+const { t } = useI18n();
 const open = ref(false);
 const triggerRef = ref<HTMLButtonElement | null>(null);
 const popoverRef = ref<HTMLDivElement | null>(null);

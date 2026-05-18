@@ -1,5 +1,5 @@
 <template>
-  <section class="codex-providers-page" aria-label="Codex 模型供应商配置">
+  <section class="codex-providers-page" :aria-label="t('codexProfiles.aria')">
     <div v-if="profilesStore.errorText || errorText" class="global-field-error">
       {{ profilesStore.errorText || errorText }}
     </div>
@@ -7,7 +7,7 @@
     <Transition name="codex-provider-page-fade" mode="out-in">
       <div v-if="!editorOpen" key="list" class="codex-providers-list-page">
         <div class="codex-providers-shell">
-          <section class="codex-provider-list" aria-label="供应商列表">
+          <section class="codex-provider-list" :aria-label="t('codexProfiles.providerListAria')">
             <article
               v-for="profile in orderedProfiles"
               :key="profile.id"
@@ -22,7 +22,7 @@
               @drop.prevent="onDrop(profile.id)"
               @dragend="onDragEnd"
             >
-              <button class="codex-provider-grip" type="button" aria-label="拖拽排序">
+              <button class="codex-provider-grip" type="button" :aria-label="t('codexProfiles.dragSort')">
                 <GripVertical aria-hidden="true" />
               </button>
 
@@ -43,15 +43,15 @@
                   @click="applyProfile(profile.id)"
                 >
                   <Play aria-hidden="true" />
-                  启用
+                  {{ t("codexProfiles.enable") }}
                 </button>
-                <button class="btn-icon" type="button" title="编辑" @click="openEditor(profile)">
+                <button class="btn-icon" type="button" :title="t('codexProfiles.edit')" @click="openEditor(profile)">
                   <SquarePen aria-hidden="true" />
                 </button>
                 <button
                   class="btn-icon"
                   type="button"
-                  title="复制"
+                  :title="t('codexProfiles.copy')"
                   :disabled="mutationPending"
                   @click="duplicateProfile(profile)"
                 >
@@ -60,19 +60,19 @@
                 <button
                   class="btn-icon"
                   type="button"
-                  title="测试连接"
+                  :title="t('codexProfiles.testConnection')"
                   :disabled="mutationPending"
                   @click="testProfile(profile)"
                 >
                   <FlaskConical aria-hidden="true" />
                 </button>
-                <button class="btn-icon" type="button" title="状态" @click="showProfileStats(profile)">
+                <button class="btn-icon" type="button" :title="t('codexProfiles.status')" @click="showProfileStats(profile)">
                   <BarChart3 aria-hidden="true" />
                 </button>
                 <button
                   class="btn-icon danger"
                   type="button"
-                  title="删除"
+                  :title="t('common.delete')"
                   :disabled="mutationPending"
                   @click="deleteProfile(profile)"
                 >
@@ -84,13 +84,13 @@
             <div v-if="orderedProfiles.length === 0" class="codex-provider-empty">
               <Bot aria-hidden="true" />
               <div>
-                <strong>暂无供应商</strong>
-                <span>新建一条配置，或连接 Codex 服务后从当前 CLI 配置自动导入。</span>
+                <strong>{{ t("codexProfiles.emptyTitle") }}</strong>
+                <span>{{ t("codexProfiles.emptyDesc") }}</span>
               </div>
             </div>
           </section>
 
-          <div class="codex-providers-floating-actions" aria-label="供应商操作">
+          <div class="codex-providers-floating-actions" :aria-label="t('codexProfiles.actionsAria')">
             <button
               class="codex-provider-float-btn"
               type="button"
@@ -98,13 +98,13 @@
               @click="refresh"
             >
               <RefreshCw aria-hidden="true" />
-              <span>刷新</span>
+              <span>{{ t("common.refresh") }}</span>
             </button>
             <button
               class="codex-provider-float-btn codex-provider-float-btn--primary"
               type="button"
-              title="新建供应商"
-              aria-label="新建供应商"
+              :title="t('codexProfiles.newProvider')"
+              :aria-label="t('codexProfiles.newProvider')"
               @click="startNewProfile"
             >
               <Plus aria-hidden="true" />
@@ -114,10 +114,12 @@
       </div>
 
       <div v-else key="editor" class="codex-provider-editor-page">
-        <section class="codex-provider-editor" aria-label="编辑供应商">
+        <section class="codex-provider-editor" :aria-label="t('codexProfiles.editorAria')">
           <div class="codex-editor-head">
             <div>
-              <div class="codex-editor-title">{{ selectedProfileId ? "编辑供应商" : "新建供应商" }}</div>
+              <div class="codex-editor-title">
+                {{ selectedProfileId ? t("codexProfiles.editProvider") : t("codexProfiles.newProvider") }}
+              </div>
               <div class="codex-editor-subtitle mono">{{ profilesStore.path || "codex-profiles.json" }}</div>
             </div>
             <button class="btn-icon" type="button" @click="closeEditor">
@@ -127,12 +129,12 @@
 
           <form class="codex-editor-form" @submit.prevent="saveProfile">
             <label class="global-row">
-              <span class="context-label">供应商名称</span>
+              <span class="context-label">{{ t("codexProfiles.providerName") }}</span>
               <input v-model="form.name" class="context-input" type="text" autocomplete="off" placeholder="xcode" />
             </label>
 
             <label class="global-row">
-              <span class="context-label">模型名称</span>
+              <span class="context-label">{{ t("codexProfiles.modelName") }}</span>
               <div class="codex-model-picker">
                 <input
                   v-model="form.model"
@@ -148,7 +150,7 @@
                   :disabled="!canFetchProviderModels"
                   @click="fetchProviderModels"
                 >
-                  {{ providerModelsLoading ? "获取中" : "获取模型" }}
+                  {{ providerModelsLoading ? t("codexProfiles.fetchingModels") : t("codexProfiles.fetchModels") }}
                 </button>
               </div>
             </label>
@@ -166,9 +168,9 @@
                   :value="form.model"
                   @change="onProviderModelSelect"
                 >
-                  <option value="" disabled>选择获取到的模型</option>
+                  <option value="" disabled>{{ t("codexProfiles.chooseFetchedModel") }}</option>
                   <option v-if="form.model && !providerModelOptions.includes(form.model)" :value="form.model">
-                    {{ form.model }}（当前）
+                    {{ t("codexProfiles.modelCurrent", { model: form.model }) }}
                   </option>
                   <option v-for="modelId in providerModelOptions" :key="modelId" :value="modelId">
                     {{ modelId }}
@@ -233,10 +235,12 @@
             </section>
 
             <div class="codex-editor-actions">
-              <button class="btn-mini" type="button" :disabled="mutationPending" @click="closeEditor">取消</button>
-              <button class="btn-mini" type="submit" :disabled="mutationPending">保存</button>
+              <button class="btn-mini" type="button" :disabled="mutationPending" @click="closeEditor">
+                {{ t("common.cancel") }}
+              </button>
+              <button class="btn-mini" type="submit" :disabled="mutationPending">{{ t("common.save") }}</button>
               <button class="btn-mini" type="button" :disabled="mutationPending || !canApplyForm" @click="saveAndApply">
-                保存并启用
+                {{ t("codexProfiles.saveAndEnable") }}
               </button>
             </div>
           </form>
@@ -248,6 +252,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   BarChart3,
   Bot,
@@ -292,6 +297,7 @@ type ProfileForm = {
 const runtime = getRuntimeOrchestrator();
 const runtimeStore = useRuntimeStore();
 const profilesStore = useCodexProfilesStore();
+const { locale, t } = useI18n();
 const selectedProfileId = ref("");
 const errorText = ref("");
 const localSaving = ref(false);
@@ -496,16 +502,16 @@ async function saveProfile(options?: { showSuccessToast?: boolean }): Promise<st
   localSaving.value = true;
   try {
     const input = buildInput();
-    if (!String(input.name ?? "").trim()) throw new Error("供应商名称不能为空。");
-    if (!String(input.baseUrl ?? "").trim()) throw new Error("Base URL 不能为空。");
-    if (!String(input.model ?? "").trim()) throw new Error("模型名称不能为空。");
-    if (!String(input.apiKey ?? "").trim()) throw new Error("API Key 不能为空。");
-    if (!String(input.configFileContent ?? "").trim()) throw new Error("config.toml 不能为空。");
-    if (!String(input.authFileContent ?? "").trim()) throw new Error("auth.json 不能为空。");
+    if (!String(input.name ?? "").trim()) throw new Error(t("codexProfiles.validation.providerNameRequired"));
+    if (!String(input.baseUrl ?? "").trim()) throw new Error(t("codexProfiles.validation.baseUrlRequired"));
+    if (!String(input.model ?? "").trim()) throw new Error(t("codexProfiles.validation.modelNameRequired"));
+    if (!String(input.apiKey ?? "").trim()) throw new Error(t("codexProfiles.validation.apiKeyRequired"));
+    if (!String(input.configFileContent ?? "").trim()) throw new Error(t("codexProfiles.validation.configRequired"));
+    if (!String(input.authFileContent ?? "").trim()) throw new Error(t("codexProfiles.validation.authRequired"));
     try {
       JSON.parse(String(input.authFileContent ?? ""));
     } catch {
-      throw new Error("auth.json 不是有效 JSON。");
+      throw new Error(t("codexProfiles.validation.authInvalidJson"));
     }
     await profilesStore.upsert(input);
     const id = String(input.id ?? "").trim();
@@ -515,12 +521,16 @@ async function saveProfile(options?: { showSuccessToast?: boolean }): Promise<st
     selectedProfileId.value = id;
     editorOpen.value = false;
     if (showSuccessToast) {
-      showCenterToast({ kind: "success", title: "保存成功", message: `${input.name} 配置已更新。` });
+      showCenterToast({
+        kind: "success",
+        title: t("codexProfiles.saveSuccessTitle"),
+        message: t("codexProfiles.saveSuccessMessage", { name: input.name }),
+      });
     }
     return id;
   } catch (error: any) {
-    errorText.value = String(error?.message ?? error ?? "保存失败");
-    showCenterToast({ kind: "error", title: "保存失败", message: errorText.value });
+    errorText.value = String(error?.message ?? error ?? t("codexProfiles.saveFailedTitle"));
+    showCenterToast({ kind: "error", title: t("codexProfiles.saveFailedTitle"), message: errorText.value });
     throw error;
   } finally {
     localSaving.value = false;
@@ -532,7 +542,7 @@ async function saveAndApply() {
     const id = await saveProfile({ showSuccessToast: false });
     if (id) await applyProfile(id);
   } catch (error: any) {
-    errorText.value = String(error?.message ?? error ?? "应用失败");
+    errorText.value = String(error?.message ?? error ?? t("codexProfiles.applyFailed"));
   }
 }
 
@@ -545,7 +555,7 @@ function formatProviderLatency(elapsedMs: number | null | undefined): string {
 async function fetchProviderModels() {
   if (!form.baseUrl.trim() || !form.apiKey.trim() || providerModelsLoading.value) return;
   providerModelsLoading.value = true;
-  providerModelsStatusText.value = "正在获取模型...";
+  providerModelsStatusText.value = t("codexProfiles.fetchingModelsStatus");
   try {
     const result = await codexDesktop.app.testCodexProvider({
       baseUrl: form.baseUrl,
@@ -554,25 +564,33 @@ async function fetchProviderModels() {
     });
     if (!result.ok) {
       providerModelOptions.value = [];
-      providerModelsStatusText.value = result.message || "获取模型失败。";
-      showCenterToast({ kind: "error", title: "获取模型失败", message: providerModelsStatusText.value });
+      providerModelsStatusText.value = result.message || t("codexProfiles.fetchModelsFailedMessage");
+      showCenterToast({
+        kind: "error",
+        title: t("codexProfiles.fetchModelsFailedTitle"),
+        message: providerModelsStatusText.value,
+      });
       return;
     }
 
     providerModelOptions.value = result.models;
     const elapsed = formatProviderLatency(result.elapsedMs);
-    const suffix = elapsed ? `，响应时间 ${elapsed}` : "";
+    const suffix = elapsed ? t("codexProfiles.latencySuffix", { elapsed }) : "";
     providerModelsStatusText.value =
       result.models.length > 0
-        ? `已获取 ${result.models.length} 个模型${suffix}。`
-        : `连接成功，但未读取到模型${suffix}。`;
+        ? t("codexProfiles.modelsFetched", { count: result.models.length, suffix })
+        : t("codexProfiles.connectedNoModels", { suffix });
     if (result.models.length > 0 && !form.model.trim()) {
       form.model = result.models[0];
     }
   } catch (error: any) {
     providerModelOptions.value = [];
-    providerModelsStatusText.value = String(error?.message ?? error ?? "获取模型失败");
-    showCenterToast({ kind: "error", title: "获取模型失败", message: providerModelsStatusText.value });
+    providerModelsStatusText.value = String(error?.message ?? error ?? t("codexProfiles.fetchModelsFailedTitle"));
+    showCenterToast({
+      kind: "error",
+      title: t("codexProfiles.fetchModelsFailedTitle"),
+      message: providerModelsStatusText.value,
+    });
   } finally {
     providerModelsLoading.value = false;
   }
@@ -586,7 +604,11 @@ function onProviderModelSelect(event: Event) {
 
 async function applyProfile(id: string) {
   if (!runtimeStore.serverId) {
-    showToast({ kind: "warn", title: "未连接 Codex 服务", message: "连接服务后才能写入 config.toml。" });
+    showToast({
+      kind: "warn",
+      title: t("codexProfiles.codexDisconnectedTitle"),
+      message: t("codexProfiles.codexDisconnectedMessage"),
+    });
     return;
   }
   await runtime.applyCodexProfile(id);
@@ -608,11 +630,15 @@ async function duplicateProfile(profile: CodexProviderProfile) {
     lastTestStatus: null,
     lastTestMessage: null,
   });
-  showToast({ kind: "success", title: "已复制供应商", message: `${profile.name} copy` });
+  showToast({
+    kind: "success",
+    title: t("codexProfiles.duplicatedTitle"),
+    message: t("codexProfiles.duplicatedMessage", { name: profile.name }),
+  });
 }
 
 async function deleteProfile(profile: CodexProviderProfile) {
-  if (!window.confirm(`删除供应商「${profile.name}」？`)) return;
+  if (!window.confirm(t("codexProfiles.confirmDelete", { name: profile.name }))) return;
   await profilesStore.deleteProfile(profile.id);
   if (selectedProfileId.value === profile.id) closeEditor();
 }
@@ -630,14 +656,23 @@ async function testProfile(profile: CodexProviderProfile) {
       lastTestedAt: Date.now(),
       lastTestStatus: result.ok ? "ok" : "error",
       lastTestMessage: result.ok
-        ? `连接成功${result.elapsedMs == null ? "" : `，响应时间 ${formatProviderLatency(result.elapsedMs)}`}`
+        ? t("codexProfiles.testSuccessWithSuffix", {
+            suffix:
+              result.elapsedMs == null
+                ? ""
+                : t("codexProfiles.latencySuffix", { elapsed: formatProviderLatency(result.elapsedMs) }),
+          })
         : result.message,
     });
     const elapsed = formatProviderLatency(result.elapsedMs);
     showToast({
       kind: result.ok ? "success" : "error",
-      title: result.ok ? "连接成功" : "连接失败",
-      message: result.ok ? (elapsed ? `响应时间 ${elapsed}` : "连接成功。") : result.message,
+      title: result.ok ? t("codexProfiles.connectionSuccessTitle") : t("codexProfiles.connectionFailedTitle"),
+      message: result.ok
+        ? elapsed
+          ? t("codexProfiles.latencyOnly", { elapsed })
+          : t("codexProfiles.connectionSuccessMessage")
+        : result.message,
     });
   } finally {
     localSaving.value = false;
@@ -645,9 +680,26 @@ async function testProfile(profile: CodexProviderProfile) {
 }
 
 function showProfileStats(profile: CodexProviderProfile) {
-  const tested = profile.lastTestedAt ? new Date(profile.lastTestedAt).toLocaleString() : "未测试";
-  const status = profile.lastTestStatus ? `${profile.lastTestStatus}: ${profile.lastTestMessage ?? ""}` : "无测试结果";
-  window.alert(`供应商：${profile.name}\n模型：${profile.model}\n最近测试：${tested}\n状态：${status}`);
+  const tested = profile.lastTestedAt
+    ? new Date(profile.lastTestedAt).toLocaleString(locale.value)
+    : t("codexProfiles.notTested");
+  const statusLabel =
+    profile.lastTestStatus === "ok"
+      ? t("codexProfiles.statusOk")
+      : profile.lastTestStatus === "error"
+        ? t("codexProfiles.statusError")
+        : profile.lastTestStatus;
+  const status = statusLabel
+    ? t("codexProfiles.statusWithMessage", { status: statusLabel, message: profile.lastTestMessage ?? "" })
+    : t("codexProfiles.noTestResult");
+  window.alert(
+    t("codexProfiles.statsAlert", {
+      name: profile.name,
+      model: profile.model,
+      tested,
+      status,
+    })
+  );
 }
 
 function profileInitial(profile: CodexProviderProfile): string {
@@ -738,7 +790,7 @@ async function autoImportCurrentCodexConfig() {
     ].join("\n"),
     order: orderedProfiles.value.length,
   });
-  showToast({ kind: "success", title: "已导入当前 Codex 配置", message: `${providerId} / ${model}` });
+  showToast({ kind: "success", title: t("codexProfiles.importedCurrentConfigTitle"), message: `${providerId} / ${model}` });
 }
 
 async function refresh() {

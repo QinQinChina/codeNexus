@@ -32,9 +32,9 @@
               <div class="name">{{ skill.name }}</div>
               <div v-if="mode === 'manager'" class="skill-badge-row">
                 <span class="skill-status-pill" :class="skill.enabled ? 'is-enabled' : 'is-disabled'">
-                  {{ skill.enabled ? "已启用" : "已关闭" }}
+                  {{ skill.enabled ? t("skills.enabled") : t("skills.disabled") }}
                 </span>
-                <span class="skill-meta-pill">{{ skill.configurable ? "可切换" : "固定" }}</span>
+                <span class="skill-meta-pill">{{ skill.configurable ? t("skills.configurable") : t("skills.fixed") }}</span>
               </div>
             </div>
 
@@ -42,7 +42,7 @@
               v-if="skill.description || skill.path"
               class="skill-summary-toggle"
               type="button"
-              :aria-label="isSkillOpen(skill) ? '收起技能详情' : '展开技能详情'"
+              :aria-label="isSkillOpen(skill) ? t('skills.collapseDetails') : t('skills.expandDetails')"
               @click="toggleSkillOpen(skill)"
             >
               <ChevronDown class="skill-summary-toggle-icon" :class="{ open: isSkillOpen(skill) }" aria-hidden="true" />
@@ -59,12 +59,12 @@
 
       <div v-if="isSkillOpen(skill)" class="skill-body" :class="modeClass">
         <section v-if="skill.description" class="skill-info-block">
-          <div class="skill-info-label mono">说明</div>
+          <div class="skill-info-label mono">{{ t("skills.description") }}</div>
           <div class="skill-desc">{{ skill.description }}</div>
         </section>
 
         <section v-if="skill.path" class="skill-info-block">
-          <div class="skill-info-label mono">路径</div>
+          <div class="skill-info-label mono">{{ t("skills.path") }}</div>
           <div class="skill-path skill-path--body">{{ skill.path }}</div>
         </section>
       </div>
@@ -74,6 +74,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { ChevronDown } from "lucide-vue-next";
 import type { SkillState } from "../../../domain/types";
 import { useSkillsUiStore } from "../../../stores/skillsUi.store";
@@ -90,7 +91,7 @@ const props = withDefaults(
     mode: "compact",
     pendingPath: "",
     stateText: "",
-    emptyText: "暂无可用技能",
+    emptyText: "",
   }
 );
 
@@ -99,6 +100,7 @@ const emit = defineEmits<{
 }>();
 
 const skillsUiStore = useSkillsUiStore();
+const { t } = useI18n();
 const modeClass = computed(() => `skill-mode-${props.mode}`);
 
 const getSkillKey = (skill: SkillState): string => {
@@ -114,8 +116,8 @@ const isSkillPending = (skill: SkillState): boolean => props.pendingPath === Str
 const previewText = (skill: SkillState): string => {
   const description = String(skill.description ?? "").trim();
   if (description) return description;
-  if (!skill.configurable) return "该技能为固定项，当前仅支持查看。";
-  return skill.enabled ? "当前已启用，可按需关闭。" : "当前已关闭，可按需启用。";
+  if (!skill.configurable) return t("skills.fixedPreview");
+  return skill.enabled ? t("skills.enabledPreview") : t("skills.disabledPreview");
 };
 
 const onSkillCheckboxChanged = (skill: SkillState, event: Event) => {

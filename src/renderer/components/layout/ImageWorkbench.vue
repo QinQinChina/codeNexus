@@ -1,10 +1,10 @@
 <template>
-  <section class="image-workbench" aria-label="图片工作台">
+  <section class="image-workbench" :aria-label="t('imageWorkbench.aria')">
     <div v-if="!workbench.configured" class="image-workbench__notice">
       <AlertTriangle class="image-workbench__notice-icon" aria-hidden="true" />
       <div class="image-workbench__notice-body">
-        <div class="image-workbench__notice-title">图片生成尚未配置</div>
-        <div class="image-workbench__notice-text">先填写服务地址、API Key 和默认模型，然后再发起请求。</div>
+        <div class="image-workbench__notice-title">{{ t("imageWorkbench.notConfiguredTitle") }}</div>
+        <div class="image-workbench__notice-text">{{ t("imageWorkbench.notConfiguredDesc") }}</div>
       </div>
     </div>
 
@@ -13,24 +13,24 @@
       :class="{ 'is-history': !selectedHistoryItem && workbench.historyItems.length > 0 }"
     >
       <div class="image-workbench__stage-head">
-        <span>{{ selectedHistoryItem ? "详情" : "历史记录" }}</span>
-        <span class="mono">{{ workbench.historyItems.length }} 次生成</span>
+        <span>{{ selectedHistoryItem ? t("imageWorkbench.details") : t("imageWorkbench.history") }}</span>
+        <span class="mono">{{ t("imageWorkbench.generatedCount", { count: workbench.historyItems.length }) }}</span>
       </div>
 
       <div v-if="workbench.historyLoading && workbench.historyItems.length === 0" class="image-workbench__empty">
         <Loader2 class="image-workbench__empty-icon is-spinning" aria-hidden="true" />
-        <div>正在加载图片历史。</div>
+        <div>{{ t("imageWorkbench.loadingHistory") }}</div>
       </div>
 
       <div v-else-if="selectedHistoryItem" class="image-workbench__result-stack">
         <div class="image-workbench__detail-bar">
           <button class="btn-mini" type="button" @click="workbench.backToHistory">
             <ArrowLeft class="btn-mini__icon" aria-hidden="true" />
-            <span>历史</span>
+            <span>{{ t("imageWorkbench.historyBack") }}</span>
           </button>
           <button class="btn-mini btn-mini--danger" type="button" @click="workbench.deleteHistoryItem(selectedHistoryItem.id)">
             <Trash2 class="btn-mini__icon" aria-hidden="true" />
-            <span>删除</span>
+            <span>{{ t("common.delete") }}</span>
           </button>
         </div>
 
@@ -65,7 +65,7 @@
                 :style="{ transform: getImageTransform(image.path) }"
                 draggable="false"
               />
-              <div v-else class="image-workbench__image-missing">图片不可用</div>
+              <div v-else class="image-workbench__image-missing">{{ t("imageWorkbench.imageUnavailable") }}</div>
             </div>
             <div class="image-workbench__result-meta">
               <span class="mono">{{ image.mimeType }}</span>
@@ -76,23 +76,23 @@
 
         <div class="image-workbench__summary">
           <div class="image-workbench__summary-row">
-            <span class="dim">模型</span>
+            <span class="dim">{{ t("imageSidebar.model") }}</span>
             <span class="mono">{{ selectedHistoryItem.model }}</span>
           </div>
           <div class="image-workbench__summary-row">
-            <span class="dim">提示词</span>
+            <span class="dim">{{ t("imageSidebar.prompt") }}</span>
             <span class="mono">{{ selectedHistoryItem.prompt }}</span>
           </div>
           <div v-if="selectedHistoryItem.revisedPrompt" class="image-workbench__summary-row">
-            <span class="dim">修订</span>
+            <span class="dim">{{ t("imageWorkbench.revision") }}</span>
             <span class="mono">{{ selectedHistoryItem.revisedPrompt }}</span>
           </div>
           <div class="image-workbench__summary-row">
-            <span class="dim">参数</span>
+            <span class="dim">{{ t("imageSidebar.params") }}</span>
             <span class="mono">{{ formatHistoryParams(selectedHistoryItem) }}</span>
           </div>
           <div class="image-workbench__summary-row">
-            <span class="dim">时间</span>
+            <span class="dim">{{ t("imageSidebar.time") }}</span>
             <span class="mono">{{ formatDateTime(selectedHistoryItem.createdAt) }}</span>
           </div>
         </div>
@@ -155,21 +155,23 @@
               <div class="image-workbench__history-skeleton-line is-model"></div>
             </template>
             <template v-else-if="isFailedHistoryItem(item)">
-              <div class="image-workbench__history-title is-failed">生成失败</div>
+              <div class="image-workbench__history-title is-failed">{{ t("imageWorkbench.generationFailed") }}</div>
               <div class="image-workbench__history-meta">
-                <span class="mono">等待重试</span>
+                <span class="mono">{{ t("imageWorkbench.waitingRetry") }}</span>
                 <button
                   class="btn-mini btn-mini--danger image-workbench__history-delete"
                   type="button"
-                  aria-label="删除失败记录"
+                  :aria-label="t('imageWorkbench.deleteFailedRecord')"
                   @click.stop="workbench.deleteHistoryItem(item.id)"
                   @keydown.stop
                 >
                   <Trash2 class="btn-mini__icon" aria-hidden="true" />
-                  <span>删除</span>
+                  <span>{{ t("common.delete") }}</span>
                 </button>
               </div>
-              <div class="image-workbench__history-model mono">{{ item.errorText || "图片生成失败" }}</div>
+              <div class="image-workbench__history-model mono">
+                {{ item.errorText || t("imageWorkbench.imageGenerationFailed") }}
+              </div>
             </template>
             <template v-else>
               <div class="image-workbench__history-title">{{ item.prompt }}</div>
@@ -185,7 +187,7 @@
 
       <div v-else class="image-workbench__empty">
         <ImageIcon class="image-workbench__empty-icon" aria-hidden="true" />
-        <div>{{ workbench.historyLoading ? "正在加载图片历史。" : "生成图片后，这里会保存每一次记录。" }}</div>
+        <div>{{ workbench.historyLoading ? t("imageWorkbench.loadingHistory") : t("imageWorkbench.emptyHistory") }}</div>
       </div>
     </section>
   </section>
@@ -193,6 +195,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeMount, onBeforeUnmount, ref, watch, type CSSProperties } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -210,6 +213,7 @@ import { useImageWorkbenchStore } from "../../stores/imageWorkbench.store";
 
 const appShellStore = useAppShellStore();
 const workbench = useImageWorkbenchStore();
+const { locale, t } = useI18n();
 const imageZoomByPath = ref<Record<string, number>>({});
 const imageDataUrlByPath = ref<Record<string, string>>({});
 const imageDataUrlLoading = ref<Record<string, boolean>>({});
@@ -447,7 +451,7 @@ function downloadImage(image: WorkbenchImage) {
 function formatDateTime(value: number): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleString("zh-CN", {
+  return date.toLocaleString(locale.value, {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
@@ -456,7 +460,7 @@ function formatDateTime(value: number): string {
 }
 
 function formatHistoryParams(item: NonNullable<typeof workbench.selectedHistoryItem>): string {
-  const modeText = item.mode === "edit" ? "参考图生成" : "文本生成";
+  const modeText = item.mode === "edit" ? t("imageWorkbench.editMode") : t("imageWorkbench.textMode");
   return [modeText, item.quality].filter(Boolean).join(" / ") || "auto";
 }
 

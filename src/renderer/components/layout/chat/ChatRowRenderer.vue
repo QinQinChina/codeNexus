@@ -25,8 +25,6 @@
   <ChatAssistantMessage
     v-else-if="renderedRow.kind === 'assistant'"
     :event="renderedRow.event"
-    :assistantPlanMessageFormat="assistantPlanMessageFormat"
-    :turnPlan="turnPlanForPlanDeltaEvent(renderedRow.event)"
     :isStructuredFinalAnswer="isStructuredFinalAnswerEvent(renderedRow.event)"
     :markdownHtml="assistantMarkdownHtml(renderedRow.event)"
     :execState="planExecStateByEventId[renderedRow.event.id] ?? null"
@@ -57,13 +55,11 @@
         :renderedRow="item"
         :workspaceRoot="workspaceRoot"
         :viewPrefs="viewPrefs"
-        :assistantPlanMessageFormat="assistantPlanMessageFormat"
         :planExecStateByEventId="planExecStateByEventId"
         :modelOptions="modelOptions"
         :isTurnRunning="isTurnRunning"
         :reasoningEffortOptions="reasoningEffortOptions"
         :sandboxModeOptions="sandboxModeOptions"
-        :turnPlanForPlanDeltaEvent="turnPlanForPlanDeltaEvent"
         :userMessageParts="userMessageParts"
         :userMessageImageCount="userMessageImageCount"
         :visibleUserMessageImageEntries="visibleUserMessageImageEntries"
@@ -78,6 +74,8 @@
         :setReasoningOpen="setReasoningOpen"
         :isCommandFilesOpen="isCommandFilesOpen"
         :toggleCommandFilesOpen="toggleCommandFilesOpen"
+        :isCommandSessionStopping="isCommandSessionStopping"
+        :stopCommandSession="stopCommandSession"
         :isMcpToolGroupOpen="isMcpToolGroupOpen"
         :onMcpToolGroupToggle="onMcpToolGroupToggle"
         :isMcpToolItemDetailOpen="isMcpToolItemDetailOpen"
@@ -140,7 +138,7 @@
   <ChatReasoningBlock
     v-else-if="renderedRow.kind === 'reasoningBlock'"
     :isOpen="isReasoningOpen((renderedRow as any).item)"
-    :summaryTitle="(renderedRow as any).item.title || '思考'"
+    :summaryTitle="(renderedRow as any).item.title || t('chat.reasoning')"
     :durationText="reasoningDurationText((renderedRow as any).item.durationMs)"
     :html="toReasoningHtml((renderedRow as any).item.text)"
     :rawText="(renderedRow as any).item.rawText"
@@ -167,6 +165,15 @@
     @toggle-files="toggleCommandFilesOpen((renderedRow as any).item.id)"
     :class="CHAT_ROW_ACTIVITY_CLASS"
   />
+
+  <div v-else-if="renderedRow.kind === 'commandSession'" :class="CHAT_ROW_TOOL_CLASS">
+    <ChatCommandSessionCard
+      :item="(renderedRow as any).item"
+      :stopping="isCommandSessionStopping((renderedRow as any).item.processId)"
+      @stop="stopCommandSession"
+      @layout-change="handleLayoutChange?.()"
+    />
+  </div>
 
   <div v-else-if="renderedRow.kind === 'commandRead'" :class="CHAT_ROW_TOOL_CLASS">
     <CommandReadActivityRow :item="(renderedRow as any).item" />
@@ -216,6 +223,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import ChatUserMessage from "../../chat/ChatUserMessage.vue";
 import ChatAssistantMessage from "../../chat/ChatAssistantMessage.vue";
 import ChatActivityRow from "../../chat/ChatActivityRow.vue";
@@ -227,6 +235,7 @@ import ChatWebSearchCard from "../../chat/ChatWebSearchCard.vue";
 import ChatSshToolActivity from "../../chat/ChatSshToolActivity.vue";
 import ChatTokenUsageSummary from "../../chat/ChatTokenUsageSummary.vue";
 import ChatCommandActionRow from "../../chat/ChatCommandActionRow.vue";
+import ChatCommandSessionCard from "../../chat/ChatCommandSessionCard.vue";
 import DynamicToolCallCardContent from "../../timeline/cards/DynamicToolCallCardContent.vue";
 import FileChangeCardContent from "../../timeline/cards/FileChangeCardContent.vue";
 import McpResourceReadCardContent from "../../timeline/cards/McpResourceReadCardContent.vue";
@@ -237,11 +246,15 @@ import CommandSearchActivityRow from "../../timeline/activities/CommandSearchAct
 import { CHAT_ROW_ACTIVITY_CLASS, CHAT_ROW_TOOL_CLASS } from "./chatPresentation";
 import { chatActivityToneClass } from "./chatStyle";
 
-import type { TimelineEventItem, TurnPlanState } from "../../../domain/types";
+import type { TimelineEventItem } from "../../../domain/types";
 import { tryParseStructuredFinalAnswerV1 } from "../../../domain/structuredFinalAnswer";
 import { renderMarkdownToSafeHtml } from "../../../features/timeline/markdownRenderer";
 import { useMarkdownRendererRefresh } from "../../../features/timeline/useMarkdownRendererRefresh";
-import type { McpResourceReadNode, McpToolGroupNode } from "../../../features/timeline/renderModel/buildTimelineNodes";
+import type {
+  CommandSessionNode,
+  McpResourceReadNode,
+  McpToolGroupNode,
+} from "../../../features/timeline/renderModel/buildTimelineNodes";
 import {
   formatTime,
   mcpToolGroupClass,
@@ -273,6 +286,7 @@ type AnyFn = (...args: any[]) => any;
 
 const COMMAND_FILES_RENDER_LIMIT = 1000;
 const { markdownRendererTick, refreshWhenReady } = useMarkdownRendererRefresh();
+const { t } = useI18n();
 
 const isSshMcpToolGroup = (group: McpToolGroupNode | null | undefined): boolean => {
   return (group?.items ?? []).some((item) => {
@@ -287,13 +301,11 @@ const props = defineProps<{
   renderedRow: ChatRenderedRow;
   workspaceRoot: string;
   viewPrefs: { showTimestamps: boolean };
-  assistantPlanMessageFormat: string;
   planExecStateByEventId: Record<string, PlanDeltaExecUiState | undefined>;
   modelOptions: readonly OptionInput[];
   isTurnRunning: boolean;
   reasoningEffortOptions: readonly OptionInput[];
   sandboxModeOptions: readonly OptionInput[];
-  turnPlanForPlanDeltaEvent: (event: TimelineEventItem) => TurnPlanState | null;
   userMessageParts: (event: TimelineEventItem) => ChatUserMessagePart[];
   userMessageImageCount: (event: TimelineEventItem) => number;
   visibleUserMessageImageEntries: (event: TimelineEventItem) => ChatImageEntry[];
@@ -308,6 +320,8 @@ const props = defineProps<{
   setReasoningOpen: AnyFn;
   isCommandFilesOpen: (nodeId: string) => boolean;
   toggleCommandFilesOpen: (nodeId: string) => void;
+  isCommandSessionStopping: (processId: string) => boolean;
+  stopCommandSession: (item: CommandSessionNode) => void;
   isMcpToolGroupOpen: (id: string) => boolean;
   onMcpToolGroupToggle: (id: string, open: boolean) => void;
   isMcpToolItemDetailOpen: AnyFn;
@@ -333,7 +347,7 @@ const reasoningDurationText = (durationMs: number | null | undefined) => {
 
 const toReasoningHtml = (text: string) => {
   const source = String(text ?? "").trim();
-  if (!source) return "<p>（空）</p>";
+  if (!source) return `<p>${t("chat.emptyContent")}</p>`;
   void markdownRendererTick.value;
   const html = renderMarkdownToSafeHtml(source);
   refreshWhenReady();

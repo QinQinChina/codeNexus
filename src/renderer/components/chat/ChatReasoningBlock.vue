@@ -11,7 +11,7 @@
               <span class="ui-leading-icon-slot" aria-hidden="true">
                 <Brain class="h-3 w-3 flex-none text-[var(--fg-warning)] [stroke-width:2.2]" />
               </span>
-              <span class="min-w-0 truncate">{{ summaryTitle || "思考" }}</span>
+              <span class="min-w-0 truncate">{{ summaryTitle || t("chat.activity.reasoning") }}</span>
               <span v-if="durationText" class="mono dim whitespace-nowrap">{{ durationText }}</span>
             </span>
             <ChevronDown
@@ -35,7 +35,7 @@
               class="reasoning-raw-trigger inline-flex max-w-full items-center gap-1.5 rounded-[4px] border border-[var(--ui-well-border)] bg-[var(--ui-well-bg)] px-2 py-1 text-[11px] text-[var(--text-muted)] cursor-pointer select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--border-warning-hover)] focus-visible:outline-offset-2"
               v-bind="triggerProps"
             >
-              <span class="min-w-0 truncate">原始推理</span>
+              <span class="min-w-0 truncate">{{ t("chat.activity.rawReasoning") }}</span>
               <span class="mono dim whitespace-nowrap">{{ rawContentCountText }}</span>
               <ChevronDown
                 class="h-3 w-3 flex-none opacity-80 transition-transform duration-150 [stroke-width:2.4]"
@@ -57,6 +57,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { Brain, ChevronDown } from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
 import Collapsible from "../ui/Collapsible.vue";
 import AgentMarkdownContent from "../ui/AgentMarkdownContent.vue";
 import { CHAT_ROW_TOOL_CLASS } from "../layout/chat/chatPresentation";
@@ -74,10 +75,11 @@ defineEmits<{
   (e: "toggle", open: boolean): void;
 }>();
 
+const { t } = useI18n();
 const rawOpen = ref(false);
 const hasRawText = computed(() => String(props.rawText ?? "").trim().length > 0);
 const rawContentCountText = computed(() => {
   const count = Math.max(0, Math.round(Number(props.rawContentCount) || 0));
-  return count > 1 ? `${count} 段` : "1 段";
+  return t("chat.activity.segmentCount", { count: Math.max(1, count) });
 });
 </script>

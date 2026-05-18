@@ -7,12 +7,14 @@
             ref="treeSurfaceRef"
             class="workspace-files-tree-surface app-scrollbar"
             role="tree"
-            aria-label="工作区文件树"
+            :aria-label="t('workspaceFiles.treeAria')"
           >
             <div v-if="!workspaceFilesStore.hasWorkspace" class="workspace-files-placeholder">
-              先选择工作区后再浏览文件。
+              {{ t("workspaceFiles.chooseWorkspaceFirst") }}
             </div>
-            <div v-else-if="treeRows.length === 0" class="workspace-files-placeholder">工作区尚未加载。</div>
+            <div v-else-if="treeRows.length === 0" class="workspace-files-placeholder">
+              {{ t("workspaceFiles.notLoaded") }}
+            </div>
             <template v-else>
               <template v-for="row in treeRows" :key="row.key">
                 <button
@@ -48,7 +50,7 @@
                     :isExpanded="row.isExpanded"
                   />
                   <span class="workspace-file-tree-row__label">{{ row.label }}</span>
-                  <span v-if="row.isLoading" class="workspace-file-tree-row__meta">加载中</span>
+                  <span v-if="row.isLoading" class="workspace-file-tree-row__meta">{{ t("workspaceFiles.loading") }}</span>
                 </button>
 
                 <div
@@ -73,6 +75,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { ChevronRight } from "lucide-vue-next";
 import WorkspaceTreeEntryIcon from "./WorkspaceTreeEntryIcon.vue";
 import { useWorkspaceFilesStore } from "../../../stores/workspaceFiles.store";
@@ -90,6 +93,7 @@ const props = withDefaults(
 );
 
 const workspaceFilesStore = useWorkspaceFilesStore();
+const { t } = useI18n();
 const treeSurfaceRef = ref<HTMLElement | null>(null);
 const draggingTreePath = ref("");
 
@@ -171,7 +175,7 @@ const treeRows = computed<TreeRow[]>(() => {
           key: `dirempty:${normalizedPath}`,
           path: normalizedPath,
           depth: depth + 1,
-          text: "空目录",
+          text: t("workspaceFiles.emptyDirectory"),
           tone: "dim",
         });
       }
@@ -231,7 +235,7 @@ const treeRows = computed<TreeRow[]>(() => {
       key: `filter-empty:${workspace}`,
       path: workspace,
       depth: 1,
-      text: "未匹配到文件",
+      text: t("workspaceFiles.noFileMatches"),
       tone: "dim",
     });
   }

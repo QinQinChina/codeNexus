@@ -281,11 +281,35 @@
 }
 
 .timeline-pane--chat .chat-pinned-prompt__text {
-  display: block;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-pane--chat .chat-pinned-prompt__text-part {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.timeline-pane--chat .chat-pinned-prompt__file-token {
+  flex: 0 1 auto;
+  max-width: min(180px, 42vw);
+  height: 20px;
+  margin: 0 1px;
+  padding: 0 6px 0 5px;
+  vertical-align: middle;
+  line-height: 18px;
+}
+
+.timeline-pane--chat .chat-pinned-prompt__file-token .chat-inline-file-token__icon {
+  width: 14px;
+  height: 14px;
 }
 
 .chat-pinned-prompt-content-up-enter-active,

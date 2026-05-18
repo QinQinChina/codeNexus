@@ -4,12 +4,14 @@ import type { ServerConnState } from "../domain/types";
 import { getCachedUserLocalSettings, patchUserLocalSettings } from "../domain/localSettings";
 import {
   DEFAULT_UI_WORKSPACE_FILE_ICON_THEME,
+  normalizeUiLanguage,
   normalizeUiWorkspaceFileIconTheme,
-  type AssistantFinalMessageFormat,
-  type AssistantPlanMessageFormat,
+  type UiLanguage,
   type UiWorkspaceFileIconTheme,
   type MainView,
 } from "../../shared/localSettings";
+import { refreshDomI18nFallback } from "../i18n/domFallback";
+import { setUiI18nLanguage } from "../i18n";
 
 export type IntegrationsDrawerTab = "skills" | "mcp";
 export type SettingsTab = "global" | "profiles" | "sound" | "image" | "env" | "integrations" | "remote";
@@ -21,8 +23,6 @@ const DEFAULT_CENTER_EDITOR_WIDTH_PX = 460;
 export const MIN_SIDEBAR_WIDTH_PX = 240;
 export const MIN_CENTER_EDITOR_WIDTH_PX = 320;
 const DEFAULT_MAIN_VIEW: MainView = "chat";
-const DEFAULT_ASSISTANT_FINAL_MESSAGE_FORMAT: AssistantFinalMessageFormat = "markdown";
-const DEFAULT_ASSISTANT_PLAN_MESSAGE_FORMAT: AssistantPlanMessageFormat = "markdown";
 
 function clampSidebarWidthPx(value: unknown, fallback: number): number {
   const n = Number(value);
@@ -55,6 +55,7 @@ export const useAppShellStore = defineStore("appShell", {
   state: () => ({
     serverConnState: "disconnected" as ServerConnState,
     serverError: "" as string,
+    language: "zh-CN" as UiLanguage,
     mainView: DEFAULT_MAIN_VIEW as MainView,
     globalConfigDrawerOpen: false,
     envSetupDrawerOpen: false,
@@ -70,8 +71,6 @@ export const useAppShellStore = defineStore("appShell", {
     filesSidebarWidthPx: DEFAULT_FILES_SIDEBAR_WIDTH_PX,
     centerEditorWidthPx: DEFAULT_CENTER_EDITOR_WIDTH_PX,
     workspaceFileIconTheme: DEFAULT_UI_WORKSPACE_FILE_ICON_THEME as UiWorkspaceFileIconTheme,
-    assistantFinalMessageFormat: DEFAULT_ASSISTANT_FINAL_MESSAGE_FORMAT as AssistantFinalMessageFormat,
-    assistantPlanMessageFormat: DEFAULT_ASSISTANT_PLAN_MESSAGE_FORMAT as AssistantPlanMessageFormat,
     threadWorkspaceGroupsCollapsed: {} as Record<string, boolean>,
   }),
   actions: {
@@ -83,9 +82,9 @@ export const useAppShellStore = defineStore("appShell", {
     // 从本地缓存恢复布局偏好。
     initLocalSettings() {
       const cached = getCachedUserLocalSettings();
+      this.language = normalizeUiLanguage(cached.settings.ui.language);
+      setUiI18nLanguage(this.language);
       this.mainView = cached.settings.ui.mainView;
-      this.assistantFinalMessageFormat = cached.settings.ui.assistantFinalMessageFormat;
-      this.assistantPlanMessageFormat = cached.settings.ui.assistantPlanMessageFormat;
       this.workspaceFileIconTheme = normalizeUiWorkspaceFileIconTheme(cached.settings.ui.workspaceFileIconTheme);
       this.leftSidebarVisible = cached.settings.ui.leftSidebarVisible;
       this.leftSidebarWidthPx = clampSidebarWidthPx(
@@ -108,18 +107,26 @@ export const useAppShellStore = defineStore("appShell", {
         void patchUserLocalSettings({
           ui: {
             mainView: this.mainView,
+            language: this.language,
             leftSidebarVisible: this.leftSidebarVisible,
             leftSidebarWidthPx: this.leftSidebarWidthPx,
             filesSidebarVisible: this.filesSidebarVisible,
             filesSidebarWidthPx: this.filesSidebarWidthPx,
             centerEditorWidthPx: this.centerEditorWidthPx,
             workspaceFileIconTheme: this.workspaceFileIconTheme,
-            assistantFinalMessageFormat: this.assistantFinalMessageFormat,
-            assistantPlanMessageFormat: this.assistantPlanMessageFormat,
             threadWorkspaceGroupsCollapsed: { ...this.threadWorkspaceGroupsCollapsed },
           },
         });
       }
+    },
+    setLanguage(next: UiLanguage, opts?: { save?: boolean }) {
+      const shouldSave = opts?.save ?? true;
+      const normalized = normalizeUiLanguage(next);
+      this.language = normalized;
+      setUiI18nLanguage(normalized);
+      refreshDomI18nFallback(normalized);
+      if (!shouldSave) return;
+      void patchUserLocalSettings({ ui: { language: normalized } });
     },
     setMainView(next: MainView, opts?: { save?: boolean }) {
       const shouldSave = opts?.save ?? true;
@@ -132,20 +139,6 @@ export const useAppShellStore = defineStore("appShell", {
       this.setMainView("image", opts);
       this.setLeftSidebarVisible(true, { save: false });
       this.closeSettings();
-    },
-    setAssistantFinalMessageFormat(next: AssistantFinalMessageFormat, opts?: { save?: boolean }) {
-      const shouldSave = opts?.save ?? true;
-      const normalized: AssistantFinalMessageFormat = next === "structured-json-v1" ? "structured-json-v1" : "markdown";
-      this.assistantFinalMessageFormat = normalized;
-      if (!shouldSave) return;
-      void patchUserLocalSettings({ ui: { assistantFinalMessageFormat: normalized } });
-    },
-    setAssistantPlanMessageFormat(next: AssistantPlanMessageFormat, opts?: { save?: boolean }) {
-      const shouldSave = opts?.save ?? true;
-      const normalized: AssistantPlanMessageFormat = next === "plan-card-v1" ? "plan-card-v1" : "markdown";
-      this.assistantPlanMessageFormat = normalized;
-      if (!shouldSave) return;
-      void patchUserLocalSettings({ ui: { assistantPlanMessageFormat: normalized } });
     },
     setGlobalConfigDrawerOpen(next: boolean) {
       this.globalConfigDrawerOpen = Boolean(next);

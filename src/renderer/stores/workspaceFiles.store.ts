@@ -16,6 +16,7 @@ import { normalizeAbsoluteFsPath } from "../domain/workspacePath";
 import { useRuntimeStore } from "./runtime.store";
 import { useTimelineStore } from "./timeline.store";
 import { showToast } from "../ui/toast";
+import { translate } from "../i18n/translate";
 import type { AppTextEncoding, AppTextLineEnding } from "../../shared/ipc/contracts";
 
 type ConfirmDiscardOptions = {
@@ -158,8 +159,9 @@ function isTabDirty(tab: WorkspaceEditorTabState | null | undefined): boolean {
 function buildDirtyTabsDetail(tabs: WorkspaceEditorTabState[]): string {
   if (tabs.length === 0) return "";
   const names = tabs.slice(0, 4).map((tab) => basenameFromPath(tab.path) || tab.path);
-  if (tabs.length <= 4) return names.join("、");
-  return `${names.join("、")} 等 ${tabs.length} 个文件`;
+  const joinedNames = names.join(translate("workspaceFiles.dirtyTabsNameSeparator"));
+  if (tabs.length <= 4) return joinedNames;
+  return translate("workspaceFiles.dirtyTabsSummary", { names: joinedNames, count: tabs.length });
 }
 
 export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
@@ -438,11 +440,11 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
       if (!isTabDirty(tab)) return true;
       const detail = options?.detail ?? tab?.path ?? "";
       const confirmed = await confirmModalLazy({
-        title: options?.title ?? "放弃未保存修改？",
-        message: options?.message ?? "当前文件有未保存修改，继续操作将丢失这些内容。",
+        title: options?.title ?? translate("workspaceFiles.discardUnsavedTitle"),
+        message: options?.message ?? translate("workspaceFiles.discardUnsavedMessage"),
         detail,
-        confirmText: options?.confirmText ?? "放弃修改",
-        cancelText: options?.cancelText ?? "继续编辑",
+        confirmText: options?.confirmText ?? translate("workspaceFiles.discardUnsavedConfirm"),
+        cancelText: options?.cancelText ?? translate("workspaceFiles.keepEditing"),
         danger: true,
       });
       if (confirmed && (options?.discardOnConfirm ?? true)) {
@@ -453,9 +455,9 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
     async confirmCloseDirtyTab(path: string): Promise<boolean> {
       return await this.confirmDiscardUnsavedIfNeeded({
         path,
-        title: "关闭文件前放弃未保存修改？",
-        message: "关闭标签页会丢失当前文件的未保存内容。",
-        confirmText: "关闭标签页",
+        title: translate("workspaceFiles.closeDirtyTabTitle"),
+        message: translate("workspaceFiles.closeDirtyTabMessage"),
+        confirmText: translate("workspaceFiles.closeDirtyTabConfirm"),
         discardOnConfirm: false,
       });
     },
@@ -485,13 +487,13 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
       const tabPath = resolveExistingTabPath(this.editorTabsByPath, targetPath);
       const dirty = tabPath ? this.isTabDirty(tabPath) : false;
       const confirmed = await confirmModalLazy({
-        title: "删除文件？",
+        title: translate("workspaceFiles.deleteTitle"),
         message: dirty
-          ? "此文件已打开且有未保存修改，删除后这些内容也会丢失。"
-          : "此操作会从磁盘删除该文件，无法在应用内撤销。",
+          ? translate("workspaceFiles.deleteDirtyMessage")
+          : translate("workspaceFiles.deleteMessage"),
         detail: targetPath,
-        confirmText: "删除文件",
-        cancelText: "取消",
+        confirmText: translate("workspaceFiles.deleteFile"),
+        cancelText: translate("common.cancel"),
         danger: true,
       });
       if (!confirmed) return false;
@@ -500,7 +502,7 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
       try {
         const runtime = getRuntimeOrchestrator();
         const metadata = await runtime.getWorkspaceMetadata(targetPath);
-        if (!metadata.isFile) throw new Error("当前选择不是文件，不能删除。");
+        if (!metadata.isFile) throw new Error(translate("workspaceFiles.deleteNotFile"));
         await runtime.deleteWorkspaceFile(targetPath);
 
         if (tabPath) this.removeEditorTab(tabPath);
@@ -515,7 +517,7 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
 
         showToast({
           kind: "success",
-          title: "文件已删除",
+          title: translate("workspaceFiles.deletedTitle"),
           message: basenameFromPath(targetPath) || targetPath,
         });
         return true;
@@ -523,7 +525,7 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
         const message = error instanceof Error ? error.message : String(error ?? "unknown error");
         showToast({
           kind: "error",
-          title: "文件删除失败",
+          title: translate("workspaceFiles.deleteFailedTitle"),
           message,
         });
         return false;
@@ -535,13 +537,13 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
       const dirtyTabs = this.openTabs.filter((tab) => isTabDirty(tab));
       if (dirtyTabs.length === 0) return true;
       const confirmed = await confirmModalLazy({
-        title: "切换工作区前放弃未保存修改？",
+        title: translate("workspaceFiles.switchWorkspaceTitle"),
         message: nextWorkspace
-          ? `切换到新的工作区前，当前打开标签中的未保存内容将被丢弃。`
-          : "当前打开标签中的未保存内容将被丢弃。",
+          ? translate("workspaceFiles.switchWorkspaceWithNextMessage")
+          : translate("workspaceFiles.switchWorkspaceMessage"),
         detail: buildDirtyTabsDetail(dirtyTabs),
-        confirmText: "放弃并切换",
-        cancelText: "继续编辑",
+        confirmText: translate("workspaceFiles.switchWorkspaceConfirm"),
+        cancelText: translate("workspaceFiles.keepEditing"),
         danger: true,
       });
       if (confirmed) this.clearEditorState();
@@ -788,7 +790,7 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
         currentTab.metadata = metadata;
         if (!metadata.isFile) {
           currentTab.loading = false;
-          currentTab.errorText = "当前选择不是可编辑文件。";
+          currentTab.errorText = translate("workspaceFiles.notEditableFile");
           return false;
         }
 
@@ -909,8 +911,10 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
         });
         showToast({
           kind: "success",
-          title: "文件已保存",
-          message: `${basenameFromPath(latestTab.path) || latestTab.path}（本地文件）`,
+          title: translate("workspaceFiles.savedTitle"),
+          message: translate("workspaceFiles.savedLocalMessage", {
+            name: basenameFromPath(latestTab.path) || latestTab.path,
+          }),
         });
         return true;
       } catch (error) {
@@ -926,7 +930,7 @@ export const useWorkspaceFilesStore = defineStore("workspaceFiles", {
         });
         showToast({
           kind: "error",
-          title: "文件保存失败",
+          title: translate("workspaceFiles.saveFailedTitle"),
           message,
         });
         return false;

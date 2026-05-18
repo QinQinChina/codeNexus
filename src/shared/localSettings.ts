@@ -32,16 +32,16 @@ export type LocalDynamicToolsSettings = {
 };
 
 export type MainView = "chat" | "image";
+export type UiLanguage = "zh-CN" | "en-US";
 export type UiFontFamilyPreset = "alibaba-puhuiti" | "source-han-sans-sc";
 export type UiFontSizePreset = "small" | "medium" | "large";
 export type UiWorkspaceFileIconTheme = "vscode-icons";
-export type AssistantFinalMessageFormat = "markdown" | "structured-json-v1";
-export type AssistantPlanMessageFormat = "markdown" | "plan-card-v1";
 
 export type UserLocalSettings = {
   version: 1;
   ui: {
     theme: string | null;
+    language: UiLanguage;
     mainView: MainView;
     leftSidebarVisible: boolean;
     leftSidebarWidthPx: number;
@@ -51,8 +51,6 @@ export type UserLocalSettings = {
     fontFamilyPreset: UiFontFamilyPreset;
     fontSizePreset: UiFontSizePreset;
     workspaceFileIconTheme: UiWorkspaceFileIconTheme;
-    assistantFinalMessageFormat: AssistantFinalMessageFormat;
-    assistantPlanMessageFormat: AssistantPlanMessageFormat;
     threadWorkspaceGroupsCollapsed: LocalThreadWorkspaceGroupsCollapsedState;
     globalConfigAdvancedOpen: boolean;
   };
@@ -74,6 +72,7 @@ export type UserLocalSettings = {
 export type UserLocalSettingsPatch = {
   ui?: Partial<{
     theme: string | null;
+    language: UiLanguage | null;
     mainView: MainView;
     leftSidebarVisible: boolean;
     leftSidebarWidthPx: number | null;
@@ -83,8 +82,6 @@ export type UserLocalSettingsPatch = {
     fontFamilyPreset: UiFontFamilyPreset | null;
     fontSizePreset: UiFontSizePreset | null;
     workspaceFileIconTheme: UiWorkspaceFileIconTheme | null;
-    assistantFinalMessageFormat: AssistantFinalMessageFormat | null;
-    assistantPlanMessageFormat: AssistantPlanMessageFormat | null;
     threadWorkspaceGroupsCollapsed: Record<string, boolean> | null;
     globalConfigAdvancedOpen: boolean;
   }>;
@@ -145,6 +142,7 @@ export const MAX_IMAGE_GENERATION_TIMEOUT_MS = 600_000;
 export const DEFAULT_IMAGE_GENERATION_MAX_IMAGES = 1;
 export const MIN_IMAGE_GENERATION_MAX_IMAGES = 1;
 export const MAX_IMAGE_GENERATION_MAX_IMAGES = 4;
+export const DEFAULT_UI_LANGUAGE: UiLanguage = "zh-CN";
 export const DEFAULT_UI_FONT_FAMILY_PRESET: UiFontFamilyPreset = "alibaba-puhuiti";
 export const DEFAULT_UI_FONT_SIZE_PRESET: UiFontSizePreset = "medium";
 export const DEFAULT_UI_WORKSPACE_FILE_ICON_THEME: UiWorkspaceFileIconTheme = "vscode-icons";
@@ -167,6 +165,16 @@ function normalizeUiFontFamilyPreset(value: unknown): UiFontFamilyPreset {
   return DEFAULT_UI_FONT_FAMILY_PRESET;
 }
 
+export function normalizeUiLanguage(value: unknown): UiLanguage {
+  const raw = String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace("_", "-");
+  if (raw === "en" || raw === "en-us") return "en-US";
+  if (raw === "zh" || raw === "zh-cn" || raw === "zh-hans" || raw === "zh-hans-cn") return "zh-CN";
+  return DEFAULT_UI_LANGUAGE;
+}
+
 function normalizeUiFontSizePreset(value: unknown): UiFontSizePreset {
   const raw = String(value ?? "")
     .trim()
@@ -180,14 +188,6 @@ export function normalizeUiWorkspaceFileIconTheme(_value: unknown): UiWorkspaceF
   return DEFAULT_UI_WORKSPACE_FILE_ICON_THEME;
 }
 
-function normalizeAssistantFinalMessageFormat(value: unknown): AssistantFinalMessageFormat {
-  return value === "structured-json-v1" ? "structured-json-v1" : "markdown";
-}
-
-function normalizeAssistantPlanMessageFormat(value: unknown): AssistantPlanMessageFormat {
-  return value === "plan-card-v1" ? "plan-card-v1" : "markdown";
-}
-
 export function resolveUiFontSizeZoomFactor(value: UiFontSizePreset): number {
   return UI_FONT_SIZE_ZOOM_FACTORS[value] ?? UI_FONT_SIZE_ZOOM_FACTORS[DEFAULT_UI_FONT_SIZE_PRESET];
 }
@@ -196,6 +196,7 @@ export const DEFAULT_USER_LOCAL_SETTINGS: UserLocalSettings = {
   version: 1,
   ui: {
     theme: null,
+    language: DEFAULT_UI_LANGUAGE,
     mainView: "chat",
     leftSidebarVisible: true,
     leftSidebarWidthPx: 320,
@@ -205,8 +206,6 @@ export const DEFAULT_USER_LOCAL_SETTINGS: UserLocalSettings = {
     fontFamilyPreset: DEFAULT_UI_FONT_FAMILY_PRESET,
     fontSizePreset: DEFAULT_UI_FONT_SIZE_PRESET,
     workspaceFileIconTheme: DEFAULT_UI_WORKSPACE_FILE_ICON_THEME,
-    assistantFinalMessageFormat: "markdown",
-    assistantPlanMessageFormat: "markdown",
     threadWorkspaceGroupsCollapsed: {},
     globalConfigAdvancedOpen: false,
   },
@@ -410,6 +409,7 @@ export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
     version: 1,
     ui: {
       theme: toNullableString(ui?.theme, DEFAULT_USER_LOCAL_SETTINGS.ui.theme),
+      language: normalizeUiLanguage(ui?.language),
       mainView: normalizeMainView(ui?.mainView, inferredMainViewFallback),
       leftSidebarVisible: toBoolean(ui?.leftSidebarVisible, DEFAULT_USER_LOCAL_SETTINGS.ui.leftSidebarVisible),
       leftSidebarWidthPx: toPositiveInteger(ui?.leftSidebarWidthPx, DEFAULT_USER_LOCAL_SETTINGS.ui.leftSidebarWidthPx),
@@ -425,8 +425,6 @@ export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
       fontFamilyPreset: normalizeUiFontFamilyPreset(ui?.fontFamilyPreset),
       fontSizePreset: normalizeUiFontSizePreset(ui?.fontSizePreset),
       workspaceFileIconTheme: normalizeUiWorkspaceFileIconTheme(ui?.workspaceFileIconTheme),
-      assistantFinalMessageFormat: normalizeAssistantFinalMessageFormat(ui?.assistantFinalMessageFormat),
-      assistantPlanMessageFormat: normalizeAssistantPlanMessageFormat(ui?.assistantPlanMessageFormat),
       threadWorkspaceGroupsCollapsed: normalizeThreadWorkspaceGroupsCollapsedState(ui?.threadWorkspaceGroupsCollapsed),
       globalConfigAdvancedOpen: toBoolean(
         ui?.globalConfigAdvancedOpen,
@@ -474,6 +472,7 @@ export function mergeUserLocalSettings(
     version: 1,
     ui: {
       theme: patchUi && "theme" in patchUi ? patchUi.theme : current.ui.theme,
+      language: patchUi && "language" in patchUi ? patchUi.language : current.ui.language,
       mainView: patchUi && "mainView" in patchUi ? patchUi.mainView : current.ui.mainView,
       leftSidebarVisible:
         patchUi && "leftSidebarVisible" in patchUi ? patchUi.leftSidebarVisible : current.ui.leftSidebarVisible,
@@ -492,14 +491,6 @@ export function mergeUserLocalSettings(
         patchUi && "workspaceFileIconTheme" in patchUi
           ? patchUi.workspaceFileIconTheme
           : current.ui.workspaceFileIconTheme,
-      assistantFinalMessageFormat:
-        patchUi && "assistantFinalMessageFormat" in patchUi
-          ? patchUi.assistantFinalMessageFormat
-          : current.ui.assistantFinalMessageFormat,
-      assistantPlanMessageFormat:
-        patchUi && "assistantPlanMessageFormat" in patchUi
-          ? patchUi.assistantPlanMessageFormat
-          : current.ui.assistantPlanMessageFormat,
       threadWorkspaceGroupsCollapsed:
         patchUi && "threadWorkspaceGroupsCollapsed" in patchUi
           ? patchUi.threadWorkspaceGroupsCollapsed

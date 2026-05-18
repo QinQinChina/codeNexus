@@ -7,28 +7,28 @@
       type="button"
       aria-haspopup="menu"
       :aria-expanded="props.open ? 'true' : 'false'"
-      aria-label="工具"
+      :aria-label="t('topbarExtra.tools')"
       @click.stop="emit('toggle')"
     >
       <SlidersHorizontal aria-hidden="true" />
-      <span class="topbar-right-switch-label">工具</span>
+      <span class="topbar-right-switch-label">{{ t("topbarExtra.tools") }}</span>
     </button>
   </div>
 
   <Transition name="topbar-fly">
     <div v-if="props.open" class="topbar-menu-shell topbar-menu-shell--tools" @click.stop>
-      <div class="topbar-dropdown topbar-menu app-scrollbar" role="menu" aria-label="工具菜单">
+      <div class="topbar-dropdown topbar-menu app-scrollbar" role="menu" :aria-label="t('topbarExtra.toolsMenu')">
         <div class="topbar-menu-section">
-          <div class="topbar-menu-heading">上下文操作</div>
+          <div class="topbar-menu-heading">{{ t("topbarExtra.contextActions") }}</div>
           <button
             id="btn-topbar-rollback"
             class="btn-mini !justify-start"
             type="button"
             @click="onContextActionComingSoon"
           >
-            撤回最近 N 轮
+            {{ t("topbarExtra.rollbackRecent") }}
           </button>
-          <div class="topbar-menu-note">撤回功能开发中，暂不可用。</div>
+          <div class="topbar-menu-note">{{ t("topbarExtra.rollbackUnavailable") }}</div>
           <button
             id="btn-topbar-memory-enable"
             class="btn-mini !justify-start"
@@ -60,7 +60,9 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
 import { SlidersHorizontal } from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
 import { showToast } from "../../../ui/toast";
 import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
 
@@ -69,10 +71,11 @@ const props = defineProps<{
 }>();
 
 const runtime = getRuntimeOrchestrator();
+const { t } = useI18n();
 
-const enableThreadMemoryLabel = "\u542f\u7528\u5f53\u524d\u7ebf\u7a0b\u8bb0\u5fc6";
-const disableThreadMemoryLabel = "\u5173\u95ed\u5f53\u524d\u7ebf\u7a0b\u8bb0\u5fc6";
-const resetCodexMemoryLabel = "\u91cd\u7f6e Codex \u8bb0\u5fc6";
+const enableThreadMemoryLabel = computed(() => t("topbarExtra.enableThreadMemory"));
+const disableThreadMemoryLabel = computed(() => t("topbarExtra.disableThreadMemory"));
+const resetCodexMemoryLabel = computed(() => t("topbarExtra.resetCodexMemory"));
 
 const emit = defineEmits<{
   (e: "toggle"): void;
@@ -82,8 +85,8 @@ const emit = defineEmits<{
 const onContextActionComingSoon = () => {
   showToast({
     kind: "info",
-    title: "撤回最近 N 轮",
-    message: "正在开发中，暂时无法使用...",
+    title: t("topbarExtra.rollbackRecent"),
+    message: t("topbarExtra.rollbackUnavailableToast"),
     timeoutMs: 4500,
   });
 };

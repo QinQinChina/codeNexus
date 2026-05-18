@@ -5,11 +5,14 @@ import { createApp, nextTick } from "vue";
 import { createPinia } from "pinia";
 import App from "./App.vue";
 import { initRuntimeOrchestrator } from "./domain/runtimeOrchestrator";
+import { installDomI18nFallback } from "./i18n/domFallback";
+import { i18n } from "./i18n";
 import { loadUserLocalSettings } from "./domain/localSettings";
 import { loadLocalDraftState } from "./domain/localDraftState";
 import { loadLocalMessageOutbox } from "./domain/localMessageOutbox";
 import { useThemeStore } from "./stores/theme.store";
 import { useTypographyStore } from "./stores/typography.store";
+import { useAppShellStore } from "./stores/appShell.store";
 import { useRuntimeStore } from "./stores/runtime.store";
 import { useMessageQueueStore } from "./stores/messageQueue.store";
 import { useCodexProfilesStore } from "./stores/codexProfiles.store";
@@ -39,8 +42,10 @@ async function bootstrap() {
   const runtime = initRuntimeOrchestrator(pinia);
   const app = createApp(App);
   app.use(pinia);
+  app.use(i18n);
   installTooltipDirective(app);
   app.mount("#app");
+  const disposeDomI18nFallback = installDomI18nFallback(() => useAppShellStore(pinia).language);
 
   const windowControlsOverlay = (navigator as any).windowControlsOverlay as
     | {
@@ -94,6 +99,7 @@ async function bootstrap() {
     "unload",
     () => {
       runtime.dispose();
+      disposeDomI18nFallback();
     },
     { once: true }
   );

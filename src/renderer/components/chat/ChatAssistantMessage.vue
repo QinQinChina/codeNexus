@@ -1,16 +1,10 @@
 <template>
   <div :class="[CHAT_ROW_BASE_CLASS, 'chat-row--assistant']">
     <div class="chat-bubble chat-bubble-assistant w-full max-w-full min-w-0">
-      <PlanOutputCard
-        v-if="event.method === 'item/plan/delta' && assistantPlanMessageFormat === 'plan-card-v1'"
-        class="chat-bubble-body min-w-0"
-        :rawText="event.paramsText"
-        :turnPlan="turnPlan"
-      />
       <MarkdownPlanOutputCard
-        v-else-if="isMarkdownPlanOutput"
+        v-if="isPlanDelta"
         :rawText="event.paramsText"
-        :forceCollapsed="shouldCollapseMarkdownPlan"
+        :forceCollapsed="shouldCollapsePlan"
       >
         <template v-if="execState" #actions>
           <ChatPlanDeltaActions
@@ -33,18 +27,6 @@
         :rawText="event.paramsText"
       />
       <AgentMarkdownContent v-else class="chat-bubble-body agent-markdown-body min-w-0" :html="markdownHtml" />
-      <ChatPlanDeltaActions
-        v-if="showStandalonePlanActions && execState"
-        :execState="execState"
-        :modelOptions="modelOptions"
-        :reasoningEffortOptions="reasoningEffortOptions"
-        :sandboxModeOptions="sandboxModeOptions"
-        :disabled="planActionDisabled"
-        @execute-plan="$emit('execute-plan', event)"
-        @update:model="(value) => $emit('update:model', value)"
-        @update:reasoning-effort="(value) => $emit('update:reasoning-effort', value)"
-        @update:sandbox-mode="(value) => $emit('update:sandbox-mode', value)"
-      />
     </div>
   </div>
 </template>
@@ -53,7 +35,7 @@
 import { computed, defineAsyncComponent, defineComponent, h } from "vue";
 import AgentMarkdownContent from "../ui/AgentMarkdownContent.vue";
 import ChatPlanDeltaActions from "./ChatPlanDeltaActions.vue";
-import type { TimelineEventItem, TurnPlanState } from "../../domain/types";
+import type { TimelineEventItem } from "../../domain/types";
 import type { PlanDeltaExecUiState } from "../layout/types/chat.types";
 import type { SandboxMode } from "../../stores/runtime.store";
 import { CHAT_ROW_BASE_CLASS } from "../layout/chat/chatPresentation";
@@ -77,11 +59,6 @@ const AssistantCardLoading = defineComponent({
   },
 });
 
-const PlanOutputCard = defineAsyncComponent({
-  loader: () => import("../ui/PlanOutputCard.vue"),
-  loadingComponent: AssistantCardLoading,
-  delay: 120,
-});
 const MarkdownPlanOutputCard = defineAsyncComponent({
   loader: () => import("../ui/MarkdownPlanOutputCard.vue"),
   loadingComponent: AssistantCardLoading,
@@ -95,8 +72,6 @@ const StructuredFinalAnswerCard = defineAsyncComponent({
 
 const props = defineProps<{
   event: TimelineEventItem;
-  assistantPlanMessageFormat: string;
-  turnPlan: TurnPlanState | null;
   isStructuredFinalAnswer: boolean;
   markdownHtml: string;
   execState: PlanDeltaExecUiState | null;
@@ -107,12 +82,8 @@ const props = defineProps<{
 }>();
 
 const isPlanDelta = computed(() => props.event.method === "item/plan/delta");
-const isMarkdownPlanOutput = computed(() => isPlanDelta.value && props.assistantPlanMessageFormat !== "plan-card-v1");
 const planActionDisabled = computed(() => props.isTurnRunning || Boolean(props.execState?.executing));
-const showStandalonePlanActions = computed(
-  () => isPlanDelta.value && !isMarkdownPlanOutput.value && Boolean(props.execState)
-);
-const shouldCollapseMarkdownPlan = computed(() => {
+const shouldCollapsePlan = computed(() => {
   const state = props.execState;
   if (!state?.collapseWhileExecuting) return false;
   return Boolean(state.executing || props.isTurnRunning);

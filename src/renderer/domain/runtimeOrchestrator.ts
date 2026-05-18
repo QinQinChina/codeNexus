@@ -760,6 +760,27 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     }
   };
 
+  const requestTurnInterrupt = async (
+    threadIdValue: string,
+    turnIdValue: string,
+    opts?: { silentSuccess?: boolean }
+  ): Promise<boolean> => {
+    const threadId = String(threadIdValue ?? "").trim();
+    const turnId = String(turnIdValue ?? "").trim();
+    if (!threadId || !turnId) return false;
+    const serverId = getServerIdForThread(threadId);
+    if (!serverId) return false;
+    try {
+      await codexDesktop.codexServer.rpc({ serverId, method: "turn/interrupt", params: { threadId, turnId } });
+      if (!opts?.silentSuccess) pushEvent("interrupt", "已请求停止当前回合", { threadId });
+      return true;
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent("interrupt:error", msg || "turn/interrupt failed", { threadId, level: "error" });
+      return false;
+    }
+  };
+
   const resolveHistoryRewriteAnchorTurnId = (threadIdValue: string): string => {
     const directTurnId = String(runtimeStore.historyRewriteAnchorTurnId ?? "").trim();
     if (directTurnId) return directTurnId;
@@ -801,6 +822,27 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     return events.slice(anchorIndex + 1).some(isOutputAfterHistoryRewriteAnchor);
   };
 
+  type HistoryRewriteRunningStopState = "stopped" | "output" | "timeout";
+
+  const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+  const waitForHistoryRewriteRunningTurnToStop = async (
+    threadIdValue: string,
+    anchorTurnIdValue: string
+  ): Promise<HistoryRewriteRunningStopState> => {
+    const threadId = String(threadIdValue ?? "").trim();
+    const anchorTurnId = String(anchorTurnIdValue ?? "").trim();
+    const deadline = Date.now() + 12_000;
+    while (Date.now() < deadline) {
+      if (hasOutputBelowHistoryRewriteAnchor(threadId, anchorTurnId) === true) return "output";
+      if (!threadStore.runningThreadIds.has(threadId)) return "stopped";
+      const activeTurnId = String(threadStore.activeTurnIdByThread.get(threadId) ?? "").trim();
+      if (activeTurnId && activeTurnId !== anchorTurnId) return "stopped";
+      await sleep(100);
+    }
+    return threadStore.runningThreadIds.has(threadId) ? "timeout" : "stopped";
+  };
+
   const rollbackHistoryRewriteBeforeSend = async (
     threadIdValue: string,
     opts?: { anchorTurnId?: string; force?: boolean }
@@ -816,10 +858,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       showToast({ kind: "info", title: "无法重写历史", message: "未选择会话。" });
       return false;
     }
-    if (threadStore.runningThreadIds.has(tid)) {
-      showToast({ kind: "warn", title: "线程运行中", message: "请等待当前回合完成后再发送编辑后的消息。" });
-      return false;
-    }
 
     const workspace = normalizeWorkspacePath(getWorkspaceForThread(tid) || runtimeStore.workspacePath);
     const serverId = getServerIdForThread(tid);
@@ -833,9 +871,34 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     }
 
     const anchorTurnId = forcedAnchorTurnId || resolveHistoryRewriteAnchorTurnId(tid);
+    let noVisibleOutputBelowAnchor = hasOutputBelowHistoryRewriteAnchor(tid, anchorTurnId) === false;
+    if (threadStore.runningThreadIds.has(tid)) {
+      const activeTurnId = String(threadStore.activeTurnIdByThread.get(tid) ?? "").trim();
+      if (!noVisibleOutputBelowAnchor || !activeTurnId || activeTurnId !== anchorTurnId) {
+        showToast({ kind: "warn", title: "线程运行中", message: "请等待当前回合完成后再发送编辑后的消息。" });
+        return false;
+      }
+      const interrupted = await requestTurnInterrupt(tid, anchorTurnId, { silentSuccess: true });
+      if (!interrupted) {
+        showToast({ kind: "error", title: "重写失败", message: "停止当前回合失败，请稍后重试。" });
+        return false;
+      }
+      const stopped = await waitForHistoryRewriteRunningTurnToStop(tid, anchorTurnId);
+      if (stopped === "timeout") {
+        showToast({ kind: "warn", title: "重写等待超时", message: "当前回合仍在运行，请稍后重试。" });
+        return false;
+      }
+      if (threadStore.runningThreadIds.has(tid)) {
+        showToast({ kind: "warn", title: "线程运行中", message: "当前回合仍在运行，请稍后重试。" });
+        return false;
+      }
+      noVisibleOutputBelowAnchor = hasOutputBelowHistoryRewriteAnchor(tid, anchorTurnId) === false;
+    }
+
     const rollback = resolveHistoryRewriteRollback(threadStore.completedTurnsByThread.get(tid) ?? [], anchorTurnId);
     if (!rollback) {
-      if (hasOutputBelowHistoryRewriteAnchor(tid, anchorTurnId) === false) {
+      if (noVisibleOutputBelowAnchor) {
+        timelineStore.removeTurnEvents(tid, [anchorTurnId]);
         return true;
       }
       showToast({
@@ -846,27 +909,29 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       return false;
     }
 
-    let confirmed = false;
-    try {
-      confirmed = await confirmModalLazy({
-        title: "发送编辑后的历史消息？",
-        message: `会先撤回从该消息开始的 ${rollback.count} 个已完成回合，再发送编辑后的内容。`,
-        detail: "撤回会回退线程上下文，并尝试回退这些回合产生的文件内容改动（不回退命令副作用）。",
-        confirmText: "撤回并发送",
-        cancelText: "取消",
-        danger: true,
-      });
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : String(e);
-      const isBusy = msg.includes("another modal is already open");
-      showToast({
-        kind: isBusy ? "warn" : "error",
-        title: "无法打开确认弹窗",
-        message: isBusy ? "当前已有弹窗打开，请先关闭后再重试。" : "打开弹窗失败",
-      });
-      return false;
+    if (!noVisibleOutputBelowAnchor) {
+      let confirmed = false;
+      try {
+        confirmed = await confirmModalLazy({
+          title: "发送编辑后的历史消息？",
+          message: `会先撤回从该消息开始的 ${rollback.count} 个已完成回合，再发送编辑后的内容。`,
+          detail: "撤回会回退线程上下文，并尝试回退这些回合产生的文件内容改动（不回退命令副作用）。",
+          confirmText: "撤回并发送",
+          cancelText: "取消",
+          danger: true,
+        });
+      } catch (e: any) {
+        const msg = e?.message ? String(e.message) : String(e);
+        const isBusy = msg.includes("another modal is already open");
+        showToast({
+          kind: isBusy ? "warn" : "error",
+          title: "无法打开确认弹窗",
+          message: isBusy ? "当前已有弹窗打开，请先关闭后再重试。" : "打开弹窗失败",
+        });
+        return false;
+      }
+      if (!confirmed) return false;
     }
-    if (!confirmed) return false;
 
     if (rollback.combinedDiff.trim()) {
       const dry = await codexDesktop.workspace.dryRunApplyReverseDiff({
@@ -901,14 +966,20 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         showToast({ kind: "error", title: "部分失败", message: "上下文已撤回，但文件回退失败；请手动检查工作区。" });
         return false;
       }
-      pushEvent("rollback", `history rewrite files reverted: ${(applied.files ?? []).join(", ")}`, { threadId: tid });
+      if (!noVisibleOutputBelowAnchor) {
+        pushEvent("rollback", `history rewrite files reverted: ${(applied.files ?? []).join(", ")}`, { threadId: tid });
+      }
     } else {
-      pushEvent("rollback", "history rewrite has no file diff; context only", { threadId: tid });
+      if (!noVisibleOutputBelowAnchor) {
+        pushEvent("rollback", "history rewrite has no file diff; context only", { threadId: tid });
+      }
     }
 
     timelineStore.removeTurnEvents(tid, rollback.turnIds);
     threadStore.removeTurnsFromState(tid, rollback.turnIds);
-    showToast({ kind: "success", title: "历史已回退", message: `已撤回 ${rollback.count} 个回合，正在发送编辑内容。` });
+    if (!noVisibleOutputBelowAnchor) {
+      showToast({ kind: "success", title: "历史已回退", message: `已撤回 ${rollback.count} 个回合，正在发送编辑内容。` });
+    }
     return true;
   };
 
@@ -2912,8 +2983,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     setServerExperimentalApi: (serverId, enabled) => serverExperimentalApiById.set(serverId, enabled),
     getComposeMode: () => runtimeStore.composeMode,
     setComposeMode: (mode) => runtimeStore.setComposeMode(mode),
-    getAssistantFinalMessageFormat: () => appShellStore.assistantFinalMessageFormat,
-    setAssistantFinalMessageFormat: (format) => appShellStore.setAssistantFinalMessageFormat(format),
     getModel: () => runtimeStore.model,
     getReasoningEffort: () => runtimeStore.reasoningEffort,
     getReasoningSummary: () => runtimeStore.reasoningSummary,
@@ -3533,21 +3602,12 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const interruptTurn = async () => {
     const threadId = runtimeStore.currentThreadId;
     if (!threadId) return;
-    const serverId = getServerIdForThread(threadId);
-    if (!serverId) return;
     const turnIdValue = String(threadStore.activeTurnIdByThread.get(threadId) ?? "").trim();
     if (!turnIdValue) {
       pushEvent("interrupt:error", "缺少 active turnId，无法执行 turn/interrupt", { threadId, level: "error" });
       return;
     }
-    const params = { threadId, turnId: turnIdValue };
-    try {
-      await codexDesktop.codexServer.rpc({ serverId, method: "turn/interrupt", params });
-      pushEvent("interrupt", "已请求停止当前回合", { threadId });
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : String(e);
-      pushEvent("interrupt:error", msg || "turn/interrupt failed", { threadId, level: "error" });
-    }
+    await requestTurnInterrupt(threadId, turnIdValue);
   };
 
   const compactThread = async () => {

@@ -20,15 +20,16 @@
       v-else
       class="lazy-image-thumb__placeholder flex h-full w-full items-center justify-center px-2 text-center mono text-[11px] text-[var(--ui-code-text-muted)]"
     >
-      <span v-if="loading">读取中...</span>
-      <span v-else-if="errorText">加载失败</span>
-      <span v-else>图片</span>
+      <span v-if="loading">{{ t("lazyImage.loading") }}</span>
+      <span v-else-if="errorText">{{ t("lazyImage.loadFailed") }}</span>
+      <span v-else>{{ t("lazyImage.image") }}</span>
     </div>
   </button>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { isAbsoluteFsPath, normalizeAbsoluteFsPath, resolveWorkspaceFsPath } from "../../domain/workspacePath";
 import { readLocalImageDataUrl } from "../../features/media/localImageCache";
 
@@ -57,6 +58,7 @@ const emit = defineEmits<{
   ): void;
 }>();
 
+const { t } = useI18n();
 const disabled = computed(() => Boolean(props.disabled));
 const altText = computed(() => String(props.previewTitle ?? "").trim() || "image");
 
@@ -99,7 +101,7 @@ function emitLoadErrorOnce(message: string) {
     imageId: String(props.imageId ?? "").trim(),
     source: String(props.source ?? "").trim(),
     sourceKind: props.sourceKind,
-    errorText: String(message ?? "").trim() || "图片加载失败",
+    errorText: String(message ?? "").trim() || t("lazyImage.imageLoadFailed"),
   });
 }
 
@@ -158,9 +160,9 @@ function onImgLoad() {
 }
 
 function onImgError() {
-  // 远程 URL / dataUrl 可能会加载失败：记录错误并允许重试（重新设置 src 的话浏览器会重试）。
+  // Remote URLs and data URLs can fail; keep an error state so the caller can retry by changing src.
   if (props.sourceKind === "localPath") return;
-  errorText.value = "图片加载失败";
+  errorText.value = t("lazyImage.imageLoadFailed");
   emitLoadErrorOnce(errorText.value);
 }
 
@@ -175,7 +177,7 @@ async function onPreviewClick() {
   if (!src) return;
   emit("preview", {
     src,
-    title: String(props.previewTitle ?? "").trim() || "图片预览",
+    title: String(props.previewTitle ?? "").trim() || t("lazyImage.previewTitle"),
     source: String(props.source ?? "").trim(),
     sourceKind: props.sourceKind,
   });
@@ -188,7 +190,7 @@ onMounted(() => {
 watch(
   () => [props.sourceKind, props.source, props.workspaceRoot, props.rootMarginPx] as const,
   () => {
-    // 输入变化时清空旧状态，避免不同图片之间串数据。
+    // Clear stale state when the input changes.
     localDataUrl.value = "";
     errorText.value = "";
     loading.value = false;

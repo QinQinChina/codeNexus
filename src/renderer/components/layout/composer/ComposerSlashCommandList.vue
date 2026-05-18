@@ -8,7 +8,7 @@
         aria-live="polite"
       >
         <div class="composer-slash-option composer-slash-option--empty" aria-disabled="true">
-          <span class="composer-slash-empty-text mono dim">未匹配到命令</span>
+          <span class="composer-slash-empty-text mono dim">{{ t("composer.slashNoCommands") }}</span>
         </div>
       </div>
       <div v-else key="list" class="composer-slash-list">
@@ -41,6 +41,8 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
+
 export type SlashCommandListItem = {
   id: string;
   code: string;
@@ -59,4 +61,6 @@ defineEmits<{
   (event: "hover", index: number): void;
   (event: "select", commandId: string): void;
 }>();
+
+const { t } = useI18n();
 </script>

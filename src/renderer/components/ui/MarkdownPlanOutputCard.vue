@@ -2,7 +2,7 @@
   <section
     class="markdown-plan-card chat-bubble-body min-w-0 overflow-hidden rounded-xl border border-[var(--ui-well-border)] bg-[var(--ui-well-bg)] shadow-[var(--chat-row-shadow)]"
     :class="{ 'is-executing': forceCollapsed }"
-    aria-label="计划"
+    :aria-label="t('planOutput.aria')"
   >
     <Collapsible :open="contentOpen" motion="height" @update:open="onContentOpenUpdate">
       <template #trigger="{ triggerProps, open }">
@@ -24,7 +24,9 @@
                 {{ parsed.description }}
               </p>
             </div>
-            <div v-if="forceCollapsed" class="mono text-[11px] text-[var(--fg-warning)]">执行计划中</div>
+            <div v-if="forceCollapsed" class="mono text-[11px] text-[var(--fg-warning)]">
+              {{ t("markdownPlan.executing") }}
+            </div>
           </div>
           <ChevronDown
             class="mt-0.5 h-4 w-4 flex-none text-[var(--text-muted)] transition-[transform,color] duration-200 [stroke-width:2.2]"
@@ -48,6 +50,7 @@
 <script setup lang="ts">
 import { ChevronDown } from "lucide-vue-next";
 import { computed, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { renderMarkdownToSafeHtml } from "../../features/timeline/markdownRenderer";
 import { useMarkdownRendererRefresh } from "../../features/timeline/useMarkdownRendererRefresh";
 import AgentMarkdownContent from "./AgentMarkdownContent.vue";
@@ -71,6 +74,7 @@ const props = defineProps<{
 }>();
 
 const manualOpen = ref(true);
+const { t } = useI18n();
 const { markdownRendererTick, refreshWhenReady } = useMarkdownRendererRefresh();
 
 const contentOpen = computed(() => !props.forceCollapsed && manualOpen.value);
@@ -130,11 +134,11 @@ function parseMarkdownPlan(rawText: string): ParsedMarkdownPlan {
   const source = String(rawText ?? "")
     .replace(/\r\n?/g, "\n")
     .trim();
-  if (!source) return { title: "计划", description: "", body: "（无）" };
+  if (!source) return { title: t("planOutput.title"), description: "", body: t("common.none") };
 
   const lines = source.split("\n");
   const heading = findBestHeading(lines);
-  if (!heading) return { title: "计划", description: "", body: source };
+  if (!heading) return { title: t("planOutput.title"), description: "", body: source };
 
   let descriptionStart = -1;
   let descriptionEnd = -1;
@@ -162,7 +166,7 @@ function parseMarkdownPlan(rawText: string): ParsedMarkdownPlan {
   const body = bodyLines.join("\n").trim() || description || heading.title;
 
   return {
-    title: heading.title || "计划",
+    title: heading.title || t("planOutput.title"),
     description,
     body,
   };

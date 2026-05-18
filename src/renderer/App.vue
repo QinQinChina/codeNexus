@@ -12,7 +12,7 @@
         class="center-workbench-sash"
         role="separator"
         aria-orientation="vertical"
-        aria-label="调整文件编辑器宽度"
+        :aria-label="t('appShell.resizeEditor')"
         :aria-valuenow="String(Math.round(effectiveEditorWidthPx))"
         tabindex="0"
         @pointerdown="onEditorSashPointerDown"
@@ -52,6 +52,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import TopBar from "./components/layout/TopBar.vue";
 import CenterPane from "./components/layout/CenterPane.vue";
 import BottomBar from "./components/layout/BottomBar.vue";
@@ -87,6 +88,7 @@ import {
 } from "./domain/layoutWidthBudget";
 
 const appShellStore = useAppShellStore();
+const { t } = useI18n();
 const appClosingStore = useAppClosingStore();
 const runtimeStore = useRuntimeStore();
 const notificationSoundStore = useNotificationSoundStore();
@@ -241,7 +243,7 @@ watch(
 );
 
 const leftSashAriaLabel = computed(() => {
-  return isLeftSashCollapsed.value ? "从左侧边缘拉出导航面板" : "调整左侧导航面板宽度";
+  return isLeftSashCollapsed.value ? t("appShell.pullLeftSidebar") : t("appShell.resizeLeftSidebar");
 });
 
 const mainClass = computed(() => ({

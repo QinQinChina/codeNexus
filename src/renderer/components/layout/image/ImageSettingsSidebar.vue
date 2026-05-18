@@ -1,9 +1,9 @@
 <template>
-  <aside class="sidebar sidebar-right image-settings-sidebar" aria-label="图片工作台参数">
+  <aside class="sidebar sidebar-right image-settings-sidebar" :aria-label="t('imageSidebar.aria')">
     <header class="image-settings-sidebar__header">
       <div>
         <div class="image-settings-sidebar__eyebrow">Images</div>
-        <h2 class="image-settings-sidebar__title">生成参数</h2>
+        <h2 class="image-settings-sidebar__title">{{ t("imageSidebar.title") }}</h2>
       </div>
       <button class="btn-mini" type="button" @click="openApiSettings">
         <Settings2 class="btn-mini__icon" aria-hidden="true" />
@@ -15,26 +15,26 @@
       <div class="image-workbench__control-grid">
         <div class="image-workbench__prompt-quality">
           <label class="image-workbench__field image-workbench__field--full">
-            <span class="image-workbench__label">提示词</span>
+            <span class="image-workbench__label">{{ t("imageSidebar.prompt") }}</span>
             <textarea
               v-model="workbench.prompt"
               class="image-workbench__textarea context-input mono"
               rows="8"
-              placeholder="描述你要生成的画面，参考图可选"
+              :placeholder="t('imageSidebar.promptPlaceholder')"
             />
           </label>
 
           <div class="image-workbench__quality-panel">
             <div class="image-workbench__quality-head">
-              <span>质量</span>
+              <span>{{ t("imageSidebar.quality") }}</span>
               <span class="mono">{{ selectedQualityLabel }}</span>
             </div>
             <div class="image-workbench__quality-body">
               <div class="image-workbench__quality-labels" aria-hidden="true">
-                <span>高</span>
-                <span>中</span>
-                <span>低</span>
-                <span>自动</span>
+                <span>{{ t("imageSidebar.high") }}</span>
+                <span>{{ t("imageSidebar.medium") }}</span>
+                <span>{{ t("imageSidebar.low") }}</span>
+                <span>{{ t("imageSidebar.auto") }}</span>
               </div>
               <input
                 class="image-workbench__quality-slider"
@@ -43,7 +43,7 @@
                 max="3"
                 step="1"
                 :value="qualityIndex"
-                aria-label="图片质量"
+                :aria-label="t('imageSidebar.imageQuality')"
                 :aria-valuetext="selectedQualityLabel"
                 @input="onQualityInput"
               />
@@ -54,7 +54,7 @@
 
       <div class="image-workbench__attachments">
         <div class="image-workbench__attachments-head">
-          <span>参考图（可选）</span>
+          <span>{{ t("imageSidebar.references") }}</span>
           <span class="mono">{{ workbench.inputImages.length }} / 4</span>
         </div>
 
@@ -69,9 +69,9 @@
           <input ref="imageInputRef" class="image-workbench__file" type="file" accept="image/*" multiple @change="onPickImages" />
           <button class="image-workbench__dropzone-btn" type="button" @click="triggerPickImages">
             <Upload class="btn-mini__icon" aria-hidden="true" />
-            <span>添加参考图</span>
+            <span>{{ t("imageSidebar.addReference") }}</span>
           </button>
-          <div class="image-workbench__dropzone-hint">最多 4 张参考图，不上传也可以直接生成</div>
+          <div class="image-workbench__dropzone-hint">{{ t("imageSidebar.referenceHint") }}</div>
         </div>
 
         <div v-if="workbench.inputImages.length" class="image-workbench__thumb-grid">
@@ -88,24 +88,24 @@
 
         <div v-if="workbench.inputImages.length" class="image-workbench__mask-row">
           <div class="image-workbench__mask-copy">
-            <div class="image-workbench__label">局部编辑蒙版</div>
-            <div class="dim">可选，限定修改区域。</div>
+            <div class="image-workbench__label">{{ t("imageSidebar.maskTitle") }}</div>
+            <div class="dim">{{ t("imageSidebar.maskDesc") }}</div>
           </div>
           <div class="image-workbench__mask-actions">
             <input ref="maskInputRef" class="image-workbench__file" type="file" accept="image/*" @change="onPickMask" />
             <button class="btn-mini" type="button" @click="triggerPickMask">
               <Upload class="btn-mini__icon" aria-hidden="true" />
-              <span>{{ workbench.maskDataUrl ? "替换" : "选择" }}</span>
+              <span>{{ workbench.maskDataUrl ? t("imageSidebar.replace") : t("imageSidebar.choose") }}</span>
             </button>
             <button class="btn-mini" type="button" :disabled="!workbench.maskDataUrl" @click="workbench.clearMask">
               <X class="btn-mini__icon" aria-hidden="true" />
-              <span>清除</span>
+              <span>{{ t("imageSidebar.clear") }}</span>
             </button>
           </div>
         </div>
 
         <div v-if="workbench.inputImages.length && workbench.maskDataUrl" class="image-workbench__mask-preview">
-          <img :src="workbench.maskDataUrl" alt="局部编辑蒙版预览" />
+          <img :src="workbench.maskDataUrl" :alt="t('imageSidebar.maskPreviewAlt')" />
         </div>
       </div>
 
@@ -113,36 +113,36 @@
 
       <button class="image-settings-sidebar__generate" type="button" :disabled="!workbench.canGenerate" @click="workbench.generate">
         <Wand2 class="btn-mini__icon" aria-hidden="true" />
-        <span>生成图片</span>
+        <span>{{ t("imageSidebar.generate") }}</span>
       </button>
 
       <section v-if="selectedHistoryItem" class="image-settings-sidebar__section">
         <div class="image-settings-sidebar__section-head">
-          <span>当前记录</span>
+          <span>{{ t("imageSidebar.currentRecord") }}</span>
           <button class="btn-mini btn-mini--danger" type="button" @click="deleteHistoryItem(selectedHistoryItem.id)">
             <Trash2 class="btn-mini__icon" aria-hidden="true" />
-            <span>删除</span>
+            <span>{{ t("imageWorkbench.delete") }}</span>
           </button>
         </div>
         <div class="image-settings-sidebar__detail">
           <div class="image-settings-sidebar__detail-row">
-            <span>模型</span>
+            <span>{{ t("imageSidebar.model") }}</span>
             <span class="mono">{{ selectedHistoryItem.model }}</span>
           </div>
           <div class="image-settings-sidebar__detail-row">
-            <span>参数</span>
+            <span>{{ t("imageSidebar.params") }}</span>
             <span class="mono">{{ formatHistoryParams(selectedHistoryItem) }}</span>
           </div>
           <div class="image-settings-sidebar__detail-row">
-            <span>时间</span>
+            <span>{{ t("imageSidebar.time") }}</span>
             <span class="mono">{{ formatDateTime(selectedHistoryItem.createdAt) }}</span>
           </div>
           <div class="image-settings-sidebar__prompt-block">
-            <div class="image-workbench__label">提示词</div>
+            <div class="image-workbench__label">{{ t("imageSidebar.prompt") }}</div>
             <p class="app-scrollbar">{{ selectedHistoryItem.prompt }}</p>
           </div>
           <div v-if="selectedHistoryItem.revisedPrompt" class="image-settings-sidebar__prompt-block">
-            <div class="image-workbench__label">修订提示词</div>
+            <div class="image-workbench__label">{{ t("imageSidebar.revisedPrompt") }}</div>
             <p class="app-scrollbar">{{ selectedHistoryItem.revisedPrompt }}</p>
           </div>
         </div>
@@ -154,10 +154,12 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { Settings2, Trash2, Upload, Wand2, X } from "lucide-vue-next";
 import { useAppShellStore } from "../../../stores/appShell.store";
 import { useImageWorkbenchStore } from "../../../stores/imageWorkbench.store";
 
+const { t, locale } = useI18n();
 const appShellStore = useAppShellStore();
 const workbench = useImageWorkbenchStore();
 const imageInputRef = ref<HTMLInputElement | null>(null);
@@ -169,16 +171,16 @@ type SidebarHistoryItem = (typeof workbench.historyItems)[number];
 
 const selectedHistoryItem = computed(() => workbench.selectedHistoryItem);
 const qualityLevels = [
-  { value: "auto", label: "自动" },
-  { value: "low", label: "低" },
-  { value: "medium", label: "中" },
-  { value: "high", label: "高" },
+  { value: "auto", labelKey: "imageSidebar.auto" },
+  { value: "low", labelKey: "imageSidebar.low" },
+  { value: "medium", labelKey: "imageSidebar.medium" },
+  { value: "high", labelKey: "imageSidebar.high" },
 ] as const;
 const qualityIndex = computed(() => {
   const index = qualityLevels.findIndex((item) => item.value === workbench.quality);
   return index >= 0 ? index : 0;
 });
-const selectedQualityLabel = computed(() => qualityLevels[qualityIndex.value]?.label ?? "自动");
+const selectedQualityLabel = computed(() => t(qualityLevels[qualityIndex.value]?.labelKey ?? "imageSidebar.auto"));
 
 function openApiSettings() {
   appShellStore.openSettings("image");
@@ -246,7 +248,7 @@ function onQualityInput(event: Event) {
 function formatDateTime(value: number): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleString("zh-CN", {
+  return date.toLocaleString(String(locale.value), {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
@@ -255,7 +257,7 @@ function formatDateTime(value: number): string {
 }
 
 function formatHistoryParams(item: SidebarHistoryItem): string {
-  const modeText = item.mode === "edit" ? "参考图生成" : "文本生成";
+  const modeText = item.mode === "edit" ? t("imageWorkbench.editMode") : t("imageWorkbench.textMode");
   return [modeText, item.quality].filter(Boolean).join(" / ") || "auto";
 }
 

@@ -11,6 +11,7 @@ import type {
   ReasoningBlockNode,
   FileChangeNode,
   CommandActionNode,
+  CommandSessionNode,
   CommandListNode,
   CommandReadNode,
   CommandSearchNode,
@@ -95,6 +96,7 @@ export type ChatAuxiliaryRow =
   | (ChatRowBase & { kind: "webSearch"; createdAt: number; item: ChatWebSearchItem })
   | (ChatRowBase & { kind: "reasoningBlock"; item: ReasoningBlockNode })
   | (ChatRowBase & { kind: "commandAction"; item: CommandActionNode })
+  | (ChatRowBase & { kind: "commandSession"; item: CommandSessionNode })
   | (ChatRowBase & { kind: "commandRead"; item: CommandReadNode })
   | (ChatRowBase & { kind: "commandList"; item: CommandListNode })
   | (ChatRowBase & { kind: "commandSearch"; item: CommandSearchNode })

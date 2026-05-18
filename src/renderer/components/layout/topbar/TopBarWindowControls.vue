@@ -3,7 +3,7 @@
     id="btn-window-minimize"
     class="btn-icon"
     type="button"
-    aria-label="最小化"
+    :aria-label="t('topbarExtra.minimize')"
     @click="onWindowMinimize"
   >
     <Minus aria-hidden="true" />
@@ -12,7 +12,7 @@
     id="btn-window-maximize"
     class="btn-icon"
     type="button"
-    :aria-label="windowExpanded ? '还原' : '最大化'"
+    :aria-label="windowExpanded ? t('topbarExtra.restore') : t('topbarExtra.maximize')"
     @click="onWindowToggleMaximize"
   >
     <Copy v-if="windowExpanded" aria-hidden="true" />
@@ -23,7 +23,7 @@
     class="btn-icon danger"
     type="button"
     :disabled="closeInFlight || appClosingStore.visible"
-    aria-label="关闭"
+    :aria-label="t('topbarExtra.close')"
     @click="onWindowClose"
   >
     <X aria-hidden="true" />
@@ -33,11 +33,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { Copy, Minus, Square, X } from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
 import { codexDesktop } from "../../../api/codexDesktopClient";
 import { useAppClosingStore } from "../../../stores/appClosing.store";
 import type { AppWindowState } from "../../../../shared/ipc/contracts";
 
 const appClosingStore = useAppClosingStore();
+const { t } = useI18n();
 
 const windowState = ref<AppWindowState>({
   isMaximized: false,

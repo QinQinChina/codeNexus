@@ -1,4 +1,5 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { translate } from "../../../i18n/translate";
 
 type DujitangTickerStatus = "loading" | "ready" | "error";
 type DujitangTickerPhase = "idle" | "startPause" | "scrolling" | "endPause";
@@ -10,15 +11,15 @@ const DUJITANG_TEXT_MAX_CHARS = 120;
 const DUJITANG_SCROLL_START_PAUSE_MS = 3_000;
 const DUJITANG_SCROLL_END_PAUSE_MS = 3_000;
 const DUJITANG_SCROLL_SPEED_PX_PER_SECOND = 36;
-const DUJITANG_LOADING_TEXT = "毒鸡汤加载中...";
-const DUJITANG_ERROR_TEXT = "毒鸡汤加载失败，稍后重试";
+const dujitangLoadingText = () => translate("topbarExtra.dujitangLoading");
+const dujitangErrorText = () => translate("topbarExtra.dujitangError");
 
 export function useDujitangTicker() {
   const tickerViewportRef = ref<HTMLElement | null>(null);
   const tickerTrackRef = ref<HTMLElement | null>(null);
   const tickerStatus = ref<DujitangTickerStatus>("loading");
   const tickerPhase = ref<DujitangTickerPhase>("idle");
-  const tickerFullText = ref(DUJITANG_LOADING_TEXT);
+  const tickerFullText = ref(dujitangLoadingText());
   const tickerOverflow = ref(false);
   const tickerOffsetPx = ref(0);
   const tickerTransitionMs = ref(0);
@@ -206,7 +207,7 @@ export function useDujitangTicker() {
 
     if (tickerStatus.value !== "ready") {
       tickerStatus.value = "loading";
-      tickerFullText.value = DUJITANG_LOADING_TEXT;
+      tickerFullText.value = dujitangLoadingText();
     }
 
     const controller = new AbortController();
@@ -228,7 +229,7 @@ export function useDujitangTicker() {
     } catch (error) {
       console.warn("[TopBarAnnouncement] fetch dujitang text failed", error);
       tickerStatus.value = "error";
-      tickerFullText.value = DUJITANG_ERROR_TEXT;
+      tickerFullText.value = dujitangErrorText();
     } finally {
       clearTimeout(timeoutId);
       fetchInFlight = false;

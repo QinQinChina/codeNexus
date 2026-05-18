@@ -2,14 +2,14 @@
   <div class="lsb-pane-content">
     <div class="lsb-pane-head">
       <div class="lsb-pane-head-row">
-        <div class="lsb-pane-title">线程</div>
+        <div class="lsb-pane-title">{{ t("threadHistory.title") }}</div>
         <div class="lsb-head-badges">
           <span class="lsb-head-badge is-accent mono">{{ threadsCountText }}</span>
           <span
             v-if="runningThreadsCount > 0"
             class="lsb-head-badge is-success mono"
           >
-            运行 {{ runningThreadsCount }}
+            {{ t("threadHistory.runningCount", { count: runningThreadsCount }) }}
           </span>
         </div>
       </div>
@@ -22,13 +22,13 @@
           @click="runtime.createThread"
         >
           <SquarePen class="lsb-nav-icon" aria-hidden="true" />
-          <span class="lsb-nav-text">新建线程</span>
+          <span class="lsb-nav-text">{{ t("threadHistory.newThread") }}</span>
         </button>
         <button
           id="btn-refresh-history"
           class="lsb-icon-btn lsb-thread-refresh-btn"
           type="button"
-          aria-label="刷新"
+          :aria-label="t('common.refresh')"
           :disabled="isRefreshingHistory"
           @click="onRefreshHistoryClick"
         >
@@ -45,15 +45,15 @@
             v-model="threadFilterText"
             class="lsb-search-input mono"
             type="text"
-            placeholder="搜索线程…"
-            aria-label="搜索线程"
+            :placeholder="t('threadHistory.searchPlaceholder')"
+            :aria-label="t('threadHistory.searchAria')"
             @keydown.escape.prevent="threadFilterText = ''"
           />
           <button
             v-if="threadFilterText"
             class="lsb-search-clear"
             type="button"
-            aria-label="清空搜索"
+            :aria-label="t('threadHistory.clearSearch')"
             @click="threadFilterText = ''"
           >
             <X aria-hidden="true" />
@@ -66,17 +66,17 @@
       <div class="lsb-thread-groups" :class="{ dim: totalThreadListCount === 0 }">
         <template v-if="totalThreadListCount === 0">
           <div class="lsb-empty lsb-thread-empty mono">
-            <div class="dim">暂无线程</div>
+            <div class="dim">{{ t("threadHistory.empty") }}</div>
             <button class="lsb-nav-row lsb-nav-row--workspace" type="button" @click="runtime.createThread">
-              <span class="lsb-nav-text">新建线程</span>
+              <span class="lsb-nav-text">{{ t("threadHistory.newThread") }}</span>
             </button>
           </div>
         </template>
         <template v-else-if="visibleThreadGroups.length === 0">
           <div class="lsb-empty lsb-thread-empty mono">
-            <div class="dim">没有匹配的线程</div>
+            <div class="dim">{{ t("threadHistory.noMatches") }}</div>
             <button class="lsb-nav-row lsb-nav-row--workspace" type="button" @click="threadFilterText = ''">
-              <span class="lsb-nav-text">清空搜索</span>
+              <span class="lsb-nav-text">{{ t("threadHistory.clearSearch") }}</span>
             </button>
           </div>
         </template>
@@ -139,6 +139,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { ChevronDown, Folder, RefreshCw, Search, SquarePen, X } from "lucide-vue-next";
 import type { LocalThreadItem, ThreadHistoryItem } from "../../../domain/types";
 import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
@@ -178,6 +179,7 @@ const appShellStore = useAppShellStore();
 const runtimeStore = useRuntimeStore();
 const threadStore = useThreadStore();
 const userInputStore = useUserInputStore();
+const { t } = useI18n();
 
 const isRefreshingHistory = ref(false);
 const nowMs = ref(Date.now());
@@ -288,7 +290,7 @@ const threadGroups = computed<ThreadGroup[]>(() => {
     };
     const cwd = String(item.cwd ?? "").trim();
     const key = cwd ? normalizeFsPath(cwd) : "__no_workspace__";
-    const title = cwd ? toBasename(cwd) : "No workspace";
+    const title = cwd ? toBasename(cwd) : t("threadHistory.noWorkspace");
     const existing = groups.get(key);
     if (existing) {
       existing.updatedAt = Math.max(existing.updatedAt, item.updatedAt);
@@ -360,9 +362,9 @@ const runningThreadsCount = computed(() => threadStore.runningThreadIds.size);
 const totalThreadListCount = computed(() => visibleThreadItems.value.length);
 const threadsCountText = computed(() => {
   const total = totalThreadListCount.value;
-  if (!threadFilterActive.value) return `总计 ${total}`;
+  if (!threadFilterActive.value) return t("threadHistory.totalCount", { count: total });
   const matched = visibleThreadGroups.value.reduce((acc, g) => acc + g.rows.length, 0);
-  return `匹配 ${matched} / ${total}`;
+  return t("threadHistory.matchCount", { matched, total });
 });
 const visibleThreadGroupKeys = computed(() => {
   return new Set(threadGroups.value.map((group) => String(group.key ?? "").trim()).filter(Boolean));
@@ -421,7 +423,7 @@ const isInvalidWorkspaceItem = (item: { cwd?: string }) => {
 const shouldShowUserInputBadge = (threadIdValue: string) =>
   userInputStore.queueSizeForThread(String(threadIdValue ?? "").trim()) > 0;
 const threadAriaLabel = (row: ThreadRowModel) =>
-  `打开线程：${threadStore.displayThreadTitle(row.item.id, row.item.title)}`;
+  t("threadHistory.openThreadAria", { title: threadStore.displayThreadTitle(row.item.id, row.item.title) });
 const shouldShowThreadAttention = (threadId: string) => {
   const tid = String(threadId ?? "").trim();
   return Boolean(tid && tid !== runtimeStore.currentThreadId && threadStore.attentionThreadIds.has(tid));
@@ -448,7 +450,7 @@ const onRenameThread = async (threadIdValue: string, titleValue: string) => {
     else threadStore.clearThreadTitleOverride(threadId);
     showToast({
       kind: "error",
-      title: "重命名失败",
+      title: t("threadHistory.renameFailed"),
       message: error instanceof Error ? error.message : String(error),
     });
   }

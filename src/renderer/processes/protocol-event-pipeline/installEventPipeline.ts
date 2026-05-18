@@ -35,6 +35,7 @@ type ItemLifecycleNotification = NotificationByMethod<"item/started"> | Notifica
 type ThreadTokenUsagePayload = NotificationByMethod<"thread/tokenUsage/updated">["params"]["tokenUsage"];
 // 上下文压缩线程项类型
 type ContextCompactionThreadItem = Extract<ThreadItem, { type: "contextCompaction" }>;
+type CommandExecutionThreadItem = Extract<ThreadItem, { type: "commandExecution" }>;
 
 // 判断是否为 Item 生命周期通知
 function isItemLifecycleNotification(notification: NormalizedNotification): notification is ItemLifecycleNotification {
@@ -97,6 +98,19 @@ function toThreadTokenUsage(tokenUsage: ThreadTokenUsagePayload | Record<string,
 // 转换为格式化的 JSON 字符串
 function toPrettyJson(value: unknown): string {
   return safeJsonStringify(value ?? {}, { space: 2 });
+}
+
+function decodeBase64Utf8(value: unknown): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  try {
+    if (typeof atob === "function") {
+      const binary = atob(raw);
+      const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+      return new TextDecoder().decode(bytes);
+    }
+  } catch {}
+  return raw;
 }
 
 // 提取推理摘要文本
@@ -253,6 +267,10 @@ export function installEventPipeline(pinia: Pinia) {
   const reasoningItemIdByTurnKey = new Map<string, string>();
   // 推理摘要事件 ID 映射
   const reasoningSummaryEventIdByKey = new Map<string, string>();
+  const commandExecutionByProcessId = new Map<
+    string,
+    { threadId: string; turnId: string; itemId: string; item: CommandExecutionThreadItem }
+  >();
 
   // 旁路日志：把关键协议事件落盘到 ~/.codex/logs，便于排查"历史回放缺少文件修改"等问题。
   // 注意：此日志不是 UI 的真数据源，只作为回放/诊断兜底。
@@ -274,6 +292,22 @@ export function installEventPipeline(pinia: Pinia) {
   // 生成推理摘要键
   const toReasoningSummaryKey = (threadId: string, turnId: string, itemId: string, summaryIndex: number) =>
     `${threadId}:${turnId}:${itemId}:${summaryIndex}`;
+
+  const rememberCommandExecutionProcess = (params: {
+    threadId: string;
+    turnId: string;
+    itemId: string;
+    item: ThreadItem | null;
+  }) => {
+    const item = params.item;
+    if (item?.type !== "commandExecution") return;
+    const processId = String(item.processId ?? "").trim();
+    const threadId = String(params.threadId ?? "").trim();
+    const turnId = String(params.turnId ?? "").trim();
+    const itemId = String(params.itemId ?? item.id ?? "").trim();
+    if (!processId || !threadId || !turnId || !itemId) return;
+    commandExecutionByProcessId.set(processId, { threadId, turnId, itemId, item });
+  };
 
   // 清除指定键的定时器
   const clearTimer = (timers: Map<string, ReturnType<typeof setTimeout>>, key: string) => {
@@ -519,11 +553,98 @@ export function installEventPipeline(pinia: Pinia) {
       effectiveThreadId && effectiveThreadId !== "__app__"
         ? resolveId(threadStore.activeTurnIdByThread.get(effectiveThreadId))
         : "";
+    if ((n.method === "item/started" || n.method === "item/completed") && lifecycleItem?.type === "commandExecution") {
+      const cmdTurnId = resolveId(lifecycleTurnId, rawTurnId, activeTurnId);
+      const cmdItemId = resolveId(lifecycleItem.id, n.itemId);
+      rememberCommandExecutionProcess({
+        threadId: effectiveThreadId,
+        turnId: cmdTurnId,
+        itemId: cmdItemId,
+        item: lifecycleItem,
+      });
+    }
     // Skills/MCP startup updates drive the integrations panel, not chat timeline content.
     if (n.method === "skills/changed" || n.method === "mcpServer/startupStatus/updated") {
       return;
     }
     const paramsText = toPrettyJson(params);
+
+    if (n.method === "process/outputDelta") {
+      const processHandle = String(n.params.processHandle ?? "").trim();
+      const commandProcess = processHandle ? commandExecutionByProcessId.get(processHandle) : null;
+      if (commandProcess) {
+        const deltaText = decodeBase64Utf8(n.params.deltaBase64);
+        const cmdEventId = `notif:item/commandExecution/outputDelta:${commandProcess.threadId}:${commandProcess.turnId || "unknown"}:${commandProcess.itemId || "unknown"}`;
+        if (deltaText) {
+          timelineStore.appendToEvent({
+            threadId: commandProcess.threadId,
+            id: cmdEventId,
+            method: "item/commandExecution/outputDelta",
+            chunk: deltaText,
+            params: {
+              threadId: commandProcess.threadId,
+              turnId: commandProcess.turnId,
+              itemId: commandProcess.itemId,
+              delta: deltaText,
+              item: commandProcess.item,
+              processHandle,
+              stream: n.params.stream,
+              capReached: n.params.capReached,
+            },
+            turnId: commandProcess.turnId || undefined,
+          });
+        }
+        return;
+      }
+    }
+
+    if (n.method === "process/exited") {
+      const processHandle = String(n.params.processHandle ?? "").trim();
+      const commandProcess = processHandle ? commandExecutionByProcessId.get(processHandle) : null;
+      if (commandProcess) {
+        const finalOutput = [n.params.stdout, n.params.stderr].filter(Boolean).join("");
+        const cmdEventId = `notif:item/commandExecution/outputDelta:${commandProcess.threadId}:${commandProcess.turnId || "unknown"}:${commandProcess.itemId || "unknown"}`;
+        if (finalOutput) {
+          timelineStore.appendToEvent({
+            threadId: commandProcess.threadId,
+            id: cmdEventId,
+            method: "item/commandExecution/outputDelta",
+            chunk: finalOutput,
+            params: {
+              threadId: commandProcess.threadId,
+              turnId: commandProcess.turnId,
+              itemId: commandProcess.itemId,
+              delta: finalOutput,
+              item: commandProcess.item,
+              processHandle,
+            },
+            turnId: commandProcess.turnId || undefined,
+          });
+        }
+
+        const exitCode = Number.isFinite(n.params.exitCode) ? Number(n.params.exitCode) : null;
+        const completedItem: CommandExecutionThreadItem = {
+          ...commandProcess.item,
+          status: exitCode === 0 ? "completed" : "failed",
+          exitCode,
+        };
+        timelineStore.upsertEvent({
+          threadId: commandProcess.threadId,
+          id: toCommandLifecycleEventId(
+            "item/completed",
+            commandProcess.threadId,
+            commandProcess.turnId,
+            commandProcess.itemId
+          ),
+          method: "item/completed",
+          paramsText: toPrettyJson({ threadId: commandProcess.threadId, turnId: commandProcess.turnId, item: completedItem }),
+          params: { threadId: commandProcess.threadId, turnId: commandProcess.turnId, item: completedItem },
+          turnId: commandProcess.turnId || undefined,
+        });
+        commandExecutionByProcessId.delete(processHandle);
+        return;
+      }
+    }
 
     if (HIDDEN_OFFICIAL_NOTIFICATION_METHODS.has(n.method)) {
       if (n.method === "item/fileChange/outputDelta") {
@@ -1458,6 +1579,7 @@ export function installEventPipeline(pinia: Pinia) {
     contextCompactionSettleTimers.clear();
     reasoningItemIdByTurnKey.clear();
     reasoningSummaryEventIdByKey.clear();
+    commandExecutionByProcessId.clear();
     threadIdByTurnId.clear();
     routingWarned.clear();
     unsubscribe();

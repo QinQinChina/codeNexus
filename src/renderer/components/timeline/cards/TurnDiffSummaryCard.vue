@@ -52,6 +52,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { getParsedDiffCached } from "../../../features/timeline/renderModel/diff";
 
 type DiffFileKind = "add" | "modify" | "delete" | "rename" | "unknown";
@@ -88,6 +89,8 @@ type DiffSummary = {
 const props = defineProps<{
   diffText: string;
 }>();
+
+const { t } = useI18n();
 
 const normalizePath = (value: string) => {
   const trimmed = String(value ?? "")
@@ -184,7 +187,7 @@ const summarizeSection = (sectionText: string, index: number): DiffFileSummary =
             : "unknown";
 
   const stats = countAddedDeletedLines(sectionText);
-  const fallbackName = `变更 ${index + 1}`;
+  const fallbackName = t("turnDiff.changeFallback", { index: index + 1 });
   const label =
     kind === "rename"
       ? `${effectiveOldPath || fallbackName} -> ${effectiveNewPath || fallbackName}`
@@ -244,22 +247,37 @@ const summaryPills = computed(() => {
 
   pills.push({
     key: "files",
-    label: "文件",
+    label: t("turnDiff.files"),
     value: String(summary.value.files.length),
     className: "border-[var(--border)] bg-[var(--button-bg)] text-[var(--text)]",
   });
   if (counts.add > 0)
-    pills.push({ key: "add", label: "新增", value: String(counts.add), className: kindBadgeClass("add") });
+    pills.push({ key: "add", label: t("turnDiff.added"), value: String(counts.add), className: kindBadgeClass("add") });
   if (counts.modify > 0)
-    pills.push({ key: "modify", label: "修改", value: String(counts.modify), className: kindBadgeClass("modify") });
+    pills.push({
+      key: "modify",
+      label: t("turnDiff.modified"),
+      value: String(counts.modify),
+      className: kindBadgeClass("modify"),
+    });
   if (counts.delete > 0)
-    pills.push({ key: "delete", label: "删除", value: String(counts.delete), className: kindBadgeClass("delete") });
+    pills.push({
+      key: "delete",
+      label: t("turnDiff.deleted"),
+      value: String(counts.delete),
+      className: kindBadgeClass("delete"),
+    });
   if (counts.rename > 0)
-    pills.push({ key: "rename", label: "重命名", value: String(counts.rename), className: kindBadgeClass("rename") });
+    pills.push({
+      key: "rename",
+      label: t("turnDiff.renamed"),
+      value: String(counts.rename),
+      className: kindBadgeClass("rename"),
+    });
   if (summary.value.totalAdd > 0 || summary.value.totalDel > 0) {
     pills.push({
       key: "lines",
-      label: "行数",
+      label: t("turnDiff.lines"),
       add: summary.value.totalAdd,
       del: summary.value.totalDel,
       className: "border-[var(--border)] bg-[var(--surface-1)] text-[var(--text)]",
@@ -269,11 +287,11 @@ const summaryPills = computed(() => {
 });
 
 const kindLabel = (kind: DiffFileKind) => {
-  if (kind === "add") return "新增";
-  if (kind === "modify") return "修改";
-  if (kind === "delete") return "删除";
-  if (kind === "rename") return "重命名";
-  return "差异";
+  if (kind === "add") return t("turnDiff.added");
+  if (kind === "modify") return t("turnDiff.modified");
+  if (kind === "delete") return t("turnDiff.deleted");
+  if (kind === "rename") return t("turnDiff.renamed");
+  return t("turnDiff.diff");
 };
 
 function kindBadgeClass(kind: DiffFileKind) {

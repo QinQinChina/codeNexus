@@ -2,15 +2,15 @@
   <aside class="sidebar sidebar-right debug-timeline-sidebar">
     <header class="debug-timeline-sidebar-head">
       <div class="debug-timeline-sidebar-title">
-        <span class="mono">调试 JSON</span>
-        <span class="mono dim">事件时间线</span>
+        <span class="mono">{{ t("debugTimeline.title") }}</span>
+        <span class="mono dim">{{ t("debugTimeline.subtitle") }}</span>
       </div>
       <div class="debug-timeline-sidebar-actions">
         <span class="mono dim text-[10px]">Ctrl/⌘ + Alt + J</span>
-        <button class="btn-mini" type="button" @click="close">关闭</button>
+        <button class="btn-mini" type="button" @click="close">{{ t("common.close") }}</button>
       </div>
     </header>
-    <div class="debug-timeline-sidebar-body app-scrollbar" role="region" aria-label="调试 JSON 事件列表">
+    <div class="debug-timeline-sidebar-body app-scrollbar" role="region" :aria-label="t('debugTimeline.regionAria')">
       <TimelinePane :contentEvents="debugOverlayEvents" :workspaceRoot="workspaceRoot" />
     </div>
   </aside>
@@ -18,6 +18,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import TimelinePane from "../chat/TimelinePane.vue";
 import type { TimelineEventItem } from "../../../domain/types";
 import { useDebugTimelineStore } from "../../../stores/debugTimeline.store";
@@ -27,6 +28,7 @@ import { useTimelineStore } from "../../../stores/timeline.store";
 const runtimeStore = useRuntimeStore();
 const timelineStore = useTimelineStore();
 const debugTimelineStore = useDebugTimelineStore();
+const { t } = useI18n();
 
 const timelineKey = computed(() => String(runtimeStore.timelineKey ?? "__app__"));
 const workspaceRoot = computed(() => String(runtimeStore.workspacePath ?? "").trim());

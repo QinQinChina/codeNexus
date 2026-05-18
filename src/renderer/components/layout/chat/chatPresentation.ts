@@ -24,6 +24,7 @@ export type ChatTimelineRowPresentation = {
 
 const COMMAND_ROW_KINDS = new Set<ChatRenderedRow["kind"]>([
   "commandAction",
+  "commandSession",
   "commandList",
   "commandRead",
   "commandSearch",
@@ -93,6 +94,7 @@ function rowStatus(row: ChatRenderedRow): ChatTimelineRowStatus {
   if (row.kind === "tokenUsageSummary") return "completed";
   if (
     row.kind === "commandAction" ||
+    row.kind === "commandSession" ||
     row.kind === "commandList" ||
     row.kind === "commandRead" ||
     row.kind === "commandSearch"
@@ -109,6 +111,7 @@ function estimatedHeightPx(row: ChatRenderedRow): number {
   switch (row.kind) {
     case "activity":
     case "commandAction":
+    case "commandSession":
     case "commandList":
     case "commandRead":
     case "commandSearch":
@@ -144,6 +147,7 @@ function isExpandable(row: ChatRenderedRow): boolean {
     row.kind === "mcpResourceRead" ||
     row.kind === "mcpToolGroup" ||
     row.kind === "commandAction" ||
+    row.kind === "commandSession" ||
     row.kind === "tokenUsageSummary"
   );
 }

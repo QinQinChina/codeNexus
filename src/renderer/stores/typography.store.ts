@@ -8,14 +8,14 @@ import {
 } from "../../shared/localSettings";
 
 export const UI_FONT_FAMILY_PRESET_OPTIONS: Array<{ value: UiFontFamilyPreset; label: string }> = [
-  { value: "alibaba-puhuiti", label: "系统界面字体" },
-  { value: "source-han-sans-sc", label: "系统中文字体" },
+  { value: "alibaba-puhuiti", label: "globalConfig.fontFamilyAlibaba" },
+  { value: "source-han-sans-sc", label: "globalConfig.fontFamilySourceHan" },
 ];
 
 export const UI_FONT_SIZE_PRESET_OPTIONS: Array<{ value: UiFontSizePreset; label: string }> = [
-  { value: "small", label: "小" },
-  { value: "medium", label: "中" },
-  { value: "large", label: "大" },
+  { value: "small", label: "globalConfig.fontSizeSmall" },
+  { value: "medium", label: "globalConfig.fontSizeMedium" },
+  { value: "large", label: "globalConfig.fontSizeLarge" },
 ];
 
 function normalizeFontFamilyPreset(value: unknown): UiFontFamilyPreset {

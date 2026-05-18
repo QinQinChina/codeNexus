@@ -7,20 +7,20 @@
       type="button"
       aria-haspopup="menu"
       :aria-expanded="props.open ? 'true' : 'false'"
-      aria-label="本回合差异"
+      :aria-label="t('topbarExtra.turnDiff')"
       @click.stop="emit('toggle')"
     >
       <GitCompare aria-hidden="true" />
-      <span class="topbar-right-switch-label">差异</span>
+      <span class="topbar-right-switch-label">{{ t("topbarExtra.diff") }}</span>
     </button>
   </div>
 
   <Transition name="topbar-fly">
     <div v-if="props.open" class="topbar-menu-shell topbar-menu-shell--turn-diff" @click.stop>
-      <div class="topbar-dropdown topbar-menu app-scrollbar" role="menu" aria-label="本回合差异">
+      <div class="topbar-dropdown topbar-menu app-scrollbar" role="menu" :aria-label="t('topbarExtra.turnDiff')">
         <div class="topbar-menu-section">
-          <div class="topbar-menu-heading">本回合差异</div>
-          <div v-if="!currentTurnDiffText" class="topbar-menu-note">当前没有可展示的差异。</div>
+          <div class="topbar-menu-heading">{{ t("topbarExtra.turnDiff") }}</div>
+          <div v-if="!currentTurnDiffText" class="topbar-menu-note">{{ t("topbarExtra.noDiff") }}</div>
           <div v-else>
             <TurnDiffSummaryCard :diffText="currentTurnDiffText" />
           </div>
@@ -33,6 +33,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { GitCompare } from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
 import TurnDiffSummaryCard from "../../timeline/cards/TurnDiffSummaryCard.vue";
 import { useRuntimeStore } from "../../../stores/runtime.store";
 import { useThreadStore } from "../../../stores/thread.store";
@@ -48,6 +49,7 @@ const emit = defineEmits<{
 
 const runtimeStore = useRuntimeStore();
 const threadStore = useThreadStore();
+const { t } = useI18n();
 
 const currentTurnDiff = computed(() => {
   const threadId = String(threadStore.currentThreadId || runtimeStore.timelineKey || "").trim();

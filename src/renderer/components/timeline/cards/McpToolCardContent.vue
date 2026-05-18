@@ -84,7 +84,7 @@
             summaryClass="mono text-[11px] dim"
             @update:open="(next) => onDetailToggle(item.argumentsKey, next)"
           >
-            <template #summary>查看完整参数</template>
+            <template #summary>{{ t("dynamicTool.viewFullArgs") }}</template>
             <pre
               class="mono mt-1.5 max-h-[240px] overflow-y-auto app-scrollbar rounded-[4px] border border-[var(--ui-code-border)] bg-[var(--ui-code-bg)] p-2 text-[var(--ui-code-text)] whitespace-pre-wrap [overflow-wrap:anywhere] break-words"
               >{{ item.argumentsRaw }}</pre
@@ -97,7 +97,7 @@
             summaryClass="mono text-[11px] dim"
             @update:open="(next) => onDetailToggle(item.resultKey, next)"
           >
-            <template #summary>查看完整结果</template>
+            <template #summary>{{ t("dynamicTool.viewFullResult") }}</template>
             <pre
               class="mono mt-1.5 max-h-[240px] overflow-y-auto app-scrollbar rounded-[4px] border border-[var(--ui-code-border)] bg-[var(--ui-code-bg)] p-2 text-[var(--ui-code-text)] whitespace-pre-wrap [overflow-wrap:anywhere] break-words"
               >{{ item.resultRaw }}</pre
@@ -110,7 +110,7 @@
             summaryClass="mono text-[11px] dim"
             @update:open="(next) => onDetailToggle(item.structuredContentKey, next)"
           >
-            <template #summary>查看 structuredContent</template>
+            <template #summary>{{ t("mcpTool.viewStructuredContent") }}</template>
             <pre
               class="mono mt-1.5 max-h-[240px] overflow-y-auto app-scrollbar rounded-[4px] border border-[var(--ui-code-border)] bg-[var(--ui-code-bg)] p-2 text-[var(--ui-code-text)] whitespace-pre-wrap [overflow-wrap:anywhere] break-words"
               >{{ item.structuredContentRaw }}</pre
@@ -123,7 +123,7 @@
             summaryClass="mono text-[11px] dim"
             @update:open="(next) => onDetailToggle(item.metaKey, next)"
           >
-            <template #summary>查看 _meta</template>
+            <template #summary>{{ t("mcpTool.viewMeta") }}</template>
             <pre
               class="mono mt-1.5 max-h-[240px] overflow-y-auto app-scrollbar rounded-[4px] border border-[var(--ui-code-border)] bg-[var(--ui-code-bg)] p-2 text-[var(--ui-code-text)] whitespace-pre-wrap [overflow-wrap:anywhere] break-words"
               >{{ item.metaRaw }}</pre
@@ -136,7 +136,7 @@
             summaryClass="mono text-[11px] dim"
             @update:open="(next) => onDetailToggle(item.outputSchemaKey, next)"
           >
-            <template #summary>查看 outputSchema</template>
+            <template #summary>{{ t("mcpTool.viewOutputSchema") }}</template>
             <pre
               class="mono mt-1.5 max-h-[240px] overflow-y-auto app-scrollbar rounded-[4px] border border-[var(--ui-code-border)] bg-[var(--ui-code-bg)] p-2 text-[var(--ui-code-text)] whitespace-pre-wrap [overflow-wrap:anywhere] break-words"
               >{{ item.outputSchemaRaw }}</pre
@@ -149,7 +149,8 @@
 </template>
 
 <script setup lang="ts">
-// MCP 工具卡片内容：展示工具调用的输入/输出摘要与可展开的详情信息。
+// MCP tool card content for input/output summaries and expandable details.
+import { useI18n } from "vue-i18n";
 import { Terminal } from "lucide-vue-next";
 import TimelineCardShell from "../TimelineCardShell.vue";
 import DetailDisclosure from "../../ui/DetailDisclosure.vue";
@@ -183,7 +184,7 @@ export type McpToolItem = {
   relatedResourceLabel: string;
 };
 
-// 业务数据和行为均由父层注入，卡片组件只处理 UI 渲染与事件透传。
+// Business data and behavior are injected by the parent; this component only renders UI.
 defineProps<{
   open: boolean;
   tagText: string;
@@ -204,4 +205,6 @@ defineProps<{
 const emit = defineEmits<{
   (event: "update:open", value: boolean): void;
 }>();
+
+const { t } = useI18n();
 </script>

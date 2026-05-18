@@ -8,10 +8,14 @@
         @click="toggleOpen"
       >
         <span class="chat-activity-dot h-1.5 w-1.5 flex-none rounded-full" aria-hidden="true"></span>
-        <span class="chat-token-usage__label mono">本轮用量</span>
+        <span class="chat-token-usage__label mono">{{ t("chat.tokenUsage.title") }}</span>
         <span class="chat-token-usage__metric mono">{{ formatCount(usage.last.totalTokens) }} token</span>
-        <span class="chat-token-usage__metric mono">缓存 {{ formatCount(usage.last.cachedInputTokens) }}</span>
-        <span class="chat-token-usage__metric mono">上下文 {{ contextPercentText }}</span>
+        <span class="chat-token-usage__metric mono">{{
+          t("chat.tokenUsage.cached", { count: formatCount(usage.last.cachedInputTokens) })
+        }}</span>
+        <span class="chat-token-usage__metric mono">{{
+          t("chat.tokenUsage.context", { percent: contextPercentText })
+        }}</span>
         <ChevronDown class="chat-token-usage__chevron" :class="{ 'is-open': open }" aria-hidden="true" />
       </button>
 
@@ -27,6 +31,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { ChevronDown } from "lucide-vue-next";
 import type { TokenUsageState } from "../../domain/types";
 import { CHAT_ROW_ACTIVITY_CLASS } from "../layout/chat/chatPresentation";
@@ -34,6 +39,7 @@ import { CHAT_ROW_ACTIVITY_CLASS } from "../layout/chat/chatPresentation";
 const props = defineProps<{
   usage: TokenUsageState;
 }>();
+const { t } = useI18n();
 
 const emit = defineEmits<{
   "layout-change": [];
@@ -57,13 +63,13 @@ const contextPercentText = computed(() => {
 });
 
 const detailItems = computed(() => [
-  { label: "输入", value: formatCount(props.usage.last.inputTokens) },
-  { label: "缓存输入", value: formatCount(props.usage.last.cachedInputTokens) },
-  { label: "输出", value: formatCount(props.usage.last.outputTokens) },
-  { label: "推理输出", value: formatCount(props.usage.last.reasoningOutputTokens) },
-  { label: "本轮总计", value: formatCount(props.usage.last.totalTokens) },
-  { label: "累计总计", value: formatCount(props.usage.total.totalTokens) },
-  { label: "上下文窗口", value: formatCount(props.usage.contextWindow) },
+  { label: t("chat.tokenUsage.input"), value: formatCount(props.usage.last.inputTokens) },
+  { label: t("chat.tokenUsage.cachedInput"), value: formatCount(props.usage.last.cachedInputTokens) },
+  { label: t("chat.tokenUsage.output"), value: formatCount(props.usage.last.outputTokens) },
+  { label: t("chat.tokenUsage.reasoningOutput"), value: formatCount(props.usage.last.reasoningOutputTokens) },
+  { label: t("chat.tokenUsage.turnTotal"), value: formatCount(props.usage.last.totalTokens) },
+  { label: t("chat.tokenUsage.cumulativeTotal"), value: formatCount(props.usage.total.totalTokens) },
+  { label: t("chat.tokenUsage.contextWindow"), value: formatCount(props.usage.contextWindow) },
 ]);
 
 const toggleOpen = async () => {

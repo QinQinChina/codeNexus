@@ -1,7 +1,7 @@
 <template>
-  <aside class="workspace-editor-pane" aria-label="文件编辑器">
+  <aside class="workspace-editor-pane" :aria-label="t('workspaceEditor.aria')">
     <div class="workspace-editor-pane__surface">
-      <div class="workspace-editor-tabs app-scrollbar" role="tablist" aria-label="已打开文件">
+      <div class="workspace-editor-tabs app-scrollbar" role="tablist" :aria-label="t('workspaceEditor.openFilesAria')">
         <div
           v-for="tab in workspaceFilesStore.openTabs"
           :key="tab.path"
@@ -32,8 +32,8 @@
       <div class="workspace-editor-pane__content">
         <div v-if="!workspaceFilesStore.hasActiveFile" class="workspace-files-editor-empty">
           <FileText class="workspace-files-editor-empty__icon" aria-hidden="true" />
-          <div class="workspace-files-editor-empty__title">从左侧工作区树打开文件</div>
-          <div class="workspace-files-editor-empty__note">支持多标签编辑，未保存内容会保留在标签页里。</div>
+          <div class="workspace-files-editor-empty__title">{{ t("workspaceEditor.emptyTitle") }}</div>
+          <div class="workspace-files-editor-empty__note">{{ t("workspaceEditor.emptyNote") }}</div>
         </div>
 
         <template v-else>
@@ -55,7 +55,9 @@
             </div>
           </div>
 
-          <div v-if="workspaceFilesStore.fileLoading" class="workspace-files-editor-state">文件加载中…</div>
+          <div v-if="workspaceFilesStore.fileLoading" class="workspace-files-editor-state">
+            {{ t("workspaceEditor.fileLoading") }}
+          </div>
           <div v-else-if="workspaceFilesStore.activeFileUnsupportedReason" class="workspace-files-editor-error">
             {{ workspaceFilesStore.activeFileUnsupportedReason }}
           </div>
@@ -64,12 +66,12 @@
               <img
                 class="workspace-editor-image"
                 :src="workspaceFilesStore.activeFileImageDataUrl"
-                :alt="workspaceFilesStore.activeFileName || '图片预览'"
+                :alt="workspaceFilesStore.activeFileName || t('lazyImage.previewTitle')"
               />
             </div>
           </div>
           <div v-else class="workspace-editor-code-shell">
-            <div ref="editorHostRef" class="workspace-editor-code-view" aria-label="代码编辑器"></div>
+            <div ref="editorHostRef" class="workspace-editor-code-view" :aria-label="t('workspaceEditor.codeEditorAria')"></div>
           </div>
           <div class="workspace-editor-statusbar">
             <span class="mono dim workspace-editor-statusbar__language">{{ activeLanguageLabel }}</span>
@@ -79,12 +81,12 @@
               <span class="mono dim">{{ activeCursorLabel }}</span>
               <span class="mono dim">{{ activeSelectionLabel }}</span>
               <span class="mono dim"
-                >字符：{{ workspaceFilesStore.activeFileDraftContent.length.toLocaleString() }}</span
+                >{{ t("workspaceEditor.charCount", { count: n(workspaceFilesStore.activeFileDraftContent.length) }) }}</span
               >
             </template>
             <template v-else-if="activeIsImagePreview">
               <span class="mono dim">{{ activeImageMimeLabel }}</span>
-              <span class="mono dim">只读预览</span>
+              <span class="mono dim">{{ t("workspaceEditor.readOnlyPreview") }}</span>
             </template>
             <span
               v-if="workspaceFilesStore.fileErrorText && !workspaceFilesStore.activeFileUnsupportedReason"
@@ -101,6 +103,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { ChevronRight, FileText, Image as ImageIcon, X } from "lucide-vue-next";
@@ -116,10 +119,13 @@ import {
 } from "../../../ui/codeEditor";
 
 const workspaceFilesStore = useWorkspaceFilesStore();
+const { n, t } = useI18n();
 const editorHostRef = ref<HTMLDivElement | null>(null);
 const currentEditorPath = ref("");
-const cursorPositionLabel = ref("行 —，列 —");
-const selectionSizeLabel = ref("已选 0");
+const emptyCursorLabel = () => t("workspaceEditor.cursorEmpty");
+const emptySelectionLabel = () => t("workspaceEditor.selectionEmpty");
+const cursorPositionLabel = ref(emptyCursorLabel());
+const selectionSizeLabel = ref(emptySelectionLabel());
 
 let editorView: EditorView | null = null;
 let pendingScrollRestoreFrame: number | null = null;
@@ -153,7 +159,7 @@ function relativePathFromWorkspace(workspacePath: string, targetPath: string): s
 
 const activeFileRelativePath = computed(() => {
   const relative = relativePathFromWorkspace(workspaceFilesStore.workspacePath, workspaceFilesStore.activeFilePath);
-  return relative || workspaceFilesStore.activeFilePath || "未读取";
+  return relative || workspaceFilesStore.activeFilePath || t("workspaceEditor.notRead");
 });
 
 const breadcrumbSegments = computed(() => {
@@ -168,7 +174,7 @@ const visibleBreadcrumbs = computed(() => {
 });
 
 const activeLanguageLabel = computed(() => {
-  if (workspaceFilesStore.activeFilePreviewKind === "image") return "图片";
+  if (workspaceFilesStore.activeFilePreviewKind === "image") return t("lazyImage.image");
   return getLanguageDisplayNameForPath(workspaceFilesStore.activeFilePath);
 });
 
@@ -187,17 +193,17 @@ const activeLineEndingLabel = computed(() => {
 });
 
 const activeCursorLabel = computed(() => {
-  if (!workspaceFilesStore.hasActiveFile) return "行 —，列 —";
+  if (!workspaceFilesStore.hasActiveFile) return emptyCursorLabel();
   if (workspaceFilesStore.fileLoading || workspaceFilesStore.activeFileUnsupportedReason) {
-    return "行 —，列 —";
+    return emptyCursorLabel();
   }
   return cursorPositionLabel.value;
 });
 
 const activeSelectionLabel = computed(() => {
-  if (!workspaceFilesStore.hasActiveFile) return "已选 0";
+  if (!workspaceFilesStore.hasActiveFile) return emptySelectionLabel();
   if (workspaceFilesStore.fileLoading || workspaceFilesStore.activeFileUnsupportedReason) {
-    return "已选 0";
+    return emptySelectionLabel();
   }
   return selectionSizeLabel.value;
 });
@@ -235,24 +241,24 @@ function getEditorDoc(state: EditorState): string {
 }
 
 function formatCursorLabel(state: EditorState | null): string {
-  if (!state) return "行 —，列 —";
+  if (!state) return emptyCursorLabel();
   const mainSelection = state.selection.main;
   const line = state.doc.lineAt(mainSelection.head);
   const column = Math.max(1, mainSelection.head - line.from + 1);
-  return `行 ${line.number}，列 ${column}`;
+  return t("workspaceEditor.cursorPosition", { line: line.number, column });
 }
 
 function formatSelectionLabel(state: EditorState | null): string {
-  if (!state) return "已选 0";
+  if (!state) return emptySelectionLabel();
   const selectedChars = state.selection.ranges.reduce((sum, range) => sum + Math.abs(range.to - range.from), 0);
-  return `已选 ${selectedChars.toLocaleString()}`;
+  return t("workspaceEditor.selectionCount", { count: n(selectedChars) });
 }
 
 function syncCursorLabel(state: EditorState | null, pathValue = currentEditorPath.value) {
   const path = String(pathValue ?? "").trim();
   if (!path || !isActiveTab(path)) {
-    cursorPositionLabel.value = "行 —，列 —";
-    selectionSizeLabel.value = "已选 0";
+    cursorPositionLabel.value = emptyCursorLabel();
+    selectionSizeLabel.value = emptySelectionLabel();
     return;
   }
   cursorPositionLabel.value = formatCursorLabel(state);
@@ -318,8 +324,8 @@ function teardownEditorView(options?: { preserveCurrent?: boolean }) {
     editorView = null;
   }
   currentEditorPath.value = "";
-  cursorPositionLabel.value = "行 —，列 —";
-  selectionSizeLabel.value = "已选 0";
+  cursorPositionLabel.value = emptyCursorLabel();
+  selectionSizeLabel.value = emptySelectionLabel();
 }
 
 function createEditorStateForPath(path: string, doc: string): EditorState {

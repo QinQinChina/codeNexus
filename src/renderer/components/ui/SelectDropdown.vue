@@ -56,6 +56,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, useAttrs, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useThemeStore } from "../../stores/theme.store";
 
 defineOptions({ inheritAttrs: false });
@@ -99,6 +100,7 @@ const emit = defineEmits<{
 }>();
 
 const attrs = useAttrs();
+const { t } = useI18n();
 const open = ref(false);
 const activeIndex = ref(0);
 const triggerRef = ref<HTMLButtonElement | null>(null);
@@ -121,7 +123,7 @@ const ariaLabelText = computed(() => {
   if (fromProp) return fromProp;
   const fromAttr = attrs["aria-label"];
   if (typeof fromAttr === "string" && fromAttr.trim()) return fromAttr.trim();
-  return "下拉选择";
+  return t("selectDropdown.aria");
 });
 
 const forwardedAttrs = computed(() => {

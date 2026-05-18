@@ -20,14 +20,14 @@
       contextUsageTokensText=""
       :isTurnRunning="draft.sending"
       :sendDisabled="sendDisabled || draft.sending"
-      :sendTitle="draft.sending ? '发送中' : '发送编辑内容'"
+      :sendTitle="draft.sending ? t('chat.planActions.sending') : t('chat.planActions.sendEdit')"
       :interruptDisabled="true"
-      interruptTitle="正在发送编辑内容"
+      :interruptTitle="t('chat.planActions.sendingEdit')"
       :composerPanelRef="bindInlinePanelRef"
       :composerInputRef="bindInlineInputRef"
       :composerImageInputRef="bindInlineImageInputRef"
       inputId="inline-history-rewrite-input"
-      inputPlaceholder="修改这条消息..."
+      :inputPlaceholder="t('chat.planActions.editPlaceholder')"
       variant="inline"
       :interactionOwnerId="INLINE_REWRITE_OWNER_ID"
       @update:composeInput="emit('update', { composeInput: $event })"
@@ -46,6 +46,7 @@
 
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import ComposerPanel from "../layout/composer/ComposerPanel.vue";
 import type { ChatInlineRewriteDraft } from "../layout/types/chat.types";
 
@@ -69,6 +70,7 @@ const emit = defineEmits<{
   (e: "send"): void;
 }>();
 
+const { t } = useI18n();
 const inlinePanelRef = ref<HTMLDivElement | null>(null);
 const inlineInputRef = ref<HTMLDivElement | null>(null);
 const inlineImageInputRef = ref<HTMLInputElement | null>(null);
@@ -88,10 +90,20 @@ function bindInlineImageInputRef(el: HTMLInputElement | null) {
 }
 
 function onInlineComposerKeydown(event: KeyboardEvent) {
-  if (event.key !== "Escape") return;
+  if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
+    emit("cancel");
+    return;
+  }
+
+  if (event.key !== "Enter") return;
+  if (event.isComposing) return;
+  if (event.shiftKey) return;
   event.preventDefault();
   event.stopPropagation();
-  emit("cancel");
+  if (props.sendDisabled || props.draft.sending) return;
+  emit("send");
 }
 
 function onRemoveAttachment(attachmentId: string) {

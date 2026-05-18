@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { getCachedUserLocalSettings, patchUserLocalSettings } from "../domain/localSettings";
+import { translate } from "../i18n/translate";
 
 export type AppThemeName = "light" | "pink" | "dark" | "tech" | "hacker";
 export type AppThemeTone = "light" | "dark";
@@ -15,11 +16,11 @@ type ThemeTransitionOrigin = {
 
 const DEFAULT_THEME: AppThemeName = "light";
 export const APP_THEME_DEFINITIONS: readonly AppThemeDefinition[] = [
-  { id: "light", label: "浅色", tone: "light" },
-  { id: "pink", label: "少女粉", tone: "light" },
-  { id: "dark", label: "深色", tone: "dark" },
-  { id: "tech", label: "科技", tone: "dark" },
-  { id: "hacker", label: "黑客", tone: "dark" },
+  { id: "light", label: "topbarExtra.themeLight", tone: "light" },
+  { id: "pink", label: "topbarExtra.themePink", tone: "light" },
+  { id: "dark", label: "topbarExtra.themeDark", tone: "dark" },
+  { id: "tech", label: "topbarExtra.themeTech", tone: "dark" },
+  { id: "hacker", label: "topbarExtra.themeHacker", tone: "dark" },
 ] as const;
 export const APP_THEME_ORDER: readonly AppThemeName[] = APP_THEME_DEFINITIONS.map((theme) => theme.id);
 const APP_THEME_BY_ID = new Map<AppThemeName, AppThemeDefinition>(
@@ -40,7 +41,8 @@ function themeTone(theme: AppThemeName): AppThemeTone {
 }
 
 export function themeLabelFor(theme: AppThemeName): string {
-  return APP_THEME_BY_ID.get(theme)?.label ?? theme;
+  const labelKey = APP_THEME_BY_ID.get(theme)?.label ?? "";
+  return labelKey ? translate(labelKey) : theme;
 }
 
 function applyThemeToDocument(theme: AppThemeName): void {

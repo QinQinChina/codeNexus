@@ -32,6 +32,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { Download, Server, TerminalSquare, Upload } from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
 import ExecutionWaveText from "../ui/ExecutionWaveText.vue";
 import type { McpToolCallItem, McpToolGroupNode } from "../../features/timeline/renderModel/buildTimelineNodes";
 
@@ -39,6 +40,7 @@ const props = defineProps<{
   group: McpToolGroupNode;
 }>();
 
+const { t } = useI18n();
 type SshToolKind = "command" | "download" | "upload" | "servers" | "other";
 type SshStatus = "running" | "completed";
 
@@ -56,17 +58,19 @@ const aggregateStatus = computed<SshStatus>(() => {
 const isRunning = computed(() => aggregateStatus.value === "running");
 
 const actionNoun = computed(() => {
-  if (items.value.length > 1) return `${items.value.length} 个 SSH 调用`;
-  if (primaryToolKind.value === "command") return "SSH 命令";
-  if (primaryToolKind.value === "download") return "远程文件下载";
-  if (primaryToolKind.value === "upload") return "远程文件上传";
-  if (primaryToolKind.value === "servers") return "SSH 服务器列表";
-  return "SSH 工具调用";
+  if (items.value.length > 1) return t("chat.activity.sshCalls", { count: items.value.length });
+  if (primaryToolKind.value === "command") return t("chat.activity.sshCommand");
+  if (primaryToolKind.value === "download") return t("chat.activity.sshDownload");
+  if (primaryToolKind.value === "upload") return t("chat.activity.sshUpload");
+  if (primaryToolKind.value === "servers") return t("chat.activity.sshServers");
+  return t("chat.activity.sshTool");
 });
 
 const activityText = computed(() => {
-  const target = targetText.value && items.value.length === 1 ? `：${targetText.value}` : "";
-  return `${actionNoun.value}${target}`;
+  if (targetText.value && items.value.length === 1) {
+    return t("chat.activity.sshTarget", { noun: actionNoun.value, target: targetText.value });
+  }
+  return actionNoun.value;
 });
 
 const argumentRecord = computed(() => parseJsonRecord(primaryItem.value.argumentsRaw));

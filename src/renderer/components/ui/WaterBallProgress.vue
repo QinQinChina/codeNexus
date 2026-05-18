@@ -14,6 +14,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 
 type ProgressLevel = "normal" | "warn" | "high" | "critical";
 
@@ -38,6 +39,7 @@ const props = withDefaults(
   }
 );
 
+const { t } = useI18n();
 const clampedPercent = computed(() => clamp(toFinite(props.percent, 0), 0, 100));
 const animated = computed(() => Boolean(props.animated));
 const level = computed<ProgressLevel>(() => {
@@ -66,7 +68,7 @@ const displayPercent = computed(() => `${Math.round(clampedPercent.value)}`);
 const levelClass = computed(() => `is-${level.value}`);
 const ariaLabelText = computed(() => {
   if (props.ariaLabel) return String(props.ariaLabel);
-  return `进度 ${Math.round(clampedPercent.value)}%`;
+  return t("progress.aria", { percent: Math.round(clampedPercent.value) });
 });
 </script>
 

@@ -2,7 +2,7 @@
   <div v-if="items.length > 0" class="grid gap-2">
     <div class="row" style="align-items: baseline; justify-content: space-between; gap: 10px">
       <div class="user-input-header">{{ titleText }}</div>
-      <div class="mono dim text-[11px]">{{ items.length }} 条</div>
+      <div class="mono dim text-[11px]">{{ t("guardianDiagnostics.itemCount", { count: items.length }) }}</div>
     </div>
 
     <DetailDisclosure
@@ -32,7 +32,7 @@
           v-if="item.matchesTarget"
           class="inline-flex h-[22px] flex-none items-center rounded-[4px] border border-[var(--border-accent)] bg-[var(--bg-accent-soft)] px-[8px] text-[10px] mono text-[var(--fg-accent)]"
         >
-          当前项
+          {{ t("guardianDiagnostics.currentItem") }}
         </span>
       </template>
 
@@ -47,6 +47,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import DetailDisclosure from "../ui/DetailDisclosure.vue";
 import {
   collectGuardianApprovalReviewDiagnosticItems,
@@ -65,13 +66,14 @@ const props = withDefaults(
   {
     focusTargetItemId: "",
     maxItems: 5,
-    title: "最近 Guardian 复核",
+    title: "",
   }
 );
 
 const timelineStore = useTimelineStore();
+const { t } = useI18n();
 
-const titleText = computed(() => String(props.title ?? "").trim() || "最近 Guardian 复核");
+const titleText = computed(() => String(props.title ?? "").trim() || t("guardianDiagnostics.defaultTitle"));
 const normalizedThreadId = computed(() => String(props.threadId ?? "").trim() || "__app__");
 
 const items = computed(() => {
@@ -100,9 +102,9 @@ const guardianStatusClass = (tone: GuardianApprovalReviewDiagnosticItem["tone"])
 const guardianMetaText = (item: GuardianApprovalReviewDiagnosticItem) => {
   const parts: string[] = [];
   parts.push(formatTime(item.createdAt));
-  if (item.riskText) parts.push(`风险 ${item.riskText}`);
-  if (item.userAuthorizationText) parts.push(`授权 ${item.userAuthorizationText}`);
-  if (item.decisionSourceText) parts.push(`来源 ${item.decisionSourceText}`);
+  if (item.riskText) parts.push(t("guardianDiagnostics.risk", { value: item.riskText }));
+  if (item.userAuthorizationText) parts.push(t("guardianDiagnostics.authorization", { value: item.userAuthorizationText }));
+  if (item.decisionSourceText) parts.push(t("guardianDiagnostics.source", { value: item.decisionSourceText }));
   if (item.targetItemId) parts.push(`target ${item.targetItemId.slice(0, 12)}`);
   return parts.join(" ｜ ");
 };

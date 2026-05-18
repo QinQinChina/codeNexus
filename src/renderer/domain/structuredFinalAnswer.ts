@@ -1,5 +1,3 @@
-import type { JsonValue } from "../../generated/codex-app-server/serde_json/JsonValue";
-
 export const STRUCTURED_FINAL_ANSWER_TYPE_V1 = "codenexus.final_answer.v1" as const;
 
 export type StructuredFinalAnswerV1 = {
@@ -8,46 +6,6 @@ export type StructuredFinalAnswerV1 = {
   changes: string[];
   commands: string[];
   next_steps: string[];
-};
-
-export const STRUCTURED_FINAL_ANSWER_OUTPUT_SCHEMA_V1: JsonValue = {
-  type: "object",
-  description:
-    "输出必须是严格 JSON 且完全匹配该 schema（不要输出额外文本）。当文本中出现文件/文件夹路径时，请用反引号包裹为 inline code（例如 `src/renderer/App.vue` 或 `D:\\\\repo\\\\file.ts:12`）。",
-  additionalProperties: false,
-  properties: {
-    type: {
-      type: "string",
-      enum: [STRUCTURED_FINAL_ANSWER_TYPE_V1],
-      description: "固定值，用于识别结构化最终答复版本。",
-    },
-    summary: {
-      type: "string",
-      description: "简短总结（可用 Markdown）。路径请使用反引号包裹（inline code）。",
-    },
-    changes: {
-      type: "array",
-      items: {
-        type: "string",
-        description: "变更项单行描述（可用 Markdown）。路径请使用反引号包裹（inline code）。",
-      },
-    },
-    commands: {
-      type: "array",
-      items: {
-        type: "string",
-        description: "可直接执行的命令（不要包裹 ``` 代码块）。",
-      },
-    },
-    next_steps: {
-      type: "array",
-      items: {
-        type: "string",
-        description: "下一步单行建议（可用 Markdown）。路径请使用反引号包裹（inline code）。",
-      },
-    },
-  },
-  required: ["type", "summary", "changes", "commands", "next_steps"],
 };
 
 function toRecord(value: unknown): Record<string, unknown> | null {

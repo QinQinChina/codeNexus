@@ -34,11 +34,16 @@
         />
       </button>
     </div>
+    <div v-if="runningOutputPreview" class="chat-terminal-action-output mono">
+      {{ runningOutputPreview }}
+    </div>
     <div
       v-if="item.item.filesCount > 0 && isFilesOpen"
       class="chat-terminal-action-files mx-2.5 rounded-xl border border-[var(--ui-well-border)] bg-[var(--ui-well-bg-strong)] px-2.5 py-2"
     >
-      <div class="chat-terminal-action-files-title mb-1.5 text-xs mono dim">文件（{{ item.item.filesCount }}）</div>
+      <div class="chat-terminal-action-files-title mb-1.5 text-xs mono dim">
+        {{ t("chat.activity.filesTitle", { count: item.item.filesCount }) }}
+      </div>
       <div
         class="chat-terminal-action-files-list app-scrollbar grid max-h-[180px] gap-0.5 overflow-y-auto text-xs text-[var(--text)] mono"
       >
@@ -50,7 +55,7 @@
           {{ name }}
         </div>
         <div v-if="item.item.filesCount > renderLimit" class="chat-terminal-action-files-more mt-1.5 dim">
-          还有 {{ item.item.filesCount - renderLimit }} 项未展示
+          {{ t("chat.activity.moreItemsHidden", { count: item.item.filesCount - renderLimit }) }}
         </div>
       </div>
     </div>
@@ -60,6 +65,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { ChevronDown, TerminalSquare } from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
 import ExecutionWaveText from "../ui/ExecutionWaveText.vue";
 import type { CommandActionNode } from "../../features/timeline/renderModel/buildTimelineNodes";
 import {
@@ -77,10 +83,61 @@ defineEmits<{
   (e: "toggle-files"): void;
 }>();
 
+const { t } = useI18n();
 const actionText = computed(() => {
   const main = commandGroupItemActionText(props.item.item);
   const detail = commandGroupItemActionDetailText(props.item.item);
   return detail ? `${main} · ${detail}` : main;
 });
 const isRunning = computed(() => props.item.item.status === "running");
+const latestOutputLine = (value: string) => {
+  return String(value ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .pop() ?? "";
+};
+const runningOutputPreview = computed(() => {
+  if (!isRunning.value) return "";
+  return latestOutputLine(props.item.item.outputFull || props.item.item.outputPreview);
+});
 </script>
+
+<style scoped>
+.chat-terminal-action-line.is-running .chat-terminal-action-icon {
+  color: var(--accent);
+  animation: command-action-running-pulse 1.35s ease-in-out infinite;
+}
+
+.chat-terminal-action-text {
+  line-height: 20px;
+}
+
+.chat-terminal-action-output {
+  min-width: 0;
+  overflow: hidden;
+  padding-left: 25px;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes command-action-running-pulse {
+  0%,
+  100% {
+    opacity: 0.58;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-terminal-action-line.is-running .chat-terminal-action-icon {
+    animation: none;
+  }
+}
+</style>

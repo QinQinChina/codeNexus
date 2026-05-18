@@ -2,7 +2,7 @@
   <div class="grid gap-3">
     <div class="grid gap-2">
       <div class="grid gap-1.5">
-        <div class="context-label dim">服务器（Server）</div>
+        <div class="context-label dim">{{ t("mcpResources.server") }}</div>
         <SelectDropdown
           class="context-input mono w-full"
           :modelValue="selectedServerId"
@@ -24,7 +24,7 @@
           :class="{ 'bg-[var(--bg-accent-soft)]': activeTab === 'resources' }"
           @click="mcpResourceStore.setActiveTab('resources')"
         >
-          资源 {{ selectedServer?.resources.length ?? 0 }}
+          {{ t("mcpResources.resourcesCount", { count: selectedServer?.resources.length ?? 0 }) }}
         </button>
         <button
           type="button"
@@ -32,7 +32,7 @@
           :class="{ 'bg-[var(--bg-accent-soft)]': activeTab === 'templates' }"
           @click="mcpResourceStore.setActiveTab('templates')"
         >
-          模板 {{ selectedServer?.resourceTemplates.length ?? 0 }}
+          {{ t("mcpResources.templatesCount", { count: selectedServer?.resourceTemplates.length ?? 0 }) }}
         </button>
       </div>
 
@@ -40,18 +40,18 @@
         v-if="!selectedServer"
         class="rounded-[10px] border border-dashed border-[var(--ui-well-border)] px-3 py-2 text-[12px] leading-[1.35] text-[color:var(--text-muted)]"
       >
-        当前没有可用的 MCP 服务器。
+        {{ t("mcpResources.noServers") }}
       </div>
     </div>
 
     <template v-if="selectedServer">
       <div v-if="activeTab === 'resources'" class="grid gap-2">
-        <div class="text-[12px] font-medium text-[color:var(--text-muted)]">可读资源</div>
+        <div class="text-[12px] font-medium text-[color:var(--text-muted)]">{{ t("mcpResources.readableResources") }}</div>
         <div
           v-if="selectedServer.resources.length === 0"
           class="rounded-[10px] border border-dashed border-[var(--ui-well-border)] px-3 py-2 text-[12px] leading-[1.35] text-[color:var(--text-muted)]"
         >
-          这个服务器当前没有暴露可直接读取的资源。
+          {{ t("mcpResources.noReadableResources") }}
         </div>
         <div v-else class="grid max-h-[190px] gap-1 overflow-y-auto pr-1 app-scrollbar">
           <button
@@ -68,12 +68,12 @@
       </div>
 
       <div v-else class="grid gap-2">
-        <div class="text-[12px] font-medium text-[color:var(--text-muted)]">资源模板</div>
+        <div class="text-[12px] font-medium text-[color:var(--text-muted)]">{{ t("mcpResources.resourceTemplates") }}</div>
         <div
           v-if="selectedServer.resourceTemplates.length === 0"
           class="rounded-[10px] border border-dashed border-[var(--ui-well-border)] px-3 py-2 text-[12px] leading-[1.35] text-[color:var(--text-muted)]"
         >
-          这个服务器当前没有暴露资源模板。
+          {{ t("mcpResources.noResourceTemplates") }}
         </div>
         <div v-else class="grid max-h-[190px] gap-1 overflow-y-auto pr-1 app-scrollbar">
           <button
@@ -102,7 +102,7 @@
           </div>
 
           <div v-if="selectedTemplateAnalysis.variables.length > 0" class="grid gap-2">
-            <div class="text-[12px] font-medium text-[color:var(--text-muted)]">配置参数</div>
+            <div class="text-[12px] font-medium text-[color:var(--text-muted)]">{{ t("mcpResources.parameters") }}</div>
             <div class="grid gap-2">
               <div v-for="name in selectedTemplateAnalysis.variables" :key="name" class="grid gap-1">
                 <div class="context-label dim">{{ name }}</div>
@@ -110,7 +110,7 @@
                   class="context-input mono"
                   type="text"
                   :value="selectedTemplateDraft.values[name] ?? ''"
-                  :placeholder="`填写 ${name}`"
+                  :placeholder="t('mcpResources.fillParameter', { name })"
                   @input="onTemplateFieldInput(name, $event)"
                 />
               </div>
@@ -118,22 +118,22 @@
           </div>
 
           <div class="grid gap-1">
-            <div class="context-label dim">展开预览</div>
+            <div class="context-label dim">{{ t("mcpResources.preview") }}</div>
             <div
               class="rounded-[10px] border border-[var(--ui-well-border)] bg-[var(--ui-well-bg)] px-2.5 py-2 mono text-[11px] break-all"
             >
-              {{ templatePreviewUri || "请先填写模板变量或手动输入 URI" }}
+              {{ templatePreviewUri || t("mcpResources.previewPlaceholder") }}
             </div>
             <div
               v-if="!selectedTemplateAnalysis.supported"
               class="text-[11px] leading-[1.35] text-[color:var(--text-muted)]"
             >
-              这个模板包含复杂 URI Template 语法，第一版不自动展开，建议直接填写最终 URI。
+              {{ t("mcpResources.complexTemplateHint") }}
             </div>
           </div>
 
           <div class="grid gap-1">
-            <div class="context-label dim">手动 URI</div>
+            <div class="context-label dim">{{ t("mcpResources.manualUri") }}</div>
             <input
               class="context-input mono"
               type="text"
@@ -146,7 +146,7 @@
 
         <template v-else>
           <div class="text-[12px] leading-[1.4] text-[color:var(--text-muted)]">
-            {{ activeTab === "resources" ? "选择一个资源后即可读取内容。" : "选择一个模板后即可填写变量并读取内容。" }}
+            {{ activeTab === "resources" ? t("mcpResources.selectResourceHint") : t("mcpResources.selectTemplateHint") }}
           </div>
         </template>
 
@@ -164,7 +164,7 @@
           <div class="flex flex-wrap items-center gap-2">
             <span class="min-w-0 flex-1">{{ mcpResourceStore.errorText }}</span>
             <button type="button" class="btn-mini" :disabled="!canReadSelection || isReading" @click="onRetryRead">
-              重试
+              {{ t("common.retry") }}
             </button>
           </div>
         </div>
@@ -172,12 +172,12 @@
         <template v-if="summaryResourceLabel">
           <div class="grid gap-2 rounded-[10px] border border-[var(--ui-well-border)] bg-[var(--ui-well-bg)] p-3">
             <div class="grid gap-1">
-              <div class="text-[12px] font-medium text-[color:var(--text-muted)]">资源名</div>
+              <div class="text-[12px] font-medium text-[color:var(--text-muted)]">{{ t("mcpResources.resourceName") }}</div>
               <div class="text-[12px] font-medium">{{ summaryResourceLabel }}</div>
             </div>
             <div class="grid gap-1">
-              <div class="text-[12px] font-medium text-[color:var(--text-muted)]">工具</div>
-              <div v-if="summaryToolNames.length === 0" class="mono dim text-[11px]">无工具</div>
+              <div class="text-[12px] font-medium text-[color:var(--text-muted)]">{{ t("mcpResources.tools") }}</div>
+              <div v-if="summaryToolNames.length === 0" class="mono dim text-[11px]">{{ t("mcpResources.noTools") }}</div>
               <div v-else class="flex flex-wrap gap-1.5">
                 <span
                   v-for="toolName in summaryToolNames"
@@ -189,8 +189,10 @@
               </div>
             </div>
             <div class="grid gap-1">
-              <div class="text-[12px] font-medium text-[color:var(--text-muted)]">配置参数</div>
-              <div v-if="summaryParameterEntries.length === 0" class="mono dim text-[11px]">无配置参数</div>
+              <div class="text-[12px] font-medium text-[color:var(--text-muted)]">{{ t("mcpResources.parameters") }}</div>
+              <div v-if="summaryParameterEntries.length === 0" class="mono dim text-[11px]">
+                {{ t("mcpResources.noParameters") }}
+              </div>
               <div v-else class="grid gap-1">
                 <div
                   v-for="entry in summaryParameterEntries"
@@ -201,7 +203,7 @@
                     {{ entry.key }}
                   </div>
                   <div class="mono whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px]">
-                    {{ entry.value || "未填写" }}
+                    {{ entry.value || t("mcpResources.notFilled") }}
                   </div>
                 </div>
               </div>
@@ -211,7 +213,7 @@
               class="mono dim inline-flex items-center gap-2 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px]"
             >
               <span class="running-indicator is-muted" aria-hidden="true"></span>
-              <span>读取中…</span>
+              <span>{{ t("mcpResources.reading") }}</span>
             </div>
           </div>
         </template>
@@ -222,6 +224,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import SelectDropdown from "../ui/SelectDropdown.vue";
 import type {
   McpResourceParameterEntry,
@@ -244,6 +247,7 @@ const runtime = getRuntimeOrchestrator();
 const runtimeStore = useRuntimeStore();
 const mcpStore = useMcpStore();
 const mcpResourceStore = useMcpResourceStore();
+const { t } = useI18n();
 
 function resourceCardClass(active: boolean) {
   return active
@@ -263,12 +267,12 @@ function toReadTargetKey(threadIdValue: unknown, serverIdValue: unknown, uriValu
 }
 
 function resourceDisplayTitle(resource: Resource): string {
-  return normalizeText(resource.title) || normalizeText(resource.name) || normalizeText(resource.uri) || "未命名资源";
+  return normalizeText(resource.title) || normalizeText(resource.name) || normalizeText(resource.uri) || t("mcpResources.untitledResource");
 }
 
 function templateDisplayTitle(template: ResourceTemplate): string {
   return (
-    normalizeText(template.title) || normalizeText(template.name) || normalizeText(template.uriTemplate) || "未命名模板"
+    normalizeText(template.title) || normalizeText(template.name) || normalizeText(template.uriTemplate) || t("mcpResources.untitledTemplate")
   );
 }
 
@@ -441,24 +445,28 @@ const serverStatusText = computed(() => {
   const server = selectedServer.value;
   if (!server) return "";
   const parts = [
-    server.enabled ? "已启用" : "未启用",
+    server.enabled ? t("mcpResources.enabled") : t("mcpResources.disabled"),
     server.state === "connected"
-      ? "已连接"
+      ? t("mcpResources.connected")
       : server.state === "error"
-        ? "异常"
+        ? t("mcpResources.error")
         : server.state === "disabled"
-          ? "已禁用"
-          : "待确认",
-    typeof server.authenticated === "boolean" ? (server.authenticated ? "已认证" : "未认证") : "",
-    `资源 ${server.resources.length}`,
-    `模板 ${server.resourceTemplates.length}`,
+          ? t("mcpResources.serverDisabled")
+          : t("mcpResources.pending"),
+    typeof server.authenticated === "boolean"
+      ? server.authenticated
+        ? t("mcpResources.authenticated")
+        : t("mcpResources.unauthenticated")
+      : "",
+    t("mcpResources.resourcesCount", { count: server.resources.length }),
+    t("mcpResources.templatesCount", { count: server.resourceTemplates.length }),
   ].filter(Boolean);
   return parts.join(" · ");
 });
 
 const threadHintText = computed(() => {
   if (currentThreadId.value) return "";
-  return "读取 MCP 资源需要当前线程上下文；请先进入一个线程，再执行读取。";
+  return t("mcpResources.threadRequired");
 });
 
 const canReadSelection = computed(() => {
@@ -576,7 +584,7 @@ async function readUri(uriValue: string, force = false) {
     });
     mcpResourceStore.setLoadState("ready");
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error ?? "读取失败");
+    const message = error instanceof Error ? error.message : String(error ?? t("mcpResources.readFailed"));
     if (requestSeq !== latestReadSeq || currentSelectionReadKey.value !== requestKey) return;
     mcpResourceStore.setCurrentResult(null, { cache: false });
     mcpResourceStore.setLoadState("error", message);

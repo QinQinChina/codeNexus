@@ -8,7 +8,7 @@
       aria-controls="topbar-plan-menu"
       @click="toggleOpen"
     >
-      <span class="topbar-plan-label">计划</span>
+      <span class="topbar-plan-label">{{ t("topbarPlan.plan") }}</span>
       <span class="topbar-plan-progress mono">{{ progressText }}</span>
       <span class="topbar-plan-current">
         <span
@@ -25,10 +25,16 @@
 
     <Transition name="topbar-fly">
       <div v-if="open" id="topbar-plan-menu" class="topbar-menu-shell topbar-menu-shell--plan" @click.stop>
-        <div class="topbar-dropdown topbar-menu topbar-plan-menu app-scrollbar" role="dialog" aria-label="当前线程计划">
+        <div
+          class="topbar-dropdown topbar-menu topbar-plan-menu app-scrollbar"
+          role="dialog"
+          :aria-label="t('topbarPlan.currentPlan')"
+        >
           <div class="topbar-plan-menu-head">
-            <span class="topbar-menu-heading">当前线程计划</span>
-            <span class="topbar-plan-menu-progress mono">{{ completedCount }}/{{ steps.length }} 已完成</span>
+            <span class="topbar-menu-heading">{{ t("topbarPlan.currentPlan") }}</span>
+            <span class="topbar-plan-menu-progress mono">{{
+              t("topbarPlan.completedProgress", { completed: completedCount, total: steps.length })
+            }}</span>
           </div>
           <div v-if="explanationText" class="topbar-plan-explanation">{{ explanationText }}</div>
           <ol class="topbar-plan-list">
@@ -60,12 +66,14 @@
 <script setup lang="ts">
 import { CheckCircle2, ChevronDown, CircleDashed } from "lucide-vue-next";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { PlanStepState } from "../../../domain/types";
 import { useAppShellStore } from "../../../stores/appShell.store";
 import { useThreadStore } from "../../../stores/thread.store";
 
 const appShellStore = useAppShellStore();
 const threadStore = useThreadStore();
+const { t } = useI18n();
 
 const rootRef = ref<HTMLElement | null>(null);
 const open = ref(false);
@@ -81,8 +89,8 @@ const progressText = computed(() => (steps.value.length > 0 ? `${completedCount.
 const currentStepText = computed(() => {
   const running = currentRunningStep.value;
   if (running) return running.step;
-  if (steps.value.length > 0) return "计划已完成";
-  return "暂无步骤";
+  if (steps.value.length > 0) return t("topbarPlan.completed");
+  return t("topbarPlan.noSteps");
 });
 const currentStepKey = computed(() => {
   const running = currentRunningStep.value;
@@ -110,9 +118,9 @@ function onWindowKeydown(event: KeyboardEvent) {
 }
 
 function planStepLabelText(status: PlanStepState["status"]) {
-  if (status === "completed") return "已完成";
-  if (status === "inProgress") return "进行中";
-  return "待处理";
+  if (status === "completed") return t("topbarPlan.stepCompleted");
+  if (status === "inProgress") return t("topbarPlan.inProgress");
+  return t("topbarPlan.pending");
 }
 
 function planStepStatusTextClass(status: PlanStepState["status"]) {

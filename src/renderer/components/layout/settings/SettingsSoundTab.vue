@@ -1,7 +1,7 @@
 <template>
-  <section class="settings-card" aria-label="提示音设置">
+  <section class="settings-card" :aria-label="t('settingsSound.aria')">
     <header class="settings-card-head">
-      <div class="settings-card-title">提示音</div>
+      <div class="settings-card-title">{{ t("settingsSound.title") }}</div>
       <div class="row" style="gap: 8px; align-items: center">
         <button
           id="btn-settings-sound-preview"
@@ -10,7 +10,7 @@
           :disabled="notificationSoundControlsDisabled"
           @click="onPreview"
         >
-          试听
+          {{ t("settingsSound.preview") }}
         </button>
       </div>
     </header>
@@ -18,7 +18,7 @@
     <div class="settings-card-body">
       <div class="settings-grid">
         <label class="settings-row">
-          <span class="context-label dim">铃声</span>
+          <span class="context-label dim">{{ t("settingsSound.sound") }}</span>
           <SelectDropdown
             id="sel-settings-notification-sound"
             class="context-input mono w-full"
@@ -35,7 +35,7 @@
         </div>
 
         <label class="settings-row">
-          <span class="context-label dim">音量</span>
+          <span class="context-label dim">{{ t("settingsSound.volume") }}</span>
           <div class="settings-volume">
             <input
               id="rng-settings-notification-sound-volume"
@@ -52,7 +52,7 @@
           </div>
         </label>
 
-        <div class="dim text-[12px] leading-[1.25]">线程结束时将播放一次提示音。音量设置会影响所有提示音播放。</div>
+        <div class="dim text-[12px] leading-[1.25]">{{ t("settingsSound.description") }}</div>
       </div>
     </div>
   </section>
@@ -60,10 +60,12 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import SelectDropdown from "../../ui/SelectDropdown.vue";
 import { useNotificationSoundStore } from "../../../stores/notificationSound.store";
 import { playNotificationSoundOnce } from "../../../features/notificationSound/player";
 
+const { t } = useI18n();
 const notificationSoundStore = useNotificationSoundStore();
 
 const notificationSoundDropdownOptions = computed(() => {
@@ -77,11 +79,13 @@ const notificationSoundControlsDisabled = computed(() => {
 
 const notificationSoundStatusText = computed(() => {
   if (notificationSoundStore.loadState === "idle") return "";
-  if (notificationSoundStore.loadState === "loading") return "加载中…";
+  if (notificationSoundStore.loadState === "loading") return t("settingsSound.loading");
   if (notificationSoundStore.loadState === "error") {
-    return notificationSoundStore.errorText ? `加载失败：${notificationSoundStore.errorText}` : "加载失败";
+    return notificationSoundStore.errorText
+      ? t("settingsSound.loadFailedWithMessage", { message: notificationSoundStore.errorText })
+      : t("settingsSound.loadFailed");
   }
-  if (notificationSoundStore.available.length === 0) return "未发现内置铃声（music/）";
+  if (notificationSoundStore.available.length === 0) return t("settingsSound.noBuiltInSounds");
   return "";
 });
 

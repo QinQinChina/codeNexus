@@ -11,7 +11,7 @@
       type="button"
       aria-haspopup="menu"
       :aria-expanded="props.open ? 'true' : 'false'"
-      aria-label="审批"
+      :aria-label="t('topbarApproval.approval')"
       @click.stop="emit('toggle')"
     >
       <ShieldCheck class="topbar-approval-button__icon" aria-hidden="true" />
@@ -20,17 +20,21 @@
 
   <Transition name="topbar-fly">
     <div v-if="props.open" class="topbar-menu-shell topbar-menu-shell--approval" @click.stop>
-      <div class="topbar-dropdown topbar-menu app-scrollbar" role="menu" aria-label="审批">
+      <div
+        class="topbar-dropdown topbar-menu app-scrollbar"
+        role="menu"
+        :aria-label="t('topbarApproval.approval')"
+      >
         <div class="topbar-menu-section">
           <div class="row" style="align-items: baseline; justify-content: space-between; gap: 10px">
-            <div class="topbar-menu-heading">审批</div>
+            <div class="topbar-menu-heading">{{ t("topbarApproval.approval") }}</div>
             <div class="mono dim text-[11px]">{{ approvalQueueText }}</div>
           </div>
 
           <div id="approval-box" :class="{ dim: !activeApprovalPrompt }">
             <template v-if="!activeApprovalPrompt">
               <div class="grid gap-2">
-                <div>当前无待审批请求</div>
+                <div>{{ t("topbarApproval.noPending") }}</div>
                 <GuardianReviewDiagnostics
                   :threadId="guardianThreadId"
                   :focusTargetItemId="guardianTargetItemId"
@@ -53,7 +57,7 @@
                     <span class="mono dim truncate">· {{ approvalQueueItemMetaText(p) }}</span>
                   </button>
                   <div v-if="approvalStore.queue.length > 8" class="mono dim text-[11px]">
-                    还有 {{ approvalStore.queue.length - 8 }} 条未显示
+                    {{ t("topbarApproval.hiddenCount", { count: approvalStore.queue.length - 8 }) }}
                   </div>
                 </div>
 
@@ -92,28 +96,36 @@
                 </div>
 
                 <div class="row user-input-actions" style="gap: 8px; flex-wrap: wrap">
-                  <button type="button" @click="emit('close')">关闭菜单</button>
+                  <button type="button" @click="emit('close')">{{ t("topbarApproval.closeMenu") }}</button>
 
                   <template v-if="activeApprovalPrompt.kind === 'fileChange'">
-                    <button type="button" @click="runtime.submitActiveApprovalPrompt('decline')">拒绝</button>
+                    <button type="button" @click="runtime.submitActiveApprovalPrompt('decline')">
+                      {{ t("topbarApproval.decline") }}
+                    </button>
                     <button type="button" class="danger" @click="runtime.submitActiveApprovalPrompt('cancel')">
-                      拒绝并中断
+                      {{ t("topbarApproval.declineAndInterrupt") }}
                     </button>
                     <button type="button" @click="runtime.submitActiveApprovalPrompt('acceptForSession')">
-                      本会话允许
+                      {{ t("topbarApproval.acceptForSession") }}
                     </button>
-                    <button type="button" @click="runtime.submitActiveApprovalPrompt('accept')">允许</button>
+                    <button type="button" @click="runtime.submitActiveApprovalPrompt('accept')">
+                      {{ t("topbarApproval.accept") }}
+                    </button>
                   </template>
 
                   <template v-else-if="activeApprovalPrompt.kind === 'applyPatch'">
-                    <button type="button" @click="runtime.submitActiveApprovalPrompt('denied')">拒绝</button>
+                    <button type="button" @click="runtime.submitActiveApprovalPrompt('denied')">
+                      {{ t("topbarApproval.decline") }}
+                    </button>
                     <button type="button" class="danger" @click="runtime.submitActiveApprovalPrompt('abort')">
-                      拒绝并停止
+                      {{ t("topbarApproval.declineAndStop") }}
                     </button>
                     <button type="button" @click="runtime.submitActiveApprovalPrompt('approved_for_session')">
-                      本会话允许
+                      {{ t("topbarApproval.acceptForSession") }}
                     </button>
-                    <button type="button" @click="runtime.submitActiveApprovalPrompt('approved')">允许</button>
+                    <button type="button" @click="runtime.submitActiveApprovalPrompt('approved')">
+                      {{ t("topbarApproval.accept") }}
+                    </button>
                   </template>
 
                   <template v-else-if="activeApprovalPrompt.kind === 'commandExecution'">
@@ -129,23 +141,33 @@
                   </template>
 
                   <template v-else-if="activeApprovalPrompt.kind === 'permissions'">
-                    <button type="button" @click="runtime.submitActiveApprovalPrompt('decline')">拒绝</button>
-                    <button type="button" class="danger" @click="runtime.submitActiveApprovalPrompt('cancel')">
-                      拒绝并关闭
+                    <button type="button" @click="runtime.submitActiveApprovalPrompt('decline')">
+                      {{ t("topbarApproval.decline") }}
                     </button>
-                    <button type="button" @click="runtime.submitActiveApprovalPrompt('session')">本会话允许</button>
-                    <button type="button" @click="runtime.submitActiveApprovalPrompt('turn')">仅本轮允许</button>
+                    <button type="button" class="danger" @click="runtime.submitActiveApprovalPrompt('cancel')">
+                      {{ t("topbarApproval.declineAndClose") }}
+                    </button>
+                    <button type="button" @click="runtime.submitActiveApprovalPrompt('session')">
+                      {{ t("topbarApproval.acceptForSession") }}
+                    </button>
+                    <button type="button" @click="runtime.submitActiveApprovalPrompt('turn')">
+                      {{ t("topbarApproval.acceptForTurn") }}
+                    </button>
                   </template>
 
                   <template v-else>
-                    <button type="button" @click="runtime.submitActiveApprovalPrompt('denied')">拒绝</button>
+                    <button type="button" @click="runtime.submitActiveApprovalPrompt('denied')">
+                      {{ t("topbarApproval.decline") }}
+                    </button>
                     <button type="button" class="danger" @click="runtime.submitActiveApprovalPrompt('abort')">
-                      拒绝并停止
+                      {{ t("topbarApproval.declineAndStop") }}
                     </button>
                     <button type="button" @click="runtime.submitActiveApprovalPrompt('approved_for_session')">
-                      本会话允许
+                      {{ t("topbarApproval.acceptForSession") }}
                     </button>
-                    <button type="button" @click="runtime.submitActiveApprovalPrompt('approved')">允许</button>
+                    <button type="button" @click="runtime.submitActiveApprovalPrompt('approved')">
+                      {{ t("topbarApproval.accept") }}
+                    </button>
                   </template>
                 </div>
               </div>
@@ -160,6 +182,7 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent } from "vue";
 import { ShieldCheck } from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
 import type { FileChange } from "../../../../generated/codex-app-server";
 import type { CommandExecutionApprovalDecision } from "../../../../generated/codex-app-server/v2/CommandExecutionApprovalDecision";
 import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
@@ -181,6 +204,7 @@ const emit = defineEmits<{
 const runtime = getRuntimeOrchestrator();
 const runtimeStore = useRuntimeStore();
 const approvalStore = useApprovalStore();
+const { t } = useI18n();
 
 const hasPendingApproval = computed(() => approvalStore.queue.length > 0);
 const activeApprovalPrompt = computed(() => approvalStore.activePrompt);
@@ -209,11 +233,11 @@ function toText(value: unknown): string {
 }
 
 const approvalHeaderText = (prompt: ApprovalPrompt) => {
-  if (prompt.kind === "fileChange") return "文件变更请求";
-  if (prompt.kind === "applyPatch") return "应用补丁请求";
-  if (prompt.kind === "commandExecution") return "命令执行请求";
-  if (prompt.kind === "permissions") return "权限请求";
-  return "审批请求";
+  if (prompt.kind === "fileChange") return t("topbarApproval.fileChangeRequest");
+  if (prompt.kind === "applyPatch") return t("topbarApproval.applyPatchRequest");
+  if (prompt.kind === "commandExecution") return t("topbarApproval.commandExecutionRequest");
+  if (prompt.kind === "permissions") return t("topbarApproval.permissionsRequest");
+  return t("topbarApproval.approvalRequest");
 };
 
 const approvalMetaText = (prompt: ApprovalPrompt) => {
@@ -230,7 +254,7 @@ const approvalQueueItemMetaText = (prompt: ApprovalPrompt) => {
 
 const approvalPromptAgeText = (prompt: ApprovalPrompt) => {
   const createdAt = Number(prompt.createdAt ?? 0);
-  if (!Number.isFinite(createdAt) || createdAt <= 0) return "刚刚";
+  if (!Number.isFinite(createdAt) || createdAt <= 0) return t("topbarApproval.justNow");
   const seconds = Math.max(0, Math.floor((Date.now() - createdAt) / 1000));
   if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);
@@ -258,11 +282,13 @@ const approvalInfoRows = (prompt: ApprovalPrompt): ApprovalInfoRow[] => {
         .join(" ")
     : toText(params.command);
 
-  if (reason) rows.push({ label: "申请原因", value: reason });
-  if (grantRoot) rows.push({ label: "授权根", value: grantRoot });
-  if (cwd) rows.push({ label: "工作目录", value: cwd });
-  if (command) rows.push({ label: "命令", value: command });
-  if (prompt.kind === "applyPatch") rows.push({ label: "文件数", value: String(applyPatchFiles(prompt).length) });
+  if (reason) rows.push({ label: t("topbarApproval.reason"), value: reason });
+  if (grantRoot) rows.push({ label: t("topbarApproval.grantRoot"), value: grantRoot });
+  if (cwd) rows.push({ label: t("topbarApproval.cwd"), value: cwd });
+  if (command) rows.push({ label: t("topbarApproval.command"), value: command });
+  if (prompt.kind === "applyPatch") {
+    rows.push({ label: t("topbarApproval.fileCount"), value: String(applyPatchFiles(prompt).length) });
+  }
   return rows;
 };
 
@@ -289,24 +315,29 @@ const toCommandExecutionDecisionButtons = (prompt: ApprovalPrompt): CommandExecu
   const buttons: CommandExecutionDecisionButton[] = [];
   for (const decision of decisions) {
     if (decision === "accept") {
-      buttons.push({ key: "accept", label: "允许", decision, kind: "primary" });
+      buttons.push({ key: "accept", label: t("topbarApproval.accept"), decision, kind: "primary" });
       continue;
     }
     if (decision === "acceptForSession") {
-      buttons.push({ key: "acceptForSession", label: "本会话允许", decision, kind: "primary" });
+      buttons.push({ key: "acceptForSession", label: t("topbarApproval.acceptForSession"), decision, kind: "primary" });
       continue;
     }
     if (decision === "decline") {
-      buttons.push({ key: "decline", label: "拒绝", decision, kind: "danger" });
+      buttons.push({ key: "decline", label: t("topbarApproval.decline"), decision, kind: "danger" });
       continue;
     }
     if (decision === "cancel") {
-      buttons.push({ key: "cancel", label: "拒绝并停止", decision, kind: "danger" });
+      buttons.push({ key: "cancel", label: t("topbarApproval.declineAndStop"), decision, kind: "danger" });
       continue;
     }
     if (!decision || typeof decision !== "object") continue;
     if ("acceptWithExecpolicyAmendment" in decision) {
-      buttons.push({ key: "acceptWithExecpolicyAmendment", label: "允许并保存策略", decision, kind: "primary" });
+      buttons.push({
+        key: "acceptWithExecpolicyAmendment",
+        label: t("topbarApproval.acceptWithPolicy"),
+        decision,
+        kind: "primary",
+      });
       continue;
     }
     if ("applyNetworkPolicyAmendment" in decision) {
@@ -315,7 +346,9 @@ const toCommandExecutionDecisionButtons = (prompt: ApprovalPrompt): CommandExecu
       const suffix = [action, host].filter(Boolean).join(" ");
       buttons.push({
         key: `applyNetworkPolicyAmendment:${action}:${host}`,
-        label: suffix ? `应用网络策略：${suffix}` : "应用网络策略",
+        label: suffix
+          ? t("topbarApproval.applyNetworkPolicyWithSuffix", { suffix })
+          : t("topbarApproval.applyNetworkPolicy"),
         decision,
         kind: "primary",
       });

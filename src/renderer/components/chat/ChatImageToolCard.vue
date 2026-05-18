@@ -1,6 +1,6 @@
 <template>
   <div class="chat-tool-wrap w-full max-w-full min-w-0">
-    <section class="official-image-card" :class="statusClass" aria-label="Codex 图片生成结果">
+    <section class="official-image-card" :class="statusClass" :aria-label="t('chat.imageTool.aria')">
       <header class="official-image-card__header">
         <div class="official-image-card__mark" aria-hidden="true">
           <component :is="statusIcon" class="official-image-card__icon" />
@@ -51,11 +51,11 @@
 
       <details v-if="hasDetails" class="official-image-card__details">
         <summary>
-          <span>生成细节</span>
+          <span>{{ t("chat.imageTool.details") }}</span>
           <span class="official-image-card__details-hint">{{ detailsHint }}</span>
         </summary>
         <div v-if="revisedPromptBody" class="official-image-card__prompt">
-          <div class="official-image-card__detail-label">修订提示词</div>
+          <div class="official-image-card__detail-label">{{ t("chat.imageTool.revisedPrompt") }}</div>
           <p>{{ revisedPromptBody }}</p>
         </div>
         <pre v-if="item.detailText" class="official-image-card__source mono">{{ item.detailText }}</pre>
@@ -66,6 +66,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { AlertTriangle, CheckCircle2, Eye, Image as ImageIcon, Loader2 } from "lucide-vue-next";
 import type { Component } from "vue";
 import type { ChatImageToolItem, ImageToolImageEntry } from "../layout/types/chat.types";
@@ -78,19 +79,30 @@ const props = defineProps<{
   formattedTime: string;
   workspaceRoot: string;
 }>();
+const { t } = useI18n();
 
 defineEmits<{
   (e: "load-error", payload: any): void;
   (e: "preview", payload: any): void;
 }>();
 
-const titleText = computed(() => (props.item.itemType === "imageView" ? "查看图片" : "生成图片"));
+const titleText = computed(() =>
+  props.item.itemType === "imageView" ? t("chat.imageTool.view") : t("chat.imageTool.generate")
+);
 
 const statusText = computed(() => {
-  if (props.item.status === "running") return props.item.itemType === "imageView" ? "读取中" : "生成中";
-  if (props.item.status === "completed") return props.item.itemType === "imageView" ? "已读取" : "已生成";
-  if (props.item.status === "failed") return props.item.itemType === "imageView" ? "读取失败" : "生成失败";
-  return "状态未知";
+  if (props.item.status === "running") {
+    return props.item.itemType === "imageView" ? t("chat.imageTool.reading") : t("chat.imageTool.generating");
+  }
+  if (props.item.status === "completed") {
+    return props.item.itemType === "imageView" ? t("chat.imageTool.read") : t("chat.imageTool.generated");
+  }
+  if (props.item.status === "failed") {
+    return props.item.itemType === "imageView"
+      ? t("chat.imageTool.readFailed")
+      : t("chat.imageTool.generationFailed");
+  }
+  return t("chat.imageTool.unknown");
 });
 
 const statusIcon = computed<Component>(() => {
@@ -110,11 +122,13 @@ const statusClass = computed(() => ({
 
 const subtitleText = computed(() => {
   const count = props.visibleImages.length;
-  if (props.item.itemType === "imageView") return count > 0 ? "Codex view_image 结果" : "Codex view_image 请求";
-  if (props.item.status === "running") return "等待图片生成结果";
-  if (props.item.status === "failed") return "图片生成返回失败";
-  if (count > 0) return `图片生成 · ${count} 张结果`;
-  return "图片生成未返回可预览图片";
+  if (props.item.itemType === "imageView") {
+    return count > 0 ? t("chat.imageTool.viewResult") : t("chat.imageTool.viewRequest");
+  }
+  if (props.item.status === "running") return t("chat.imageTool.waitingGeneration");
+  if (props.item.status === "failed") return t("chat.imageTool.generationFailedSubtitle");
+  if (count > 0) return t("chat.imageTool.generationResults", { count });
+  return t("chat.imageTool.noPreview");
 });
 
 const gridClass = computed(() => ({
@@ -131,14 +145,15 @@ const skeletonCount = computed(() => {
 });
 
 const emptyText = computed(() => {
-  if (props.item.status === "failed") return "没有可显示的图片结果。";
-  if (props.item.itemType === "imageView") return "等待图片路径解析。";
-  return "图片结果尚未到达。";
+  if (props.item.status === "failed") return t("chat.imageTool.noDisplayable");
+  if (props.item.itemType === "imageView") return t("chat.imageTool.waitingPath");
+  return t("chat.imageTool.notArrived");
 });
 
 const revisedPromptBody = computed(() => {
   return String(props.item.revisedPrompt ?? "")
     .replace(/^修订提示词：\s*/u, "")
+    .replace(/^Revised prompt:\s*/iu, "")
     .trim();
 });
 

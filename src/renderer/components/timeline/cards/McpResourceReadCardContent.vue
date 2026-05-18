@@ -1,7 +1,7 @@
 <template>
   <TimelineCardShell
     class="w-full"
-    tagText="MCP 资源"
+    :tagText="t('mcpResourceRead.tag')"
     :statusText="''"
     :statusKind="''"
     :open="open"
@@ -17,16 +17,20 @@
       </div>
     </template>
     <div class="grid gap-2 px-2.5 pb-2.5">
-      <ExecutionWaveText v-if="isRunning" class="mono inline-flex items-center gap-2 text-[11px]" text="读取资源" />
+      <ExecutionWaveText
+        v-if="isRunning"
+        class="mono inline-flex items-center gap-2 text-[11px]"
+        :text="t('mcpResourceRead.readingResource')"
+      />
       <div class="grid gap-1">
-        <div class="text-[12px] font-medium text-[color:var(--text-muted)]">资源名</div>
+        <div class="text-[12px] font-medium text-[color:var(--text-muted)]">{{ t("mcpResources.resourceName") }}</div>
         <div class="mono whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px] text-[var(--text)]">
           {{ displayResourceLabel }}
         </div>
       </div>
       <div class="grid gap-1">
-        <div class="text-[12px] font-medium text-[color:var(--text-muted)]">工具</div>
-        <div v-if="displayToolNames.length === 0" class="mono dim text-[11px]">无工具</div>
+        <div class="text-[12px] font-medium text-[color:var(--text-muted)]">{{ t("mcpResources.tools") }}</div>
+        <div v-if="displayToolNames.length === 0" class="mono dim text-[11px]">{{ t("mcpResources.noTools") }}</div>
         <div v-else class="flex flex-wrap gap-1.5">
           <span
             v-for="toolName in displayToolNames"
@@ -38,8 +42,10 @@
         </div>
       </div>
       <div class="grid gap-1">
-        <div class="text-[12px] font-medium text-[color:var(--text-muted)]">配置参数</div>
-        <div v-if="displayParameterEntries.length === 0" class="mono dim text-[11px]">无配置参数</div>
+        <div class="text-[12px] font-medium text-[color:var(--text-muted)]">{{ t("mcpResources.parameters") }}</div>
+        <div v-if="displayParameterEntries.length === 0" class="mono dim text-[11px]">
+          {{ t("mcpResources.noParameters") }}
+        </div>
         <div v-else class="grid gap-1">
           <div
             v-for="entry in displayParameterEntries"
@@ -50,7 +56,7 @@
               {{ entry.key }}
             </div>
             <div class="mono whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[11px] text-[var(--text)]">
-              {{ entry.value || "未填写" }}
+              {{ entry.value || t("mcpResources.notFilled") }}
             </div>
           </div>
         </div>
@@ -62,7 +68,9 @@
         {{ item.errorText }}
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <button type="button" class="btn-mini" @click.stop="props.onOpenInPanel(item)">在 MCP 页打开</button>
+        <button type="button" class="btn-mini" @click.stop="props.onOpenInPanel(item)">
+          {{ t("mcpResourceRead.openInPanel") }}
+        </button>
       </div>
     </div>
   </TimelineCardShell>
@@ -70,6 +78,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { Database } from "lucide-vue-next";
 import TimelineCardShell from "../TimelineCardShell.vue";
 import ExecutionWaveText from "../../ui/ExecutionWaveText.vue";
@@ -85,10 +94,11 @@ const emit = defineEmits<{
   (event: "update:open", value: boolean): void;
 }>();
 
+const { t } = useI18n();
 const isRunning = computed(() => props.item.status === "running");
-// 工具事件两态化：不暴露成功/失败/状态文字，只在进行中显示扫光提示。
+// Tool events expose no success/failure text; only running state uses the shimmer label.
 
-const displayResourceLabel = computed(() => props.item.resourceLabel || props.item.uri || "未命名资源");
+const displayResourceLabel = computed(() => props.item.resourceLabel || props.item.uri || t("mcpResources.untitledResource"));
 const displayToolNames = computed(() => props.item.toolNames ?? []);
 const displayParameterEntries = computed(() => props.item.parameterEntries ?? []);
 

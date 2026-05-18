@@ -16,6 +16,7 @@ import {
   buildGuardianApprovalReviewActivity,
   isGuardianApprovalReviewMethod,
 } from "../../../features/guardian/guardianApprovalReview";
+import { translate } from "../../../i18n/translate";
 import type {
   ChatAuxActivityGroupRow,
   ChatAuxActivityStatus,
@@ -84,12 +85,18 @@ function streamNotificationActivityText(event: TimelineEventItem): string {
   if (event.method === "command/exec/outputDelta") {
     const stream = String(params.stream ?? "").trim();
     const text = decodeBase64Utf8(params.deltaBase64);
-    const suffix = params.capReached === true ? "（已截断）" : "";
-    return `命令输出${stream ? ` ${stream}` : ""}：${shortenActivityText(text || event.paramsText || "收到输出")}${suffix}`;
+    const suffix = params.capReached === true ? translate("timelineFormat.truncatedSuffix") : "";
+    return translate("timeline.commandOutput", {
+      stream: stream ? ` ${stream}` : "",
+      text: shortenActivityText(text || event.paramsText || translate("timeline.outputReceived")),
+      suffix,
+    });
   }
   if (event.method === "item/commandExecution/terminalInteraction") {
     const stdin = String(params.stdin ?? event.paramsText ?? "").trim();
-    return `终端输入：${shortenActivityText(stdin || "空输入")}`;
+    return translate("timeline.terminalInput", {
+      text: shortenActivityText(stdin || translate("timeline.emptyInput")),
+    });
   }
   return "";
 }
@@ -131,12 +138,12 @@ function getLocalDynamicImageGenerationCallId(event: TimelineEventItem): string 
 
 const AUX_ACTIVITY_KIND_ORDER = ["reasoning", "search", "command", "mcp", "tool", "activity"] as const;
 const AUX_ACTIVITY_KIND_LABELS: Record<(typeof AUX_ACTIVITY_KIND_ORDER)[number], string> = {
-  reasoning: "思考",
-  search: "搜索",
-  command: "命令",
+  reasoning: "timeline.auxReasoning",
+  search: "timeline.auxSearch",
+  command: "timeline.auxCommand",
   mcp: "MCP",
-  tool: "工具",
-  activity: "活动",
+  tool: "timeline.auxTool",
+  activity: "timeline.auxActivity",
 };
 
 function isAuxiliaryRow(row: ChatRow): row is ChatAuxiliaryRow {
@@ -147,6 +154,7 @@ function isAuxiliaryRow(row: ChatRow): row is ChatAuxiliaryRow {
     row.kind === "webSearch" ||
     row.kind === "reasoningBlock" ||
     row.kind === "commandAction" ||
+    row.kind === "commandSession" ||
     row.kind === "commandRead" ||
     row.kind === "commandList" ||
     row.kind === "commandSearch" ||
@@ -160,6 +168,7 @@ function auxActivityKind(row: ChatAuxiliaryRow): (typeof AUX_ACTIVITY_KIND_ORDER
   if (row.kind === "webSearch") return "search";
   if (
     row.kind === "commandAction" ||
+    row.kind === "commandSession" ||
     row.kind === "commandRead" ||
     row.kind === "commandList" ||
     row.kind === "commandSearch"
@@ -192,6 +201,9 @@ function rowIsRunning(row: ChatAuxiliaryRow): boolean {
     const status = row.item.item.status;
     return status === "running";
   }
+  if (row.kind === "commandSession") {
+    return row.item.status === "running";
+  }
   if (row.kind === "commandRead" || row.kind === "commandList" || row.kind === "commandSearch") {
     const status = row.item.status;
     return status === "running";
@@ -216,7 +228,8 @@ function buildAuxActivityGroup(params: {
   }
   const summaryItems = AUX_ACTIVITY_KIND_ORDER.flatMap((key) => {
     const count = counts.get(key) ?? 0;
-    return count > 0 ? [{ key, label: AUX_ACTIVITY_KIND_LABELS[key], count }] : [];
+    const label = AUX_ACTIVITY_KIND_LABELS[key] === "MCP" ? "MCP" : translate(AUX_ACTIVITY_KIND_LABELS[key]);
+    return count > 0 ? [{ key, label, count }] : [];
   });
   const summaryText = summaryItems.map((item) => `${item.label} ${item.count}`).join(" · ");
   const first = params.items[0];
@@ -227,7 +240,7 @@ function buildAuxActivityGroup(params: {
     kind: "auxActivityGroup",
     items: [...params.items],
     summaryItems,
-    summaryText: summaryText || `活动 ${params.items.length}`,
+    summaryText: summaryText || translate("timeline.activityCount", { count: params.items.length }),
     status,
     defaultCollapsed: params.defaultCollapsed,
   };
@@ -248,47 +261,54 @@ export function useChatRenderModel(
         rows: ChatRow[];
       }
     | null = null;
+  const turnRowsCacheByKey = new Map<
+    string,
+    {
+      signature: string;
+      rows: ChatRow[];
+    }
+  >();
 
   const toWebSearchChatItem = (event: TimelineEventItem): ChatWebSearchItem | null => {
     const normalized = extractWebSearchTimelineItem(event);
     if (!normalized) return null;
     const actionType = normalized.action.type;
-    let title = "网页搜索";
-    let actionLabel = "其他";
-    let primaryText = normalized.query || "网页操作";
+    let title = translate("timeline.webSearch");
+    let actionLabel = translate("timeline.webOther");
+    let primaryText = normalized.query || translate("timeline.webAction");
     let secondaryText = "";
-    let summaryText = normalized.query || "网页操作";
+    let summaryText = normalized.query || translate("timeline.webAction");
     let queries: string[] = [];
     let url = "";
     let pattern = "";
     let host = "";
     if (actionType === "search") {
-      actionLabel = "搜索";
+      actionLabel = translate("timeline.webSearchAction");
       queries = uniqueNonEmptyStrings([normalized.action.query, ...(normalized.action.queries || [])]);
-      primaryText = queries[0] || normalized.query || "搜索网页";
-      secondaryText = queries.length > 1 ? `共 ${queries.length} 个查询` : "";
-      summaryText = queries.join(" ｜ ") || primaryText;
+      primaryText = queries[0] || normalized.query || translate("timeline.searchWeb");
+      secondaryText = queries.length > 1 ? translate("timeline.queryCount", { count: queries.length }) : "";
+      summaryText = queries.join(translate("timelineFormat.separator")) || primaryText;
     } else if (actionType === "openPage") {
-      title = "打开页面";
-      actionLabel = "打开";
+      title = translate("timeline.openPage");
+      actionLabel = translate("timeline.openAction");
       url = normalized.action.url || normalized.query || "";
       host = extractUrlHost(url);
-      primaryText = host || url || "打开搜索结果页面";
+      primaryText = host || url || translate("timeline.openSearchResultPage");
       secondaryText = host && url ? url : "";
       summaryText = url || primaryText;
     } else if (actionType === "findInPage") {
-      title = "页内查找";
-      actionLabel = "查找";
+      title = translate("timeline.findInPage");
+      actionLabel = translate("timeline.findAction");
       url = normalized.action.url || "";
       pattern = normalized.action.pattern || "";
       host = extractUrlHost(url);
-      primaryText = pattern || "页内查找";
-      secondaryText = url ? `${host || "页面"}${pattern ? ` ｜ ${url}` : ""}` : "";
+      primaryText = pattern || translate("timeline.findInPage");
+      secondaryText = url ? `${host || translate("timeline.page")}${pattern ? `${translate("timelineFormat.separator")}${url}` : ""}` : "";
       summaryText = pattern
         ? url
-          ? `关键词：${pattern} ｜ 页面：${url}`
-          : `关键词：${pattern}`
-        : url || normalized.query || "页内查找";
+          ? translate("timeline.keywordAndPage", { pattern, url })
+          : translate("timeline.keywordOnly", { pattern })
+        : url || normalized.query || translate("timeline.findInPage");
     }
     return {
       itemId: normalized.itemId,
@@ -357,8 +377,11 @@ export function useChatRenderModel(
             turnKey,
             kind: "activity",
             text: f
-              ? `读取 ${f} 文件${r && r > 0 ? `（规则 ${r}）` : ""}`
-              : String(e.paramsText ?? "").trim() || "已注入上下文",
+              ? translate("timeline.contextFileRead", {
+                  file: f,
+                  rules: r && r > 0 ? translate("timeline.contextRulesSuffix", { count: r }) : "",
+                })
+              : String(e.paramsText ?? "").trim() || translate("timeline.contextInjectedDone"),
             createdAt: e.createdAt,
           });
           continue;
@@ -370,7 +393,7 @@ export function useChatRenderModel(
               id: `guardian:${e.id}`,
               turnKey,
               kind: "activity",
-              text: g.summaryText || String(e.paramsText ?? "").trim() || "Guardian 审批复核",
+              text: g.summaryText || String(e.paramsText ?? "").trim() || translate("timeline.guardianReview"),
               createdAt: e.createdAt,
               tone: g.tone,
             });
@@ -466,6 +489,10 @@ export function useChatRenderModel(
         pushRow({ id: `c:${node.id}`, turnKey, kind: "commandAction", item: node.item });
         continue;
       }
+      if (node.kind === "commandSession") {
+        pushRow({ id: `csess:${node.id}`, turnKey, kind: "commandSession", item: node.item });
+        continue;
+      }
       if (node.kind === "commandRead") {
         pushRow({ id: `cr:${node.id}`, turnKey, kind: "commandRead", item: node.item });
         continue;
@@ -515,10 +542,79 @@ export function useChatRenderModel(
     return base.join(":");
   };
 
-  const buildRowsStructureSignature = (events: TimelineEventItem[], threadKey: string, definitions: any) => {
-    const definitionsSignature =
-      definitions instanceof Map ? [...definitions.keys()].sort().join("|") : String(definitions ? "custom" : "");
-    return [threadKey, workspaceRoot(), definitionsSignature, ...events.map(eventStructureSignature)].join("\n");
+  const definitionsStructureSignature = (definitions: any) =>
+    definitions instanceof Map ? [...definitions.keys()].sort().join("|") : String(definitions ? "custom" : "");
+
+  const eventTurnGroupKey = (event: TimelineEventItem, threadKey: string): string => {
+    const turnId = String(event.turnId ?? "").trim();
+    if (turnId) return `turn:${turnId}`;
+    const id = String(event.id ?? "").trim();
+    return `loose:${id || threadKey || "__app__"}`;
+  };
+
+  const buildRowsByTurnCache = (events: TimelineEventItem[], threadKey: string, definitions: any): ChatRow[] => {
+    const definitionsSignature = definitionsStructureSignature(definitions);
+    const groups: Array<{ key: string; events: TimelineEventItem[]; signature: string }> = [];
+    const groupIndexByKey = new Map<string, number>();
+
+    for (const event of events) {
+      const key = eventTurnGroupKey(event, threadKey);
+      let index = groupIndexByKey.get(key);
+      if (index == null) {
+        index = groups.length;
+        groupIndexByKey.set(key, index);
+        groups.push({ key, events: [], signature: "" });
+      }
+      groups[index].events.push(event);
+    }
+
+    for (const group of groups) {
+      group.signature = [
+        threadKey,
+        workspaceRoot(),
+        definitionsSignature,
+        group.key,
+        ...group.events.map(eventStructureSignature),
+      ].join("\n");
+    }
+
+    const signature = groups.map((group) => `${group.key}\n${group.signature}`).join("\n\n");
+    if (baseRowsCache?.signature === signature) {
+      const rows = updateDirectStreamingRows(baseRowsCache.rows, events);
+      baseRowsCache = { signature, rows };
+      return rows;
+    }
+
+    const activeCacheKeys = new Set<string>();
+    const rows: ChatRow[] = [];
+
+    for (const group of groups) {
+      activeCacheKeys.add(group.key);
+      const cached = turnRowsCacheByKey.get(group.key);
+      let groupRows = cached?.signature === group.signature ? cached.rows : null;
+
+      if (!groupRows) {
+        const nodes = buildTimelineRenderNodes({
+          events: group.events,
+          timelineKey: runtimeStore.timelineKey,
+          workspaceRoot: workspaceRoot(),
+          debug: false,
+          mcpToolDefinitions: definitions,
+        });
+        groupRows = buildChatRowsFromNodes(nodes, threadKey);
+        turnRowsCacheByKey.set(group.key, { signature: group.signature, rows: groupRows });
+      }
+
+      rows.push(...groupRows);
+    }
+
+    for (const key of turnRowsCacheByKey.keys()) {
+      if (!activeCacheKeys.has(key)) turnRowsCacheByKey.delete(key);
+    }
+
+    const nextRows = updateDirectStreamingRows(rows, events);
+    baseRowsCache = { signature, rows: nextRows };
+    return nextRows;
   };
 
   const updateDirectStreamingRows = (rows: ChatRow[], events: TimelineEventItem[]): ChatRow[] => {
@@ -541,22 +637,7 @@ export function useChatRenderModel(
     const threadKey = String(runtimeStore.timelineKey ?? "__app__").trim() || "__app__";
     const events = contentEvents();
     const definitions = mcpToolDefinitions();
-    const structureSignature = buildRowsStructureSignature(events, threadKey, definitions);
-    if (baseRowsCache?.signature === structureSignature) {
-      const rows = updateDirectStreamingRows(baseRowsCache.rows, events);
-      baseRowsCache = { signature: structureSignature, rows };
-      return rows;
-    }
-    const nodes = buildTimelineRenderNodes({
-      events,
-      timelineKey: runtimeStore.timelineKey,
-      workspaceRoot: workspaceRoot(),
-      debug: false,
-      mcpToolDefinitions: definitions,
-    });
-    const rows = buildChatRowsFromNodes(nodes, threadKey);
-    baseRowsCache = { signature: structureSignature, rows };
-    return rows;
+    return buildRowsByTurnCache(events, threadKey, definitions);
   });
 
   const rowsWithTokenUsageSummaries = computed<ChatRow[]>(() => {

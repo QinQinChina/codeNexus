@@ -1,7 +1,7 @@
 <template>
-  <section class="settings-card" aria-label="图片生成设置">
+  <section class="settings-card" :aria-label="t('settingsImageGeneration.aria')">
     <header class="settings-card-head">
-      <div class="settings-card-title">图片生成</div>
+      <div class="settings-card-title">{{ t("settingsImageGeneration.title") }}</div>
       <button class="btn-mini" type="button" :disabled="saveDisabled" @click="onSave">
         {{ saveButtonText }}
       </button>
@@ -10,7 +10,7 @@
     <div class="settings-card-body">
       <div class="settings-grid">
         <label class="settings-row">
-          <span class="context-label dim">启用</span>
+          <span class="context-label dim">{{ t("settingsImageGeneration.enable") }}</span>
           <div class="settings-inline">
             <input id="chk-image-generation-enabled" v-model="draft.enabled" type="checkbox" :disabled="saving" />
             <span class="dim mono">{{ draft.enabled ? "enabled" : "disabled" }}</span>
@@ -18,7 +18,7 @@
         </label>
 
         <label class="settings-row">
-          <span class="context-label dim">服务地址</span>
+          <span class="context-label dim">{{ t("settingsImageGeneration.serviceUrl") }}</span>
           <input
             id="inp-image-generation-base-url"
             v-model="draft.baseUrl"
@@ -43,7 +43,7 @@
         </label>
 
         <label class="settings-row">
-          <span class="context-label dim">模型</span>
+          <span class="context-label dim">{{ t("settingsImageGeneration.model") }}</span>
           <input
             id="inp-image-generation-model"
             v-model="draft.model"
@@ -55,7 +55,7 @@
         </label>
 
         <label class="settings-row">
-          <span class="context-label dim">默认尺寸</span>
+          <span class="context-label dim">{{ t("settingsImageGeneration.defaultSize") }}</span>
           <select
             id="sel-image-generation-size"
             v-model="draft.defaultSize"
@@ -70,7 +70,7 @@
         </label>
 
         <label class="settings-row">
-          <span class="context-label dim">默认质量</span>
+          <span class="context-label dim">{{ t("settingsImageGeneration.defaultQuality") }}</span>
           <select
             id="sel-image-generation-quality"
             v-model="draft.defaultQuality"
@@ -85,7 +85,7 @@
         </label>
 
         <label class="settings-row">
-          <span class="context-label dim">输出格式</span>
+          <span class="context-label dim">{{ t("settingsImageGeneration.outputFormat") }}</span>
           <select
             id="sel-image-generation-output-format"
             v-model="draft.outputFormat"
@@ -99,7 +99,7 @@
         </label>
 
         <label class="settings-row">
-          <span class="context-label dim">默认背景</span>
+          <span class="context-label dim">{{ t("settingsImageGeneration.defaultBackground") }}</span>
           <select
             id="sel-image-generation-background"
             v-model="draft.defaultBackground"
@@ -113,7 +113,7 @@
         </label>
 
         <label class="settings-row">
-          <span class="context-label dim">审核级别</span>
+          <span class="context-label dim">{{ t("settingsImageGeneration.moderation") }}</span>
           <select
             id="sel-image-generation-moderation"
             v-model="draft.defaultModeration"
@@ -126,7 +126,7 @@
         </label>
 
         <label class="settings-row">
-          <span class="context-label dim">输出压缩</span>
+          <span class="context-label dim">{{ t("settingsImageGeneration.outputCompression") }}</span>
           <div class="settings-inline">
             <input
               id="inp-image-generation-output-compression"
@@ -144,7 +144,7 @@
         </label>
 
         <label class="settings-row">
-          <span class="context-label dim">超时</span>
+          <span class="context-label dim">{{ t("settingsImageGeneration.timeout") }}</span>
           <div class="settings-inline">
             <input
               id="inp-image-generation-timeout"
@@ -162,7 +162,7 @@
         </label>
 
         <label class="settings-row">
-          <span class="context-label dim">图片数量</span>
+          <span class="context-label dim">{{ t("settingsImageGeneration.imageCount") }}</span>
           <div class="settings-inline">
             <input
               id="inp-image-generation-max-images"
@@ -181,19 +181,19 @@
 
         <div class="status-panel" :class="{ 'is-ready': isConfigured, 'is-disabled': !normalizedDraft.enabled }">
           <div class="status-row">
-            <span class="dim">状态</span>
+            <span class="dim">{{ t("settingsImageGeneration.status") }}</span>
             <span class="mono">{{ statusText }}</span>
           </div>
           <div class="status-row">
-            <span class="dim">模式</span>
+            <span class="dim">{{ t("settingsImageGeneration.mode") }}</span>
             <span class="mono">generate / edit</span>
           </div>
           <div class="status-row">
-            <span class="dim">生成</span>
+            <span class="dim">{{ t("settingsImageGeneration.generate") }}</span>
             <span class="mono">{{ generationEndpointPreview }}</span>
           </div>
           <div class="status-row">
-            <span class="dim">编辑</span>
+            <span class="dim">{{ t("settingsImageGeneration.edit") }}</span>
             <span class="mono">{{ editEndpointPreview }}</span>
           </div>
         </div>
@@ -204,6 +204,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   DEFAULT_IMAGE_GENERATION_BACKGROUND,
   DEFAULT_IMAGE_GENERATION_MAX_IMAGES,
@@ -303,6 +304,7 @@ function cloneSettings(value: LocalImageGenerationSettings): Draft {
 }
 
 const initial = cloneSettings(getCachedUserLocalSettings().settings.imageGeneration);
+const { t } = useI18n();
 const snapshot = ref<Draft>(cloneSettings(initial));
 const draft = reactive<Draft>(cloneSettings(initial));
 const saving = ref(false);
@@ -342,16 +344,16 @@ const isConfigured = computed(() =>
   Boolean(normalizedDraft.value.enabled && normalizedDraft.value.baseUrl && normalizedDraft.value.apiKey)
 );
 const saveButtonText = computed(() => {
-  if (saving.value) return "保存中...";
-  if (hasChanges.value) return "保存配置";
-  return "配置已保存";
+  if (saving.value) return t("settingsImageGeneration.saving");
+  if (hasChanges.value) return t("settingsImageGeneration.saveConfig");
+  return t("settingsImageGeneration.configSaved");
 });
 const saveDisabled = computed(() => saving.value || !hasChanges.value);
 const statusText = computed(() => {
-  if (!normalizedDraft.value.enabled) return "已关闭";
-  if (!normalizedDraft.value.baseUrl) return "缺少服务地址";
-  if (!normalizedDraft.value.apiKey) return "缺少 API Key";
-  return "已配置";
+  if (!normalizedDraft.value.enabled) return t("settingsImageGeneration.disabled");
+  if (!normalizedDraft.value.baseUrl) return t("settingsImageGeneration.missingServiceUrl");
+  if (!normalizedDraft.value.apiKey) return t("settingsImageGeneration.missingApiKey");
+  return t("settingsImageGeneration.configured");
 });
 function endpointPreview(kind: "generations" | "edits") {
   const baseUrl = normalizedDraft.value.baseUrl;
@@ -383,11 +385,15 @@ async function onSave() {
     const next = normalizedDraft.value;
     const result = await patchUserLocalSettings({ imageGeneration: next });
     applySnapshot(result.settings.imageGeneration);
-    showToast({ kind: "success", title: "保存成功", message: "图片生成配置已更新。" });
+    showToast({
+      kind: "success",
+      title: t("settingsImageGeneration.saveSuccessTitle"),
+      message: t("settingsImageGeneration.saveSuccessMessage"),
+    });
   } catch (error: any) {
     showToast({
       kind: "error",
-      title: "保存失败",
+      title: t("settingsImageGeneration.saveFailedTitle"),
       message: String(error?.message ?? error ?? "unknown error"),
     });
   } finally {

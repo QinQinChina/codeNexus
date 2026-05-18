@@ -1,4 +1,5 @@
 import type { WorkspaceFileSource } from "./types";
+import { translate } from "../i18n/translate";
 
 export const WORKSPACE_FILE_SAVE_TIMELINE_METHOD = "local/workspaceFileSave";
 const WORKSPACE_IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg", ".ico"]);
@@ -25,7 +26,7 @@ function toRecord(value: unknown): Record<string, unknown> | null {
 
 export function workspaceFileSourceText(source: WorkspaceFileSource): string {
   void source;
-  return "本地文件";
+  return translate("workspaceFileSave.localFile");
 }
 
 export function buildWorkspaceFileSaveTimelineItem(params: {
@@ -48,7 +49,12 @@ export function buildWorkspaceFileSaveTimelineItem(params: {
 
 export function buildWorkspaceFileSaveTimelineParamsText(item: WorkspaceFileSaveTimelineItem): string {
   const lines = [
-    `文件面板 ｜ ${item.status === "success" ? "已保存" : "保存失败"}`,
+    translate("workspaceFileSave.paramsHeader", {
+      status:
+        item.status === "success"
+          ? translate("workspaceFileSave.statusSaved")
+          : translate("workspaceFileSave.statusSaveFailed"),
+    }),
     item.path ? `path=${item.path}` : "",
     `source=${workspaceFileSourceText(item.source)}`,
     `chars=${item.chars}`,
@@ -81,7 +87,7 @@ export function detectUnsupportedTextReason(content: string): string {
   const text = String(content ?? "");
   if (!text) return "";
   if (text.includes("\u0000")) {
-    return "文件包含二进制内容，暂不支持作为文本编辑。";
+    return translate("workspaceFiles.binaryUnsupported");
   }
   let controlCount = 0;
   const sample = text.slice(0, 4096);
@@ -91,7 +97,7 @@ export function detectUnsupportedTextReason(content: string): string {
     if (isControl) controlCount += 1;
   }
   if (sample.length > 0 && controlCount >= 8 && controlCount / sample.length > 0.02) {
-    return "文件包含较多不可见控制字符，暂不支持作为文本编辑。";
+    return translate("workspaceFiles.controlCharsUnsupported");
   }
   return "";
 }

@@ -22,6 +22,9 @@ export type CommandGroupItem = {
   id: string;
   outputKey: string;
   status: CommandGroupItemStatus;
+  cwd: string;
+  processId: string;
+  source: string;
   actions: CommandParsedAction[];
   commandShort: string;
   commandFull: string;
@@ -41,6 +44,27 @@ export type CommandActionNode = {
   createdAt: number;
   turnId: string;
   item: CommandGroupItem;
+};
+
+export type CommandSessionNode = {
+  id: string;
+  createdAt: number;
+  turnId: string;
+  status: CommandGroupItemStatus;
+  commandFull: string;
+  commandShort: string;
+  cwd: string;
+  processId: string;
+  source: string;
+  outputFull: string;
+  outputKey: string;
+  outputPreview: string;
+  recentOutputLines: string[];
+  urls: string[];
+  exitCode: number | null;
+  durationMs: number | null;
+  startedAt: number | null;
+  completedAt: number | null;
 };
 
 export type CommandParsedAction = {
@@ -225,6 +249,7 @@ export type TimelineRenderNode =
   | { id: string; kind: "event"; event: TimelineEventItem }
   | { id: string; kind: "reasoningBlock"; item: ReasoningBlockNode }
   | { id: string; kind: "commandAction"; item: CommandActionNode }
+  | { id: string; kind: "commandSession"; item: CommandSessionNode }
   | { id: string; kind: "commandRead"; item: CommandReadNode }
   | { id: string; kind: "commandList"; item: CommandListNode }
   | { id: string; kind: "commandSearch"; item: CommandSearchNode }
@@ -321,6 +346,46 @@ const normalizeWhitespace = (value: string) =>
   String(value ?? "")
     .replace(/\s+/g, " ")
     .trim();
+
+const LONG_RUNNING_COMMAND_PATTERNS = [
+  /\b(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?(?:dev|start|serve|preview)\b/i,
+  /\b(?:vite|next|nuxt|astro|webpack(?:-dev-server)?|vue-cli-service)\b/i,
+  /\bflutter\s+run\b/i,
+  /\bcargo\s+watch\b/i,
+  /\b(?:dotnet\s+watch|air|nodemon|tsx\s+watch|ts-node-dev)\b/i,
+  /\b(?:python|python3|py)\s+-m\s+(?:http\.server|uvicorn)\b/i,
+  /\b(?:uvicorn|gunicorn|flask\s+run|rails\s+server|vite-node)\b/i,
+];
+
+const isPotentialLongRunningCommand = (cmd: string, source: string) => {
+  const text = normalizeWhitespace(cmd);
+  if (!text) return false;
+  if (String(source ?? "").toLowerCase().includes("startup")) return true;
+  return LONG_RUNNING_COMMAND_PATTERNS.some((pattern) => pattern.test(text));
+};
+
+const extractUrlsFromText = (value: string): string[] => {
+  const text = stripAnsi(String(value ?? ""));
+  if (!text) return [];
+  const seen = new Set<string>();
+  const urls: string[] = [];
+  for (const match of text.matchAll(/\bhttps?:\/\/[^\s"'<>）)]+/gi)) {
+    const url = String(match[0] ?? "").replace(/[.,;]+$/g, "");
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    urls.push(url);
+    if (urls.length >= 4) break;
+  }
+  return urls;
+};
+
+const recentMeaningfulOutputLines = (value: string, maxLines = 6): string[] => {
+  const lines = stripAnsi(String(value ?? ""))
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim().length > 0);
+  return lines.slice(Math.max(0, lines.length - maxLines));
+};
 
 const isDirectoryListingCommand = (cmd: string) =>
   /\b(get-childitem|gci|dir|ls)\b/i.test(String(cmd ?? "")) || /\brg\b[\s\S]*\s--files\b/i.test(String(cmd ?? ""));
@@ -836,6 +901,45 @@ const buildSpecializedCommandNode = (
   return null;
 };
 
+const buildCommandSessionNode = (
+  nodeId: string,
+  createdAt: number,
+  turnId: string,
+  item: CommandGroupItem
+): TimelineRenderNode | null => {
+  const status = ensureCommandGroupItemStatus(item);
+  const commandFull = item.commandFull || item.commandShort;
+  const processId = String(item.processId ?? "").trim();
+  const source = String(item.source ?? "").trim();
+  if (!processId) return null;
+  if (!isPotentialLongRunningCommand(commandFull, source)) return null;
+
+  return {
+    id: nodeId,
+    kind: "commandSession",
+    item: {
+      id: nodeId,
+      createdAt,
+      turnId,
+      status,
+      commandFull,
+      commandShort: item.commandShort || shortenText(commandFull, 150),
+      cwd: item.cwd,
+      processId,
+      source,
+      outputFull: item.outputFull,
+      outputKey: item.outputKey,
+      outputPreview: item.outputPreview,
+      recentOutputLines: recentMeaningfulOutputLines(item.outputFull),
+      urls: extractUrlsFromText(item.outputFull),
+      exitCode: item.exitCode,
+      durationMs: item.durationMs,
+      startedAt: item.startedAt,
+      completedAt: item.completedAt,
+    },
+  };
+};
+
 const toPrettyJsonOrText = (value: unknown) => {
   if (value == null) return "";
   if (typeof value === "string") return value;
@@ -1155,6 +1259,9 @@ type ParsedCommandEvent = {
   turnId: string;
   method: CommandEventMethod;
   command: string;
+  cwd: string;
+  processId: string;
+  source: string;
   actions: CommandParsedAction[];
   hasCommand: boolean;
   statusRaw: string;
@@ -1185,6 +1292,9 @@ const parseCommandExecutionEvent = (event: TimelineEventItem): ParsedCommandEven
       turnId,
       method: event.method,
       command: "终端交互",
+      cwd: "",
+      processId: String(payload.processId ?? "").trim(),
+      source: "terminalInteraction",
       actions: [],
       hasCommand: false,
       statusRaw: "running",
@@ -1211,6 +1321,9 @@ const parseCommandExecutionEvent = (event: TimelineEventItem): ParsedCommandEven
     turnId,
     method: event.method,
     command,
+    cwd: String(item.cwd ?? "").trim(),
+    processId: String(item.processId ?? "").trim(),
+    source: String(item.source ?? "").trim(),
     actions,
     hasCommand,
     statusRaw: String(item.status ?? "").trim(),
@@ -1945,6 +2058,9 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
         id: commandEvent.itemId,
         outputKey: `${params.timelineKey}:${itemKey}`,
         status: "unknown",
+        cwd: "",
+        processId: "",
+        source: "",
         actions: [],
         commandShort: shortenText(commandEvent.command, 150),
         commandFull: commandEvent.command,
@@ -1972,6 +2088,9 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
         baseItem.commandFull = incomingCommand || "命令执行";
         baseItem.commandShort = shortenText(baseItem.commandFull, 150);
       }
+      if (commandEvent.cwd) baseItem.cwd = commandEvent.cwd;
+      if (commandEvent.processId) baseItem.processId = commandEvent.processId;
+      if (commandEvent.source) baseItem.source = commandEvent.source;
       baseItem.lastEventMethod = commandEvent.method;
       if (commandEvent.actions.length > 0) {
         const bySignature = new Map(
@@ -1992,7 +2111,7 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
       if (commandEvent.method === "item/started") {
         baseItem.startedAt =
           baseItem.startedAt == null ? commandEvent.createdAt : Math.min(baseItem.startedAt, commandEvent.createdAt);
-        if (commandEvent.statusRaw.toLowerCase() === "inprogress") baseItem.status = "running";
+        baseItem.status = "running";
       } else if (commandEvent.method === "item/completed") {
         baseItem.completedAt = commandEvent.createdAt;
         baseItem.exitCode = commandEvent.exitCode;
@@ -2338,6 +2457,9 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
 
     keepItem.commandFull = chooseIfBetterText(keepItem.commandFull, incomingItem.commandFull);
     keepItem.commandShort = chooseIfBetterText(keepItem.commandShort, incomingItem.commandShort);
+    keepItem.cwd = chooseIfBetterText(keepItem.cwd, incomingItem.cwd);
+    keepItem.processId = chooseIfBetterText(keepItem.processId, incomingItem.processId);
+    keepItem.source = chooseIfBetterText(keepItem.source, incomingItem.source);
     const actionsBySignature = new Map(
       (keepItem.actions ?? []).map((action) => [
         `${action.type}:${action.command}:${action.path}:${action.query}:${action.startLine ?? ""}:${action.endLine ?? ""}`,
@@ -2390,6 +2512,15 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
   for (const entry of commandEntriesBySignature.values()) {
     const anchorTs = entry.item.startedAt ?? entry.item.completedAt ?? entry.firstCreatedAt;
     const nodeId = `cmd:${params.timelineKey}:${entry.turnId}:${entry.item.id}`;
+    const sessionNode = buildCommandSessionNode(nodeId, anchorTs, entry.turnId, entry.item);
+    if (sessionNode) {
+      renderNodes.push({
+        index: entry.firstIndex,
+        createdAt: anchorTs,
+        node: sessionNode,
+      });
+      continue;
+    }
     const specializedNode = buildSpecializedCommandNode(
       nodeId,
       anchorTs,

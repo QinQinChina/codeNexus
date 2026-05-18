@@ -23,20 +23,32 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { Cpu, Heart, Moon, Sun, Terminal } from "lucide-vue-next";
-import { APP_THEME_ORDER, themeLabelFor, useThemeStore } from "../../../stores/theme.store";
+import { useI18n } from "vue-i18n";
+import { APP_THEME_ORDER, useThemeStore, type AppThemeName } from "../../../stores/theme.store";
 
 const themeStore = useThemeStore();
+const { t } = useI18n();
+
+function localizedThemeLabel(theme: AppThemeName): string {
+  if (theme === "light") return t("topbarExtra.themeLight");
+  if (theme === "pink") return t("topbarExtra.themePink");
+  if (theme === "tech") return t("topbarExtra.themeTech");
+  if (theme === "hacker") return t("topbarExtra.themeHacker");
+  return t("topbarExtra.themeDark");
+}
 
 function nextThemeLabelFor() {
   const currentIndex = APP_THEME_ORDER.indexOf(themeStore.theme);
   const nextTheme =
     currentIndex >= 0 ? APP_THEME_ORDER[(currentIndex + 1) % APP_THEME_ORDER.length] : APP_THEME_ORDER[0];
-  return themeLabelFor(nextTheme);
+  return localizedThemeLabel(nextTheme);
 }
 
-const themeLabel = computed(() => themeLabelFor(themeStore.theme));
+const themeLabel = computed(() => localizedThemeLabel(themeStore.theme));
 const nextThemeLabel = computed(() => nextThemeLabelFor());
-const themeAriaLabel = computed(() => `切换主题，当前${themeLabel.value}，下一个${nextThemeLabel.value}`);
+const themeAriaLabel = computed(() =>
+  t("topbarExtra.themeAria", { current: themeLabel.value, next: nextThemeLabel.value })
+);
 const themeIcon = computed(() => {
   if (themeStore.theme === "light") return Sun;
   if (themeStore.theme === "pink") return Heart;

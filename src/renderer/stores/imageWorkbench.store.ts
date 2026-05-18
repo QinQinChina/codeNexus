@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { codexDesktop } from "../api/codexDesktopClient";
 import { getCachedUserLocalSettings } from "../domain/localSettings";
+import { translate } from "../i18n/translate";
 import { showToast } from "../ui/toast";
 import type { ImageGenerationGenerateArgs, ImageGenerationHistoryItem, ImageGenerationTaskItem } from "../../shared/ipc/contracts";
 
@@ -45,7 +46,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result ?? ""));
-    reader.onerror = () => reject(new Error("读取图片失败"));
+    reader.onerror = () => reject(new Error(translate("imageWorkbench.readImageFailed")));
     reader.readAsDataURL(file);
   });
 }
@@ -82,7 +83,11 @@ function taskToHistoryItem(task: ImageGenerationTaskItem, model: string): ImageW
     moderation: args.moderation ?? null,
     outputCompression: typeof args.outputCompression === "number" ? args.outputCompression : null,
     images: [],
-    errorText: pending ? (task.status === "queued" ? "排队中" : "生成中") : task.errorText || "图片生成失败",
+    errorText: pending
+      ? task.status === "queued"
+        ? translate("imageWorkbench.queued")
+        : translate("imageWorkbench.generating")
+      : task.errorText || translate("imageWorkbench.imageGenerationFailed"),
   };
 }
 
@@ -153,8 +158,8 @@ export const useImageWorkbenchStore = defineStore("imageWorkbench", {
       this.missingConfigurationNoticeShown = true;
       showToast({
         kind: "warn",
-        title: "图片生成尚未配置",
-        message: "请先在图片生成设置中填写服务地址、API Key 并启用功能。",
+        title: translate("imageWorkbench.notConfiguredTitle"),
+        message: translate("imageWorkbench.notConfiguredToastMessage"),
       });
     },
     stopDrag() {
@@ -271,7 +276,7 @@ export const useImageWorkbenchStore = defineStore("imageWorkbench", {
         if (loadSeq !== this.historyLoadSeq) return;
         this.historyErrorText = String(error?.message ?? error ?? "unknown error");
         logImageWorkbench("loadHistory failed", { seq: loadSeq, message: this.historyErrorText });
-        showToast({ kind: "error", title: "历史加载失败", message: this.historyErrorText });
+        showToast({ kind: "error", title: translate("imageWorkbench.historyLoadFailed"), message: this.historyErrorText });
       } finally {
         if (loadSeq === this.historyLoadSeq) this.historyLoading = false;
       }
@@ -299,11 +304,21 @@ export const useImageWorkbenchStore = defineStore("imageWorkbench", {
           const res = await codexDesktop.app.deleteImageGenerationTask({ id: item.taskId });
           this.generationTasks = Array.isArray(res.tasks) ? res.tasks : [];
           await this.syncTasks();
-          if (res.deleted) showToast({ kind: "success", title: "已删除图片任务", message: "任务记录已更新。" });
+          if (res.deleted) {
+            showToast({
+              kind: "success",
+              title: translate("imageWorkbench.taskDeletedTitle"),
+              message: translate("imageWorkbench.taskUpdatedMessage"),
+            });
+          }
         } catch (error: any) {
           this.historyItems = previousItems;
           this.selectedHistoryId = previousSelectedHistoryId;
-          showToast({ kind: "error", title: "删除失败", message: String(error?.message ?? error ?? "unknown error") });
+          showToast({
+            kind: "error",
+            title: translate("imageWorkbench.deleteFailedTitle"),
+            message: String(error?.message ?? error ?? "unknown error"),
+          });
           await this.loadHistory().catch(() => undefined);
         }
         return;
@@ -316,16 +331,24 @@ export const useImageWorkbenchStore = defineStore("imageWorkbench", {
         const res = await codexDesktop.app.deleteImageGenerationHistory({ id: normalized });
         this.mergeHistoryAndTasks(Array.isArray(res.items) ? res.items : [], this.generationTasks);
         if (res.deleted) {
-          showToast({ kind: "success", title: "已删除图片记录", message: "图片历史已更新。" });
+          showToast({
+            kind: "success",
+            title: translate("imageWorkbench.historyDeletedTitle"),
+            message: translate("imageWorkbench.historyUpdatedMessage"),
+          });
         } else {
-          showToast({ kind: "error", title: "删除失败", message: "没有找到这条图片历史记录。" });
+          showToast({
+            kind: "error",
+            title: translate("imageWorkbench.deleteFailedTitle"),
+            message: translate("imageWorkbench.historyRecordNotFound"),
+          });
           await this.loadHistory();
         }
       } catch (error: any) {
         this.historyItems = previousItems;
         this.selectedHistoryId = previousSelectedHistoryId;
         const message = String(error?.message ?? error ?? "unknown error");
-        showToast({ kind: "error", title: "删除失败", message });
+        showToast({ kind: "error", title: translate("imageWorkbench.deleteFailedTitle"), message });
         await this.loadHistory().catch(() => undefined);
       }
     },
@@ -336,9 +359,19 @@ export const useImageWorkbenchStore = defineStore("imageWorkbench", {
         const res = await codexDesktop.app.cancelImageGenerationTask({ id: normalized });
         this.generationTasks = Array.isArray(res.tasks) ? res.tasks : [];
         await this.syncTasks();
-        if (res.canceled) showToast({ kind: "success", title: "已取消图片任务", message: "任务状态已更新。" });
+        if (res.canceled) {
+          showToast({
+            kind: "success",
+            title: translate("imageWorkbench.taskCanceledTitle"),
+            message: translate("imageWorkbench.taskUpdatedMessage"),
+          });
+        }
       } catch (error: any) {
-        showToast({ kind: "error", title: "取消失败", message: String(error?.message ?? error ?? "unknown error") });
+        showToast({
+          kind: "error",
+          title: translate("imageWorkbench.cancelFailedTitle"),
+          message: String(error?.message ?? error ?? "unknown error"),
+        });
       }
     },
     async retryTask(id: string) {
@@ -348,21 +381,29 @@ export const useImageWorkbenchStore = defineStore("imageWorkbench", {
         const res = await codexDesktop.app.retryImageGenerationTask({ id: normalized });
         this.generationTasks = Array.isArray(res.tasks) ? res.tasks : [];
         await this.syncTasks();
-        showToast({ kind: "success", title: "已重新加入队列", message: "图片生成任务将按队列执行。" });
+        showToast({
+          kind: "success",
+          title: translate("imageWorkbench.requeuedTitle"),
+          message: translate("imageWorkbench.requeuedMessage"),
+        });
       } catch (error: any) {
-        showToast({ kind: "error", title: "重试失败", message: String(error?.message ?? error ?? "unknown error") });
+        showToast({
+          kind: "error",
+          title: translate("imageWorkbench.retryFailedTitle"),
+          message: String(error?.message ?? error ?? "unknown error"),
+        });
       }
     },
     async generate() {
       this.syncSettingsFromCache();
       if (!this.prompt.trim()) {
-        this.errorText = "请输入图片生成提示词。";
-        showToast({ kind: "error", title: "无法生成图片", message: this.errorText });
+        this.errorText = translate("imageWorkbench.promptRequired");
+        showToast({ kind: "error", title: translate("imageWorkbench.cannotGenerateTitle"), message: this.errorText });
         return;
       }
       if (!this.configured) {
-        this.errorText = "图片生成尚未配置，请先填写服务地址、API Key 并启用图片生成功能。";
-        showToast({ kind: "error", title: "无法生成图片", message: this.errorText });
+        this.errorText = translate("imageWorkbench.notConfiguredError");
+        showToast({ kind: "error", title: translate("imageWorkbench.cannotGenerateTitle"), message: this.errorText });
         return;
       }
       this.errorText = "";
@@ -386,10 +427,14 @@ export const useImageWorkbenchStore = defineStore("imageWorkbench", {
         this.generationTasks = Array.isArray(res.tasks) ? res.tasks : [];
         await this.syncTasks();
         this.startTaskPolling();
-        showToast({ kind: "success", title: "已加入图片生成队列", message: "任务将按并发限制自动执行。" });
+        showToast({
+          kind: "success",
+          title: translate("imageWorkbench.queuedTitle"),
+          message: translate("imageWorkbench.queuedMessage"),
+        });
       } catch (error: any) {
         this.errorText = String(error?.message ?? error ?? "unknown error");
-        showToast({ kind: "error", title: "提交失败", message: this.errorText });
+        showToast({ kind: "error", title: translate("imageWorkbench.submitFailedTitle"), message: this.errorText });
       }
     },
   },

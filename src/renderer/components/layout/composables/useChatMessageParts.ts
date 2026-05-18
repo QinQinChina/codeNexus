@@ -1,6 +1,7 @@
 import type { TimelineEventItem, TimelineUserMessageParams } from "../../../domain/types";
 import { buildStructuredTextSegments } from "../../../domain/composeFileMentions";
 import { basenameFromPath } from "../../../domain/workspaceFiles";
+import { translate } from "../../../i18n/translate";
 import { useWorkspaceFilesStore } from "../../../stores/workspaceFiles.store";
 import { resolveVscodeEntryIcon } from "../workspace/vscodeFileIcons";
 import type {
@@ -99,7 +100,7 @@ export function useChatMessageParts(hiddenImageIds: () => Set<string>, onLayoutC
         id: `${event.id}:img:${i + 1}:${source.length}`,
         sourceKind: kind === "localPath" ? "remoteUrl" : kind,
         source,
-        title: `图片 ${i + 1}`,
+        title: translate("lazyImage.imageWithIndex", { index: i + 1 }),
       });
     });
     snapshot.localImages.forEach((source, i) => {

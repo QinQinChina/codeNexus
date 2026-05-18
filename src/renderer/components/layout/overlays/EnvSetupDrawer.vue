@@ -7,26 +7,30 @@
         :class="{ 'is-settings': isSettings }"
         role="dialog"
         aria-modal="true"
-        aria-label="环境检测"
+        :aria-label="t('envSetup.aria')"
         @click.self="onOverlayClick"
       >
         <div v-if="!isSettings" class="global-config-drawer-backdrop" @click="close"></div>
         <section class="global-config-drawer-panel" @click.stop>
           <header class="global-config-drawer-head">
-            <div class="panel-title">环境检测</div>
+            <div class="panel-title">{{ t("envSetup.title") }}</div>
             <div class="row global-config-head-actions">
-              <button class="btn-mini" type="button" :disabled="busy" @click="onRefreshDiagnostics">检测</button>
-              <button v-if="!isSettings" ref="closeBtnRef" class="btn-mini" type="button" @click="close">关闭</button>
+              <button class="btn-mini" type="button" :disabled="busy" @click="onRefreshDiagnostics">
+                {{ t("envSetup.check") }}
+              </button>
+              <button v-if="!isSettings" ref="closeBtnRef" class="btn-mini" type="button" @click="close">
+                {{ t("common.close") }}
+              </button>
             </div>
           </header>
 
           <div class="global-config-drawer-body app-scrollbar" :class="{ 'is-settings': isSettings }">
             <section class="panel">
               <div class="panel-head">
-                <div class="panel-title">检测结果</div>
+                <div class="panel-title">{{ t("envSetup.results") }}</div>
                 <div class="row" style="gap: 8px; align-items: center">
                   <span class="status-chip mono" :class="statusChipClass">{{ statusChipText }}</span>
-                  <span v-if="busy" class="dim mono">处理中…</span>
+                  <span v-if="busy" class="dim mono">{{ t("envSetup.processingLong") }}</span>
                 </div>
               </div>
 
@@ -46,14 +50,14 @@
               </div>
 
               <div v-if="showManualGuide" class="env-guide">
-                <div class="env-guide-title mono">手动安装指引</div>
+                <div class="env-guide-title mono">{{ t("envSetup.manualGuideTitle") }}</div>
                 <div class="env-guide-body">
                   <div class="env-guide-text dim">
-                    <span v-if="missingNodeOrNpm">未检测到 Node.js / npm。请先安装 Node.js LTS（包含 npm）。</span>
-                    <span v-else>未检测到 codex。请使用 npm 全局安装 @openai/codex。</span>
+                    <span v-if="missingNodeOrNpm">{{ t("envSetup.missingNodeOrNpm") }}</span>
+                    <span v-else>{{ t("envSetup.missingCodex") }}</span>
                   </div>
                   <pre class="env-guide-cmd mono">npm i -g @openai/codex</pre>
-                  <div class="env-guide-text dim">安装后如仍显示“缺失”，建议重启终端或重启本应用，再点击“检测”。</div>
+                  <div class="env-guide-text dim">{{ t("envSetup.afterInstallHint") }}</div>
                   <pre class="env-guide-cmd mono">
 node -v
 npm -v
@@ -63,10 +67,9 @@ codex --version</pre
               </div>
 
               <div class="env-runtime-hint">
-                <div class="env-runtime-hint-title mono">提示</div>
+                <div class="env-runtime-hint-title mono">{{ t("envSetup.hintTitle") }}</div>
                 <div class="env-runtime-hint-text dim">
-                  当前环境检测只保证环境齐全（能在本机找到 codex/node/npm），不保证 codex 一定能在应用内正常启动。
-                  如果仍然无法使用，请在 CMD 中使用 codex 自检是否可以正常运行：
+                  {{ t("envSetup.runtimeHint") }}
                 </div>
                 <pre class="env-guide-cmd mono">codex --version</pre>
               </div>
@@ -74,7 +77,7 @@ codex --version</pre
               <div v-if="lastResultText" class="env-last-result mono" :class="lastResultClass">
                 {{ lastResultText }}
               </div>
-              <div class="env-debug-hint mono dim">调试日志请打开开发者工具（DevTools）控制台查看。</div>
+              <div class="env-debug-hint mono dim">{{ t("envSetup.debugHint") }}</div>
             </section>
           </div>
         </section>
@@ -85,6 +88,7 @@ codex --version</pre
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useAppShellStore } from "../../../stores/appShell.store";
 import { codexDesktop } from "../../../api/codexDesktopClient";
 import type { CodexDiagnosticsResult } from "../../../../shared/ipc/contracts";
@@ -92,6 +96,7 @@ import type { CodexDiagnosticsResult } from "../../../../shared/ipc/contracts";
 type DiagItem = { ok: boolean; details?: string };
 
 const appShellStore = useAppShellStore();
+const { t } = useI18n();
 const props = defineProps<{ mode?: "drawer" | "settings" }>();
 const isSettings = computed(() => props.mode === "settings");
 const open = computed(() => (isSettings.value ? true : appShellStore.envSetupDrawerOpen));
@@ -114,8 +119,8 @@ function onOverlayClick() {
 }
 
 function diagText(item?: DiagItem): string {
-  if (!item) return "未知";
-  const head = item.ok ? "正常" : "缺失";
+  if (!item) return t("envSetup.unknown");
+  const head = item.ok ? t("envSetup.ok") : t("envSetup.missing");
   const details = String(item.details ?? "").trim();
   return details ? `${head}\n${details}` : head;
 }
@@ -134,9 +139,9 @@ const missingNodeOrNpm = computed(() => diag.value.node?.ok === false || diag.va
 const showManualGuide = computed(() => !busy.value && hasDiagnostics.value && !isReady.value);
 
 const statusChipText = computed(() => {
-  if (busy.value) return "处理中";
-  if (!hasDiagnostics.value) return "待检测";
-  return isReady.value ? "已就绪" : "未就绪";
+  if (busy.value) return t("envSetup.processing");
+  if (!hasDiagnostics.value) return t("envSetup.pending");
+  return isReady.value ? t("envSetup.ready") : t("envSetup.notReady");
 });
 
 const statusChipClass = computed(() => {
@@ -164,7 +169,7 @@ async function onRefreshDiagnostics() {
   } catch (e: any) {
     const msg = e?.message ? String(e.message) : String(e);
     lastResultKind.value = "error";
-    lastResultText.value = `检测失败：${msg}`;
+    lastResultText.value = t("envSetup.checkFailed", { message: msg });
     console.error("[EnvSetup] diagnostics: error:", msg);
   } finally {
     busy.value = false;

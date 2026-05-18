@@ -49,6 +49,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
 import { Activity, ChevronDown } from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
 import type { ChatAuxActivityStatus, ChatAuxActivitySummaryItem, ChatAuxiliaryRow } from "../layout/types/chat.types";
 import { CHAT_ROW_BASE_CLASS } from "../layout/chat/chatPresentation";
 import { useFollowBottomScroller } from "./useFollowBottomScroller";
@@ -70,6 +71,7 @@ const emit = defineEmits<{
   (e: "layout-change"): void;
 }>();
 
+const { t } = useI18n();
 const open = ref(!props.defaultCollapsed);
 const userTouched = ref(false);
 const {
@@ -84,11 +86,13 @@ const {
   onContentResize: () => emit("layout-change"),
 });
 
-const titleText = computed(() => (props.status === "running" ? "正在处理辅助活动" : "辅助活动"));
+const titleText = computed(() =>
+  props.status === "running" ? t("chat.activity.auxRunningTitle") : t("chat.activity.auxTitle")
+);
 
 const statusText = computed(() => {
-  if (props.status === "running") return "进行中";
-  return open.value ? "已展开" : "已收起";
+  if (props.status === "running") return t("chat.activity.running");
+  return open.value ? t("chat.activity.expanded") : t("chat.activity.collapsed");
 });
 
 const activityClass = computed(() => ({

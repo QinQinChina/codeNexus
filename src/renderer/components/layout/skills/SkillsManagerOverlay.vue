@@ -1,15 +1,17 @@
 <template>
-  <section class="skills-manager-page app-scrollbar" aria-label="技能管理器（Skills）">
+  <section class="skills-manager-page app-scrollbar" :aria-label="t('skills.managerAria')">
     <div class="skills-manager-sticky">
       <header class="skills-manager-head">
         <div class="skills-manager-title-row">
           <Blocks class="skills-manager-title-icon" aria-hidden="true" />
-          <h2 class="skills-manager-title">技能管理（Skills）</h2>
+          <h2 class="skills-manager-title">{{ t("skills.managerTitle") }}</h2>
         </div>
 
         <div class="skills-manager-head-actions">
-          <button class="btn-mini" type="button" :disabled="!canRefreshSkills" @click="refreshSkills">刷新</button>
-          <button class="btn-mini" type="button" @click="closeManager">返回</button>
+          <button class="btn-mini" type="button" :disabled="!canRefreshSkills" @click="refreshSkills">
+            {{ t("skills.refresh") }}
+          </button>
+          <button class="btn-mini" type="button" @click="closeManager">{{ t("skills.back") }}</button>
         </div>
       </header>
     </div>
@@ -19,7 +21,7 @@
         :items="filteredItems"
         :pendingPath="skillPendingPath"
         :stateText="skillsStateText"
-        emptyText="未找到匹配技能"
+        :emptyText="t('skills.noMatch')"
         mode="manager"
         @toggle-skill="onSkillToggleRequest"
       />
@@ -29,6 +31,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { Blocks } from "lucide-vue-next";
 import SkillsList from "./SkillsList.vue";
 import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
@@ -38,6 +41,7 @@ import { useSkillsUiStore } from "../../../stores/skillsUi.store";
 import type { SkillState } from "../../../domain/types";
 
 const runtime = getRuntimeOrchestrator();
+const { t } = useI18n();
 const runtimeStore = useRuntimeStore();
 const skillsStore = useSkillsStore();
 const skillsUiStore = useSkillsUiStore();
@@ -49,14 +53,15 @@ const canRefreshSkills = computed(
 );
 
 const skillsStateText = computed(() => {
-  if (!runtimeStore.serverId) return "未连接服务";
-  if (!runtimeStore.workspacePath) return "未选择工作区";
-  if (skillsStore.loadState === "loading") return "加载中…";
+  if (!runtimeStore.serverId) return t("skills.disconnected");
+  if (!runtimeStore.workspacePath) return t("skills.noWorkspace");
+  if (skillsStore.loadState === "loading") return t("skills.loading");
   if (skillsStore.loadState === "error")
-    return skillsStore.errorText ? `加载失败：${skillsStore.errorText}` : "加载失败";
+    return skillsStore.errorText ? t("skills.loadFailedWithMessage", { message: skillsStore.errorText }) : t("skills.loadFailed");
   if (skillsStore.items.length === 0) {
-    if (skillsStore.parseErrors.length > 0) return `暂无可用技能（errors=${skillsStore.parseErrors.length}）`;
-    return "暂无可用技能";
+    if (skillsStore.parseErrors.length > 0)
+      return t("skills.emptyWithErrorsRaw", { count: skillsStore.parseErrors.length });
+    return t("skills.empty");
   }
   return "";
 });

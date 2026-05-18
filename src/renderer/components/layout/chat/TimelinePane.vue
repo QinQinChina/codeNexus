@@ -18,7 +18,7 @@
               >{{ formatTime(node.event.createdAt) }}</span
             >
             <button class="btn-mini ml-auto" type="button" @click.stop="onToggleEventJsonDebug(node.event.id)">
-              {{ isEventDebugExpanded(node.event.id) ? "收起JSON" : "展开JSON" }}
+              {{ isEventDebugExpanded(node.event.id) ? t("timeline.collapseJson") : t("timeline.expandJson") }}
             </button>
           </div>
         </template>
@@ -35,17 +35,8 @@
           :item="workspaceFileSaveTimelineItem(node.event)!"
         />
         <div v-else-if="isMarkdownEvent(node.event)">
-          <PlanOutputCard
-            v-if="
-              node.event.method === 'item/plan/delta' && appShellStore.assistantPlanMessageFormat === 'plan-card-v1'
-            "
-            class="body min-w-0"
-            :class="eventBodyClass(node.event)"
-            :rawText="node.event.paramsText"
-            :turnPlan="turnPlanForPlanDeltaEvent(node.event)"
-          />
           <StructuredFinalAnswerCard
-            v-else-if="tryParseStructuredFinalAnswerV1(node.event.paramsText)"
+            v-if="tryParseStructuredFinalAnswerV1(node.event.paramsText)"
             class="body min-w-0"
             :class="eventBodyClass(node.event)"
             :rawText="node.event.paramsText"
@@ -91,7 +82,7 @@
             type="button"
             @click="toggleEventDebug(node.event.id)"
           >
-            {{ isEventDebugExpanded(node.event.id) ? "收起JSON" : "展开JSON" }}
+            {{ isEventDebugExpanded(node.event.id) ? t("timeline.collapseJson") : t("timeline.expandJson") }}
           </button>
         </div>
         <div v-if="isTurnDiffUpdatedEvent(node.event)" class="mt-2">
@@ -106,17 +97,8 @@
           :item="workspaceFileSaveTimelineItem(node.event)!"
         />
         <div v-else-if="isMarkdownEvent(node.event)">
-          <PlanOutputCard
-            v-if="
-              node.event.method === 'item/plan/delta' && appShellStore.assistantPlanMessageFormat === 'plan-card-v1'
-            "
-            class="body min-w-0"
-            :class="eventBodyClass(node.event)"
-            :rawText="node.event.paramsText"
-            :turnPlan="turnPlanForPlanDeltaEvent(node.event)"
-          />
           <StructuredFinalAnswerCard
-            v-else-if="tryParseStructuredFinalAnswerV1(node.event.paramsText)"
+            v-if="tryParseStructuredFinalAnswerV1(node.event.paramsText)"
             class="body min-w-0"
             :class="eventBodyClass(node.event)"
             :rawText="node.event.paramsText"
@@ -164,7 +146,7 @@
             <span class="ui-leading-icon-slot" aria-hidden="true">
               <Brain class="h-3 w-3 flex-none text-[var(--fg-warning)] [stroke-width:2.2]" />
             </span>
-            <span class="min-w-0 truncate">{{ node.item.title ?? "思考" }}</span>
+            <span class="min-w-0 truncate">{{ node.item.title ?? t("chat.reasoning") }}</span>
             <span v-if="reasoningDurationText(node.item.durationMs)" class="mono dim whitespace-nowrap">{{
               reasoningDurationText(node.item.durationMs)
             }}</span>
@@ -191,7 +173,7 @@
             class="reasoning-raw-trigger inline-flex max-w-full items-center gap-1.5 rounded-[4px] border border-[var(--ui-well-border)] bg-[var(--ui-well-bg)] px-2 py-1 text-[11px] text-[var(--text-muted)] cursor-pointer select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--border-warning-hover)] focus-visible:outline-offset-2"
             v-bind="triggerProps"
           >
-            <span class="min-w-0 truncate">原始推理</span>
+            <span class="min-w-0 truncate">{{ t("timeline.rawReasoning") }}</span>
             <span class="mono dim whitespace-nowrap">{{ rawReasoningCountText(node.item) }}</span>
             <ChevronDown
               class="h-3 w-3 flex-none opacity-80 transition-transform duration-150 [stroke-width:2.4]"
@@ -257,7 +239,9 @@
         v-if="node.item.item.filesCount > 0 && isCommandFilesOpen(node.item.id)"
         class="terminal-action-files mt-1.5 ml-[18px] rounded-[4px] border border-[var(--ui-well-border)] bg-[var(--ui-well-bg-strong)] px-2.5 py-2"
       >
-        <div class="terminal-action-files-title mb-1.5 text-xs mono dim">文件（{{ node.item.item.filesCount }}）</div>
+        <div class="terminal-action-files-title mb-1.5 text-xs mono dim">
+          {{ t("timeline.filesTitle", { count: node.item.item.filesCount }) }}
+        </div>
         <div
           class="terminal-action-files-list app-scrollbar grid max-h-[180px] gap-0.5 overflow-y-auto text-xs text-[var(--text)] mono"
         >
@@ -272,11 +256,18 @@
             v-if="node.item.item.filesCount > COMMAND_FILES_RENDER_LIMIT"
             class="terminal-action-files-more mt-1.5 dim"
           >
-            还有 {{ node.item.item.filesCount - COMMAND_FILES_RENDER_LIMIT }} 条未渲染
+            {{ t("timeline.moreFilesNotRendered", { count: node.item.item.filesCount - COMMAND_FILES_RENDER_LIMIT }) }}
           </div>
         </div>
       </div>
     </div>
+
+    <ChatCommandSessionCard
+      v-else-if="node.kind === 'commandSession'"
+      :item="node.item"
+      :allowStop="false"
+      @layout-change="props.onLayoutChange?.()"
+    />
 
     <McpResourceReadCardContent
       v-else-if="node.kind === 'mcpResourceRead'"
@@ -314,18 +305,18 @@
 </template>
 
 <script setup lang="ts">
-// 时间线视图：承载时间线卡片渲染与交互，包括 diff、markdown、工具输出等。
 import { computed, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import CommandListActivityRow from "../../timeline/activities/CommandListActivityRow.vue";
 import CommandReadActivityRow from "../../timeline/activities/CommandReadActivityRow.vue";
 import CommandSearchActivityRow from "../../timeline/activities/CommandSearchActivityRow.vue";
+import ChatCommandSessionCard from "../../chat/ChatCommandSessionCard.vue";
 import FileChangeCardContent from "../../timeline/cards/FileChangeCardContent.vue";
 import McpResourceReadCardContent from "../../timeline/cards/McpResourceReadCardContent.vue";
 import McpToolCardContent from "../../timeline/cards/McpToolCardContent.vue";
 import type { McpToolItem } from "../../timeline/cards/McpToolCardContent.vue";
 import WorkspaceFileSaveCardContent from "../../timeline/cards/WorkspaceFileSaveCardContent.vue";
 import AgentMarkdownContent from "../../ui/AgentMarkdownContent.vue";
-import PlanOutputCard from "../../ui/PlanOutputCard.vue";
 import StructuredFinalAnswerCard from "../../ui/StructuredFinalAnswerCard.vue";
 import UnifiedDiffViewer from "../../timeline/cards/UnifiedDiffViewer.vue";
 import Collapsible from "../../ui/Collapsible.vue";
@@ -336,10 +327,9 @@ import { useAppShellStore } from "../../../stores/appShell.store";
 import { useMcpResourceStore } from "../../../stores/mcpResource.store";
 import { useMcpStore } from "../../../stores/mcp.store";
 import { useRuntimeStore } from "../../../stores/runtime.store";
-import { useThreadStore } from "../../../stores/thread.store";
 import { useViewPrefsStore } from "../../../stores/viewPrefs.store";
 import { safeJsonStringify } from "../../../utils/safeJson";
-import type { TimelineEventItem, TurnPlanState } from "../../../domain/types";
+import type { TimelineEventItem } from "../../../domain/types";
 import { tryParseStructuredFinalAnswerV1 } from "../../../domain/structuredFinalAnswer";
 import { getWorkspaceFileSaveTimelineItemFromEvent } from "../../../domain/workspaceFiles";
 import { useAgentMarkdownRenderer } from "../../../features/timeline/useAgentMarkdownRenderer";
@@ -379,21 +369,14 @@ const props = defineProps<{
 }>();
 
 const appShellStore = useAppShellStore();
+const { t } = useI18n();
 const mcpStore = useMcpStore();
 const mcpResourceStore = useMcpResourceStore();
 const runtimeStore = useRuntimeStore();
-const threadStore = useThreadStore();
 const viewPrefs = useViewPrefsStore();
 const { getMarkdownEventHtml } = useAgentMarkdownRenderer({ key: () => runtimeStore.timelineKey });
 const { markdownRendererTick, refreshWhenReady } = useMarkdownRendererRefresh();
 const mcpToolDefinitions = computed(() => buildMcpToolDefinitionIndex(mcpStore.servers));
-
-const turnPlanForPlanDeltaEvent = (event: TimelineEventItem): TurnPlanState | null => {
-  const threadId = String(event?.threadId ?? runtimeStore.currentThreadId ?? "").trim();
-  const turnId = String(event?.turnId ?? "").trim();
-  if (!threadId || !turnId) return null;
-  return threadStore.turnPlanForTurn(threadId, turnId);
-};
 
 const timelineNodes = computed<TimelineRenderNode[]>(() => {
   return buildTimelineRenderNodes({
@@ -420,7 +403,6 @@ const isWorkspaceFileSaveEvent = (event: TimelineEventItem) => {
   return Boolean(workspaceFileSaveTimelineItem(event));
 };
 
-// 调试 JSON 展开状态：按事件 id 本地缓存，不污染全局 store。
 function setDebugEventExpanded(eventId: string, next: boolean) {
   const id = String(eventId ?? "").trim();
   if (!id) return;
@@ -499,7 +481,7 @@ function setRawReasoningOpen(block: ReasoningBlockNode, nextOpen: boolean) {
 
 const rawReasoningCountText = (block: ReasoningBlockNode) => {
   const count = Math.max(0, Math.round(Number(block?.rawContentCount) || 0));
-  return count > 1 ? `${count} 段` : "1 段";
+  return t("timeline.segmentCount", { count: Math.max(1, count) });
 };
 
 const isCommandFilesOpen = (nodeId: string) => commandFilesOpenById.value.get(String(nodeId ?? "")) ?? false;
@@ -809,24 +791,15 @@ const eventBodyClass = (event: TimelineEventItem) => {
   return "";
 };
 
-const thinkingPhaseTagTextMap: Record<NonNullable<TimelineEventItem["thinkingPhase"]>, string> = {
-  queued: "排队中",
-  preparing: "准备中",
-  reasoning: "思考中",
-  streaming: "生成中",
-  waiting_more: "等待继续",
-  completed: "已完成",
-  failed: "已失败",
-};
-
 const eventTagText = (event: TimelineEventItem) => {
   if (isLocalThinkingEvent(event)) {
-    if (!event.thinkingPhase) return "思考中";
-    return thinkingPhaseTagTextMap[event.thinkingPhase] ?? "思考中";
+    if (!event.thinkingPhase) return t("timeline.thinkingReasoning");
+    const key = `timeline.thinking.${event.thinkingPhase}`;
+    return t(key) === key ? t("timeline.thinkingReasoning") : t(key);
   }
-  if (isWorkspaceFileSaveEvent(event)) return "文件面板";
-  if (isGuardianApprovalReviewMethod(event.method)) return "Guardian 复核";
-  if (event.method === "history/contextInjected") return "上下文注入";
+  if (isWorkspaceFileSaveEvent(event)) return t("timeline.filePanel");
+  if (isGuardianApprovalReviewMethod(event.method)) return t("timeline.guardianReview");
+  if (event.method === "history/contextInjected") return t("timeline.contextInjected");
   return event.method;
 };
 
@@ -898,12 +871,12 @@ const onOpenRelatedMcpResource = (item: McpToolItem) => {
 const reasoningDurationText = (durationMs: number | null | undefined) => {
   if (durationMs == null) return "";
   const sec = Math.max(1, Math.round(durationMs / 1000));
-  return `${sec} 秒`;
+  return t("timeline.seconds", { count: sec });
 };
 
 const toReasoningHtml = (text: string) => {
   const source = String(text ?? "");
-  if (!source.trim()) return "<p>（空）</p>";
+  if (!source.trim()) return `<p>${t("common.none")}</p>`;
   void markdownRendererTick.value;
   const html = renderMarkdownToSafeHtml(source);
   refreshWhenReady();

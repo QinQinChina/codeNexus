@@ -1,8 +1,8 @@
 <template>
-  <section class="settings-page" aria-label="设置页">
+  <section class="settings-page" :aria-label="t('settings.pageAria')">
     <div class="settings-workspace">
-      <aside class="settings-sidebar app-scrollbar" aria-label="设置导航">
-        <nav class="settings-nav" role="tablist" aria-label="设置选项卡">
+      <aside class="settings-sidebar app-scrollbar" :aria-label="t('settings.sidebarAria')">
+        <nav class="settings-nav" role="tablist" :aria-label="t('settings.tabsAria')">
           <section v-for="group in tabGroups" :key="group.label" class="settings-nav-group">
             <div class="settings-nav-section">{{ group.label }}</div>
             <button
@@ -45,6 +45,7 @@
 
 <script setup lang="ts">
 import { computed, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { Bell, Bot, Cloud, Image, PlugZap, Settings2, SlidersHorizontal } from "lucide-vue-next";
 import { useAppShellStore } from "../../stores/appShell.store";
 import GlobalConfigDrawer from "./overlays/GlobalConfigDrawer.vue";
@@ -56,66 +57,67 @@ import SettingsRemoteSyncTab from "./settings/SettingsRemoteSyncTab.vue";
 import CodexProfilesSettingsTab from "./settings/CodexProfilesSettingsTab.vue";
 
 const appShellStore = useAppShellStore();
+const { t } = useI18n();
 const activeTab = computed(() => appShellStore.settingsActiveTab);
-const tabGroups = [
+const tabGroups = computed(() => [
   {
-    label: "基础配置",
+    label: t("settings.groups.basics"),
     items: [
       {
         key: "global" as const,
-        label: "通用",
-        desc: "全局配置与界面偏好",
+        label: t("settings.tabs.global"),
+        desc: t("settings.tabs.globalDesc"),
         icon: SlidersHorizontal,
       },
       {
         key: "profiles" as const,
-        label: "模型配置",
-        desc: "Provider、模型与 API Key",
+        label: t("settings.tabs.profiles"),
+        desc: t("settings.tabs.profilesDesc"),
         icon: Bot,
       },
     ],
   },
   {
-    label: "能力扩展",
+    label: t("settings.groups.extensions"),
     items: [
       {
         key: "integrations" as const,
-        label: "集成与工具",
-        desc: "Skills、MCP 与扩展能力",
+        label: t("settings.tabs.integrations"),
+        desc: t("settings.tabs.integrationsDesc"),
         icon: PlugZap,
       },
       {
         key: "image" as const,
-        label: "图片生成",
-        desc: "OpenAI Images API 与本地工作台",
+        label: t("settings.tabs.image"),
+        desc: t("settings.tabs.imageDesc"),
         icon: Image,
       },
     ],
   },
   {
-    label: "运行状态",
+    label: t("settings.groups.runtime"),
     items: [
       {
         key: "sound" as const,
-        label: "提示音",
-        desc: "线程结束提醒与音量",
+        label: t("settings.tabs.sound"),
+        desc: t("settings.tabs.soundDesc"),
         icon: Bell,
       },
       {
         key: "remote" as const,
-        label: "远程同步",
-        desc: "设备同步、登录与队列状态",
+        label: t("settings.tabs.remote"),
+        desc: t("settings.tabs.remoteDesc"),
         icon: Cloud,
       },
       {
         key: "env" as const,
-        label: "环境检测",
-        desc: "本机依赖与运行环境",
+        label: t("settings.tabs.env"),
+        desc: t("settings.tabs.envDesc"),
         icon: Settings2,
       },
     ],
   },
-];
+]);
 
 watch(
   () => appShellStore.settingsOpen,

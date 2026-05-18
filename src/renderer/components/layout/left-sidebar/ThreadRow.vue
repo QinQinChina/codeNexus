@@ -23,10 +23,10 @@
           <LoadingDots
             v-if="isPendingThreadId(row.item.id)"
             class="lsb-thread-title-text"
-            baseText="创建中"
+            :baseText="t('threadRow.creating')"
             :intervalMs="350"
             :maxDots="3"
-            ariaLabel="创建中"
+            :ariaLabel="t('threadRow.creating')"
           />
           <template v-else>
             <input
@@ -35,7 +35,7 @@
               class="lsb-thread-title-input mono"
               type="text"
               :maxlength="80"
-              aria-label="重命名线程"
+              :aria-label="t('threadRow.renameAria')"
               ref="renameInputEl"
               @click.stop
               @dblclick.stop
@@ -47,12 +47,12 @@
           <span
             v-if="hasUserInputQuestion"
             class="lsb-badge is-question"
-            >问答</span
+            >{{ t("threadRow.qa") }}</span
           >
           <span v-if="agentNicknameBadge" class="lsb-badge">{{
             agentNicknameBadge
           }}</span>
-          <span v-if="isInvalidWorkspaceItem(row.item)" class="lsb-badge">无效</span>
+          <span v-if="isInvalidWorkspaceItem(row.item)" class="lsb-badge">{{ t("threadRow.invalid") }}</span>
         </span>
 
         <span class="lsb-thread-right">
@@ -71,7 +71,7 @@
               v-else-if="threadVisualStatus === 'attention'"
               class="lsb-thread-attention-btn"
               type="button"
-              aria-label="清除提醒"
+              :aria-label="t('threadRow.clearAttention')"
               @click.stop="emit('clear-thread-attention', row.item.id)"
             >
               <BellRing class="lsb-thread-status-icon is-attention" aria-hidden="true" />
@@ -88,7 +88,7 @@
           <button
             class="lsb-icon-btn lsb-delete"
             type="button"
-            aria-label="删除历史"
+            :aria-label="t('threadRow.deleteHistory')"
             @click.stop="emit('delete-thread', row.item.id)"
           >
             <Trash2 />
@@ -101,6 +101,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { BellRing, CheckCircle2, MessageCircleQuestionMark, Trash2 } from "lucide-vue-next";
 import { useThreadStore } from "../../../stores/thread.store";
 import LoadingDots from "../../ui/LoadingDots.vue";
@@ -140,6 +141,7 @@ const emit = defineEmits<{
   (e: "rename-thread", threadId: string, title: string): void;
 }>();
 
+const { t } = useI18n();
 const agentNicknameBadge = computed(() => {
   const raw = String(props.row.item.agentNickname ?? "").trim();
   if (!raw) return "";

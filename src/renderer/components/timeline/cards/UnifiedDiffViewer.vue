@@ -1,6 +1,8 @@
 <template>
   <div>
-    <div v-if="parsed.truncated && showTruncatedHint" class="mono dim mb-1.5 text-[11px]">Diff 过大，已截断展示。</div>
+    <div v-if="parsed.truncated && showTruncatedHint" class="mono dim mb-1.5 text-[11px]">
+      {{ t("diffViewer.truncated") }}
+    </div>
     <div
       ref="scrollEl"
       class="unified-diff-scroll app-scrollbar overflow-auto rounded-[4px] border border-[var(--ui-code-border)] bg-[var(--ui-code-bg)] text-[var(--ui-code-text)]"
@@ -55,6 +57,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { getParsedDiffCached, type DiffLine } from "../../../features/timeline/renderModel/diff";
 import {
   highlightDiffTokens,
@@ -89,6 +92,7 @@ const props = withDefaults(
   }
 );
 
+const { t } = useI18n();
 const parsed = computed(() => getParsedDiffCached(props.diffText));
 const highlightedTokensByLine = ref<Record<number, DiffHighlightToken[]>>({});
 const tone = ref<DiffHighlightTone>("dark");
@@ -517,6 +521,10 @@ watch(
 
     if (!animateUpdates || keyChanged) {
       stopRevealAnimation();
+      if (!animateUpdates) {
+        stopScheduledScroll();
+        stopScrollAnimation();
+      }
       streamScrollFloorTop = 0;
       revealCharsByLineKey.value = new Map(
         currentKeys.map((key, index) => {

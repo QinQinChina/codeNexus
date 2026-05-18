@@ -4,7 +4,7 @@
   >
     <div v-if="loading" class="mono dim flex w-full items-center justify-center gap-3 my-12">
       <span class="running-indicator is-muted" aria-hidden="true"></span>
-      <span class="text-sm">正在读取时空记忆...</span>
+      <span class="text-sm">{{ t("centerEmpty.loadingMemory") }}</span>
     </div>
 
     <template v-else>
@@ -13,13 +13,13 @@
         <div class="center-thread-create-state__copy">
           <LoadingDots
             class="center-thread-create-state__title"
-            baseText="正在创建线程"
+            :baseText="t('centerEmpty.creatingThread')"
             :intervalMs="360"
             :maxDots="3"
             as="div"
-            ariaLabel="正在创建线程"
+            :ariaLabel="t('centerEmpty.creatingThread')"
           />
-          <div class="center-thread-create-state__meta">初始化工作区和模型上下文</div>
+          <div class="center-thread-create-state__meta">{{ t("centerEmpty.initializingContext") }}</div>
         </div>
       </div>
 
@@ -30,10 +30,10 @@
       >
         <div class="flex items-center justify-between mb-4 px-1">
           <h2 class="text-sm max-[1500px]:text-[13px] font-bold text-[var(--text-muted)] flex items-center gap-2">
-            <History class="w-4 h-4" /> 历史回溯
+            <History class="w-4 h-4" /> {{ t("centerEmpty.history") }}
           </h2>
           <span class="text-[12px] max-[1500px]:text-[11px] text-[var(--text-muted)] opacity-60"
-            >最近 {{ historyItems.length }} 条</span
+            >{{ t("centerEmpty.recentCount", { count: historyItems.length }) }}</span
           >
         </div>
 
@@ -54,7 +54,7 @@
             <span
               class="text-[11px] max-[1500px]:text-[10px] text-[var(--text-muted)] font-mono opacity-70 flex items-center gap-1"
             >
-              <MessageSquareText class="w-3 h-3" /> 对话线程
+              <MessageSquareText class="w-3 h-3" /> {{ t("centerEmpty.chatThread") }}
             </span>
           </button>
         </div>
@@ -67,6 +67,7 @@
 import type { ThreadHistoryItem } from "../../domain/types";
 import LoadingDots from "../ui/LoadingDots.vue";
 import { History, MessageSquareText } from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
 
 defineProps<{
   loading: boolean;
@@ -77,6 +78,8 @@ defineProps<{
 defineEmits<{
   (event: "switch-thread", threadId: string): void;
 }>();
+
+const { t } = useI18n();
 </script>
 
 <style scoped>

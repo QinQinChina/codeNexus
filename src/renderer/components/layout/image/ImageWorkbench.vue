@@ -1,24 +1,24 @@
 <template>
-  <section class="image-workbench" aria-label="图片工作台">
+  <section class="image-workbench" :aria-label="t('imageWorkbench.aria')">
     <section ref="stageRef" class="image-workbench__stage app-scrollbar">
       <div class="image-workbench__stage-head">
-        <span>{{ selectedHistoryItem ? "详情" : "历史记录" }}</span>
+        <span>{{ selectedHistoryItem ? t("imageWorkbench.details") : t("imageWorkbench.history") }}</span>
       </div>
 
       <div v-if="workbench.historyLoading && workbench.historyItems.length === 0" class="image-workbench__empty">
         <Loader2 class="image-workbench__empty-icon is-spinning" aria-hidden="true" />
-        <div>正在加载图片历史。</div>
+        <div>{{ t("imageWorkbench.loadingHistory") }}</div>
       </div>
 
       <div v-else-if="selectedHistoryItem" class="image-workbench__result-stack">
         <div class="image-workbench__detail-bar">
           <button class="btn-mini" type="button" @click="backToHistory">
             <ArrowLeft class="btn-mini__icon" aria-hidden="true" />
-            <span>历史</span>
+            <span>{{ t("imageWorkbench.historyBack") }}</span>
           </button>
           <button class="btn-mini btn-mini--danger" type="button" @click="deleteHistoryItem(selectedHistoryItem.id)">
             <Trash2 class="btn-mini__icon" aria-hidden="true" />
-            <span>删除</span>
+            <span>{{ t("imageWorkbench.delete") }}</span>
           </button>
         </div>
 
@@ -56,7 +56,7 @@
                 :style="{ transform: getImageTransform(image.path) }"
                 draggable="false"
               />
-              <div v-else class="image-workbench__image-missing">图片不可用</div>
+              <div v-else class="image-workbench__image-missing">{{ t("imageWorkbench.imageUnavailable") }}</div>
             </div>
           </article>
         </div>
@@ -114,7 +114,7 @@
                     v-if="item.taskId"
                     class="image-workbench__history-action"
                     type="button"
-                    aria-label="取消图片任务"
+                    :aria-label="t('imageWorkbench.cancelTask')"
                     @click.stop="workbench.cancelTask(item.taskId)"
                     @keydown.stop
                   >
@@ -127,7 +127,7 @@
                     v-if="item.taskId"
                     class="image-workbench__history-action"
                     type="button"
-                    aria-label="重试图片任务"
+                    :aria-label="t('imageWorkbench.retryTask')"
                     @click.stop="workbench.retryTask(item.taskId)"
                     @keydown.stop
                   >
@@ -136,7 +136,7 @@
                   <button
                     class="image-workbench__history-action is-danger"
                     type="button"
-                    aria-label="删除失败记录"
+                    :aria-label="t('imageWorkbench.deleteFailedRecord')"
                     @click.stop="deleteHistoryItem(item.id)"
                     @keydown.stop
                   >
@@ -148,7 +148,7 @@
                     v-if="item.images[0]"
                     class="image-workbench__history-action"
                     type="button"
-                    aria-label="复制图片"
+                    :aria-label="t('imageWorkbench.copyImage')"
                     @click.stop="copyImageToClipboard(item.images[0])"
                     @keydown.stop
                   >
@@ -158,7 +158,7 @@
                     v-if="item.images[0]"
                     class="image-workbench__history-action"
                     type="button"
-                    aria-label="下载图片"
+                    :aria-label="t('imageWorkbench.downloadImage')"
                     @click.stop="downloadImage(item.images[0])"
                     @keydown.stop
                   >
@@ -167,7 +167,7 @@
                   <button
                     class="image-workbench__history-action is-danger"
                     type="button"
-                    aria-label="删除图片历史"
+                    :aria-label="t('imageWorkbench.deleteHistory')"
                     @click.stop="deleteHistoryItem(item.id)"
                     @keydown.stop
                   >
@@ -182,7 +182,7 @@
 
       <div v-else class="image-workbench__empty">
         <ImageIcon class="image-workbench__empty-icon" aria-hidden="true" />
-        <div>{{ workbench.historyLoading ? "正在加载图片历史。" : "生成图片后，这里会保存每一次记录。" }}</div>
+        <div>{{ workbench.historyLoading ? t("imageWorkbench.loadingHistory") : t("imageWorkbench.emptyHistory") }}</div>
       </div>
     </section>
   </section>
@@ -190,6 +190,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeMount, onBeforeUnmount, ref, watch, type CSSProperties } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -207,6 +208,7 @@ import { useAppShellStore } from "../../../stores/appShell.store";
 import { useImageWorkbenchStore } from "../../../stores/imageWorkbench.store";
 import { showToast } from "../../../ui/toast";
 
+const { t, locale } = useI18n();
 const appShellStore = useAppShellStore();
 const workbench = useImageWorkbenchStore();
 const stageRef = ref<HTMLElement | null>(null);
@@ -374,9 +376,17 @@ async function copyImageToClipboard(image: WorkbenchImage) {
   if (!path) return;
   try {
     await codexDesktop.app.writeClipboardImageFromPath({ path });
-    showToast({ kind: "success", title: "已复制图片", message: "可以直接粘贴发送。" });
+    showToast({
+      kind: "success",
+      title: t("imageWorkbench.copySuccessTitle"),
+      message: t("imageWorkbench.copySuccessMessage"),
+    });
   } catch (error: any) {
-    showToast({ kind: "error", title: "复制图片失败", message: String(error?.message ?? error ?? "") });
+    showToast({
+      kind: "error",
+      title: t("imageWorkbench.copyFailedTitle"),
+      message: String(error?.message ?? error ?? ""),
+    });
   }
 }
 
@@ -389,8 +399,8 @@ function getHistoryHourStart(value: number): number {
 
 function formatHistoryHourLabel(value: number): string {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "时间未知";
-  return date.toLocaleString("zh-CN", {
+  if (Number.isNaN(date.getTime())) return t("imageWorkbench.unknownTime");
+  return date.toLocaleString(String(locale.value), {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",

@@ -7,13 +7,13 @@
         :class="{ 'is-settings': isSettings }"
         role="dialog"
         aria-modal="true"
-        aria-label="全局配置"
+        :aria-label="t('globalConfig.title')"
         @click.self="onOverlayClick"
       >
         <div v-if="!isSettings" class="global-config-drawer-backdrop" @click="onRequestClose"></div>
         <section class="global-config-drawer-panel" @click.stop>
           <header class="global-config-drawer-head">
-            <div class="panel-title">全局配置</div>
+            <div class="panel-title">{{ t("globalConfig.title") }}</div>
             <div class="row global-config-head-actions">
               <div class="global-config-status global-config-status--inline" :class="['is-' + globalConfigStatusKind]">
                 <span class="global-config-status-text">{{ globalConfigStatusText }}</span>
@@ -27,10 +27,10 @@
                 </span>
               </div>
               <button class="btn-mini" type="button" :disabled="!canResetGlobalConfig" @click="onResetGlobalConfig">
-                重置
+                {{ t("common.reset") }}
               </button>
               <button class="btn-mini" type="button" :disabled="!canRefreshGlobalConfig" @click="onRefreshGlobalConfig">
-                刷新
+                {{ t("common.refresh") }}
               </button>
               <button
                 v-if="!isSettings"
@@ -40,24 +40,26 @@
                 :disabled="globalConfigActionPending || configStore.saving"
                 @click="onRequestClose"
               >
-                关闭
+                {{ t("common.close") }}
               </button>
             </div>
           </header>
 
           <div class="global-config-drawer-body app-scrollbar" :class="{ 'is-settings': isSettings }">
             <div v-if="configStore.isDirty" class="global-config-topbar">
-              <div class="global-config-dirty-badge mono">已修改 {{ globalConfigDirtyCount }} 项</div>
+              <div class="global-config-dirty-badge mono">
+                {{ t("globalConfig.dirtyCount", { count: globalConfigDirtyCount }) }}
+              </div>
             </div>
 
             <section class="global-config-guide-entry global-config-local-entry">
               <div class="guide-entry-text">
-                <div class="guide-entry-title">字体与字号</div>
-                <div class="guide-entry-desc">切换全局字体样式与整体字号缩放，立即生效。</div>
+                <div class="guide-entry-title">{{ t("globalConfig.typographyTitle") }}</div>
+                <div class="guide-entry-desc">{{ t("globalConfig.typographyDesc") }}</div>
               </div>
               <div class="typography-controls">
                 <label class="typography-row">
-                  <span class="typography-label dim">字体</span>
+                  <span class="typography-label dim">{{ t("globalConfig.font") }}</span>
                   <SelectDropdown
                     id="sel-ui-font-family"
                     class="context-input mono"
@@ -67,7 +69,7 @@
                   />
                 </label>
                 <label class="typography-row">
-                  <span class="typography-label dim">字号</span>
+                  <span class="typography-label dim">{{ t("globalConfig.fontSize") }}</span>
                   <SelectDropdown
                     id="sel-ui-font-size"
                     class="context-input mono"
@@ -81,37 +83,18 @@
 
             <section class="global-config-guide-entry global-config-local-entry">
               <div class="guide-entry-text">
-                <div class="guide-entry-title">AI 最终答复格式</div>
-                <div class="guide-entry-desc">仅在执行（agent/default）模式生效；计划（plan）模式保持原有输出。</div>
+                <div class="guide-entry-title">{{ t("globalConfig.languageTitle") }}</div>
+                <div class="guide-entry-desc">{{ t("globalConfig.languageDesc") }}</div>
               </div>
               <div class="typography-controls">
                 <label class="typography-row">
-                  <span class="typography-label dim">格式</span>
+                  <span class="typography-label dim">{{ t("common.language") }}</span>
                   <SelectDropdown
-                    id="sel-assistant-final-message-format"
+                    id="sel-ui-language"
                     class="context-input mono"
-                    :modelValue="appShellStore.assistantFinalMessageFormat"
-                    :options="assistantFinalMessageFormatOptions"
-                    @update:modelValue="onAssistantFinalMessageFormatChanged"
-                  />
-                </label>
-              </div>
-            </section>
-
-            <section class="global-config-guide-entry global-config-local-entry">
-              <div class="guide-entry-text">
-                <div class="guide-entry-title">AI 计划输出格式</div>
-                <div class="guide-entry-desc">仅影响计划（plan）模式的计划输出（item/plan/delta）。</div>
-              </div>
-              <div class="typography-controls">
-                <label class="typography-row">
-                  <span class="typography-label dim">格式</span>
-                  <SelectDropdown
-                    id="sel-assistant-plan-message-format"
-                    class="context-input mono"
-                    :modelValue="appShellStore.assistantPlanMessageFormat"
-                    :options="assistantPlanMessageFormatOptions"
-                    @update:modelValue="onAssistantPlanMessageFormatChanged"
+                    :modelValue="appShellStore.language"
+                    :options="uiLanguageOptions"
+                    @update:modelValue="onUiLanguageChanged"
                   />
                 </label>
               </div>
@@ -120,7 +103,7 @@
             <div class="global-config-grid">
               <section class="global-config-section">
                 <label class="global-row" :class="{ 'is-dirty': isGlobalConfigFieldDirty('model') }">
-                  <span class="context-label dim">模型</span>
+                  <span class="context-label dim">{{ t("globalConfig.model") }}</span>
                   <div class="global-field-stack">
                     <SelectDropdown
                       id="sel-global-model"
@@ -130,21 +113,21 @@
                       :options="globalModelOptions"
                       @update:modelValue="onModelChanged"
                     />
-                    <div class="global-model-manage-hint">内置预设保留，可在下方追加自定义模型。</div>
+                    <div class="global-model-manage-hint">{{ t("globalConfig.builtinModelHint") }}</div>
                   </div>
                 </label>
                 <div
                   class="global-row global-row-service-tier"
                   :class="{ 'is-dirty': isGlobalConfigFieldDirty('fastModeEnabled') }"
                 >
-                  <span class="context-label dim">服务层级</span>
+                  <span class="context-label dim">{{ t("globalConfig.serviceTier") }}</span>
                   <div class="global-field-stack service-tier-field">
                     <div
                       id="service-tier-toggle"
                       class="service-tier-segment"
                       :class="{ 'is-fast': configStore.draft.fastModeEnabled, 'is-disabled': globalControlsDisabled }"
                       role="radiogroup"
-                      aria-label="服务层级"
+                      :aria-label="t('globalConfig.serviceTier')"
                       :aria-disabled="globalControlsDisabled ? 'true' : 'false'"
                       @keydown.left.prevent="onServiceTierArrowKey(false)"
                       @keydown.right.prevent="onServiceTierArrowKey(true)"
@@ -162,7 +145,7 @@
                         :disabled="globalControlsDisabled"
                         @click="setServiceTier(false)"
                       >
-                        标准
+                        {{ t("globalConfig.standard") }}
                       </button>
                       <button
                         id="btn-service-tier-fast"
@@ -174,13 +157,13 @@
                         :disabled="globalControlsDisabled"
                         @click="setServiceTier(true)"
                       >
-                        快速
+                        {{ t("globalConfig.fast") }}
                       </button>
                     </div>
                   </div>
                 </div>
                 <div class="global-row">
-                  <span class="context-label dim">自定义模型</span>
+                  <span class="context-label dim">{{ t("globalConfig.customModels") }}</span>
                   <div class="global-field-stack global-model-manager">
                     <div class="global-model-add-row">
                       <SelectDropdown
@@ -190,7 +173,7 @@
                         :disabled="remoteModelSelectDisabled"
                         :options="remoteModelDropdownOptions"
                         :minPopoverWidth="0"
-                        aria-label="可用模型"
+                        :aria-label="t('globalConfig.availableModels')"
                       />
                       <button
                         class="btn-mini"
@@ -198,15 +181,15 @@
                         :disabled="!canRefreshRemoteModels"
                         @click="onRefreshRemoteModels"
                       >
-                        刷新
+                        {{ t("common.refresh") }}
                       </button>
                       <button class="btn-mini" type="button" :disabled="!canAddRemoteModel" @click="onAddRemoteModel">
-                        添加
+                        {{ t("common.add") }}
                       </button>
                     </div>
                     <div v-if="remoteModelStatusText" class="global-model-manage-hint">{{ remoteModelStatusText }}</div>
                     <div v-if="modelCatalogStore.remoteErrorText" class="global-field-error">
-                      加载失败：{{ modelCatalogStore.remoteErrorText }}
+                      {{ t("globalConfig.loadFailed", { message: modelCatalogStore.remoteErrorText }) }}
                     </div>
 
                     <div class="global-model-add-row">
@@ -214,18 +197,18 @@
                         id="inp-global-custom-model"
                         class="context-input mono"
                         :value="customModelInput"
-                        placeholder="例如 deepseek-chat"
+                        :placeholder="t('globalConfig.customModelPlaceholder')"
                         :disabled="modelCatalogControlsDisabled"
                         @input="onCustomModelInput"
                         @keydown.enter.prevent="onAddCustomModel"
                       />
                       <button class="btn-mini" type="button" :disabled="!canAddCustomModel" @click="onAddCustomModel">
-                        添加
+                        {{ t("common.add") }}
                       </button>
                     </div>
                     <div v-if="customModelHintText" class="global-model-manage-hint">{{ customModelHintText }}</div>
                     <div v-if="modelCatalogStore.errorText" class="global-field-error">
-                      保存失败：{{ modelCatalogStore.errorText }}
+                      {{ t("globalConfig.saveFailed", { message: modelCatalogStore.errorText }) }}
                     </div>
                     <div v-if="modelCatalogStore.customIds.length > 0" class="global-model-list">
                       <div v-for="id in modelCatalogStore.customIds" :key="id" class="global-model-item">
@@ -236,18 +219,18 @@
                           :disabled="modelCatalogControlsDisabled"
                           @click="onRemoveCustomModel(id)"
                         >
-                          删除
+                          {{ t("common.delete") }}
                         </button>
                       </div>
                     </div>
-                    <div v-else class="global-model-empty">尚未添加自定义模型，当前下拉仅显示内置预设。</div>
+                    <div v-else class="global-model-empty">{{ t("globalConfig.noCustomModels") }}</div>
                   </div>
                 </div>
               </section>
 
               <section class="global-config-section">
                 <div class="global-row">
-                  <span class="context-label dim">上下文预设</span>
+                  <span class="context-label dim">{{ t("globalConfig.contextPreset") }}</span>
                   <div class="global-field-stack">
                     <div class="row" style="align-items: center; gap: 8px; flex-wrap: wrap">
                       <button
@@ -263,14 +246,14 @@
                   </div>
                 </div>
                 <label class="global-row" :class="{ 'is-dirty': isGlobalConfigFieldDirty('modelContextWindow') }">
-                  <span class="context-label dim">窗口上限</span>
+                  <span class="context-label dim">{{ t("globalConfig.contextWindow") }}</span>
                   <div class="global-field-stack">
                     <input
                       class="context-input mono"
                       :class="{ 'is-invalid': Boolean(modelContextWindowError) }"
                       inputmode="numeric"
                       :value="modelContextWindowInputText"
-                      placeholder="例如 400000"
+                      :placeholder="t('globalConfig.contextWindowPlaceholder')"
                       :disabled="globalControlsDisabled"
                       :aria-invalid="modelContextWindowError ? 'true' : 'false'"
                       @input="onModelContextWindowInput"
@@ -282,14 +265,14 @@
                   class="global-row"
                   :class="{ 'is-dirty': isGlobalConfigFieldDirty('modelAutoCompactTokenLimit') }"
                 >
-                  <span class="context-label dim">压缩阈值</span>
+                  <span class="context-label dim">{{ t("globalConfig.autoCompactLimit") }}</span>
                   <div class="global-field-stack">
                     <input
                       class="context-input mono"
                       :class="{ 'is-invalid': Boolean(modelAutoCompactTokenLimitError) }"
                       inputmode="numeric"
                       :value="modelAutoCompactTokenLimitInputText"
-                      placeholder="例如 360000"
+                      :placeholder="t('globalConfig.autoCompactLimitPlaceholder')"
                       :disabled="globalControlsDisabled"
                       :aria-invalid="modelAutoCompactTokenLimitError ? 'true' : 'false'"
                       @input="onModelAutoCompactTokenLimitInput"
@@ -310,7 +293,7 @@
                   {{ configRequirementsSummaryText }}
                 </div>
                 <label class="global-row" :class="{ 'is-dirty': isGlobalConfigFieldDirty('modelReasoningEffort') }">
-                  <span class="context-label dim">推理强度</span>
+                  <span class="context-label dim">{{ t("globalConfig.reasoningEffort") }}</span>
                   <div class="global-field-stack">
                     <SelectDropdown
                       id="sel-global-reasoning-effort"
@@ -322,7 +305,7 @@
                   </div>
                 </label>
                 <label class="global-row" :class="{ 'is-dirty': isGlobalConfigFieldDirty('modelReasoningSummary') }">
-                  <span class="context-label dim">思考摘要</span>
+                  <span class="context-label dim">{{ t("globalConfig.reasoningSummary") }}</span>
                   <div class="global-field-stack">
                     <SelectDropdown
                       id="sel-global-reasoning-summary"
@@ -334,7 +317,7 @@
                   </div>
                 </label>
                 <label class="global-row" :class="{ 'is-dirty': isGlobalConfigFieldDirty('approvalPolicy') }">
-                  <span class="context-label dim">审批策略</span>
+                  <span class="context-label dim">{{ t("globalConfig.approvalPolicy") }}</span>
                   <div class="global-field-stack">
                     <SelectDropdown
                       id="sel-global-approval-policy"
@@ -349,7 +332,7 @@
                   </div>
                 </label>
                 <label class="global-row" :class="{ 'is-dirty': isGlobalConfigFieldDirty('approvalsReviewer') }">
-                  <span class="context-label dim">审批复核方</span>
+                  <span class="context-label dim">{{ t("globalConfig.approvalsReviewer") }}</span>
                   <div class="global-field-stack">
                     <SelectDropdown
                       id="sel-global-approvals-reviewer"
@@ -364,7 +347,7 @@
                   </div>
                 </label>
                 <label class="global-row" :class="{ 'is-dirty': isGlobalConfigFieldDirty('sandboxMode') }">
-                  <span class="context-label dim">沙箱模式</span>
+                  <span class="context-label dim">{{ t("globalConfig.sandboxMode") }}</span>
                   <div class="global-field-stack">
                     <SelectDropdown
                       id="sel-global-sandbox-mode"
@@ -383,8 +366,8 @@
                     :class="{ 'is-dirty': isGlobalConfigFieldDirty('windowsElevatedSandboxEnabled') }"
                   >
                     <div class="global-toggle-copy">
-                      <span class="global-toggle-title">提权沙箱</span>
-                      <span class="global-toggle-note mono">启用后使用提权沙箱</span>
+                      <span class="global-toggle-title">{{ t("globalConfig.elevatedSandbox") }}</span>
+                      <span class="global-toggle-note mono">{{ t("globalConfig.elevatedSandboxNote") }}</span>
                     </div>
                     <span class="skill-switch">
                       <input
@@ -403,8 +386,8 @@
                     :class="{ 'is-dirty': isGlobalConfigFieldDirty('unifiedExecEnabled') }"
                   >
                     <div class="global-toggle-copy">
-                      <span class="global-toggle-title">统一执行</span>
-                      <span class="global-toggle-note mono">启用统一执行流程</span>
+                      <span class="global-toggle-title">{{ t("globalConfig.unifiedExec") }}</span>
+                      <span class="global-toggle-note mono">{{ t("globalConfig.unifiedExecNote") }}</span>
                     </div>
                     <span class="skill-switch">
                       <input
@@ -421,7 +404,7 @@
                   <label class="global-toggle-row" :class="{ 'is-dirty': isGlobalConfigFieldDirty('codeModeEnabled') }">
                     <div class="global-toggle-copy">
                       <span class="global-toggle-title">Code Mode</span>
-                      <span class="global-toggle-note mono">启用官方 code_mode 能力</span>
+                      <span class="global-toggle-note mono">{{ t("globalConfig.codeModeNote") }}</span>
                     </div>
                     <span class="skill-switch">
                       <input
@@ -440,8 +423,8 @@
                     :class="{ 'is-dirty': isGlobalConfigFieldDirty('codeModeOnlyEnabled') }"
                   >
                     <div class="global-toggle-copy">
-                      <span class="global-toggle-title">仅 Code Mode</span>
-                      <span class="global-toggle-note mono">启用官方 code_mode_only 能力</span>
+                      <span class="global-toggle-title">{{ t("globalConfig.codeModeOnly") }}</span>
+                      <span class="global-toggle-note mono">{{ t("globalConfig.codeModeOnlyNote") }}</span>
                     </div>
                     <span class="skill-switch">
                       <input
@@ -460,8 +443,8 @@
                     :class="{ 'is-dirty': isGlobalConfigFieldDirty('applyPatchStreamingEventsEnabled') }"
                   >
                     <div class="global-toggle-copy">
-                      <span class="global-toggle-title">流式文件 Diff</span>
-                      <span class="global-toggle-note mono">启用 patchUpdated 文件变更流</span>
+                      <span class="global-toggle-title">{{ t("globalConfig.patchStream") }}</span>
+                      <span class="global-toggle-note mono">{{ t("globalConfig.patchStreamNote") }}</span>
                     </div>
                     <span class="skill-switch">
                       <input
@@ -486,7 +469,7 @@
               </div>
               <div class="global-config-actions-buttons">
                 <button class="btn-mini" type="button" :disabled="!canSaveGlobalConfig" @click="onSaveGlobalConfig">
-                  保存
+                  {{ t("common.save") }}
                 </button>
               </div>
             </div>
@@ -499,6 +482,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { RotateCw } from "lucide-vue-next";
 import SelectDropdown from "../../ui/SelectDropdown.vue";
 import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
@@ -522,13 +506,11 @@ import {
 } from "../../../domain/serverInterop";
 import type { GlobalConfigDraft } from "../../../domain/types";
 import { useModelCatalogStore } from "../../../stores/modelCatalog.store";
-import {
-  type AssistantFinalMessageFormat,
-  type AssistantPlanMessageFormat,
-} from "../../../../shared/localSettings";
+import { type UiLanguage } from "../../../../shared/localSettings";
 import { buildModelPickerOptions, normalizeModelId } from "../../../../shared/modelCatalog";
 
 const runtime = getRuntimeOrchestrator();
+const { t } = useI18n();
 const runtimeStore = useRuntimeStore();
 const appShellStore = useAppShellStore();
 const configStore = useConfigStore();
@@ -540,17 +522,16 @@ const props = defineProps<{ mode?: "drawer" | "settings" }>();
 const isSettings = computed(() => props.mode === "settings");
 const open = computed(() => (isSettings.value ? true : appShellStore.globalConfigDrawerOpen));
 const closeBtnRef = ref<HTMLButtonElement | null>(null);
-const uiFontFamilyPresetOptions = UI_FONT_FAMILY_PRESET_OPTIONS;
-const uiFontSizePresetOptions = UI_FONT_SIZE_PRESET_OPTIONS;
-
-const assistantFinalMessageFormatOptions: Array<{ value: AssistantFinalMessageFormat; label: string }> = [
-  { value: "markdown", label: "Markdown（默认）" },
-  { value: "structured-json-v1", label: "结构化（JSON 卡片）" },
-];
-const assistantPlanMessageFormatOptions: Array<{ value: AssistantPlanMessageFormat; label: string }> = [
-  { value: "markdown", label: "Markdown（默认）" },
-  { value: "plan-card-v1", label: "计划卡片（解释/步骤/原文）" },
-];
+const uiFontFamilyPresetOptions = computed(() =>
+  UI_FONT_FAMILY_PRESET_OPTIONS.map((option) => ({ ...option, label: t(option.label) }))
+);
+const uiFontSizePresetOptions = computed(() =>
+  UI_FONT_SIZE_PRESET_OPTIONS.map((option) => ({ ...option, label: t(option.label) }))
+);
+const uiLanguageOptions = computed<Array<{ value: UiLanguage; label: string }>>(() => [
+  { value: "zh-CN", label: t("common.chinese") },
+  { value: "en-US", label: t("common.english") },
+]);
 
 const closeDrawer = () => {
   if (isSettings.value) {
@@ -565,34 +546,31 @@ const onOverlayClick = () => {
   void onRequestClose();
 };
 
-const onAssistantFinalMessageFormatChanged = (value: unknown) => {
-  const normalized: AssistantFinalMessageFormat = value === "structured-json-v1" ? "structured-json-v1" : "markdown";
-  appShellStore.setAssistantFinalMessageFormat(normalized);
+const onUiLanguageChanged = (value: unknown) => {
+  const normalized: UiLanguage = value === "en-US" ? "en-US" : "zh-CN";
+  appShellStore.setLanguage(normalized);
 };
 
-const onAssistantPlanMessageFormatChanged = (value: unknown) => {
-  const normalized: AssistantPlanMessageFormat = value === "plan-card-v1" ? "plan-card-v1" : "markdown";
-  appShellStore.setAssistantPlanMessageFormat(normalized);
+type GlobalConfigPendingActionKey = "close" | "refresh";
+
+const globalConfigPendingActionCopy = (key: GlobalConfigPendingActionKey) => {
+  if (key === "refresh") {
+    return {
+      title: t("globalConfig.pending.refreshTitle"),
+      message: t("globalConfig.pending.refreshMessage"),
+      saveLabel: t("globalConfig.pending.refreshSave"),
+      discardLabel: t("globalConfig.pending.refreshDiscard"),
+      unsavableMessage: t("globalConfig.pending.refreshUnsavable"),
+    };
+  }
+  return {
+    title: t("globalConfig.pending.closeTitle"),
+    message: t("globalConfig.pending.closeMessage"),
+    saveLabel: t("globalConfig.pending.closeSave"),
+    discardLabel: t("globalConfig.pending.closeDiscard"),
+    unsavableMessage: t("globalConfig.pending.closeUnsavable"),
+  };
 };
-
-const GLOBAL_CONFIG_PENDING_ACTION_COPY = {
-  close: {
-    title: "关闭前保存修改？",
-    message: "当前主配置有未保存修改。",
-    saveLabel: "保存并关闭",
-    discardLabel: "放弃并关闭",
-    unsavableMessage: "关闭会丢失当前主配置修改。",
-  },
-  refresh: {
-    title: "刷新前保存修改？",
-    message: "刷新会覆盖当前主配置草稿。",
-    saveLabel: "保存并刷新",
-    discardLabel: "放弃并刷新",
-    unsavableMessage: "刷新会覆盖当前主配置草稿。",
-  },
-} as const;
-
-type GlobalConfigPendingActionKey = keyof typeof GLOBAL_CONFIG_PENDING_ACTION_COPY;
 
 const globalConfigActionPending = ref(false);
 
@@ -616,18 +594,18 @@ const runWithGlobalConfigDirtyGuard = async (
     return;
   }
 
-  const copy = GLOBAL_CONFIG_PENDING_ACTION_COPY[actionKey];
+  const copy = globalConfigPendingActionCopy(actionKey);
   globalConfigActionPending.value = true;
   try {
     if (!canSaveGlobalConfig.value) {
       const confirmedDiscard = await confirmModal({
-        title: "放弃未保存修改？",
+        title: t("globalConfig.pending.discardTitle"),
         message: copy.unsavableMessage,
         detail: globalConfigValidationError.value
-          ? `当前内容无法保存：${globalConfigValidationError.value}`
-          : "当前主配置暂时无法保存，只能放弃修改或继续编辑。",
+          ? t("globalConfig.pending.unsavableWithReason", { reason: globalConfigValidationError.value })
+          : t("globalConfig.pending.unsavableMessage"),
         confirmText: copy.discardLabel,
-        cancelText: "继续编辑",
+        cancelText: t("globalConfig.pending.continueEditing"),
         danger: true,
       });
       if (!confirmedDiscard) return;
@@ -639,10 +617,10 @@ const runWithGlobalConfigDirtyGuard = async (
     const decision = await actionModal({
       title: copy.title,
       message: copy.message,
-        detail: "主配置需要手动保存。",
+      detail: t("globalConfig.pending.saveRequired"),
       cancelKey: "cancel",
       buttons: [
-        { key: "cancel", label: "继续编辑" },
+        { key: "cancel", label: t("globalConfig.pending.continueEditing") },
         { key: "discard", label: copy.discardLabel, kind: "danger" },
         { key: "save", label: copy.saveLabel, autoFocus: true },
       ],
@@ -725,15 +703,15 @@ type RestrictedSelectState = {
   values: string[] | null;
 };
 
-const APPROVALS_REVIEWER_LABELS: Record<string, string> = {
-  user: "user（用户）",
-};
+const approvalsReviewerLabels = computed<Record<string, string>>(() => ({
+  user: t("globalConfig.reviewerUser"),
+}));
 
-const SANDBOX_MODE_LABELS: Record<string, string> = {
-  "read-only": "read-only（只读）",
-  "workspace-write": "workspace-write（工作区可写）",
-  "danger-full-access": "danger-full-access（完全权限）",
-};
+const sandboxModeLabels = computed<Record<string, string>>(() => ({
+  "read-only": t("globalConfig.sandboxReadOnly"),
+  "workspace-write": t("globalConfig.sandboxWorkspaceWrite"),
+  "danger-full-access": t("globalConfig.sandboxDangerFullAccess"),
+}));
 
 const buildRestrictedSelectState = (
   allowedValues: readonly unknown[] | null | undefined,
@@ -777,7 +755,11 @@ const buildRestrictedSelectOptions = (
   const labelFor = (value: string) => labels?.[value] ?? value;
 
   if (currentValue && !effectiveValues.includes(currentValue)) {
-    options.push({ value: currentValue, label: `${labelFor(currentValue)}（当前值）`, disabled: true });
+    options.push({
+      value: currentValue,
+      label: t("globalConfig.currentValue", { label: labelFor(currentValue) }),
+      disabled: true,
+    });
     seen.add(currentValue);
   }
 
@@ -794,13 +776,13 @@ const buildRestrictedHintText = (restriction: RestrictedSelectState, labels?: Re
   if (!restriction.hasRestrictions) return "";
   if (!restriction.values || restriction.values.length === 0) {
     return restriction.hasUnsupported
-      ? "当前服务端 requirements 仅返回桌面端暂未映射的限制项。"
-      : "当前服务端 requirements 未允许可选项。";
+      ? t("globalConfig.requirements.unsupportedOnly")
+      : t("globalConfig.requirements.noAllowedValues");
   }
   const allowedText = formatRestrictedValues(restriction.values, labels);
   return restriction.hasUnsupported
-    ? `当前服务端仅允许：${allowedText}；其余限制项桌面端暂未映射。`
-    : `当前服务端仅允许：${allowedText}`;
+    ? t("globalConfig.requirements.allowedWithUnsupported", { values: allowedText })
+    : t("globalConfig.requirements.allowed", { values: allowedText });
 };
 
 const approvalPolicyRestriction = computed(() =>
@@ -831,7 +813,7 @@ const approvalsReviewerOptions = computed(() =>
     String(configStore.draft.approvalsReviewer ?? ""),
     OFFICIAL_APPROVALS_REVIEWER_OPTIONS,
     approvalsReviewerRestriction.value,
-    APPROVALS_REVIEWER_LABELS
+    approvalsReviewerLabels.value
   )
 );
 const sandboxModeOptions = computed(() =>
@@ -839,7 +821,7 @@ const sandboxModeOptions = computed(() =>
     String(configStore.draft.sandboxMode ?? ""),
     OFFICIAL_SANDBOX_MODE_OPTIONS,
     sandboxModeRestriction.value,
-    SANDBOX_MODE_LABELS
+    sandboxModeLabels.value
   )
 );
 
@@ -868,21 +850,21 @@ const configRequirementsSummaryClass = computed(() => {
 
 const configRequirementsSummaryText = computed(() => {
   if (!runtimeStore.serverId) return "";
-  if (configRequirementsStore.loadState === "loading") return "正在读取服务端 requirements...";
+  if (configRequirementsStore.loadState === "loading") return t("globalConfig.requirements.loading");
   if (configRequirementsStore.loadState === "error") {
-    return configRequirementsStore.statusText || "requirements 读取失败，当前按无约束展示配置选项。";
+    return configRequirementsStore.statusText || t("globalConfig.requirements.loadFailed");
   }
   if (!configRequirementsStore.requirements) {
-    return configRequirementsStore.statusText || "当前服务端未配置 requirements，使用完整配置选项。";
+    return configRequirementsStore.statusText || t("globalConfig.requirements.none");
   }
   if (
     approvalPolicyRestriction.value.hasRestrictions ||
     approvalsReviewerRestriction.value.hasRestrictions ||
     sandboxModeRestriction.value.hasRestrictions
   ) {
-    return "已按服务端 requirements 限制审批策略、审批复核方与沙箱模式。";
+    return t("globalConfig.requirements.restricted");
   }
-  return configRequirementsStore.statusText || "当前服务端未限制审批策略、审批复核方与沙箱模式。";
+  return configRequirementsStore.statusText || t("globalConfig.requirements.unrestricted");
 });
 
 const approvalPolicyHintText = computed(() => {
@@ -892,29 +874,29 @@ const approvalPolicyHintText = computed(() => {
 
 const sandboxModeHintText = computed(() => {
   if (configRequirementsStore.loadState === "error") return "";
-  return buildRestrictedHintText(sandboxModeRestriction.value, SANDBOX_MODE_LABELS);
+  return buildRestrictedHintText(sandboxModeRestriction.value, sandboxModeLabels.value);
 });
 
 const approvalsReviewerHintText = computed(() => {
   if (!runtimeStore.serverId) return "";
-  if (configRequirementsStore.loadState === "loading") return "正在读取服务端 requirements...";
+  if (configRequirementsStore.loadState === "loading") return t("globalConfig.requirements.loading");
   if (configRequirementsStore.loadState === "error") {
-    return configRequirementsStore.statusText || "requirements 读取失败，当前按无约束显示 reviewer。";
+    return configRequirementsStore.statusText || t("globalConfig.requirements.reviewerLoadFailed");
   }
 
   const restriction = approvalsReviewerRestriction.value;
   if (!restriction.hasRestrictions) {
-    return "默认由 user 处理审批。";
+    return t("globalConfig.requirements.reviewerDefault");
   }
   if (!restriction.values || restriction.values.length === 0) {
     return restriction.hasUnsupported
-      ? "当前服务端 requirements 返回了桌面端暂未映射的 reviewer 限制。"
-      : "当前服务端 requirements 未允许可选 reviewer。";
+      ? t("globalConfig.requirements.reviewerUnsupportedOnly")
+      : t("globalConfig.requirements.reviewerNoAllowed");
   }
 
-  const allowedText = formatRestrictedValues(restriction.values, APPROVALS_REVIEWER_LABELS);
-  const suffix = restriction.hasUnsupported ? "；其余 reviewer 限制桌面端暂未映射。" : "";
-  return `当前服务端仅允许 reviewer：${allowedText}${suffix}`;
+  const allowedText = formatRestrictedValues(restriction.values, approvalsReviewerLabels.value);
+  const suffix = restriction.hasUnsupported ? t("globalConfig.requirements.reviewerUnsupportedSuffix") : "";
+  return t("globalConfig.requirements.reviewerAllowed", { values: allowedText, suffix });
 });
 
 const isGlobalConfigFieldDirty = (key: keyof GlobalConfigDraft): boolean => {
@@ -970,9 +952,15 @@ const globalConfigFieldErrors = computed(() => {
   const errors = { modelContextWindow: "", modelAutoCompactTokenLimit: "" };
   if (!contextChanged && !compactChanged) return errors;
   if (contextWindow == null && compactLimit == null) return errors;
-  if (contextWindow == null) return { ...errors, modelContextWindow: "请先填写上下文窗口。" };
-  if (compactLimit == null) return { ...errors, modelAutoCompactTokenLimit: "请填写自动压缩阈值。" };
-  if (compactLimit >= contextWindow) return { ...errors, modelAutoCompactTokenLimit: "必须小于上下文窗口。" };
+  if (contextWindow == null) {
+    return { ...errors, modelContextWindow: t("globalConfig.validation.fillContextWindow") };
+  }
+  if (compactLimit == null) {
+    return { ...errors, modelAutoCompactTokenLimit: t("globalConfig.validation.fillAutoCompactLimit") };
+  }
+  if (compactLimit >= contextWindow) {
+    return { ...errors, modelAutoCompactTokenLimit: t("globalConfig.validation.autoCompactLessThanContext") };
+  }
   return errors;
 });
 
@@ -1005,25 +993,25 @@ const globalConfigStatusKind = computed(() => {
 });
 
 const globalConfigStatusText = computed(() => {
-  if (!runtimeStore.serverId) return "未连接服务";
-  if (configStore.saving) return "保存中...";
-  if (configStore.loadState === "loading") return "读取配置中...";
-  if (configStore.loadState === "error") return configStore.statusText || "读取失败";
+  if (!runtimeStore.serverId) return t("globalConfig.status.disconnected");
+  if (configStore.saving) return t("globalConfig.status.saving");
+  if (configStore.loadState === "loading") return t("globalConfig.status.loading");
+  if (configStore.loadState === "error") return configStore.statusText || t("globalConfig.status.loadFailed");
   if (globalConfigValidationError.value) return globalConfigValidationError.value;
-  return configStore.isDirty ? "有未保存改动" : "已同步生效配置";
+  return configStore.isDirty ? t("globalConfig.status.dirty") : t("globalConfig.status.synced");
 });
 
 const globalConfigActionsSummary = computed(() => {
-  if (!runtimeStore.serverId) return "主配置未连接服务";
-  if (configStore.saving) return "正在保存主配置...";
-  if (configStore.isDirty) return `主配置待保存 ${globalConfigDirtyCount.value} 项`;
-  return "主配置已同步";
+  if (!runtimeStore.serverId) return t("globalConfig.actionsSummary.disconnected");
+  if (configStore.saving) return t("globalConfig.actionsSummary.saving");
+  if (configStore.isDirty) return t("globalConfig.actionsSummary.dirty", { count: globalConfigDirtyCount.value });
+  return t("globalConfig.actionsSummary.synced");
 });
 
 const globalConfigActionsHint = computed(() => {
-  if (!runtimeStore.serverId) return "连接服务后才能保存主配置。";
-  if (globalConfigValidationError.value) return "修正当前校验错误后，才能保存主配置。";
-  return "主配置改动需要点击保存。";
+  if (!runtimeStore.serverId) return t("globalConfig.actionsHint.disconnected");
+  if (globalConfigValidationError.value) return t("globalConfig.actionsHint.validation");
+  return t("globalConfig.actionsHint.saveManually");
 });
 
 const onSaveGlobalConfig = () => {
@@ -1058,9 +1046,9 @@ const canAddCustomModel = computed(
 );
 const customModelHintText = computed(() => {
   const next = normalizedCustomModelInput.value;
-  if (!next) return "添加后会同步到全局配置、主输入区和执行计划工具条。";
-  if (customModelExists.value) return "该模型已在可选列表中。";
-  return "点击添加后，会立即出现在所有模型下拉里。";
+  if (!next) return t("globalConfig.customModel.addHint");
+  if (customModelExists.value) return t("globalConfig.customModel.exists");
+  return t("globalConfig.customModel.addSuccessHint");
 });
 
 const remoteModelPick = ref("");
@@ -1082,23 +1070,25 @@ const remoteModelSelectDisabled = computed(
     modelCatalogStore.remoteIds.length === 0
 );
 const remoteModelStatusText = computed(() => {
-  if (!runtimeStore.serverId) return "连接服务后可从 Codex 读取可用模型（model/list），无需手动查找。";
-  if (modelCatalogStore.remoteLoadState === "loading") return "正在读取可用模型...";
-  if (modelCatalogStore.remoteLoadState === "error") return "读取可用模型失败，可点击刷新重试。";
-  if (modelCatalogStore.remoteIds.length > 0) return `已读取 ${modelCatalogStore.remoteIds.length} 个可用模型。`;
-  return "点击刷新读取可用模型列表。";
+  if (!runtimeStore.serverId) return t("globalConfig.remoteModels.connectFirst");
+  if (modelCatalogStore.remoteLoadState === "loading") return t("globalConfig.remoteModels.loading");
+  if (modelCatalogStore.remoteLoadState === "error") return t("globalConfig.remoteModels.error");
+  if (modelCatalogStore.remoteIds.length > 0) {
+    return t("globalConfig.remoteModels.loaded", { count: modelCatalogStore.remoteIds.length });
+  }
+  return t("globalConfig.remoteModels.refreshHint");
 });
 const remoteModelDropdownOptions = computed(() => {
   const hasServer = Boolean(runtimeStore.serverId);
   const loading = modelCatalogStore.remoteLoadState === "loading";
   const errored = modelCatalogStore.remoteLoadState === "error";
   const ids = modelCatalogStore.remoteIds;
-  let placeholder = "未加载，点击刷新";
-  if (!hasServer) placeholder = "未连接服务";
-  else if (loading) placeholder = "加载中...";
-  else if (errored) placeholder = "加载失败，点击刷新";
-  else if (ids.length === 0) placeholder = "未加载，点击刷新";
-  else placeholder = "选择可用模型";
+  let placeholder = t("globalConfig.remoteModels.notLoaded");
+  if (!hasServer) placeholder = t("globalConfig.remoteModels.disconnected");
+  else if (loading) placeholder = t("globalConfig.remoteModels.loadingShort");
+  else if (errored) placeholder = t("globalConfig.remoteModels.errorShort");
+  else if (ids.length === 0) placeholder = t("globalConfig.remoteModels.notLoaded");
+  else placeholder = t("globalConfig.remoteModels.choose");
   return [{ value: "", label: placeholder, disabled: true }, ...ids.map((id) => ({ value: id, label: id }))];
 });
 

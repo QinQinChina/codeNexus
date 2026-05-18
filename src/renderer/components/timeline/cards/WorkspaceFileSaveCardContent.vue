@@ -31,16 +31,19 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import { workspaceFileSourceText, type WorkspaceFileSaveTimelineItem } from "../../../domain/workspaceFiles";
+import { useI18n } from "vue-i18n";
+import type { WorkspaceFileSaveTimelineItem } from "../../../domain/workspaceFiles";
 
 const props = defineProps<{
   item: WorkspaceFileSaveTimelineItem;
 }>();
 
-const titleText = computed(() => "文件面板保存");
-// 工具事件两态化：不展示成功/失败状态徽标。
-const sourceText = computed(() => workspaceFileSourceText(props.item.source));
-const metaText = computed(() => `字符数：${props.item.chars.toLocaleString()}`);
+const { t, n } = useI18n();
+
+const titleText = computed(() => t("workspaceFileSave.title"));
+// Tool events use a source badge instead of success/failure badges.
+const sourceText = computed(() => t("workspaceFileSave.localFile"));
+const metaText = computed(() => t("workspaceFileSave.charCount", { count: n(props.item.chars) }));
 
 const sourceBadgeClass = computed(() => {
   return "border-[var(--border-warning)] bg-[var(--bg-warning-soft)] text-[var(--fg-warning)]";

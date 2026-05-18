@@ -46,12 +46,14 @@
             v-if="entry.hasDiff"
             type="button"
             class="file-change-expand-button"
-            :aria-label="entry.isExpanded ? '收起 diff' : '展开 diff'"
+            :aria-label="entry.isExpanded ? t('fileChange.collapseDiff') : t('fileChange.expandDiff')"
             :aria-expanded="entry.isExpanded ? 'true' : 'false'"
             @click="toggleEntryExpanded(entry.key)"
           >
             <ChevronDown class="file-change-expand-icon" :class="{ 'is-open': entry.isExpanded }" aria-hidden="true" />
-            <span class="file-change-expand-text mono">{{ entry.isExpanded ? "收起" : "展开" }}</span>
+            <span class="file-change-expand-text mono">
+              {{ entry.isExpanded ? t("fileChange.collapse") : t("fileChange.expand") }}
+            </span>
           </button>
         </header>
 
@@ -71,11 +73,11 @@
               :fileKind="entry.file.kind"
               maxHeightClass="max-h-[340px]"
               :wrapLines="wrapDiffLines"
-              :animateUpdates="isRunning || entry.isCompleting"
+              :animateUpdates="isRunning"
               ariaLabel="diff-view"
             />
             <div v-else class="file-change-empty-diff mono">
-              <ExecutionWaveText class="mono" text="正在修改文件..." />
+              <ExecutionWaveText class="mono" :text="t('fileChange.modifyingFile')" />
             </div>
           </section>
         </Transition>
@@ -86,6 +88,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { ChevronDown } from "lucide-vue-next";
 import UnifiedDiffViewer from "./UnifiedDiffViewer.vue";
 import AnimatedCount from "../../ui/AnimatedCount.vue";
@@ -115,6 +118,7 @@ const emit = defineEmits<{
   (e: "layout-change"): void;
 }>();
 
+const { t } = useI18n();
 type LineStats = { kind: "lines"; add: number; del: number } | { kind: "text"; text: string };
 type RenderableFile = FileChangeFile | null;
 
@@ -146,7 +150,7 @@ const fileIdentity = (file: RenderableFile, index: number) => {
 const hasFileDiff = (file: RenderableFile) => Boolean(file?.diffText?.trim());
 
 const pathTextForFile = (file: RenderableFile) => {
-  if (!file) return isRunning.value ? "等待文件路径..." : "暂无结构化文件路径";
+  if (!file) return isRunning.value ? t("fileChange.waitingPath") : t("fileChange.noStructuredPath");
   const from = String(file.pathRel ?? file.pathAbs ?? "").trim() || file.pathAbs;
   const to = String(file.pathRelTo ?? file.pathAbsTo ?? "").trim();
   if (file.kind === "rename" && to) return `${from} -> ${to}`;
@@ -189,7 +193,9 @@ const fileEntries = computed(() =>
       pathTitle: pathTitleForFile(file),
       lineStats,
       lineStatsAriaLabel:
-        lineStats.kind === "lines" ? `新增 ${lineStats.add} 行，删除 ${lineStats.del} 行` : `diff 规模 ${lineStats.text}`,
+        lineStats.kind === "lines"
+          ? t("fileChange.lineStats", { add: lineStats.add, del: lineStats.del })
+          : t("fileChange.diffScale", { text: lineStats.text }),
       hasDiff,
       isCompleting,
       isExpanded,

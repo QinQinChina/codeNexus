@@ -34,6 +34,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { CircleDashed, FileSearch, Globe, Search } from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
 import type { ChatWebSearchItem } from "../layout/types/chat.types";
 import ExecutionWaveText from "../ui/ExecutionWaveText.vue";
 
@@ -41,20 +42,21 @@ const props = defineProps<{
   item: ChatWebSearchItem;
 }>();
 
+const { t } = useI18n();
 const waveEnabled = computed(() => props.item.status === "running");
 
 const activityText = computed(() => {
-  const target = props.item.primaryText || props.item.summaryText || props.item.title || "网页操作";
+  const target = props.item.primaryText || props.item.summaryText || props.item.title || t("chat.activity.webOperation");
   if (props.item.status === "running") {
-    if (props.item.actionType === "openPage") return `正在打开 ${target}`;
-    if (props.item.actionType === "findInPage") return `正在页内查找 ${target}`;
-    if (props.item.actionType === "other") return `正在处理 ${target}`;
-    return `正在搜索 ${target}`;
+    if (props.item.actionType === "openPage") return t("chat.activity.openingWeb", { target });
+    if (props.item.actionType === "findInPage") return t("chat.activity.findingWeb", { target });
+    if (props.item.actionType === "other") return t("chat.activity.processingWeb", { target });
+    return t("chat.activity.searchingWeb", { target });
   }
-  if (props.item.actionType === "openPage") return `已打开 ${target}`;
-  if (props.item.actionType === "findInPage") return `已查找 ${target}`;
-  if (props.item.actionType === "other") return `已处理 ${target}`;
-  return `已搜索 ${target}`;
+  if (props.item.actionType === "openPage") return t("chat.activity.openedWeb", { target });
+  if (props.item.actionType === "findInPage") return t("chat.activity.foundWeb", { target });
+  if (props.item.actionType === "other") return t("chat.activity.processedWeb", { target });
+  return t("chat.activity.searchedWeb", { target });
 });
 
 const webSearchActivityClass = computed(() => ({

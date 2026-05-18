@@ -18,14 +18,14 @@
         class="composer-lightbox-overlay"
         role="dialog"
         aria-modal="true"
-        aria-label="Mermaid 图预览"
+        :aria-label="t('agentMarkdown.mermaidPreview')"
       >
         <div class="composer-lightbox-backdrop"></div>
         <div class="composer-lightbox-stage agent-mermaid-lightbox-stage" @click.self="closeMermaidLightbox">
           <div ref="lightboxPanelRef" class="agent-mermaid-lightbox-panel" tabindex="-1">
             <div class="agent-mermaid-lightbox-toolbar">
               <span class="agent-mermaid-lightbox-status"
-                >Mermaid 图预览 · {{ Math.round(lightboxUserZoom * 100) }}%</span
+                >{{ t("agentMarkdown.mermaidPreviewWithZoom", { percent: Math.round(lightboxUserZoom * 100) }) }}</span
               >
               <button
                 type="button"
@@ -34,7 +34,7 @@
                 :disabled="lightboxCopyBusy || !lightboxSource"
                 @click="onMermaidLightboxCopyClick"
               >
-                {{ copyButtonText(lightboxCopyState, "复制源码") }}
+                {{ copyButtonText(lightboxCopyState, t("agentMarkdown.copySource")) }}
               </button>
             </div>
             <div
@@ -64,6 +64,7 @@
 
 <script setup lang="ts">
 import { computed, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   normalizeMermaidError,
   readMermaidTone,
@@ -91,6 +92,7 @@ const props = defineProps<{
   html: string;
 }>();
 
+const { t } = useI18n();
 const rootRef = ref<HTMLElement | null>(null);
 const lightboxPanelRef = ref<HTMLElement | null>(null);
 const lightboxRenderRef = ref<HTMLElement | null>(null);
@@ -238,12 +240,12 @@ function readCodeLanguageLabel(codeElement: HTMLElement) {
 
 function readCopyIdleLabel(button: HTMLButtonElement) {
   const raw = String(button.dataset.agentCopyIdleLabel ?? "").trim();
-  return raw || "复制代码";
+  return raw || t("agentMarkdown.copyCode");
 }
 
 function copyButtonText(state: CopyButtonState, idleLabel: string) {
-  if (state === "success") return "已复制";
-  if (state === "error") return "复制失败";
+  if (state === "success") return t("clipboard.copied");
+  if (state === "error") return t("clipboard.copyFailed");
   return idleLabel;
 }
 
@@ -279,7 +281,7 @@ async function copyTextToClipboard(text: string) {
     return;
   }
   if (typeof document === "undefined") {
-    throw new Error("Clipboard API 不可用");
+    throw new Error(t("clipboard.unavailable"));
   }
   const textarea = document.createElement("textarea");
   textarea.value = source;
@@ -294,7 +296,7 @@ async function copyTextToClipboard(text: string) {
     textarea.select();
     textarea.setSelectionRange(0, textarea.value.length);
     const ok = document.execCommand("copy");
-    if (!ok) throw new Error("复制失败");
+    if (!ok) throw new Error(t("clipboard.copyFailed"));
   } finally {
     textarea.remove();
   }
@@ -321,8 +323,8 @@ function enhanceCodeCopyButtons(host: HTMLElement) {
     copyButton.type = "button";
     copyButton.className = "agent-code-copy";
     copyButton.dataset.agentCodeAction = "copy";
-    copyButton.setAttribute("aria-label", "复制代码");
-    copyButton.dataset.agentCopyIdleLabel = "复制代码";
+    copyButton.setAttribute("aria-label", t("agentMarkdown.copyCode"));
+    copyButton.dataset.agentCopyIdleLabel = t("agentMarkdown.copyCode");
     setCopyButtonState(copyButton, "idle");
 
     toolbar.append(language, copyButton);
@@ -666,7 +668,9 @@ function createMermaidErrorElement(detail: string) {
   const element = document.createElement("div");
   element.className = "agent-mermaid-error";
   const normalized = String(detail ?? "").trim();
-  element.textContent = normalized ? `Mermaid 渲染失败：${normalized}` : "Mermaid 渲染失败，已回退为代码块。";
+  element.textContent = normalized
+    ? t("agentMarkdown.mermaidRenderFailedWithDetail", { detail: normalized })
+    : t("agentMarkdown.mermaidRenderFailedFallback");
   return element;
 }
 
@@ -682,7 +686,7 @@ function createMermaidRenderElement(svg: string, blockKey?: string) {
   const status = document.createElement("span");
   status.className = "agent-mermaid-status";
   status.dataset.agentMermaidRole = "status";
-  status.textContent = "Mermaid 图";
+  status.textContent = t("agentMarkdown.mermaidDiagram");
 
   const actions = document.createElement("div");
   actions.className = "agent-mermaid-actions";
@@ -691,8 +695,8 @@ function createMermaidRenderElement(svg: string, blockKey?: string) {
   copyButton.type = "button";
   copyButton.className = "agent-mermaid-copy";
   copyButton.dataset.agentMermaidAction = "copy";
-  copyButton.dataset.agentCopyIdleLabel = "复制源码";
-  copyButton.setAttribute("aria-label", "复制 Mermaid 源码");
+  copyButton.dataset.agentCopyIdleLabel = t("agentMarkdown.copySource");
+  copyButton.setAttribute("aria-label", t("agentMarkdown.copyMermaidSource"));
   setCopyButtonState(copyButton, "idle");
 
   const expandButton = document.createElement("button");
@@ -700,7 +704,7 @@ function createMermaidRenderElement(svg: string, blockKey?: string) {
   expandButton.className = "agent-mermaid-expand";
   expandButton.dataset.agentMermaidAction = "lightbox";
   expandButton.hidden = true;
-  expandButton.textContent = "放大查看";
+  expandButton.textContent = t("agentMarkdown.zoomInView");
 
   actions.append(copyButton, expandButton);
   toolbar.append(status, actions);
@@ -786,8 +790,14 @@ function layoutMermaidBlock(block: HTMLElement) {
 
   const status = block.querySelector<HTMLElement>("[data-agent-mermaid-role='status']");
   if (status) {
-    const fitText = fitScale < 0.999 ? `适配 ${Math.round(fitScale * 100)}%` : "原始尺寸";
-    status.textContent = userZoom === 1 ? fitText : `${fitText} · 缩放 ${Math.round(userZoom * 100)}%`;
+    const fitText =
+      fitScale < 0.999
+        ? t("agentMarkdown.fitPercent", { percent: Math.round(fitScale * 100) })
+        : t("agentMarkdown.originalSize");
+    status.textContent =
+      userZoom === 1
+        ? fitText
+        : t("agentMarkdown.fitAndZoom", { fit: fitText, percent: Math.round(userZoom * 100) });
   }
 
   const expandButton = block.querySelector<HTMLButtonElement>("[data-agent-mermaid-action='lightbox']");
@@ -864,7 +874,7 @@ async function openMermaidLightbox(source: string) {
   lightboxCopyState.value = "idle";
   lightboxSource.value = source;
   // Ensure the overlay is visible immediately, but avoid duplicating SVG ids by re-rendering from source.
-  lightboxSvgHtml.value = `<div class="mono dim">Mermaid 渲染中...</div>`;
+  lightboxSvgHtml.value = `<div class="mono dim">${t("agentMarkdown.mermaidRendering")}</div>`;
   await nextTick();
   if (nextSeq !== lightboxTaskSeq) return;
   lightboxPanelRef.value?.focus();
@@ -1090,14 +1100,14 @@ function onRootClick(event: MouseEvent) {
       .then(() => {
         showToast({
           kind: "success",
-          title: "已复制",
-          message: `路径已复制：${String(pathToken.textContent ?? "").trim()}`,
+          title: t("clipboard.copied"),
+          message: t("clipboard.pathCopied", { path: String(pathToken.textContent ?? "").trim() }),
         });
       })
       .catch((error) => {
         showToast({
           kind: "error",
-          title: "复制失败",
+          title: t("clipboard.copyFailed"),
           message: String((error as any)?.message ?? error ?? ""),
         });
       });
@@ -1149,14 +1159,14 @@ function onRootKeydown(event: KeyboardEvent) {
     .then(() => {
       showToast({
         kind: "success",
-        title: "已复制",
-        message: `路径已复制：${String(pathToken.textContent ?? "").trim()}`,
+        title: t("clipboard.copied"),
+        message: t("clipboard.pathCopied", { path: String(pathToken.textContent ?? "").trim() }),
       });
     })
     .catch((error) => {
       showToast({
         kind: "error",
-        title: "复制失败",
+        title: t("clipboard.copyFailed"),
         message: String((error as any)?.message ?? error ?? ""),
       });
     });

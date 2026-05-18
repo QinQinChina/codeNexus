@@ -1,15 +1,17 @@
 <template>
-  <div v-if="hasPendingUserInput" class="grid gap-2.5" :class="rootClass" role="region" aria-label="计划问答">
+  <div v-if="hasPendingUserInput" class="grid gap-2.5" :class="rootClass" role="region" :aria-label="t('userInput.title')">
     <div class="row" style="align-items: baseline; justify-content: space-between; gap: 10px">
       <div class="row" style="align-items: center; gap: 8px">
         <span class="attn-dot" aria-hidden="true"></span>
-        <div class="text-[12px] font-semibold tracking-[0.2px] text-[color:var(--text)]">计划问答</div>
+        <div class="text-[12px] font-semibold tracking-[0.2px] text-[color:var(--text)]">
+          {{ t("userInput.title") }}
+        </div>
       </div>
       <span class="mono dim text-[11px]">{{ userInputQueueText }}</span>
     </div>
 
     <div :id="userInputBoxId" :class="{ dim: !activeUserInputPrompt }">
-      <template v-if="!activeUserInputPrompt"> 当前无待回答问题 </template>
+      <template v-if="!activeUserInputPrompt"> {{ t("userInput.empty") }} </template>
       <template v-else>
         <div class="user-input-card">
           <div class="user-input-head">
@@ -21,7 +23,7 @@
             v-if="activeUserInputPrompt.kind === 'elicitationUrl'"
             class="grid gap-2 rounded-xl border border-[var(--ui-well-border)] bg-[var(--ui-well-bg)] p-2"
           >
-            <div class="dim text-[11px]">请在浏览器中完成外部确认，然后回到这里继续。</div>
+            <div class="dim text-[11px]">{{ t("userInput.externalConfirm") }}</div>
             <div class="mono text-[11px] break-all">{{ activeUserInputPrompt.url }}</div>
           </div>
           <pre
@@ -69,16 +71,16 @@
             @keydown="onUserInputTextKeydown($event)"
           />
           <div class="user-input-actions">
-            <button type="button" class="danger" @click="onCancelActivePrompt">取消</button>
+            <button type="button" class="danger" @click="onCancelActivePrompt">{{ t("common.cancel") }}</button>
             <button
               v-if="activeUserInputPrompt.kind === 'elicitationUrl'"
               type="button"
               @click="runtime.openExternalUrl(activeUserInputPrompt.url)"
             >
-              打开链接
+              {{ t("userInput.openLink") }}
             </button>
             <button v-else type="button" :disabled="!canGoPrevUserInputStep" @click="onUserInputPrevStep">
-              上一步
+              {{ t("userInput.previous") }}
             </button>
             <button type="button" :disabled="!canGoNextUserInputStep" @click="onUserInputNextStep">
               {{ userInputSubmitText }}
@@ -92,6 +94,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { getRuntimeOrchestrator } from "../../domain/runtimeOrchestrator";
 import type { UserInputQuestion } from "../../domain/types";
 import { useRuntimeStore } from "../../stores/runtime.store";
@@ -104,6 +107,7 @@ const props = defineProps<{
 }>();
 
 const runtime = getRuntimeOrchestrator();
+const { t } = useI18n();
 const runtimeStore = useRuntimeStore();
 const userInputStore = useUserInputStore();
 const userInputOptionRefs = new Map<number, HTMLButtonElement>();
@@ -183,8 +187,8 @@ const activeUserInputQuestion = computed(() => {
 const userInputProgressText = computed(() => {
   const prompt = activeUserInputPrompt.value;
   if (!prompt) return "0/0";
-  if (prompt.kind === "elicitationUrl") return "链接确认";
-  if (prompt.kind === "elicitationForm") return "JSON 输入";
+  if (prompt.kind === "elicitationUrl") return t("userInput.linkConfirm");
+  if (prompt.kind === "elicitationForm") return t("userInput.jsonInput");
   if (prompt.questions.length === 0) return "0/0";
   const tid = resolvedThreadId.value;
   const step = tid ? userInputStore.activeStepForThread(tid) : 0;
@@ -229,9 +233,9 @@ const questionHasTextInput = computed(() => {
 const userInputTextPlaceholder = computed(() => {
   const prompt = activeUserInputPrompt.value;
   const question = activeUserInputQuestion.value;
-  if (prompt?.kind === "elicitationForm") return '请输入 JSON，例如 {"key":"value"}';
+  if (prompt?.kind === "elicitationForm") return t("userInput.jsonPlaceholder", { example: '{"key":"value"}' });
   if (!question) return "";
-  return question.isOther ? "请输入其他内容" : "请输入答案";
+  return question.isOther ? t("userInput.otherPlaceholder") : t("userInput.answerPlaceholder");
 });
 
 const canGoPrevUserInputStep = computed(() => {
@@ -265,15 +269,15 @@ const isLastUserInputQuestion = computed(() => {
 
 const userInputSubmitText = computed(() => {
   const prompt = activeUserInputPrompt.value;
-  if (!prompt) return "提交";
-  if (prompt.kind === "elicitationUrl") return "已完成";
-  if (prompt.kind === "elicitationForm") return "提交 JSON";
-  return isLastUserInputQuestion.value ? "提交" : "下一步";
+  if (!prompt) return t("userInput.submit");
+  if (prompt.kind === "elicitationUrl") return t("userInput.completed");
+  if (prompt.kind === "elicitationForm") return t("userInput.submitJson");
+  return isLastUserInputQuestion.value ? t("userInput.submit") : t("userInput.next");
 });
 
 const userInputQueueText = computed(() => {
   const n = threadUserInputQueueSize.value;
-  return n > 0 ? `待输入 ${n}` : "0";
+  return n > 0 ? t("userInput.pendingCount", { count: n }) : "0";
 });
 
 const activeUserInputKeyboardTargets = computed<UserInputKeyboardTarget[]>(() => {

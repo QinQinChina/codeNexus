@@ -8,7 +8,7 @@
     :aria-expanded="props.open ? 'true' : 'false'"
     @click.stop="emit('toggle')"
   >
-    <span class="topbar-pill-caption">工作区</span>
+    <span class="topbar-pill-caption">{{ t("topbarExtra.workspace") }}</span>
     <span class="topbar-pill-value topbar-pill-value--workspace" :class="{ dim: !runtimeStore.workspacePath }">
       {{ workspaceName }}
     </span>
@@ -17,9 +17,13 @@
 
   <Transition name="topbar-fly" @after-enter="onWorkspaceMenuAfterEnter" @after-leave="onWorkspaceMenuAfterLeave">
     <div v-if="props.open" class="topbar-menu-shell topbar-menu-shell--workspace" @click.stop>
-      <div class="topbar-dropdown app-scrollbar topbar-menu topbar-menu--workspace" role="menu" aria-label="工作区菜单">
+      <div
+        class="topbar-dropdown app-scrollbar topbar-menu topbar-menu--workspace"
+        role="menu"
+        :aria-label="t('topbarExtra.workspaceMenu')"
+      >
         <div class="workspace-menu-head">
-          <div class="topbar-menu-heading">当前工作区</div>
+          <div class="topbar-menu-heading">{{ t("topbarExtra.currentWorkspace") }}</div>
           <button
             id="btn-workspace-select"
             class="btn-mini workspace-menu-select"
@@ -34,9 +38,9 @@
           class="workspace-path-inline mono"
           :class="{ dim: !runtimeStore.workspacePath }"
         >
-          {{ runtimeStore.workspacePath || "未选择工作区" }}
+          {{ runtimeStore.workspacePath || t("topbarExtra.noWorkspaceFull") }}
         </div>
-        <div class="topbar-menu-note">绑定当前任务目录，并驱动文件面板与动态工具</div>
+        <div class="topbar-menu-note">{{ t("topbarExtra.workspaceNote") }}</div>
       </div>
     </div>
   </Transition>
@@ -45,6 +49,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount } from "vue";
 import { ChevronDown } from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
 import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
 import { useAppShellStore } from "../../../stores/appShell.store";
 import { useRuntimeStore } from "../../../stores/runtime.store";
@@ -61,16 +66,19 @@ const emit = defineEmits<{
 const runtime = getRuntimeOrchestrator();
 const appShellStore = useAppShellStore();
 const runtimeStore = useRuntimeStore();
+const { t } = useI18n();
 
 const workspaceName = computed(() => {
   const pathValue = runtimeStore.workspacePath;
-  if (!pathValue) return "未选择";
+  if (!pathValue) return t("topbarExtra.noWorkspace");
   const normalized = pathValue.replace(/[\\/]+$/, "");
   const parts = normalized.split(/[\\/]/).filter(Boolean);
   return parts.at(-1) || pathValue;
 });
 
-const workspaceMenuActionLabel = computed(() => (runtimeStore.workspacePath ? "更换工作区" : "选择工作区"));
+const workspaceMenuActionLabel = computed(() =>
+  runtimeStore.workspacePath ? t("topbarExtra.changeWorkspace") : t("topbarExtra.selectWorkspace")
+);
 
 function onWorkspaceMenuAfterEnter() {
   appShellStore.setWorkspaceMenuTourReady(true);

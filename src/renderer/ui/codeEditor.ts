@@ -5,6 +5,7 @@ import { LanguageDescription, type LanguageSupport, HighlightStyle, syntaxHighli
 import { languages } from "@codemirror/language-data";
 import { EditorView, keymap } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
+import { translate } from "../i18n/translate";
 
 type CreateWorkspaceEditorStateArgs = {
   doc: string;
@@ -187,7 +188,7 @@ function resolveLanguageDescription(path: string): LanguageDescription | null {
 
 export function getLanguageDisplayNameForPath(path: string): string {
   const description = resolveLanguageDescription(path);
-  return description?.name || "纯文本";
+  return description?.name || translate("common.plainText");
 }
 
 const languageSupportPromiseByName = new Map<string, Promise<LanguageSupport | null>>();

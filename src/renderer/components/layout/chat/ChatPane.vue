@@ -8,7 +8,7 @@
           :class="activityDotClass(handoffDiagnosticsBanner.tone)"
           aria-hidden="true"
         ></span>
-        <span class="mono whitespace-nowrap">交接记录</span>
+        <span class="mono whitespace-nowrap">{{ t("chatPane.handoffRecord") }}</span>
         <ExecutionWaveText v-if="handoffDiagnosticsBanner.tone === 'running'" :text="handoffDiagnosticsBanner.text" />
         <span v-else>{{ handoffDiagnosticsBanner.text }}</span>
       </div>
@@ -20,6 +20,7 @@
           v-if="pinnedUserMessage"
           :contentKey="pinnedUserMessage.rowId"
           :text="pinnedUserMessage.text"
+          :messageParts="pinnedUserMessage.parts"
           :title="pinnedUserMessage.title"
           :fileCount="pinnedUserMessage.fileCount"
           :imageCount="pinnedUserMessage.imageCount"
@@ -27,6 +28,7 @@
           :showTimestamp="viewPrefs.showTimestamps"
           :formattedTime="pinnedUserMessage.formattedTime"
           @locate="onPinnedUserClick"
+          @file-token-click="onUserFileTokenClick"
         />
       </Transition>
     </div>
@@ -44,13 +46,11 @@
         :renderedRow="renderedRow"
         :workspaceRoot="workspaceRoot"
         :viewPrefs="viewPrefs"
-        :assistantPlanMessageFormat="appShellStore.assistantPlanMessageFormat"
         :planExecStateByEventId="planExecStateByEventId"
         :modelOptions="modelOptions"
         :isTurnRunning="isTurnRunning"
         :reasoningEffortOptions="reasoningEffortOptions"
         :sandboxModeOptions="sandboxModeOptions"
-        :turnPlanForPlanDeltaEvent="turnPlanForPlanDeltaEvent"
         :userMessageParts="userMessageParts"
         :userMessageImageCount="userMessageImageCount"
         :visibleUserMessageImageEntries="visibleUserMessageImageEntries"
@@ -69,6 +69,8 @@
         :setReasoningOpen="setReasoningOpen"
         :isCommandFilesOpen="isCommandFilesOpen"
         :toggleCommandFilesOpen="toggleCommandFilesOpen"
+        :isCommandSessionStopping="isCommandSessionStopping"
+        :stopCommandSession="stopCommandSession"
         :isMcpToolGroupOpen="isMcpToolGroupOpen"
         :onMcpToolGroupToggle="onMcpToolGroupToggle"
         :isMcpToolItemDetailOpen="isMcpToolItemDetailOpen"
@@ -120,7 +122,7 @@
           class="composer-lightbox-overlay composer-lightbox-overlay--image"
           role="dialog"
           aria-modal="true"
-          :aria-label="imageLightboxTitle || '图片预览'"
+          :aria-label="imageLightboxTitle || t('lazyImage.previewTitle')"
         >
           <div class="composer-lightbox-backdrop" aria-hidden="true" @click="closeImageLightbox"></div>
           <div class="composer-lightbox-stage composer-lightbox-stage--image" @click.self="closeImageLightbox">
@@ -137,7 +139,7 @@
               <img
                 class="composer-lightbox-image composer-lightbox-image--interactive"
                 :src="imageLightboxSrc"
-                :alt="imageLightboxTitle || '图片预览'"
+                :alt="imageLightboxTitle || t('lazyImage.previewTitle')"
                 :style="imageLightboxTransformStyle"
                 draggable="false"
               />
@@ -181,8 +183,8 @@
 </template>
 
 <script setup lang="ts">
-// 聊天视图：将时间线节点重组为对话流卡片，并处理图片预览等交互。
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { Download, RotateCcw, X, ZoomIn, ZoomOut } from "lucide-vue-next";
 import ChatTimelineViewport from "./ChatTimelineViewport.vue";
 import ChatRowRenderer from "./ChatRowRenderer.vue";
@@ -204,6 +206,8 @@ import { useAgentMarkdownRenderer } from "../../../features/timeline/useAgentMar
 import { buildMcpToolDefinitionIndex } from "../../../features/timeline/renderModel/buildTimelineNodes";
 import { formatTime } from "../../../features/timeline/renderModel/formatters";
 import { buildModelPickerOptions } from "../../../../shared/modelCatalog";
+import { codexDesktop } from "../../../api/codexDesktopClient";
+import { showToast } from "../../../ui/toast";
 
 import { useChatTimeline } from "../composables/useChatTimeline";
 import { usePlanExecution } from "../composables/usePlanExecution";
@@ -212,7 +216,10 @@ import { useChatLayout } from "../composables/useChatLayout";
 import { useChatMessageParts } from "../composables/useChatMessageParts";
 import { useChatRenderModel } from "../composables/useChatRenderModel";
 import { useInlineHistoryRewrite } from "../composables/useInlineHistoryRewrite";
-import type { McpResourceReadNode } from "../../../features/timeline/renderModel/buildTimelineNodes";
+import type {
+  CommandSessionNode,
+  McpResourceReadNode,
+} from "../../../features/timeline/renderModel/buildTimelineNodes";
 import type { McpToolItem } from "../../timeline/cards/McpToolCardContent.vue";
 
 const props = defineProps<{
@@ -229,6 +236,7 @@ const props = defineProps<{
 }>();
 
 const appShellStore = useAppShellStore();
+const { t } = useI18n();
 const mcpStore = useMcpStore();
 const mcpResourceStore = useMcpResourceStore();
 const runtimeStore = useRuntimeStore();
@@ -243,13 +251,10 @@ const PINNED_PROMPT_TOP_GAP_PX = 0;
 const { getMarkdownEventHtml } = useAgentMarkdownRenderer({ key: () => runtimeStore.timelineKey });
 const mcpToolDefinitions = computed(() => buildMcpToolDefinitionIndex(mcpStore.servers));
 
-// 1. 基础时间线与状态逻辑
-const { isTurnRunning, turnPlanForPlanDeltaEvent } = useChatTimeline();
+const { isTurnRunning } = useChatTimeline();
 
-// 2. 布局与 Handoff 诊断逻辑
 const { hiddenImageIds, handoffDiagnosticsBanner } = useChatLayout();
 
-// 3. 消息片段与图片处理逻辑
 const {
   userMessageParts,
   userMessageImageCount,
@@ -271,7 +276,6 @@ const {
   getUserMessageSnapshot,
 });
 
-// 4. 渲染模型计算逻辑
 const {
   chatRenderedRows,
   isReasoningOpen,
@@ -290,7 +294,6 @@ const {
   props.onLayoutChange
 );
 
-// 5. 计划执行逻辑
 const {
   planExecStateByEventId,
   onExecutePlanFromPlanDelta,
@@ -302,7 +305,6 @@ const {
   () => isTurnRunning.value
 );
 
-// 6. 图片预览逻辑
 const {
   imageLightboxOpen,
   imageLightboxSrc,
@@ -323,13 +325,44 @@ const {
   onPreviewImage,
 } = useImageLightbox();
 
-// --- 辅助逻辑 ---
 const commandFilesOpenById = ref(new Map<string, boolean>());
 const isCommandFilesOpen = (nodeId: string) => commandFilesOpenById.value.get(String(nodeId ?? "")) ?? false;
 function toggleCommandFilesOpen(nodeId: string) {
   const id = String(nodeId ?? "").trim();
   if (!id) return;
   commandFilesOpenById.value.set(id, !isCommandFilesOpen(id));
+}
+
+const stoppingCommandProcessIds = ref(new Set<string>());
+const isCommandSessionStopping = (processId: string) =>
+  stoppingCommandProcessIds.value.has(String(processId ?? "").trim());
+
+async function stopCommandSession(item: CommandSessionNode) {
+  const processId = String(item?.processId ?? "").trim();
+  const serverId = String(runtimeStore.serverId ?? "").trim();
+  if (!processId || !serverId || isCommandSessionStopping(processId)) return;
+
+  stoppingCommandProcessIds.value.add(processId);
+  try {
+    await codexDesktop.codexServer
+      .rpc({ serverId, method: "command/exec/terminate", params: { processId } })
+      .catch(async () => {
+        await codexDesktop.codexServer.rpc({
+          serverId,
+          method: "process/kill",
+          params: { processHandle: processId },
+        });
+      });
+    showToast({ kind: "success", title: t("chatPane.stopCommandRequested"), message: processId });
+  } catch (error: any) {
+    showToast({
+      kind: "error",
+      title: t("chatPane.stopCommandFailed"),
+      message: String(error?.message ?? error),
+    });
+  } finally {
+    stoppingCommandProcessIds.value.delete(processId);
+  }
 }
 
 const contextCompactionPhase = computed(() => {
@@ -405,15 +438,19 @@ const pinnedUserMessage = computed(() => {
     .filter(Boolean);
   const fileCount = parts.filter((part) => part.type === "file").length;
   const imageCount = userMessageImageCount(row.event);
+  const titleParts = parts
+    .map((part) => (part.type === "file" ? part.label : part.text.replace(/\s+/g, " ").trim()))
+    .filter(Boolean);
   const suffix = [
-    fileCount > 0 ? `+${fileCount} 文件` : "",
-    imageCount > 0 ? `+${imageCount} 图片` : "",
+    fileCount > 0 ? t("chatPane.fileCount", { count: fileCount }) : "",
+    imageCount > 0 ? t("chatPane.imageCount", { count: imageCount }) : "",
   ].filter(Boolean);
-  const summary = textParts.join(" ").trim() || "用户消息";
-  const title = [summary, ...suffix].filter(Boolean).join(" · ");
+  const summary = textParts.join(" ").trim() || t("chatPane.userMessage");
+  const title = [titleParts.join(" ").trim() || summary, ...suffix].filter(Boolean).join(" · ");
   return {
     rowId: row.id,
     text: summary,
+    parts,
     title,
     fileCount,
     imageCount,
@@ -450,18 +487,17 @@ function onPinnedUserClick() {
   scrollDomRowToTop(rowId, offsetPx);
 }
 
-// 计划工具条选项
-const reasoningEffortOptions = [
-  { value: "low", label: "低" },
-  { value: "medium", label: "中" },
-  { value: "high", label: "高" },
-  { value: "xhigh", label: "极高" },
-] as const;
-const sandboxModeOptions = [
-  { value: "read-only", label: "只读" },
-  { value: "workspace-write", label: "可写" },
-  { value: "danger-full-access", label: "完全" },
-] as const;
+const reasoningEffortOptions = computed(() => [
+  { value: "low", label: t("composer.low") },
+  { value: "medium", label: t("composer.medium") },
+  { value: "high", label: t("composer.high") },
+  { value: "xhigh", label: t("composer.xhigh") },
+] as const);
+const sandboxModeOptions = computed(() => [
+  { value: "read-only", label: t("composer.readOnlyShort") },
+  { value: "workspace-write", label: t("composer.workspaceWriteShort") },
+  { value: "danger-full-access", label: t("composer.dangerFullAccessShort") },
+] as const);
 const modelOptions = computed(() =>
   buildModelPickerOptions({ customIds: modelCatalogStore.customIds, current: runtimeStore.model })
 );

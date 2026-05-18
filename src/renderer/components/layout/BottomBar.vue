@@ -1,5 +1,5 @@
 <template>
-  <footer class="bottom-bar" role="navigation" aria-label="底部栏">
+  <footer class="bottom-bar" role="navigation" :aria-label="t('bottomBar.aria')">
     <div class="bottom-bar__left"></div>
 
     <div class="bottom-bar__right">
@@ -12,7 +12,7 @@
         <span class="bottom-bar__conn-text">{{ connectionLabel }}</span>
       </div>
 
-      <div class="bottom-bar__clock mono dim" :aria-label="`当前时间 ${timeText}`">
+      <div class="bottom-bar__clock mono dim" :aria-label="t('bottomBar.currentTime', { time: timeText })">
         {{ timeText }}
       </div>
     </div>
@@ -21,10 +21,12 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import CodexProfileSwitch from "./controls/CodexProfileSwitch.vue";
 import { useAppShellStore } from "../../stores/appShell.store";
 
 const appShellStore = useAppShellStore();
+const { t } = useI18n();
 
 const now = ref(Date.now());
 
@@ -57,10 +59,10 @@ function scheduleNextTick() {
 
 const connectionStateClass = computed(() => `is-${appShellStore.serverConnState}`);
 const connectionLabel = computed(() => {
-  if (appShellStore.serverConnState === "connected") return "已连接";
-  if (appShellStore.serverConnState === "connecting") return "连接中";
-  if (appShellStore.serverConnState === "failed") return "失败";
-  return "离线";
+  if (appShellStore.serverConnState === "connected") return t("bottomBar.connected");
+  if (appShellStore.serverConnState === "connecting") return t("bottomBar.connecting");
+  if (appShellStore.serverConnState === "failed") return t("bottomBar.failed");
+  return t("bottomBar.offline");
 });
 onMounted(() => {
   now.value = Date.now();

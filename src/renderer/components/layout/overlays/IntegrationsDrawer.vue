@@ -7,7 +7,7 @@
         :class="{ 'is-settings': isSettings }"
         role="dialog"
         aria-modal="true"
-        aria-label="扩展能力"
+        :aria-label="t('integrations.aria')"
         @click.self="onOverlayClick"
       >
         <div v-if="!isSettings" class="global-config-drawer-backdrop" @click="close"></div>
@@ -19,7 +19,7 @@
             -->
             <div class="integrations-head-grid">
               <div class="integrations-head-left">
-                <div class="panel-title">扩展能力</div>
+                <div class="panel-title">{{ t("integrations.title") }}</div>
               </div>
               <div class="integrations-head-center">
                 <div class="integrations-tabs">
@@ -45,7 +45,9 @@
                 <span class="status-chip mono integrations-head-chip" :class="activeChipClass">{{
                   activeChipText
                 }}</span>
-                <button v-if="!isSettings" ref="closeBtnRef" class="btn-mini" type="button" @click="close">关闭</button>
+                <button v-if="!isSettings" ref="closeBtnRef" class="btn-mini" type="button" @click="close">
+                  {{ t("integrations.close") }}
+                </button>
               </div>
             </div>
           </header>
@@ -57,18 +59,18 @@
                 <div class="row integrations-toolbar-actions" style="gap: 6px">
                   <template v-if="activeTab === 'skills'">
                     <button class="btn-mini" type="button" :disabled="!canOpenSkillsManager" @click="openSkillsManager">
-                      管理器
+                      {{ t("skills.manager") }}
                     </button>
                     <button class="btn-mini" type="button" :disabled="!canRefreshSkills" @click="onRefreshSkills">
-                      刷新
+                      {{ t("skills.refresh") }}
                     </button>
                   </template>
                   <template v-else>
                     <button class="btn-mini" type="button" :disabled="!canRefreshMcp" @click="runtime.refreshMcp">
-                      刷新
+                      {{ t("skills.refresh") }}
                     </button>
                     <button class="btn-mini" type="button" :disabled="!canReloadMcp" @click="runtime.reloadMcpConfig">
-                      重载
+                      {{ t("integrations.reload") }}
                     </button>
                   </template>
                 </div>
@@ -78,11 +80,11 @@
                 <section class="integrations-config-section">
                   <div class="integrations-section-head">
                     <div>
-                      <div class="integrations-mcp-section-title">本地 Skills Roots</div>
-                      <div class="integrations-section-subtitle dim">仅对当前工作区追加扫描目录。</div>
+                      <div class="integrations-mcp-section-title">{{ t("integrations.skillRootsTitle") }}</div>
+                      <div class="integrations-section-subtitle dim">{{ t("integrations.skillRootsSubtitle") }}</div>
                     </div>
                     <button class="btn-mini" type="button" :disabled="!canMutateSkillRoots" @click="onPickSkillRoot">
-                      选择目录
+                      {{ t("integrations.chooseDirectory") }}
                     </button>
                   </div>
                   <div class="integrations-root-add">
@@ -95,25 +97,25 @@
                       @keydown.enter.prevent="onAddSkillRoot"
                     />
                     <button class="btn-mini" type="button" :disabled="!canAddSkillRoot" @click="onAddSkillRoot">
-                      添加
+                      {{ t("integrations.add") }}
                     </button>
                   </div>
                   <div v-if="currentSkillRoots.length > 0" class="integrations-root-list">
                     <div v-for="root in currentSkillRoots" :key="root" class="integrations-root-row">
                       <span class="mono">{{ root }}</span>
                       <button class="btn-mini" type="button" :disabled="codexSkillRootsStore.saving" @click="onRemoveSkillRoot(root)">
-                        移除
+                        {{ t("integrations.remove") }}
                       </button>
                     </div>
                   </div>
-                  <div v-else class="integrations-section-subtitle dim">当前工作区未配置额外 Skills 目录。</div>
+                  <div v-else class="integrations-section-subtitle dim">{{ t("integrations.noSkillRoots") }}</div>
                 </section>
 
                 <SkillsList
                   :items="skillsStore.items"
                   :pendingPath="skillPendingPath"
                   :stateText="skillsStateText"
-                  emptyText="暂无可用技能"
+                  :emptyText="t('skills.empty')"
                   mode="compact"
                   @toggle-skill="onSkillToggleRequest"
                 />
@@ -124,13 +126,13 @@
                   <section class="integrations-config-section">
                     <div class="integrations-section-head">
                       <div>
-                        <div class="integrations-mcp-section-title">MCP JSON 导入</div>
+                        <div class="integrations-mcp-section-title">{{ t("integrations.mcpJsonImport") }}</div>
                         <div class="integrations-section-subtitle dim">
-                          支持 <span class="mono">{"mcpServers": {...}}</span> 或单个 server JSON。
+                          {{ t("integrations.mcpJsonImportDesc", { schema: mcpJsonSchemaText }) }}
                         </div>
                       </div>
                       <button class="btn-mini" type="button" :disabled="!canWriteMcpConfig" @click="onImportMcpJson">
-                        导入
+                        {{ t("integrations.import") }}
                       </button>
                     </div>
                     <textarea
@@ -147,10 +149,12 @@
                   <section class="integrations-config-section">
                     <div class="integrations-section-head">
                       <div>
-                        <div class="integrations-mcp-section-title">MCP 手动配置</div>
-                        <div class="integrations-section-subtitle dim">保存后写入 Codex 配置并重载 MCP。</div>
+                        <div class="integrations-mcp-section-title">{{ t("integrations.mcpManualConfig") }}</div>
+                        <div class="integrations-section-subtitle dim">{{ t("integrations.mcpManualConfigDesc") }}</div>
                       </div>
-                      <button class="btn-mini" type="button" @click="resetMcpForm">清空</button>
+                      <button class="btn-mini" type="button" @click="resetMcpForm">
+                        {{ t("integrations.clear") }}
+                      </button>
                     </div>
                     <div class="integrations-mcp-form">
                       <label class="global-row">
@@ -158,7 +162,7 @@
                         <input v-model="mcpForm.id" class="context-input mono" type="text" placeholder="filesystem" />
                       </label>
                       <label class="global-row">
-                        <span class="context-label">传输</span>
+                        <span class="context-label">{{ t("integrations.transport") }}</span>
                         <select v-model="mcpForm.type" class="context-input mono">
                           <option value="stdio">stdio</option>
                           <option value="http">http</option>
@@ -187,7 +191,12 @@
                       </label>
                       <label v-if="mcpForm.type === 'stdio'" class="global-row">
                         <span class="context-label">CWD</span>
-                        <input v-model="mcpForm.cwd" class="context-input mono" type="text" placeholder="留空使用默认目录" />
+                        <input
+                          v-model="mcpForm.cwd"
+                          class="context-input mono"
+                          type="text"
+                          :placeholder="t('integrations.cwdPlaceholder')"
+                        />
                       </label>
                       <label v-if="mcpForm.type !== 'stdio'" class="global-row">
                         <span class="context-label">URL</span>
@@ -202,7 +211,7 @@
                         ></textarea>
                       </label>
                       <label class="global-row global-row-checkbox">
-                        <span class="context-label">启用</span>
+                        <span class="context-label">{{ t("integrations.enable") }}</span>
                         <span class="integrations-checkbox-line">
                           <input v-model="mcpForm.enabled" type="checkbox" />
                         </span>
@@ -211,7 +220,7 @@
                     <div v-if="mcpFormError" class="global-field-error">{{ mcpFormError }}</div>
                     <div class="integrations-form-actions">
                       <button class="btn-mini" type="button" :disabled="!canWriteMcpConfig || mcpFormPending" @click="onSaveMcpForm">
-                        保存 MCP
+                        {{ t("integrations.saveMcp") }}
                       </button>
                       <button
                         class="btn-mini danger"
@@ -219,13 +228,13 @@
                         :disabled="!canWriteMcpConfig || mcpFormPending || !mcpForm.id"
                         @click="onDeleteMcpForm"
                       >
-                        删除 MCP
+                        {{ t("integrations.deleteMcp") }}
                       </button>
                     </div>
                   </section>
 
                   <section class="integrations-mcp-resource">
-                    <div class="integrations-mcp-section-title">资源查看</div>
+                    <div class="integrations-mcp-section-title">{{ t("integrations.resources") }}</div>
                     <McpResourcePanel />
                   </section>
 
@@ -266,20 +275,22 @@
                       <div class="mcp-body">
                         <div class="mcp-meta">
                           <div class="mcp-meta-row">
-                            <div class="mcp-meta-key dim">状态</div>
+                            <div class="mcp-meta-key dim">{{ t("integrations.status") }}</div>
                             <div class="mcp-meta-val mono">{{ mcpStateLabel(server) }}</div>
                           </div>
                           <div class="mcp-meta-row">
-                            <div class="mcp-meta-key dim">传输</div>
+                            <div class="mcp-meta-key dim">{{ t("integrations.transport") }}</div>
                             <div class="mcp-meta-val mono">{{ mcpTransportLabel(server) }}</div>
                           </div>
                           <div v-if="mcpArgsLabel(server)" class="mcp-meta-row">
-                            <div class="mcp-meta-key dim">参数</div>
+                            <div class="mcp-meta-key dim">{{ t("integrations.params") }}</div>
                             <div class="mcp-meta-val mono">{{ mcpArgsLabel(server) }}</div>
                           </div>
                           <div v-if="typeof server.authenticated === 'boolean'" class="mcp-meta-row">
-                            <div class="mcp-meta-key dim">认证</div>
-                            <div class="mcp-meta-val mono">{{ server.authenticated ? "已认证" : "未认证" }}</div>
+                            <div class="mcp-meta-key dim">{{ t("integrations.auth") }}</div>
+                            <div class="mcp-meta-val mono">
+                              {{ server.authenticated ? t("integrations.authenticated") : t("integrations.unauthenticated") }}
+                            </div>
                           </div>
                         </div>
 
@@ -292,10 +303,10 @@
                         </div>
                         <div class="mcp-actions">
                           <button type="button" class="btn-mini" @click.prevent.stop="onEditMcpServer(server)">
-                            编辑
+                            {{ t("integrations.edit") }}
                           </button>
                           <button type="button" class="btn-mini" @click.prevent.stop="onOpenMcpResources(server.id)">
-                            查看资源
+                            {{ t("integrations.viewResources") }}
                           </button>
                           <button
                             type="button"
@@ -303,10 +314,10 @@
                             :disabled="!server.enabled || mcpOauthPendingId === server.id"
                             @click.prevent.stop="onMcpOAuth(server.id)"
                           >
-                            OAuth 登录
+                            {{ t("integrations.oauthLogin") }}
                           </button>
                           <button type="button" class="btn-mini danger" @click.prevent.stop="onDeleteMcpServer(server.id)">
-                            删除
+                            {{ t("integrations.delete") }}
                           </button>
                         </div>
                       </div>
@@ -324,6 +335,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { codexDesktop } from "../../../api/codexDesktopClient";
 import McpResourcePanel from "../../mcp/McpResourcePanel.vue";
 import DetailDisclosure from "../../ui/DetailDisclosure.vue";
@@ -344,6 +356,7 @@ import {
 } from "../../../../shared/codexMcp";
 
 const runtime = getRuntimeOrchestrator();
+const { t } = useI18n();
 const runtimeStore = useRuntimeStore();
 const appShellStore = useAppShellStore();
 const skillsStore = useSkillsStore();
@@ -351,6 +364,7 @@ const skillsUiStore = useSkillsUiStore();
 const mcpStore = useMcpStore();
 const mcpResourceStore = useMcpResourceStore();
 const codexSkillRootsStore = useCodexSkillRootsStore();
+const mcpJsonSchemaText = '{"mcpServers": {...}}';
 
 const props = defineProps<{ mode?: "drawer" | "settings" }>();
 const isSettings = computed(() => props.mode === "settings");
@@ -404,17 +418,18 @@ const activeChipText = computed(() => {
 
 const activeHintText = computed(() => {
   if (activeTab.value === "skills") {
-    if (!runtimeStore.serverId) return "未连接服务";
-    if (!runtimeStore.workspacePath) return "未选择工作区";
-    if (skillsStore.loadState === "loading") return "加载中…";
+    if (!runtimeStore.serverId) return t("skills.disconnected");
+    if (!runtimeStore.workspacePath) return t("skills.noWorkspace");
+    if (skillsStore.loadState === "loading") return t("skills.loading");
     if (skillsStore.loadState === "error")
-      return skillsStore.errorText ? `加载失败：${skillsStore.errorText}` : "加载失败";
-    return "按需启用，保持精简。";
+      return skillsStore.errorText ? t("skills.loadFailedWithMessage", { message: skillsStore.errorText }) : t("skills.loadFailed");
+    return t("integrations.skillsReadyHint");
   }
-  if (!runtimeStore.serverId) return "未连接服务";
-  if (mcpStore.loadState === "loading") return "加载中…";
-  if (mcpStore.loadState === "error") return mcpStore.errorText ? `加载失败：${mcpStore.errorText}` : "加载失败";
-  return "按需启用，减少依赖。";
+  if (!runtimeStore.serverId) return t("skills.disconnected");
+  if (mcpStore.loadState === "loading") return t("skills.loading");
+  if (mcpStore.loadState === "error")
+    return mcpStore.errorText ? t("skills.loadFailedWithMessage", { message: mcpStore.errorText }) : t("skills.loadFailed");
+  return t("integrations.mcpReadyHint");
 });
 
 const skillPendingPath = ref("");
@@ -425,14 +440,15 @@ const canOpenSkillsManager = computed(
   () => Boolean(runtimeStore.serverId) || Boolean(runtimeStore.workspacePath) || skillsStore.items.length > 0
 );
 const skillsStateText = computed(() => {
-  if (!runtimeStore.serverId) return "未连接服务";
-  if (!runtimeStore.workspacePath) return "未选择工作区";
-  if (skillsStore.loadState === "loading") return "加载中…";
+  if (!runtimeStore.serverId) return t("skills.disconnected");
+  if (!runtimeStore.workspacePath) return t("skills.noWorkspace");
+  if (skillsStore.loadState === "loading") return t("skills.loading");
   if (skillsStore.loadState === "error")
-    return skillsStore.errorText ? `加载失败：${skillsStore.errorText}` : "加载失败";
+    return skillsStore.errorText ? t("skills.loadFailedWithMessage", { message: skillsStore.errorText }) : t("skills.loadFailed");
   if (skillsStore.items.length === 0) {
-    if (skillsStore.parseErrors.length > 0) return `暂无可用技能（errors=${skillsStore.parseErrors.length}）`;
-    return "暂无可用技能";
+    if (skillsStore.parseErrors.length > 0)
+      return t("skills.emptyWithErrorsRaw", { count: skillsStore.parseErrors.length });
+    return t("skills.empty");
   }
   return "";
 });
@@ -486,10 +502,11 @@ const canRefreshMcp = computed(() => Boolean(runtimeStore.serverId) && mcpStore.
 const canReloadMcp = computed(() => Boolean(runtimeStore.serverId) && mcpStore.loadState !== "loading");
 const canWriteMcpConfig = computed(() => Boolean(runtimeStore.serverId) && !mcpFormPending.value);
 const mcpStateText = computed(() => {
-  if (!runtimeStore.serverId) return "未连接服务";
-  if (mcpStore.loadState === "loading") return "加载中…";
-  if (mcpStore.loadState === "error") return mcpStore.errorText ? `加载失败：${mcpStore.errorText}` : "加载失败";
-  if (mcpStore.servers.length === 0) return "暂无 MCP 配置";
+  if (!runtimeStore.serverId) return t("skills.disconnected");
+  if (mcpStore.loadState === "loading") return t("skills.loading");
+  if (mcpStore.loadState === "error")
+    return mcpStore.errorText ? t("skills.loadFailedWithMessage", { message: mcpStore.errorText }) : t("skills.loadFailed");
+  if (mcpStore.servers.length === 0) return t("integrations.noMcpConfig");
   return "";
 });
 
@@ -519,7 +536,7 @@ const parseStringArrayField = (text: string, label: string): string[] => {
   if (!raw) return [];
   if (raw.startsWith("[")) {
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) throw new Error(`${label} 必须是 JSON 数组`);
+    if (!Array.isArray(parsed)) throw new Error(t("integrations.jsonArrayRequired", { label }));
     return parsed.map((item) => String(item ?? "")).filter(Boolean);
   }
   return raw
@@ -533,7 +550,9 @@ const parseStringRecordField = (text: string, label: string): Record<string, str
   if (!raw) return undefined;
   if (raw.startsWith("{")) {
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error(`${label} 必须是 JSON 对象`);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error(t("integrations.jsonObjectRequired", { label }));
+    }
     const out: Record<string, string> = {};
     for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
       const normalizedKey = String(key ?? "").trim();
@@ -614,7 +633,7 @@ const onSaveMcpForm = async () => {
   try {
     await runtime.upsertMcpServer(buildMcpFormConfig());
   } catch (error: any) {
-    mcpFormError.value = String(error?.message ?? error ?? "保存失败");
+    mcpFormError.value = String(error?.message ?? error ?? t("integrations.saveFailed"));
   } finally {
     mcpFormPending.value = false;
   }
@@ -629,14 +648,14 @@ const onDeleteMcpForm = async () => {
 const onDeleteMcpServer = async (serverId: string) => {
   const id = normalizeCodexMcpServerId(serverId);
   if (!id) return;
-  if (!window.confirm(`删除 MCP「${id}」？`)) return;
+  if (!window.confirm(t("integrations.confirmDeleteMcp", { id }))) return;
   mcpFormPending.value = true;
   mcpFormError.value = "";
   try {
     await runtime.deleteMcpServer(id);
     if (normalizeCodexMcpServerId(mcpForm.id) === id) resetMcpForm();
   } catch (error: any) {
-    mcpFormError.value = String(error?.message ?? error ?? "删除失败");
+    mcpFormError.value = String(error?.message ?? error ?? t("integrations.deleteFailed"));
   } finally {
     mcpFormPending.value = false;
   }
@@ -647,7 +666,7 @@ const onImportMcpJson = async () => {
   mcpJsonResultIsError.value = false;
   const text = mcpJsonText.value.trim();
   if (!text) {
-    mcpJsonResultText.value = "请输入 JSON。";
+    mcpJsonResultText.value = t("integrations.inputJson");
     mcpJsonResultIsError.value = true;
     return;
   }
@@ -656,11 +675,13 @@ const onImportMcpJson = async () => {
     const res = await runtime.importMcpServersFromJson(text);
     mcpJsonResultIsError.value = res.imported === 0 || res.errors.length > 0;
     mcpJsonResultText.value =
-      res.errors.length > 0 ? `已导入 ${res.imported} 个；错误：${res.errors.join("；")}` : `已导入 ${res.imported} 个 MCP。`;
+      res.errors.length > 0
+        ? t("integrations.importedWithErrors", { count: res.imported, errors: res.errors.join("; ") })
+        : t("integrations.importedMcp", { count: res.imported });
     if (res.imported > 0) mcpJsonText.value = "";
   } catch (error: any) {
     mcpJsonResultIsError.value = true;
-    mcpJsonResultText.value = String(error?.message ?? error ?? "导入失败");
+    mcpJsonResultText.value = String(error?.message ?? error ?? t("integrations.importFailed"));
   } finally {
     mcpFormPending.value = false;
   }
@@ -708,24 +729,24 @@ const mcpDotClass = (server: McpServerState) => {
 };
 
 const mcpStateLabel = (server: McpServerState) => {
-  if (!server.enabled) return "未启用";
-  if (server.state === "connected") return "已连接";
-  if (server.state === "connecting") return "连接中";
-  if (server.state === "error") return "异常";
-  if (server.state === "disabled") return "已禁用";
-  return server.state ? String(server.state) : "未知";
+  if (!server.enabled) return t("integrations.stateDisabled");
+  if (server.state === "connected") return t("integrations.stateConnected");
+  if (server.state === "connecting") return t("integrations.stateConnecting");
+  if (server.state === "error") return t("integrations.stateError");
+  if (server.state === "disabled") return t("integrations.stateDisabledServer");
+  return server.state ? String(server.state) : t("integrations.stateUnknown");
 };
 
 const mcpSummarySubtext = (server: McpServerState) => {
   const transport = mcpTransportLabel(server);
-  if (!transport || transport === "未知") return "";
+  if (!transport || transport === t("integrations.stateUnknown")) return "";
   return transport;
 };
 
 const mcpTransportLabel = (server: McpServerState) => {
   if (server.url) return String(server.url);
   if (server.command) return `cmd=${String(server.command)}`;
-  return "未知";
+  return t("integrations.stateUnknown");
 };
 
 const mcpArgsLabel = (server: McpServerState) => {

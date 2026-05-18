@@ -28,12 +28,12 @@
         :style="popoverStyle"
         :data-composer-owner="interactionOwnerId || undefined"
         role="dialog"
-        aria-label="模型和思考程度"
+        :aria-label="t('composer.modelReasoningAria')"
         @pointerdown="onPreservePointerFocus"
       >
         <div class="composer-model-reasoning-popover-head">
           <div class="composer-model-reasoning-popover-title">
-            <span>选择模型</span>
+            <span>{{ t("composer.chooseModel") }}</span>
           </div>
         </div>
 
@@ -69,12 +69,12 @@
         :style="reasoningPopoverStyle"
         :data-composer-owner="interactionOwnerId || undefined"
         role="listbox"
-        :aria-label="`${activeModel} 思考程度`"
+        :aria-label="t('composer.modelReasoningFor', { model: activeModel })"
         @pointerdown="onPreservePointerFocus"
       >
         <div class="composer-model-reasoning-popover-head composer-model-reasoning-popover-head--sub">
           <div class="composer-model-reasoning-popover-title">
-            <span>思考程度</span>
+            <span>{{ t("composer.reasoningEffort") }}</span>
             <strong class="mono">{{ activeModel }}</strong>
           </div>
         </div>
@@ -102,6 +102,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { Check, ChevronDown, ChevronRight } from "lucide-vue-next";
+import { useI18n } from "vue-i18n";
 
 type SelectOption = {
   value: string;
@@ -131,6 +132,7 @@ const emit = defineEmits<{
   (event: "update:reasoningEffort", value: string): void;
 }>();
 
+const { t } = useI18n();
 const open = ref(false);
 const activeModel = ref("");
 const triggerRef = ref<HTMLButtonElement | null>(null);

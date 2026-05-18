@@ -6,26 +6,26 @@
         <div class="topbar-menu-anchor topbar-menu-anchor--approval">
           <TopBarApprovalMenu :open="approvalMenuOpen" @toggle="toggleApprovalMenu" @close="closeApprovalMenu" />
         </div>
-        <div class="topbar-mainview-switch" aria-label="主视图">
+        <div class="topbar-mainview-switch" :aria-label="t('topbar.mainView')">
           <button
             class="topbar-mainview-btn"
             :class="{ 'is-active': appShellStore.mainView === 'chat' }"
             type="button"
-            aria-label="聊天"
+            :aria-label="t('topbar.chat')"
             @click="onSetMainView('chat')"
           >
             <MessageSquare class="topbar-mainview-icon" aria-hidden="true" />
-            <span>聊天</span>
+            <span>{{ t("topbar.chat") }}</span>
           </button>
           <button
             class="topbar-mainview-btn"
             :class="{ 'is-active': appShellStore.mainView === 'image' }"
             type="button"
-            aria-label="图片"
+            :aria-label="t('topbar.image')"
             @click="onSetMainView('image')"
           >
             <ImageIcon class="topbar-mainview-icon" aria-hidden="true" />
-            <span>图片</span>
+            <span>{{ t("topbar.image") }}</span>
           </button>
         </div>
       </div>
@@ -34,7 +34,7 @@
 
       <div class="topbar-right-stack">
         <div class="row topbar-controls topbar-controls--sleek">
-          <div class="control-group control-group-panes" aria-label="面板">
+          <div class="control-group control-group-panes" :aria-label="t('topbar.panels')">
             <button
               id="btn-toggle-thread-pane"
               class="btn-icon"
@@ -66,7 +66,7 @@
               class="btn-icon"
               :class="{ 'is-active': appShellStore.settingsOpen }"
               type="button"
-              aria-label="打开设置"
+              :aria-label="t('topbar.openSettings')"
               :aria-pressed="appShellStore.settingsOpen ? 'true' : 'false'"
               @click="onOpenSettings"
             >
@@ -89,6 +89,7 @@
 
 <script setup lang="ts">
 import { computed, defineAsyncComponent, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   Image as ImageIcon,
   MessageSquare,
@@ -111,6 +112,7 @@ import type { MainView } from "../../../shared/localSettings";
 const TopBarApprovalMenu = defineAsyncComponent(() => import("./topbar/TopBarApprovalMenu.vue"));
 
 const appShellStore = useAppShellStore();
+const { t } = useI18n();
 const runtimeStore = useRuntimeStore();
 const workspaceFilesStore = useWorkspaceFilesStore();
 const approvalMenuOpen = ref(false);
@@ -124,14 +126,14 @@ const filesPaneVisible = computed(
     appShellStore.filesSidebarVisible
 );
 const threadPaneTitle = computed(() => {
-  if (appShellStore.settingsOpen) return "设置页中暂不显示线程面板";
-  return appShellStore.leftSidebarVisible ? "关闭线程面板" : "打开线程面板";
+  if (appShellStore.settingsOpen) return t("topbar.threadPanelHiddenInSettings");
+  return appShellStore.leftSidebarVisible ? t("topbar.closeThreadPanel") : t("topbar.openThreadPanel");
 });
 const filesPaneTitle = computed(() => {
-  if (!hasWorkspace.value) return "先选择工作区后再打开文件面板";
-  if (appShellStore.settingsOpen) return "设置页中暂不显示文件面板";
-  if (appShellStore.mainView !== "chat") return "图片视图中暂不显示文件面板";
-  return filesPaneVisible.value ? "关闭文件面板" : "打开文件面板";
+  if (!hasWorkspace.value) return t("topbar.chooseWorkspaceBeforeFiles");
+  if (appShellStore.settingsOpen) return t("topbar.filesPanelHiddenInSettings");
+  if (appShellStore.mainView !== "chat") return t("topbar.filesPanelHiddenInImage");
+  return filesPaneVisible.value ? t("topbar.closeFilesPanel") : t("topbar.openFilesPanel");
 });
 
 function toggleApprovalMenu() {

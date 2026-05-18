@@ -15,7 +15,7 @@
         v-if="item.approvalRequired"
         class="inline-flex h-[22px] items-center rounded-[4px] border border-[var(--border-warning)] bg-[var(--bg-warning-soft)] px-[9px] text-[11px] mono text-[var(--fg-warning)]"
       >
-        需审批
+        {{ t("dynamicTool.approvalRequired") }}
       </span>
     </div>
 
@@ -52,7 +52,7 @@
       summaryClass="mono text-[11px] dim"
       @update:open="argsOpen = $event"
     >
-      <template #summary>查看完整参数</template>
+      <template #summary>{{ t("dynamicTool.viewFullArgs") }}</template>
       <pre
         class="mono mt-1.5 max-h-[240px] overflow-y-auto app-scrollbar rounded-[4px] border border-[var(--ui-code-border)] bg-[var(--ui-code-bg)] p-2 text-[var(--ui-code-text)] whitespace-pre-wrap [overflow-wrap:anywhere] break-words"
         >{{ item.argsRaw }}</pre
@@ -66,7 +66,7 @@
       summaryClass="mono text-[11px] dim"
       @update:open="resultOpen = $event"
     >
-      <template #summary>查看完整结果</template>
+      <template #summary>{{ t("dynamicTool.viewFullResult") }}</template>
       <pre
         class="mono mt-1.5 max-h-[240px] overflow-y-auto app-scrollbar rounded-[4px] border border-[var(--ui-code-border)] bg-[var(--ui-code-bg)] p-2 text-[var(--ui-code-text)] whitespace-pre-wrap [overflow-wrap:anywhere] break-words"
         >{{ resultRawText }}</pre
@@ -77,6 +77,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import DetailDisclosure from "../../ui/DetailDisclosure.vue";
 import ExecutionWaveText from "../../ui/ExecutionWaveText.vue";
 import type { DynamicToolTimelineItem } from "../../../domain/dynamicTools";
@@ -85,6 +86,7 @@ const props = defineProps<{
   item: DynamicToolTimelineItem;
 }>();
 
+const { t } = useI18n();
 const argsOpen = ref(false);
 const resultOpen = ref(false);
 
@@ -96,5 +98,5 @@ const resultRawText = computed(() => {
   const imageLines = imageItems.value.map((item, index) => `image[${index + 1}]: ${item.imageUrl}`);
   return [...textItems.value, ...imageLines].filter(Boolean).join("\n\n");
 });
-// 工具事件两态化：不展示状态徽标，不做成功/失败配色。
+// Tool events do not show a status badge or success/failure coloring.
 </script>

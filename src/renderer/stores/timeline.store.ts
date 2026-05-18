@@ -3,6 +3,8 @@ import { defineStore } from "pinia";
 import type { TimelineEventItem, TimelineEventLevel } from "../domain/types";
 
 const MAX_EVENT_PARAMS_CHARS = 60_000;
+const COMMAND_OUTPUT_MAX_CHARS = 20_000;
+const COMMAND_OUTPUT_MAX_LINES = 500;
 const STREAM_FLUSH_DELAY_MS = 33;
 const STREAM_FLUSH_FALLBACK_DELAY_MS = 120;
 
@@ -37,11 +39,34 @@ type ThreadTimelineState = {
   structureRevision: number;
 };
 
+export type TimelineThreadStats = {
+  eventCount: number;
+  renderEventCount: number;
+  turnCount: number;
+  renderTurnCount: number;
+  contentRevision: number;
+  structureRevision: number;
+};
+
 const EMPTY_TIMELINE_EVENTS: TimelineEventItem[] = [];
 
+function isCommandOutputMethod(method: unknown): boolean {
+  const normalized = String(method ?? "").trim();
+  return normalized === "command/exec/outputDelta" || normalized === "item/commandExecution/outputDelta";
+}
+
+function trimCommandOutputText(text: string): string {
+  let next = text;
+  if (next.length > COMMAND_OUTPUT_MAX_CHARS) next = next.slice(next.length - COMMAND_OUTPUT_MAX_CHARS);
+  const lines = next.split(/\r?\n/);
+  if (lines.length > COMMAND_OUTPUT_MAX_LINES) next = lines.slice(lines.length - COMMAND_OUTPUT_MAX_LINES).join("\n");
+  return next;
+}
+
 // 控制 paramsText 上限，避免大 payload 挤爆内存与渲染。
-function trimEventParamsText(text: string): string {
+function trimEventParamsText(text: string, method?: unknown): string {
   const normalized = String(text ?? "");
+  if (isCommandOutputMethod(method)) return trimCommandOutputText(normalized);
   if (normalized.length <= MAX_EVENT_PARAMS_CHARS) return normalized;
   return normalized.slice(normalized.length - MAX_EVENT_PARAMS_CHARS);
 }
@@ -175,6 +200,35 @@ export const useTimelineStore = defineStore("timeline", {
         return state.threads.get(threadId)?.structureRevision ?? 0;
       };
     },
+    timelineStatsForThread(state): (threadId: string) => TimelineThreadStats {
+      return (threadIdValue: string) => {
+        const threadId = ensureThreadId(threadIdValue);
+        const t = state.threads.get(threadId);
+        if (!t) {
+          return {
+            eventCount: 0,
+            renderEventCount: 0,
+            turnCount: 0,
+            renderTurnCount: 0,
+            contentRevision: 0,
+            structureRevision: 0,
+          };
+        }
+        const renderTurnIds = new Set<string>();
+        for (const event of t.renderEvents) {
+          const turnId = String(event.turnId ?? "").trim();
+          if (turnId) renderTurnIds.add(turnId);
+        }
+        return {
+          eventCount: t.eventsById.size,
+          renderEventCount: t.renderEvents.length,
+          turnCount: t.byTurnId.size,
+          renderTurnCount: renderTurnIds.size,
+          contentRevision: t.contentRevision,
+          structureRevision: t.structureRevision,
+        };
+      };
+    },
   },
   actions: {
     // flush 高频流式 chunk，避免每个 delta 都触发一次响应式更新。
@@ -203,7 +257,7 @@ export const useTimelineStore = defineStore("timeline", {
         const next: TimelineEventItem = {
           id,
           method: String(params.method ?? existing?.method ?? ""),
-          paramsText: trimEventParamsText(`${existing?.paramsText ?? ""}${chunk}`),
+          paramsText: trimEventParamsText(`${existing?.paramsText ?? ""}${chunk}`, params.method ?? existing?.method),
           params: params.params ?? existing?.params,
           createdAt,
           threadId,
@@ -267,7 +321,7 @@ export const useTimelineStore = defineStore("timeline", {
       const event: TimelineEventItem = {
         id,
         method: String(params.method ?? ""),
-        paramsText: trimEventParamsText(params.paramsText),
+        paramsText: trimEventParamsText(params.paramsText, params.method),
         params: params.params,
         createdAt,
         threadId,
@@ -318,7 +372,7 @@ export const useTimelineStore = defineStore("timeline", {
       const next: TimelineEventItem = {
         id,
         method: String(params.method ?? existing?.method ?? ""),
-        paramsText: trimEventParamsText(params.paramsText),
+        paramsText: trimEventParamsText(params.paramsText, params.method ?? existing?.method),
         params: params.params ?? existing?.params,
         createdAt,
         threadId,
@@ -428,7 +482,9 @@ export const useTimelineStore = defineStore("timeline", {
       }
 
       const nextParamsText =
-        typeof patch.paramsText === "string" ? trimEventParamsText(patch.paramsText) : existing.paramsText;
+        typeof patch.paramsText === "string"
+          ? trimEventParamsText(patch.paramsText, patch.method ?? existing.method)
+          : existing.paramsText;
       const next = { ...existing, ...patch, turnId: nextTurnId, paramsText: nextParamsText };
       state.eventsById.set(existing.id, next);
       replaceRenderEvent(state, next);
@@ -498,7 +554,7 @@ export const useTimelineStore = defineStore("timeline", {
           ...rawEvent,
           id,
           threadId,
-          paramsText: trimEventParamsText(String(rawEvent?.paramsText ?? "")),
+          paramsText: trimEventParamsText(String(rawEvent?.paramsText ?? ""), rawEvent?.method),
           createdAt: Number.isFinite(rawEvent?.createdAt) ? Number(rawEvent.createdAt) : Date.now(),
           level: rawEvent?.level ?? "info",
         };

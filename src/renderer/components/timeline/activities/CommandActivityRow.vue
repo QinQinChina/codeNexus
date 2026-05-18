@@ -26,6 +26,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { FileText, ListTree, Search } from "lucide-vue-next";
 import ExecutionWaveText from "../../ui/ExecutionWaveText.vue";
 import type {
@@ -45,6 +46,7 @@ const props = withDefaults(
   {}
 );
 
+const { t } = useI18n();
 const readItem = computed(() => props.item as CommandReadNode);
 const listItem = computed(() => props.item as CommandListNode);
 const searchItem = computed(() => props.item as CommandSearchNode);
@@ -57,31 +59,29 @@ const basename = (value: string) =>
     .pop() ?? "";
 
 const fileLabel = computed(
-  () => readItem.value.name || basename(readItem.value.path) || readItem.value.path || "读取内容"
+  () => readItem.value.name || basename(readItem.value.path) || readItem.value.path || t("commandActivity.readContent")
 );
 const readPathText = computed(() => readItem.value.path || fileLabel.value);
-const listScopeText = computed(() => listItem.value.path || "当前目录");
+const listScopeText = computed(() => listItem.value.path || t("commandActivity.currentDirectory"));
 const searchScopeText = computed(() => searchItem.value.path || "");
-const queryText = computed(() => searchItem.value.query || "搜索");
+const queryText = computed(() => searchItem.value.query || t("commandActivity.search"));
 
 const activityText = computed(() => {
   if (props.kind === "read") {
-    const target = readPathText.value ? `：${readPathText.value}` : "";
-    return `读取文件${target}`;
+    return t("commandActivity.readFile", { target: readPathText.value });
   }
 
   if (props.kind === "list") {
-    const scope = listScopeText.value;
-    return `列出文件：${scope}`;
+    return t("commandActivity.listFiles", { scope: listScopeText.value });
   }
 
-  const scope = searchScopeText.value ? `（${searchScopeText.value}）` : "";
-  return `搜索："${queryText.value}"${scope}`;
+  const scope = searchScopeText.value ? t("commandActivity.searchScope", { scope: searchScopeText.value }) : "";
+  return t("commandActivity.searchInScope", { query: queryText.value, scope });
 });
 
 const metaText = computed(() => {
   if (props.kind === "read") return "";
-  if (props.kind === "list") return `${listItem.value.filesCount} 项`;
+  if (props.kind === "list") return t("commandActivity.itemCount", { count: listItem.value.filesCount });
   return "";
 });
 
