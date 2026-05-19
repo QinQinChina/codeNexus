@@ -102,16 +102,15 @@ onBeforeUnmount(() => {
 .bottom-bar .bottom-bar__profile-switch {
   flex: 0 1 auto;
   width: fit-content;
-  max-width: min(260px, 42vw);
+  max-width: min(230px, 42vw);
   height: 26px;
-  margin-left: 4px;
+  margin-left: 6px;
   margin-right: 4px;
 }
 
 .bottom-bar .bottom-bar__profile-switch :deep(.codex-profile-switch__select) {
-  min-width: 130px;
-  max-width: min(260px, 26vw);
-  height: 22px;
+  width: clamp(148px, 18vw, 220px);
+  height: 24px;
 }
 
 .bottom-bar__clock {

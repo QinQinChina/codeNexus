@@ -150,6 +150,8 @@
                 class="composer-context-ball"
                 :percent="contextUsagePercent"
                 :level="contextUsageLevel"
+                :size="28"
+                :animated="contextUsageLevel === 'critical'"
                 :aria-label="contextUsageTooltip"
               />
               <div class="composer-context-copy">

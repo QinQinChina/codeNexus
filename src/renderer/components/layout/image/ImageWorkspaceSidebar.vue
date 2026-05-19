@@ -5,18 +5,29 @@
         <div class="lsb-pane-content image-workspace-pane">
           <header class="lsb-pane-head image-workspace-head">
             <div class="lsb-pane-head-row">
-              <h2 class="lsb-pane-title">{{ t("imageWorkspace.title") }}</h2>
-              <button class="btn-mini" type="button" :disabled="workbench.historyLoading" @click="refresh">
+              <div class="image-workspace-title-block">
+                <span class="image-workspace-title-icon" aria-hidden="true">
+                  <ImageIcon />
+                </span>
+                <div class="image-workspace-title-copy">
+                  <h2 class="lsb-pane-title">{{ t("imageWorkspace.title") }}</h2>
+                  <div class="image-workspace-summary mono">
+                    {{ t("imageWorkspace.recordCount", { count: workbench.historyItems.length }) }}
+                  </div>
+                </div>
+              </div>
+              <button
+                class="lsb-icon-btn image-workspace-refresh"
+                type="button"
+                :aria-label="t('common.refresh')"
+                :disabled="workbench.historyLoading"
+                @click="refresh"
+              >
                 <RefreshCw
-                  class="btn-mini__icon"
                   :class="{ 'is-spinning': workbench.historyLoading }"
                   aria-hidden="true"
                 />
-                <span>{{ t("common.refresh") }}</span>
               </button>
-            </div>
-            <div class="image-workspace-summary mono">
-              {{ t("imageWorkspace.recordCount", { count: workbench.historyItems.length }) }}
             </div>
           </header>
 
@@ -61,7 +72,16 @@
                     <div class="image-workspace-item__thumb">
                       <img v-if="thumbSrc(item)" :src="thumbSrc(item)" :alt="item.prompt" loading="lazy" />
                       <Loader2 v-else-if="isPending(item)" class="is-spinning" aria-hidden="true" />
-                      <AlertTriangle v-else-if="isProblem(item)" aria-hidden="true" />
+                      <button
+                        v-else-if="item.taskId && isProblem(item)"
+                        class="image-workspace-item__thumb-retry"
+                        type="button"
+                        :aria-label="t('imageWorkbench.retryTask')"
+                        @click.stop="workbench.retryTask(item.taskId)"
+                      >
+                        <RotateCcw aria-hidden="true" />
+                      </button>
+                      <RotateCcw v-else-if="isProblem(item)" aria-hidden="true" />
                       <ImageIcon v-else aria-hidden="true" />
                     </div>
 
@@ -71,7 +91,6 @@
                         <span class="image-workspace-item__status">{{ statusLabel(item) }}</span>
                       </div>
                       <div class="image-workspace-item__prompt">{{ item.prompt }}</div>
-                      <div v-if="item.errorText" class="image-workspace-item__error">{{ item.errorText }}</div>
                     </div>
 
                     <div class="image-workspace-item__actions">
@@ -83,15 +102,6 @@
                         @click.stop="workbench.cancelTask(item.taskId)"
                       >
                         <X aria-hidden="true" />
-                      </button>
-                      <button
-                        v-if="item.taskId && isProblem(item)"
-                        class="image-workspace-action"
-                        type="button"
-                        :aria-label="t('imageWorkbench.retryTask')"
-                        @click.stop="workbench.retryTask(item.taskId)"
-                      >
-                        <RotateCcw aria-hidden="true" />
                       </button>
                       <button
                         class="image-workspace-action is-danger"
@@ -117,7 +127,6 @@
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import {
-  AlertTriangle,
   ChevronDown,
   Image as ImageIcon,
   Loader2,
@@ -288,12 +297,109 @@ watch(
 }
 
 .image-workspace-head {
-  gap: 7px;
+  position: relative;
+  padding: 12px 12px 10px;
+  overflow: hidden;
+  border-bottom-color: color-mix(in srgb, var(--lsb-line) 76%, transparent);
+  background:
+    radial-gradient(circle at 16px 12px, color-mix(in srgb, var(--lsb-accent) 12%, transparent), transparent 30px),
+    linear-gradient(180deg, color-mix(in srgb, var(--lsb-bg-strong) 98%, transparent), var(--lsb-bg));
+}
+
+.image-workspace-head::after {
+  content: "";
+  position: absolute;
+  right: 16px;
+  bottom: -1px;
+  left: 16px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--lsb-accent) 32%, transparent), transparent);
+  pointer-events: none;
+}
+
+.image-workspace-head .lsb-pane-head-row {
+  position: relative;
+  z-index: 1;
+  align-items: center;
+  gap: 10px;
+}
+
+.image-workspace-title-block {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+}
+
+.image-workspace-title-icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--lsb-accent) 24%, var(--lsb-line));
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--lsb-accent) 12%, transparent), transparent),
+    color-mix(in srgb, var(--lsb-surface) 82%, transparent);
+  color: color-mix(in srgb, var(--lsb-accent) 82%, var(--lsb-text));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 10%, transparent);
+}
+
+.image-workspace-title-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.image-workspace-title-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.image-workspace-head .lsb-pane-title {
+  font-size: 16px;
+  letter-spacing: -0.015em;
+  line-height: 1.12;
 }
 
 .image-workspace-summary {
+  color: color-mix(in srgb, var(--lsb-muted) 86%, var(--lsb-text));
+  font-size: 10.5px;
+  line-height: 1.2;
+}
+
+.image-workspace-refresh {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  border-radius: 7px;
+  border-color: color-mix(in srgb, var(--lsb-line) 82%, var(--lsb-accent) 18%);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 6%, transparent), transparent),
+    color-mix(in srgb, var(--lsb-surface) 86%, transparent);
   color: var(--lsb-muted);
-  font-size: 11px;
+  box-shadow: 0 8px 18px color-mix(in srgb, black 16%, transparent);
+}
+
+.image-workspace-refresh svg {
+  width: 14px;
+  height: 14px;
+}
+
+.image-workspace-refresh:hover:not(:disabled) {
+  color: var(--lsb-text);
+  border-color: color-mix(in srgb, var(--lsb-accent) 42%, var(--lsb-line));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--lsb-accent) 12%, transparent), transparent),
+    color-mix(in srgb, var(--lsb-surface-hover) 90%, transparent);
+}
+
+.image-workspace-refresh:disabled {
+  opacity: 0.62;
+  box-shadow: none;
 }
 
 .image-workspace-scroll {
@@ -425,6 +531,21 @@ watch(
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.image-workspace-item__thumb-retry {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.image-workspace-item__thumb-retry:hover {
+  background: color-mix(in srgb, var(--fg-danger) 8%, transparent);
 }
 
 .image-workspace-item__thumb svg {

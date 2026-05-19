@@ -29,20 +29,6 @@
         <ImageSettingsSidebar v-else-if="showImageSettingsSidebar" key="image-settings" class="files-pane-host" />
         <WorkspaceFilesSidebar v-else-if="showFilesSidebar" key="files" class="files-pane-host" />
       </Transition>
-
-      <div
-        v-if="!settingsOpen && showLeftSidebar"
-        class="sash sash-left"
-        :class="{ 'is-collapsed': isLeftSashCollapsed }"
-        role="separator"
-        aria-orientation="vertical"
-        :aria-label="leftSashAriaLabel"
-        :aria-valuenow="String(Math.round(effectiveLeftSidebarWidthPx))"
-        tabindex="0"
-        :style="leftSashStyle"
-        @pointerdown="onLeftSashPointerDown"
-        @keydown="onLeftSashKeyDown"
-      ></div>
     </main>
     <BottomBar />
     <div class="app-overlays">
@@ -83,7 +69,6 @@ import {
   CENTER_EDITOR_SOFT_MIN_WIDTH_PX,
   CENTER_WITH_EDITOR_HARD_MIN_WIDTH_PX,
   CENTER_TIMELINE_HARD_MIN_WIDTH_PX,
-  SIDEBAR_HARD_MIN_WIDTH_PX,
   resolveCenterWidths,
   resolveShellWidths,
 } from "./domain/layoutWidthBudget";
@@ -155,9 +140,7 @@ watch(
   }
 );
 
-const SASH_HIT_WIDTH_PX = 10;
-const KEYBOARD_RESIZE_STEP_PX = 16;
-const SIDEBAR_RENDER_THRESHOLD_PX = 24;
+const UNIFIED_SIDEBAR_WIDTH_PX = 300;
 const CENTER_EDITOR_KEYBOARD_STEP_PX = 20;
 
 const mainRef = ref<HTMLElement | null>(null);
@@ -166,21 +149,6 @@ const editorResizeState = ref<{
   startWidthPx: number;
   previewWidthPx: number;
 } | null>(null);
-
-const leftResizeState = ref<{
-  startClientX: number;
-  startWidthPx: number;
-  previewWidthPx: number;
-} | null>(null);
-
-const requestedLeftSidebarWidthPx = computed(() => {
-  if (leftResizeState.value) return leftResizeState.value.previewWidthPx;
-  return appShellStore.leftSidebarWidthPx;
-});
-
-const requestedFilesSidebarWidthPx = computed(() => {
-  return appShellStore.filesSidebarWidthPx;
-});
 
 const showEditorPane = computed(
   () => !settingsOpen.value && mainView.value === "chat" && workspaceFilesStore.hasOpenTabs
@@ -196,8 +164,8 @@ const resolvedShellWidths = computed(() => {
     leftVisible: showLeftSidebar.value,
     filesVisible: showFilesSidebar.value || showDebugSidebar.value || showImageSettingsSidebar.value,
     rightVisible: false,
-    leftPreferredWidth: requestedLeftSidebarWidthPx.value,
-    filesPreferredWidth: showImageSettingsSidebar.value ? 344 : requestedFilesSidebarWidthPx.value,
+    leftPreferredWidth: UNIFIED_SIDEBAR_WIDTH_PX,
+    filesPreferredWidth: UNIFIED_SIDEBAR_WIDTH_PX,
     rightPreferredWidth: 0,
     centerHardMinWidth: centerHardMinWidthPx.value,
     prioritySide: "left",
@@ -224,10 +192,6 @@ const effectiveEditorWidthPx = computed(() => {
   return resolvedCenterWidths.value.editorWidth;
 });
 
-const isLeftSashCollapsed = computed(() => {
-  return effectiveLeftSidebarWidthPx.value < SIDEBAR_RENDER_THRESHOLD_PX;
-});
-
 const isEditorCompact = computed(() => {
   return showEditorPane.value && effectiveEditorWidthPx.value < CENTER_EDITOR_SOFT_MIN_WIDTH_PX;
 });
@@ -242,10 +206,6 @@ watch(
   { flush: "post" }
 );
 
-const leftSashAriaLabel = computed(() => {
-  return isLeftSashCollapsed.value ? t("appShell.pullLeftSidebar") : t("appShell.resizeLeftSidebar");
-});
-
 const mainClass = computed(() => ({
   "has-editor": !settingsOpen.value && showEditorPane.value,
   "has-files-sidebar": showFilesSidebar.value || showDebugSidebar.value || showImageSettingsSidebar.value,
@@ -259,19 +219,10 @@ const mainStyle = computed(
       "--left-sidebar-w": `${Math.max(0, Math.round(effectiveLeftSidebarWidthPx.value))}px`,
       "--files-sidebar-w": `${Math.max(0, Math.round(effectiveFilesSidebarWidthPx.value))}px`,
       "--center-editor-w": `${Math.max(0, Math.round(effectiveEditorWidthPx.value))}px`,
-      "--sash-hit-w": `${SASH_HIT_WIDTH_PX}px`,
       "--center-editor-sash-w": `${CENTER_EDITOR_SASH_WIDTH_PX}px`,
     }) as Record<string, string>
 );
 
-const leftSashStyle = computed(
-  () =>
-    ({
-      left: `${isLeftSashCollapsed.value ? 0 : Math.max(0, Math.round(effectiveLeftSidebarWidthPx.value))}px`,
-    }) as Record<string, string>
-);
-
-const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
 const getMainWidthPx = () => mainRef.value?.getBoundingClientRect().width ?? window.innerWidth;
 
 const clampEditorPreferredWidthPx = (value: number) => {
@@ -296,86 +247,6 @@ const teardownEditorResizeListeners = () => {
   window.removeEventListener("pointerup", onEditorSashPointerUp);
   window.removeEventListener("pointercancel", onEditorSashPointerUp);
   setEditorResizeGlobalStyles(false);
-};
-
-const normalizeVisibleSidebarPreviewWidthPx = (rawNext: number, maxWidthPx: number) => {
-  const rounded = Math.round(rawNext);
-  if (maxWidthPx < SIDEBAR_HARD_MIN_WIDTH_PX) return SIDEBAR_HARD_MIN_WIDTH_PX;
-  return clamp(rounded, SIDEBAR_HARD_MIN_WIDTH_PX, maxWidthPx);
-};
-
-const getMaxLeftSidebarWidthPx = () => {
-  const mainWidth = getMainWidthPx();
-  const rightWidth = showImageSettingsSidebar.value ? 344 : requestedFilesSidebarWidthPx.value;
-  const reservedWidth =
-    centerHardMinWidthPx.value +
-    (showFilesSidebar.value || showDebugSidebar.value || showImageSettingsSidebar.value ? rightWidth : 0);
-  const max = mainWidth - reservedWidth;
-  return Math.max(0, Math.floor(max));
-};
-
-const setResizeGlobalStyles = (enabled: boolean) => {
-  try {
-    document.body.style.cursor = enabled ? "col-resize" : "";
-    document.body.style.userSelect = enabled ? "none" : "";
-    document.body.classList.toggle("is-resizing", enabled);
-  } catch {}
-};
-
-const teardownResizeListeners = () => {
-  window.removeEventListener("pointermove", onLeftSashPointerMove);
-  window.removeEventListener("pointerup", onLeftSashPointerUp);
-  window.removeEventListener("pointercancel", onLeftSashPointerUp);
-  setResizeGlobalStyles(false);
-};
-
-const onLeftSashPointerDown = (event: PointerEvent) => {
-  if (event.button !== 0) return;
-
-  const startWidthPx = effectiveLeftSidebarWidthPx.value;
-  leftResizeState.value = { startClientX: event.clientX, startWidthPx, previewWidthPx: startWidthPx };
-
-  setResizeGlobalStyles(true);
-  try {
-    (event.currentTarget as HTMLElement | null)?.setPointerCapture?.(event.pointerId);
-  } catch {}
-
-  window.addEventListener("pointermove", onLeftSashPointerMove);
-  window.addEventListener("pointerup", onLeftSashPointerUp);
-  window.addEventListener("pointercancel", onLeftSashPointerUp);
-  event.preventDefault();
-};
-
-const onLeftSashPointerMove = (event: PointerEvent) => {
-  const state = leftResizeState.value;
-  if (!state) return;
-  const deltaX = event.clientX - state.startClientX;
-  const rawNext = state.startWidthPx + deltaX;
-  const max = getMaxLeftSidebarWidthPx();
-  state.previewWidthPx = normalizeVisibleSidebarPreviewWidthPx(rawNext, max);
-};
-
-const commitLeftSidebarWidth = (widthPx: number) => {
-  const rounded = Math.max(0, Math.round(widthPx));
-  const nextWidth = Math.max(SIDEBAR_HARD_MIN_WIDTH_PX, rounded);
-  appShellStore.setLeftSidebarWidthPx(nextWidth, { save: true });
-};
-
-const onLeftSashPointerUp = () => {
-  const state = leftResizeState.value;
-  leftResizeState.value = null;
-  teardownResizeListeners();
-  if (!state) return;
-  commitLeftSidebarWidth(state.previewWidthPx);
-};
-
-const onLeftSashKeyDown = (event: KeyboardEvent) => {
-  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-  const dir = event.key === "ArrowRight" ? 1 : -1;
-  const max = getMaxLeftSidebarWidthPx();
-  const next = clamp(effectiveLeftSidebarWidthPx.value + dir * KEYBOARD_RESIZE_STEP_PX, SIDEBAR_HARD_MIN_WIDTH_PX, max);
-  commitLeftSidebarWidth(next);
-  event.preventDefault();
 };
 
 const onEditorSashPointerDown = (event: PointerEvent) => {
@@ -428,7 +299,6 @@ onBeforeUnmount(() => {
   } catch {}
   stopWindowStateListener = null;
 
-  teardownResizeListeners();
   teardownEditorResizeListeners();
 });
 </script>

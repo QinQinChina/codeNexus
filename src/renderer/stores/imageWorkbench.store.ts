@@ -20,21 +20,6 @@ export type ImageWorkbenchHistoryItem = ImageGenerationHistoryItem & {
   errorText?: string;
 };
 
-type ResultImage = {
-  path: string;
-  dataUrl: string;
-  mimeType: string;
-  revisedPrompt: string | null;
-};
-
-type GenerateResult = {
-  ok: true;
-  model: string;
-  prompt: string;
-  revisedPrompt: string | null;
-  images: ResultImage[];
-};
-
 type InputImage = {
   id: string;
   name: string;
@@ -111,18 +96,12 @@ export const useImageWorkbenchStore = defineStore("imageWorkbench", {
   state: () => ({
     imageSettings: settings,
     prompt: "",
-    count: 1,
-    size: "auto",
     quality: settings.defaultQuality || "auto",
-    outputFormat: "auto",
-    background: "auto",
-    moderation: "auto",
     outputCompression: settings.outputCompression ?? 100,
     inputImages: [] as InputImage[],
     maskDataUrl: null as string | null,
     activeGenerationCount: 0,
     errorText: "",
-    result: null as GenerateResult | null,
     historyItems: [] as ImageWorkbenchHistoryItem[],
     generationTasks: [] as ImageGenerationTaskItem[],
     selectedHistoryId: "" as string,
@@ -317,9 +296,6 @@ export const useImageWorkbenchStore = defineStore("imageWorkbench", {
         return;
       }
       this.selectedHistoryId = normalized;
-    },
-    backToHistory() {
-      this.selectedHistoryId = "";
     },
     async deleteHistoryItem(id: string) {
       const normalized = String(id ?? "").trim();

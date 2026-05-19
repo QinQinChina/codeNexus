@@ -204,9 +204,29 @@ export class ImageGenerationTaskService {
   async retry(idValue: unknown): Promise<{ task: ImageGenerationTaskItem; tasks: ImageGenerationTaskItem[] }> {
     await this.ensureLoaded();
     const id = toText(idValue);
-    const source = this.tasks.find((item) => item.id === id);
+    const sourceIndex = this.tasks.findIndex((item) => item.id === id);
+    const source = sourceIndex >= 0 ? this.tasks[sourceIndex] : null;
     if (!source) throw new Error("图片生成任务不存在。");
-    return this.submit(source.args, source.id, source.attempt + 1);
+    if (source.status === "queued" || source.status === "running") throw new Error("图片生成任务正在进行，不能重试。");
+    const now = Date.now();
+    const task: ImageGenerationTaskItem = {
+      id: randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+      startedAt: null,
+      completedAt: null,
+      status: "queued",
+      args: { ...source.args },
+      historyId: null,
+      result: null,
+      errorText: null,
+      retryOf: source.retryOf || source.id,
+      attempt: Math.max(1, Math.round(source.attempt + 1)),
+    };
+    this.tasks = [task, ...this.tasks.filter((_, index) => index !== sourceIndex)];
+    await this.persist();
+    this.pump();
+    return { task: { ...task }, tasks: this.snapshot() };
   }
 
   private async ensureLoaded(): Promise<void> {

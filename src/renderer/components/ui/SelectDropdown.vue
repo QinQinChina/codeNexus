@@ -84,12 +84,14 @@ const props = withDefaults(
     options: readonly OptionInput[];
     disabled?: boolean;
     ariaLabel?: string;
+    placeholder?: string;
     theme?: "auto" | "dark" | "light";
     minPopoverWidth?: number;
   }>(),
   {
     disabled: false,
     ariaLabel: "",
+    placeholder: "",
     theme: "auto",
     minPopoverWidth: 140,
   }
@@ -166,6 +168,8 @@ const normalizedOptions = computed<NormalizedOption[]>(() => {
 const selectedLabel = computed(() => {
   const hit = normalizedOptions.value.find((o) => o.value === props.modelValue);
   if (hit) return hit.label;
+  const placeholder = String(props.placeholder ?? "");
+  if (!String(props.modelValue ?? "") && placeholder) return placeholder;
   return String(props.modelValue ?? "");
 });
 

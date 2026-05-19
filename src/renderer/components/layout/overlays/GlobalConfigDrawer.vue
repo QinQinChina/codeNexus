@@ -487,6 +487,7 @@ import { RotateCw } from "lucide-vue-next";
 import SelectDropdown from "../../ui/SelectDropdown.vue";
 import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
 import { actionModal, confirmModal } from "../../../ui/modal";
+import { showToast } from "../../../ui/toast";
 import { useRuntimeStore } from "../../../stores/runtime.store";
 import { useAppShellStore } from "../../../stores/appShell.store";
 import { useConfigStore } from "../../../stores/config.store";
@@ -507,7 +508,7 @@ import {
 import type { GlobalConfigDraft } from "../../../domain/types";
 import { useModelCatalogStore } from "../../../stores/modelCatalog.store";
 import { type UiLanguage } from "../../../../shared/localSettings";
-import { buildModelPickerOptions, normalizeModelId } from "../../../../shared/modelCatalog";
+import { DEFAULT_MODEL_NAME, buildModelPickerOptions, normalizeModelId } from "../../../../shared/modelCatalog";
 
 const runtime = getRuntimeOrchestrator();
 const { t } = useI18n();
@@ -1117,7 +1118,41 @@ const onAddCustomModel = async () => {
 
 const onRemoveCustomModel = async (id: string) => {
   if (modelCatalogControlsDisabled.value) return;
-  await modelCatalogStore.removeCustomModel(id);
+  const removedId = normalizeModelId(id);
+  if (!removedId) return;
+  const globalWasDirty = configStore.isDirty;
+  const removed = await modelCatalogStore.removeCustomModel(removedId);
+  if (!removed) return;
+
+  const fallbackModel = DEFAULT_MODEL_NAME;
+  const reverted: string[] = [];
+  if (normalizeModelId(runtimeStore.model) === removedId) {
+    runtimeStore.model = fallbackModel;
+    await runtimeStore.saveThreadComposeStateNow();
+    reverted.push(t("globalConfig.customModel.currentReverted"));
+  }
+
+  if (normalizeModelId(configStore.draft.model) === removedId) {
+    configStore.setDraft({ model: fallbackModel });
+    reverted.push(t("globalConfig.customModel.globalReverted"));
+    if (!globalWasDirty && canSaveGlobalConfig.value) {
+      await runtime.saveGlobalConfig({ source: "auto", silentSuccessToast: true });
+    } else if (globalWasDirty) {
+      reverted.push(t("globalConfig.customModel.globalSaveSkippedDirty"));
+    }
+  }
+
+  if (reverted.length > 0) {
+    showToast({
+      kind: globalWasDirty ? "warn" : "info",
+      title: t("globalConfig.customModel.removeFallbackTitle"),
+      message: t("globalConfig.customModel.removeFallbackMessage", {
+        model: removedId,
+        fallback: fallbackModel,
+        details: reverted.join("；"),
+      }),
+    });
+  }
 };
 
 const modelContextWindowInputText = computed(() =>

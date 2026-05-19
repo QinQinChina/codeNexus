@@ -1165,6 +1165,10 @@ watch(
 watch(
   () => [queueItems.value.length, queueFailedCount.value] as const,
   ([nextLength, nextFailedCount], [prevLength, prevFailedCount]) => {
+    void nextTick(() => {
+      notifyTimelineLayoutChange();
+      scheduleTimelineViewportStateUpdate();
+    });
     if (nextLength <= 0) {
       queueTrayExpanded.value = false;
       return;
@@ -1174,6 +1178,13 @@ watch(
     }
   }
 );
+
+watch(queueTrayExpanded, () => {
+  void nextTick(() => {
+    notifyTimelineLayoutChange();
+    scheduleTimelineViewportStateUpdate();
+  });
+});
 
 watch(
   () => runtimeStore.timelineKey,

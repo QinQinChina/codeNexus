@@ -35,28 +35,6 @@
         </button>
       </div>
 
-      <div class="lsb-pane-head-row">
-        <div class="lsb-search" role="search">
-          <Search class="lsb-search-icon" aria-hidden="true" />
-          <input
-            v-model="threadFilterText"
-            class="lsb-search-input mono"
-            type="text"
-            :placeholder="t('threadHistory.searchPlaceholder')"
-            :aria-label="t('threadHistory.searchAria')"
-            @keydown.escape.prevent="threadFilterText = ''"
-          />
-          <button
-            v-if="threadFilterText"
-            class="lsb-search-clear"
-            type="button"
-            :aria-label="t('threadHistory.clearSearch')"
-            @click="threadFilterText = ''"
-          >
-            <X aria-hidden="true" />
-          </button>
-        </div>
-      </div>
     </div>
 
     <div id="thread-history" class="lsb-scroll app-scrollbar">
@@ -69,20 +47,12 @@
             </button>
           </div>
         </template>
-        <template v-else-if="visibleThreadGroups.length === 0">
-          <div class="lsb-empty lsb-thread-empty mono">
-            <div class="dim">{{ t("threadHistory.noMatches") }}</div>
-            <button class="lsb-nav-row lsb-nav-row--workspace" type="button" @click="threadFilterText = ''">
-              <span class="lsb-nav-text">{{ t("threadHistory.clearSearch") }}</span>
-            </button>
-          </div>
-        </template>
         <template v-else>
-          <section v-for="group in visibleThreadGroups" :key="group.key" class="lsb-section">
+          <section v-for="group in threadGroups" :key="group.key" class="lsb-section">
             <Collapsible
               class="lsb-section-collapsible"
-              :open="threadFilterActive ? true : isThreadGroupExpanded(group.key)"
-              @update:open="(next) => onThreadGroupOpenChangeMaybe(group.key, next)"
+              :open="isThreadGroupExpanded(group.key)"
+              @update:open="(next) => onThreadGroupOpenChange(group.key, next)"
             >
               <template #trigger="{ open, triggerProps }">
                 <div role="heading" aria-level="3">
@@ -90,7 +60,6 @@
                     <span class="lsb-group-head-left">
                       <Folder class="lsb-group-icon" aria-hidden="true" />
                       <span class="lsb-group-title">{{ group.title }}</span>
-                      <span v-if="threadFilterActive" class="lsb-head-badge mono">{{ group.rows.length }}</span>
                     </span>
                     <ChevronDown class="lsb-chevron" :class="{ open }" aria-hidden="true" />
                   </button>
@@ -129,7 +98,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { ChevronDown, Folder, RefreshCw, Search, SquarePen, X } from "lucide-vue-next";
+import { ChevronDown, Folder, RefreshCw, SquarePen } from "lucide-vue-next";
 import type { LocalThreadItem, ThreadHistoryItem } from "../../../domain/types";
 import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
 import { codexDesktop } from "../../../api/codexDesktopClient";
@@ -164,7 +133,6 @@ const { t } = useI18n();
 
 const isRefreshingHistory = ref(false);
 const nowMs = ref(Date.now());
-const threadFilterText = ref("");
 let intervalId: number | null = null;
 
 const onRefreshHistoryClick = async () => {
@@ -295,58 +263,9 @@ const threadGroups = computed<ThreadGroup[]>(() => {
   return out;
 });
 
-const threadFilterActive = computed(() => Boolean(String(threadFilterText.value ?? "").trim()));
-
-function isThreadMatch(item: ThreadListItem, query: string): boolean {
-  const q = query.toLowerCase();
-  const title = String(item.title ?? "").toLowerCase();
-  const meta = String(item.meta ?? "").toLowerCase();
-  const id = String(item.id ?? "").toLowerCase();
-  const agentNickname = String(item.agentNickname ?? "").toLowerCase();
-  const agentRole = String(item.agentRole ?? "").toLowerCase();
-  const agentPath = String(item.agentPath ?? "").toLowerCase();
-  return (
-    title.includes(q) ||
-    meta.includes(q) ||
-    id.includes(q) ||
-    agentNickname.includes(q) ||
-    agentRole.includes(q) ||
-    agentPath.includes(q)
-  );
-}
-
-const visibleThreadGroups = computed<ThreadGroup[]>(() => {
-  const q = String(threadFilterText.value ?? "").trim();
-  if (!q) return threadGroups.value;
-  const qLower = q.toLowerCase();
-  const out: ThreadGroup[] = [];
-  for (const group of threadGroups.value) {
-    const groupHit =
-      String(group.title ?? "")
-        .toLowerCase()
-        .includes(qLower) ||
-      String(group.cwdFull ?? "")
-        .toLowerCase()
-        .includes(qLower);
-    if (groupHit) {
-      out.push(group);
-      continue;
-    }
-    const rows = group.rows.filter((row) => isThreadMatch(row.item, q));
-    if (rows.length === 0) continue;
-    out.push({ ...group, rows });
-  }
-  return out;
-});
-
 const runningThreadsCount = computed(() => threadStore.runningThreadIds.size);
 const totalThreadListCount = computed(() => visibleThreadItems.value.length);
-const threadsCountText = computed(() => {
-  const total = totalThreadListCount.value;
-  if (!threadFilterActive.value) return t("threadHistory.totalCount", { count: total });
-  const matched = visibleThreadGroups.value.reduce((acc, g) => acc + g.rows.length, 0);
-  return t("threadHistory.matchCount", { matched, total });
-});
+const threadsCountText = computed(() => t("threadHistory.totalCount", { count: totalThreadListCount.value }));
 const visibleThreadGroupKeys = computed(() => {
   return new Set(threadGroups.value.map((group) => String(group.key ?? "").trim()).filter(Boolean));
 });
@@ -377,10 +296,6 @@ watch(
 const isThreadGroupExpanded = (groupKeyValue: string) => !appShellStore.isThreadWorkspaceGroupCollapsed(groupKeyValue);
 const onThreadGroupOpenChange = (groupKeyValue: string, open: boolean) =>
   appShellStore.setThreadWorkspaceGroupCollapsed(groupKeyValue, !open);
-const onThreadGroupOpenChangeMaybe = (groupKeyValue: string, open: boolean) => {
-  if (threadFilterActive.value) return;
-  onThreadGroupOpenChange(groupKeyValue, open);
-};
 function extractInvalidWorkspacePathFromError(errorText: string): string {
   const text = String(errorText ?? "");
   for (const re of [

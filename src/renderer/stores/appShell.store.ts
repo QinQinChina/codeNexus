@@ -17,7 +17,7 @@ export type IntegrationsDrawerTab = "skills" | "mcp";
 export type SettingsTab = "global" | "profiles" | "sound" | "image" | "env" | "integrations";
 export type SettingsIntegrationsTab = "skills" | "mcp";
 
-const DEFAULT_LEFT_SIDEBAR_WIDTH_PX = 320;
+const DEFAULT_LEFT_SIDEBAR_WIDTH_PX = 300;
 const DEFAULT_FILES_SIDEBAR_WIDTH_PX = 300;
 const DEFAULT_CENTER_EDITOR_WIDTH_PX = 460;
 export const MIN_SIDEBAR_WIDTH_PX = 240;

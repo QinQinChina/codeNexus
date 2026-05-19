@@ -1,9 +1,8 @@
 /* Thread sidebar module.
-   Ordered by surface: controls, search, groups, rows, states. */
+   Ordered by surface: controls, groups, rows, states. */
 
 .lsb-nav-row,
 .lsb-icon-btn,
-.lsb-search,
 .lsb-badge,
 .lsb-head-badge,
 .lsb-thread-item,
@@ -16,7 +15,6 @@
 
 .lsb-nav-row,
 .lsb-icon-btn,
-.lsb-search-clear,
 .lsb-thread-item,
 .lsb-group-head-toggle,
 .lsb-thread-attention-btn {
@@ -53,7 +51,6 @@
 
 .lsb-nav-row:focus-visible,
 .lsb-icon-btn:focus-visible,
-.lsb-search-clear:focus-visible,
 .lsb-thread-item:focus-visible,
 .lsb-group-head-toggle:focus-visible,
 .lsb-thread-attention-btn:focus-visible,
@@ -181,70 +178,6 @@
     var(--lsb-control-bg) 80%
   );
   color: color-mix(in srgb, var(--danger) 74%, var(--warning) 26%);
-}
-
-.lsb-search {
-  width: 100%;
-  min-height: 36px;
-  padding: 0 9px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.lsb-search:focus-within {
-  border-color: var(--lsb-control-border-hover);
-  box-shadow: var(--lsb-focus);
-}
-
-.lsb-search-icon {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 auto;
-  color: var(--lsb-muted);
-  stroke-width: 2.2;
-}
-
-.lsb-search-input {
-  width: 100%;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--lsb-text);
-  font-size: 12px;
-  font-weight: 620;
-  line-height: 1.25;
-}
-
-.lsb-search-input::placeholder {
-  color: color-mix(in srgb, var(--lsb-muted) 72%, transparent);
-}
-
-.lsb-search-clear {
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: var(--lsb-radius-sm);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  color: var(--lsb-muted);
-  cursor: pointer;
-}
-
-.lsb-search-clear:hover:not(:disabled) {
-  background: var(--lsb-surface-hover);
-  color: var(--lsb-text);
-}
-
-.lsb-search-clear svg {
-  width: 14px;
-  height: 14px;
-  stroke-width: 2.3;
 }
 
 .lsb-thread-groups,
@@ -574,8 +507,7 @@
   }
 
   .lsb-nav-row,
-  .lsb-icon-btn,
-  .lsb-search {
+  .lsb-icon-btn {
     min-height: 34px;
   }
 
@@ -589,7 +521,6 @@
 @media (prefers-reduced-motion: reduce) {
   .lsb-nav-row,
   .lsb-icon-btn,
-  .lsb-search-clear,
   .lsb-thread-item,
   .lsb-thread-item::before,
   .lsb-group-head-toggle,

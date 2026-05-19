@@ -10,17 +10,28 @@
 }
 
 .composer-queue-tray {
+  --composer-queue-collapsed-h: 15px;
   display: grid;
   min-width: 0;
   border-radius: var(--composer-radius, 6px);
   border: 1px solid color-mix(in srgb, var(--border) 72%, var(--accent) 18%);
-  background: color-mix(in srgb, var(--surface-elevated, var(--surface-1)) 84%, transparent);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--surface-elevated, var(--surface-1)) 92%, transparent),
+      color-mix(in srgb, var(--surface-1) 78%, transparent)
+    ),
+    color-mix(in srgb, var(--surface-elevated, var(--surface-1)) 84%, transparent);
   box-shadow:
     0 8px 22px color-mix(in srgb, var(--bg) 28%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--text) 5%, transparent);
   overflow: hidden;
   backdrop-filter: var(--composer-shell-backdrop, none);
   -webkit-backdrop-filter: var(--composer-shell-backdrop, none);
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .composer-queue-tray.has-failed {
@@ -29,6 +40,8 @@
 }
 
 .composer-queue-summary {
+  position: relative;
+  z-index: 2;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
@@ -142,35 +155,111 @@
 }
 
 .composer-queue-panel {
-  border-top: 1px solid color-mix(in srgb, var(--border) 64%, transparent);
+  max-height: var(--composer-queue-collapsed-h);
+  box-sizing: border-box;
+  overflow: hidden;
+  border-bottom: 1px solid transparent;
+  padding: 0 10px;
+  transition:
+    max-height 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-bottom-color 180ms ease;
+}
+
+.composer-queue-tray:is(:hover, :focus-within, .is-expanded, .has-failed) {
+  border-color: var(--border-accent-hover, var(--button-border-hover, var(--border)));
+  box-shadow:
+    0 12px 30px color-mix(in srgb, var(--bg) 32%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+.composer-queue-tray:is(:hover, :focus-within, .is-expanded, .has-failed) .composer-queue-panel {
+  max-height: min(36vh, 320px);
+  border-bottom-color: color-mix(in srgb, var(--border) 64%, transparent);
   padding: 7px;
+}
+
+.composer-queue-tray:is(:hover, :focus-within, .is-expanded, .has-failed) .composer-queue-chevron {
+  transform: rotate(180deg);
 }
 
 .composer-queue-list {
   position: relative;
-  display: grid;
-  max-height: min(30vh, 260px);
-  gap: 6px;
-  overflow: auto;
+  display: block;
+  max-height: min(36vh, 306px);
+  height: var(--composer-queue-collapsed-h);
+  min-height: 0;
+  overflow: hidden;
   overscroll-behavior: contain;
 }
 
+.composer-queue-tray:is(:hover, :focus-within, .is-expanded, .has-failed) .composer-queue-list {
+  display: grid;
+  gap: 6px;
+  height: auto;
+  overflow: auto;
+}
+
 .composer-queue-item {
+  position: absolute;
+  inset: 0 0 auto;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 9px;
   min-width: 0;
+  min-height: 38px;
   padding: 8px;
   border-radius: var(--composer-control-radius, 5px);
   border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  background: color-mix(in srgb, var(--surface-1) 72%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--text) 4%, transparent), transparent 58%),
+    color-mix(in srgb, var(--surface-1) 76%, transparent);
+  box-shadow:
+    0 4px 12px color-mix(in srgb, var(--bg) 16%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--text) 5%, transparent);
+  transform-origin: center top;
   transition:
     border-color 180ms ease,
     background-color 180ms ease,
     box-shadow 180ms ease,
     opacity 180ms ease,
     transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.composer-queue-item:first-child {
+  transform: translateY(0) scaleX(0.988);
+  opacity: 0.92;
+}
+
+.composer-queue-item:nth-child(2) {
+  transform: translateY(6px) scaleX(0.958);
+  opacity: 0.68;
+}
+
+.composer-queue-item:nth-child(3) {
+  transform: translateY(12px) scaleX(0.928);
+  opacity: 0.48;
+}
+
+.composer-queue-item:nth-child(n + 4) {
+  transform: translateY(18px) scaleX(0.898);
+  opacity: 0.34;
+}
+
+.composer-queue-tray:not(:hover):not(:focus-within):not(.is-expanded):not(.has-failed) .composer-queue-item {
+  pointer-events: none;
+}
+
+.composer-queue-tray:not(:hover):not(:focus-within):not(.is-expanded):not(.has-failed) .composer-queue-item > * {
+  opacity: 0;
+}
+
+.composer-queue-tray:is(:hover, :focus-within, .is-expanded, .has-failed) .composer-queue-item {
+  position: relative;
+  inset: auto;
+  transform: none;
+  opacity: 1;
 }
 
 .composer-queue-item:hover,
@@ -210,6 +299,18 @@
   display: inline-grid;
   grid-template-columns: repeat(3, 28px);
   gap: 5px;
+  opacity: 0;
+  transform: translateY(-2px);
+  pointer-events: none;
+  transition:
+    opacity 180ms ease,
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.composer-queue-tray:is(:hover, :focus-within, .is-expanded, .has-failed) .composer-queue-actions {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
 }
 
 .composer-queue-action {
@@ -321,6 +422,9 @@
 
   .composer-queue-panel-enter-active,
   .composer-queue-panel-leave-active,
+  .composer-queue-panel,
+  .composer-queue-actions,
+  .composer-queue-item,
   .composer-queue-list-move,
   .composer-queue-list-enter-active,
   .composer-queue-list-leave-active {
@@ -2015,13 +2119,10 @@ textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-
 }
 
 .composer-context-ball {
-  width: var(--composer-control-h);
-  min-width: var(--composer-control-h);
-  height: var(--composer-control-h);
   flex: 0 0 auto;
   overflow: hidden;
   border-radius: 999px;
-  filter: saturate(0.96);
+  filter: saturate(0.92);
 }
 
 .composer-context-copy {
