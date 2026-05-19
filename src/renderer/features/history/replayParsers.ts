@@ -297,22 +297,13 @@ export function parseSessionReplayEvents(entries: HistoryThreadEvent[], threadId
       local_images: string[];
     };
   } => {
-    const source = String(payload.text ?? "").replace(/\r\n/g, "\n");
-    const legacyImageCount = (source.match(/<\s*image\s*>/gi) ?? []).length;
-    const text =
-      legacyImageCount > 0 ? source.replace(/<\s*\/?\s*image\s*>/gi, "\n").replace(/\n{3,}/g, "\n\n") : source;
-
+    const text = String(payload.text ?? "").replace(/\r\n/g, "\n");
     const normalizedImages = Array.isArray(payload.images) ? payload.images.map((item) => String(item ?? "")) : [];
     const normalizedLocalImages = Array.isArray(payload.local_images)
       ? payload.local_images.map((item) => String(item ?? "")).filter((item) => Boolean(item.trim()))
       : [];
-    const imageCount = Math.max(legacyImageCount, normalizedImages.length + normalizedLocalImages.length);
-    const images =
-      normalizedImages.length > 0
-        ? normalizedImages
-        : legacyImageCount > 0
-          ? Array.from({ length: legacyImageCount }, () => "")
-          : [];
+    const imageCount = normalizedImages.length + normalizedLocalImages.length;
+    const images = normalizedImages;
     const textElements = resolveComposeTextElements(text, payload.text_elements, { inferAbsolutePaths: true });
     const hasVisibleText = Boolean(normalizeText(text));
     const displayText =

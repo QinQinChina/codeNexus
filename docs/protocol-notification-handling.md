@@ -4,9 +4,11 @@
 
 ## 结论
 
-当前项目的 `ServerNotification` 方法白名单和官方生成协议对齐；`ServerRequest` 则区分“官方生成全集”和“客户端支持集”：
+当前项目的协议类型仍来源于官方生成文件，但运行时白名单已经开始收口：deprecated / legacy 方法不再进入主处理流程。
 
-- `ServerNotification`: 64 个方法，定义在 `src/renderer/app/events/protocolMethods.ts`
+- 官方 `ServerNotification`: 64 个方法，类型来源于生成协议
+- 客户端支持的 `ServerNotification`: 60 个方法，定义在 `src/renderer/app/events/protocolMethods.ts`
+- 不再兼容的 deprecated / legacy `ServerNotification`: `item/fileChange/outputDelta`、`thread/compacted`、`fuzzyFileSearch/sessionUpdated`、`fuzzyFileSearch/sessionCompleted`
 - 官方 `ServerRequest`: 10 个方法，类型来源于生成协议
 - 客户端支持的 `ServerRequest`: 8 个 v2 方法，定义在 `src/renderer/app/events/protocolMethods.ts`
 - 不再兼容的 legacy `ServerRequest`: `applyPatchApproval`、`execCommandApproval`
@@ -22,8 +24,8 @@
 
 当前状态可以概括为：
 
-- 官方 64 个 `ServerNotification` 均在白名单内。
-- 客户端只把 v2 `ServerRequest` 进入请求处理流程；legacy approval request 会返回 not implemented，不进入审批 UI。
+- 官方 64 个 `ServerNotification` 中，60 个在运行时白名单内；明确 deprecated / legacy 的 4 个不再接收。
+- 客户端只把 8 个 v2 `ServerRequest` 进入请求处理流程；legacy approval request 不再作为有效 request 进入审批 UI。
 - 非官方通知会在 `normalizeNotification` 中被丢弃。
 - 核心聊天相关通知已经有语义处理。
 - 一批官方通知已经被识别并有意隐藏、路由到 debug，或交给其他面板处理，不进入主聊天 UI。
@@ -64,7 +66,6 @@
 | 用户提示     | `guardianWarning`                                                   | toast + 时间线警告                                                              |
 | 用户提示     | `model/verification`                                                | toast + 时间线提示                                                              |
 | 上下文压缩   | `item/started` / `item/completed` + `contextCompaction`             | 显示上下文压缩短暂状态                                                          |
-| 上下文压缩   | `thread/compacted`                                                  | deprecated 兼容，显示上下文压缩完成                                             |
 | 动态工具     | `item/started` / `item/completed` + `dynamicToolCall`               | 渲染动态工具卡片                                                                |
 | 搜索         | `item/started` / `item/completed` + `webSearch`                     | 渲染 web search 卡片                                                            |
 | 图片工具     | `item/started` / `item/completed` + `imageView` / `imageGeneration` | 渲染图片工具卡片                                                                |
@@ -77,7 +78,6 @@
 | --------------------------------- | ------------------------------------------------------------- |
 | `skills/changed`                  | 已识别；不进主聊天 UI，由集成/技能相关面板自行处理            |
 | `mcpServer/startupStatus/updated` | 已识别；不进主聊天 UI，由集成/MCP 状态相关面板自行处理        |
-| `item/fileChange/outputDelta`     | 已识别；官方 deprecated，当前只记 debug，不再驱动文件变更卡片 |
 | `process/outputDelta`             | 已识别；不进主聊天 UI，debug 开启时写 debug timeline          |
 | `process/exited`                  | 已识别；不进主聊天 UI，debug 开启时写 debug timeline          |
 | `remoteControl/status/changed`    | 已识别；不进主聊天 UI，debug 开启时写 debug timeline          |
@@ -107,8 +107,6 @@
 | `model/rerouted`                       | 未显示模型 reroute 信息             |
 | `deprecationNotice`                    | 未作为用户提示展示                  |
 | `configWarning`                        | 未作为用户提示展示                  |
-| `fuzzyFileSearch/sessionUpdated`       | 未同步 fuzzy search 会话进度        |
-| `fuzzyFileSearch/sessionCompleted`     | 未同步 fuzzy search 会话结果        |
 | `thread/realtime/started`              | 未同步 realtime 会话状态            |
 | `thread/realtime/itemAdded`            | 未同步 realtime item                |
 | `thread/realtime/transcript/delta`     | 未同步 realtime transcript          |
@@ -157,7 +155,7 @@
 - `update.move_path !== null` 时视为 rename
 - `PatchApplyStatus`: `inProgress` / `completed` / `failed` / `declined`
 
-`item/fileChange/outputDelta` 是官方保留但 deprecated 的 legacy 通知，当前项目不再用它驱动文件变更卡片。
+`item/fileChange/outputDelta` 是官方保留但 deprecated 的 legacy 通知，当前项目运行时白名单已不再接收它。
 
 当前官方文件变更通知仍然进入主 `timelineStore` 并聚合成文件变更卡片；同时在 `timelineDebugEnabled` 开启时，`item/fileChange/patchUpdated` 以及 `item/started` / `item/completed` 中的 `fileChange` 生命周期事件会额外写入 `debugTimelineStore`，用于查看原始官方事件。
 
@@ -169,5 +167,5 @@
 2. 用户可见 notice 类：处理 `deprecationNotice`、`configWarning`、`windows/worldWritableWarning`、`model/rerouted`。
 3. 官方时间字段：让 `startedAtMs`、`completedAtMs`、`turn.startedAt`、`turn.completedAt` 成为卡片和活动时间的权威来源。
 4. 账号/MCP/app 状态类：处理 `account/updated`、`account/login/completed`、`mcpServer/oauthLogin/completed`、`app/list/updated`。
-5. realtime / fuzzy search / fs watch：如果 UI 需要这些能力，再建立专门 store 和展示层。
+5. realtime / fs watch：如果 UI 需要这些能力，再建立专门 store 和展示层。
 6. 字段完整性：为 token 明细、command `cwd/processId/source`、MCP `mcpAppResourceUri`、Guardian 权限细节增加结构化 UI。

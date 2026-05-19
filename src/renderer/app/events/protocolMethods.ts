@@ -5,8 +5,16 @@ import type {
 
 export type { OfficialServerRequestMethod };
 export type UnsupportedLegacyServerRequestMethod = "applyPatchApproval" | "execCommandApproval";
+export type UnsupportedDeprecatedServerNotificationMethod =
+  | "item/fileChange/outputDelta"
+  | "thread/compacted"
+  | "fuzzyFileSearch/sessionUpdated"
+  | "fuzzyFileSearch/sessionCompleted";
 export type ServerRequestMethod = Exclude<OfficialServerRequestMethod, UnsupportedLegacyServerRequestMethod>;
-export type ServerNotificationMethod = OfficialServerNotificationMethod;
+export type ServerNotificationMethod = Exclude<
+  OfficialServerNotificationMethod,
+  UnsupportedDeprecatedServerNotificationMethod
+>;
 
 type AssertNever<T extends never> = T;
 
@@ -51,7 +59,6 @@ export const SERVER_NOTIFICATION_METHODS: readonly ServerNotificationMethod[] = 
   "process/exited",
   "item/commandExecution/outputDelta",
   "item/commandExecution/terminalInteraction",
-  "item/fileChange/outputDelta",
   "item/fileChange/patchUpdated",
   "serverRequest/resolved",
   "item/mcpToolCall/progress",
@@ -66,15 +73,12 @@ export const SERVER_NOTIFICATION_METHODS: readonly ServerNotificationMethod[] = 
   "item/reasoning/summaryTextDelta",
   "item/reasoning/summaryPartAdded",
   "item/reasoning/textDelta",
-  "thread/compacted",
   "model/rerouted",
   "model/verification",
   "warning",
   "guardianWarning",
   "deprecationNotice",
   "configWarning",
-  "fuzzyFileSearch/sessionUpdated",
-  "fuzzyFileSearch/sessionCompleted",
   "thread/realtime/started",
   "thread/realtime/itemAdded",
   "thread/realtime/transcript/delta",
@@ -94,6 +98,10 @@ type UnknownUnsupportedLegacyServerRequestMethods = Exclude<
   UnsupportedLegacyServerRequestMethod,
   OfficialServerRequestMethod
 >;
+type UnknownUnsupportedDeprecatedServerNotificationMethods = Exclude<
+  UnsupportedDeprecatedServerNotificationMethod,
+  OfficialServerNotificationMethod
+>;
 type MissingServerNotificationMethods = Exclude<ServerNotificationMethod, (typeof SERVER_NOTIFICATION_METHODS)[number]>;
 type ExtraServerNotificationMethods = Exclude<(typeof SERVER_NOTIFICATION_METHODS)[number], ServerNotificationMethod>;
 
@@ -101,19 +109,13 @@ type _AssertNoMissingServerRequestMethods = AssertNever<MissingServerRequestMeth
 type _AssertNoExtraServerRequestMethods = AssertNever<ExtraServerRequestMethods>;
 type _AssertNoUnknownUnsupportedLegacyServerRequestMethods =
   AssertNever<UnknownUnsupportedLegacyServerRequestMethods>;
+type _AssertNoUnknownUnsupportedDeprecatedServerNotificationMethods =
+  AssertNever<UnknownUnsupportedDeprecatedServerNotificationMethods>;
 type _AssertNoMissingServerNotificationMethods = AssertNever<MissingServerNotificationMethods>;
 type _AssertNoExtraServerNotificationMethods = AssertNever<ExtraServerNotificationMethods>;
 
 const SERVER_REQUEST_METHOD_SET = new Set<string>(SERVER_REQUEST_METHODS);
-const UNSUPPORTED_LEGACY_SERVER_REQUEST_METHOD_SET = new Set<string>([
-  "applyPatchApproval",
-  "execCommandApproval",
-]);
 const SERVER_NOTIFICATION_METHOD_SET = new Set<string>(SERVER_NOTIFICATION_METHODS);
-
-export function isOfficialServerRequestMethod(method: string): method is OfficialServerRequestMethod {
-  return SERVER_REQUEST_METHOD_SET.has(method) || UNSUPPORTED_LEGACY_SERVER_REQUEST_METHOD_SET.has(method);
-}
 
 export function isServerRequestMethod(method: string): method is ServerRequestMethod {
   return SERVER_REQUEST_METHOD_SET.has(method);

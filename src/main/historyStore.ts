@@ -622,10 +622,6 @@ async function readAuxNotificationsForThread(
 
         if (!method) continue;
 
-        if (method === "item/fileChange/outputDelta") {
-          continue;
-        }
-
         if (method === "turn/diff/updated") {
           const key = `${turnId || "unknown"}`;
           const streamId = `aux:stream:turn/diff/updated:${tid}:${turnId || "unknown"}`;

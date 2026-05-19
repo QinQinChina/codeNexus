@@ -146,7 +146,6 @@ const THINKING_SETTLE_MS = 450;
 const CONTEXT_COMPACTION_SETTLE_MS = 1800;
 
 const HIDDEN_OFFICIAL_NOTIFICATION_METHODS = new Set<OfficialCodexServerNotification["method"]>([
-  "item/fileChange/outputDelta",
   "process/outputDelta",
   "process/exited",
   "remoteControl/status/changed",
@@ -649,13 +648,6 @@ export function installEventPipeline(pinia: Pinia) {
     }
 
     if (HIDDEN_OFFICIAL_NOTIFICATION_METHODS.has(n.method)) {
-      if (n.method === "item/fileChange/outputDelta") {
-        appendDebugLog("event-pipeline", "ignore-deprecated-file-change-output-delta", {
-          threadId: effectiveThreadId,
-          turnId: rawTurnId || null,
-          itemId: n.itemId || null,
-        });
-      }
       if (runtimeStore.timelineDebugEnabled) {
         debugTimelineStore.appendEvent({
           threadId: effectiveThreadId,
@@ -827,16 +819,6 @@ export function installEventPipeline(pinia: Pinia) {
         return;
       }
       // 若缺少 thread/turn 关键信息，则回退到通用追加逻辑以便排查协议问题。
-    }
-
-    // 兼容已弃用的 thread/compacted 通知
-    if (n.method === "thread/compacted") {
-      const compactThreadId = resolveId((params as any)?.threadId, rawThreadId, effectiveThreadId) || effectiveThreadId;
-      const compactTurnId = resolveId((params as any)?.turnId, rawTurnId, activeTurnId);
-      if (compactThreadId && compactTurnId) bindTurnThread(compactThreadId, compactTurnId, n.serverId);
-      if (compactThreadId && compactTurnId)
-        upsertContextCompactionPromptEvent({ threadId: compactThreadId, turnId: compactTurnId, phase: "completed" });
-      return;
     }
 
     // 处理代理消息开始事件

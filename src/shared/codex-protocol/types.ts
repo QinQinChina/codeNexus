@@ -1,14 +1,7 @@
 import type {
   ClientNotification,
   ClientRequest,
-  FuzzyFileSearchResponse,
-  FuzzyFileSearchSessionStartResponse,
-  FuzzyFileSearchSessionStopResponse,
-  FuzzyFileSearchSessionUpdateResponse,
-  GetAuthStatusResponse,
-  GetConversationSummaryResponse,
   InitializeResponse,
-  GitDiffToRemoteResponse,
   ServerNotification,
   ServerRequest,
 } from "../../generated/codex-app-server";
@@ -115,7 +108,7 @@ export type JsonRpcId = number | string;
 
 type AssertNever<T extends never> = T;
 
-type OfficialCodexRpcResultMap = {
+type SupportedCodexRpcResultMap = {
   initialize: InitializeResponse;
   "thread/start": ThreadStartResponse;
   "thread/resume": ThreadResumeResponse;
@@ -204,13 +197,6 @@ type OfficialCodexRpcResultMap = {
   "fs/copy": FsCopyResponse;
   "fs/watch": FsWatchResponse;
   "fs/unwatch": FsUnwatchResponse;
-  fuzzyFileSearch: FuzzyFileSearchResponse;
-  "fuzzyFileSearch/sessionStart": FuzzyFileSearchSessionStartResponse;
-  "fuzzyFileSearch/sessionUpdate": FuzzyFileSearchSessionUpdateResponse;
-  "fuzzyFileSearch/sessionStop": FuzzyFileSearchSessionStopResponse;
-  getConversationSummary: GetConversationSummaryResponse;
-  gitDiffToRemote: GitDiffToRemoteResponse;
-  getAuthStatus: GetAuthStatusResponse;
   "mock/experimentalMethod": MockExperimentalMethodResponse;
   "windowsSandbox/setupStart": WindowsSandboxSetupStartResponse;
   "windowsSandbox/readiness": WindowsSandboxReadinessResponse;
@@ -243,21 +229,21 @@ export type OfficialCodexServerNotification = ServerNotification;
 export type CodexServerRequestMessage = { kind: "request" } & ServerRequest;
 export type CodexServerNotificationMessage = { kind: "notification" } & ServerNotification;
 
-type MissingCodexRpcResultMethods = Exclude<CodexOfficialRpcMethod, keyof OfficialCodexRpcResultMap>;
-type ExtraCodexRpcResultMethods = Exclude<keyof OfficialCodexRpcResultMap, CodexOfficialRpcMethod>;
+type MissingCodexRpcResultMethods = Exclude<CodexRpcMethod, keyof SupportedCodexRpcResultMap>;
+type ExtraCodexRpcResultMethods = Exclude<keyof SupportedCodexRpcResultMap, CodexRpcMethod>;
 type UnknownUnsupportedLegacyCodexRpcMethods = Exclude<UnsupportedLegacyCodexRpcMethod, CodexOfficialRpcMethod>;
 type _AssertNoMissingCodexRpcResultMethods = AssertNever<MissingCodexRpcResultMethods>;
 type _AssertNoExtraCodexRpcResultMethods = AssertNever<ExtraCodexRpcResultMethods>;
 type _AssertNoUnknownUnsupportedLegacyCodexRpcMethods = AssertNever<UnknownUnsupportedLegacyCodexRpcMethods>;
 
-export type CodexRpcParams<M extends CodexOfficialRpcMethod> = M extends CodexOfficialRpcMethod
+export type CodexRpcParams<M extends CodexRpcMethod> = M extends CodexRpcMethod
   ? Extract<ClientRequest, { method: M }> extends { params: infer P }
     ? P
     : undefined
   : unknown;
 
-export type CodexRpcResult<M extends CodexOfficialRpcMethod> = M extends keyof OfficialCodexRpcResultMap
-  ? OfficialCodexRpcResultMap[M]
+export type CodexRpcResult<M extends CodexRpcMethod> = M extends keyof SupportedCodexRpcResultMap
+  ? SupportedCodexRpcResultMap[M]
   : unknown;
 
 export type CodexNotifyParams<M extends string> = M extends ClientNotification["method"]

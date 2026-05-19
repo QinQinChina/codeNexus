@@ -1,7 +1,7 @@
 import type { CodexServerRequestMessage } from "../../../shared/codex-protocol";
-import { isOfficialServerRequestMethod, type OfficialServerRequestMethod } from "./protocolMethods";
+import { isServerRequestMethod, type ServerRequestMethod } from "./protocolMethods";
 
-export type AppServerRequest = CodexServerRequestMessage;
+export type AppServerRequest = CodexServerRequestMessage & { method: ServerRequestMethod };
 
 export type RequestKind = "approval" | "userInput" | "toolCall" | "authRefresh" | "unknown";
 
@@ -50,7 +50,7 @@ export function isServerRequest(msg: unknown): msg is AppServerRequest {
   const record = msg as Record<string, unknown>;
   if (record.kind !== "request") return false;
   const method = typeof record.method === "string" ? record.method.trim() : "";
-  if (!method || !isOfficialServerRequestMethod(method)) return false;
+  if (!method || !isServerRequestMethod(method)) return false;
   if (!isJsonRpcId(record.id)) return false;
   return isRequestParams(record.params);
 }
@@ -70,7 +70,7 @@ export function getServerRequestItemId(request: AppServerRequest): string {
   return String(params.itemId ?? "").trim();
 }
 
-export function classifyServerRequest(method: OfficialServerRequestMethod): RequestHandlingResult {
+export function classifyServerRequest(method: ServerRequestMethod): RequestHandlingResult {
   if (APPROVAL_METHODS.has(method)) {
     return { kind: "approval", isKnownMethod: true, requiresResponse: true };
   }
@@ -112,7 +112,7 @@ export function buildAuthRefreshNotImplementedError(method: string): JsonRpcErro
   });
 }
 
-export function buildInvalidUserInputPayloadError(method: OfficialServerRequestMethod): JsonRpcErrorPayload {
+export function buildInvalidUserInputPayloadError(method: ServerRequestMethod): JsonRpcErrorPayload {
   if (method === "mcpServer/elicitation/request") {
     return buildJsonRpcError(-32602, "invalid mcp elicitation payload");
   }

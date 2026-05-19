@@ -3,7 +3,9 @@ import type { OfficialCodexServerNotification } from "../../../shared/codex-prot
 
 export type NotificationMethod = ServerNotificationMethod;
 
-type OfficialNormalizedNotification = OfficialCodexServerNotification & {
+type SupportedOfficialServerNotification = Extract<OfficialCodexServerNotification, { method: ServerNotificationMethod }>;
+
+type OfficialNormalizedNotification = SupportedOfficialServerNotification & {
   threadId?: string;
   turnId?: string;
   itemId?: string;
@@ -46,14 +48,14 @@ function normalizeServerId(serverId: string | undefined): string | undefined {
 }
 
 function normalizeOfficialNotification(
-  method: OfficialCodexServerNotification["method"],
+  method: ServerNotificationMethod,
   paramsRecord: Record<string, unknown>,
   serverId?: string
 ): OfficialNormalizedNotification {
   const notification = {
     method,
     params: paramsRecord,
-  } as OfficialCodexServerNotification;
+  } as SupportedOfficialServerNotification;
   const ids = extractIdsFromRecord(paramsRecord);
   return {
     ...notification,
