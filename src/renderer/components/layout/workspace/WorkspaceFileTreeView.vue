@@ -1,77 +1,75 @@
 <template>
-  <div class="workspace-files-tree">
-    <div class="workspace-files-shell">
-      <div class="workspace-files-body workspace-files-body--tree-only">
-        <section class="workspace-files-section workspace-files-section--tree">
-          <div
-            ref="treeSurfaceRef"
-            class="workspace-files-tree-surface app-scrollbar"
-            role="tree"
-            :aria-label="t('workspaceFiles.treeAria')"
-          >
-            <div v-if="!workspaceFilesStore.hasWorkspace" class="workspace-files-placeholder">
-              {{ t("workspaceFiles.chooseWorkspaceFirst") }}
-            </div>
-            <div v-else-if="treeRows.length === 0" class="workspace-files-placeholder">
-              {{ t("workspaceFiles.notLoaded") }}
-            </div>
-            <template v-else>
-              <template v-for="row in treeRows" :key="row.key">
-                <button
-                  v-if="row.kind === 'entry'"
-                  class="workspace-file-tree-row"
-                  :class="treeRowClass(row)"
-                  :style="treeRowStyle(row)"
-                  type="button"
-                  role="treeitem"
-                  draggable="true"
-                  :aria-level="row.depth + 1"
-                  :aria-expanded="row.isDirectory ? String(row.isExpanded) : undefined"
-                  :aria-selected="row.isActiveFile || row.isSelectedDirectory ? 'true' : 'false'"
-                  :data-tree-path="row.path"
-                  @click="onOpenTreeRow(row)"
-                  @dragstart="onTreeRowDragStart(row, $event)"
-                  @dragend="onTreeRowDragEnd"
-                >
-                  <ChevronRight
-                    v-if="row.isDirectory"
-                    class="workspace-file-tree-row__chevron"
-                    :class="{ 'rotate-90': row.isExpanded }"
-                    aria-hidden="true"
-                  />
-                  <span
-                    v-else
-                    class="workspace-file-tree-row__chevron workspace-file-tree-row__chevron--spacer"
-                    aria-hidden="true"
-                  ></span>
-                  <WorkspaceTreeEntryIcon
-                    :path="row.path"
-                    :isDirectory="row.isDirectory"
-                    :isExpanded="row.isExpanded"
-                  />
-                  <span class="workspace-file-tree-row__label">{{ row.label }}</span>
-                  <span v-if="row.isLoading" class="workspace-file-tree-row__meta">{{
-                    t("workspaceFiles.loading")
-                  }}</span>
-                </button>
-
-                <div
-                  v-else
-                  class="workspace-file-tree-message"
-                  :class="{
-                    'is-error': row.tone === 'error',
-                    'is-dim': row.tone === 'dim',
-                  }"
-                  :style="treeMessageStyle(row)"
-                >
-                  {{ row.text }}
-                </div>
-              </template>
-            </template>
-          </div>
-        </section>
-      </div>
+  <div
+    ref="treeSurfaceRef"
+    class="workspace-files-tree-surface app-scrollbar"
+    role="tree"
+    :aria-label="t('workspaceFiles.treeAria')"
+  >
+    <div v-if="!workspaceFilesStore.hasWorkspace" class="workspace-files-placeholder">
+      {{ t("workspaceFiles.chooseWorkspaceFirst") }}
     </div>
+    <div v-else-if="treeRows.length === 0" class="workspace-files-placeholder">
+      {{ t("workspaceFiles.notLoaded") }}
+    </div>
+    <template v-else>
+      <template v-for="row in treeRows" :key="row.key">
+        <button
+          v-if="row.kind === 'entry'"
+          class="workspace-file-tree-row"
+          :class="treeRowClass(row)"
+          :style="treeRowStyle(row)"
+          type="button"
+          role="treeitem"
+          draggable="true"
+          :aria-level="row.depth + 1"
+          :aria-expanded="row.isDirectory ? String(row.isExpanded) : undefined"
+          :aria-selected="row.isActiveFile || row.isSelectedDirectory ? 'true' : 'false'"
+          :data-tree-path="row.path"
+          @click="onOpenTreeRow(row)"
+          @contextmenu="onTreeRowContextMenu(row, $event)"
+          @dragstart="onTreeRowDragStart(row, $event)"
+          @dragend="onTreeRowDragEnd"
+        >
+          <ChevronRight
+            v-if="row.isDirectory"
+            class="workspace-file-tree-row__chevron"
+            :class="{ 'rotate-90': row.isExpanded }"
+            aria-hidden="true"
+          />
+          <span
+            v-else
+            class="workspace-file-tree-row__chevron workspace-file-tree-row__chevron--spacer"
+            aria-hidden="true"
+          ></span>
+          <WorkspaceTreeEntryIcon :path="row.path" :isDirectory="row.isDirectory" :isExpanded="row.isExpanded" />
+          <span class="workspace-file-tree-row__label">{{ row.label }}</span>
+          <span v-if="treeRowMetaText(row)" class="workspace-file-tree-row__meta">
+            {{ treeRowMetaText(row) }}
+          </span>
+          <span
+            v-else-if="row.gitStatus"
+            class="workspace-file-tree-row__git"
+            :data-git-status="row.gitStatus.code"
+            :title="gitStatusTitle(row)"
+            aria-hidden="true"
+          >
+            {{ row.gitStatus.code }}
+          </span>
+        </button>
+
+        <div
+          v-else
+          class="workspace-file-tree-message"
+          :class="{
+            'is-error': row.tone === 'error',
+            'is-dim': row.tone === 'dim',
+          }"
+          :style="treeMessageStyle(row)"
+        >
+          {{ row.text }}
+        </div>
+      </template>
+    </template>
   </div>
 </template>
 
@@ -84,15 +82,22 @@ import { useWorkspaceFilesStore } from "../../../stores/workspaceFiles.store";
 import { basenameFromPath } from "../../../domain/workspaceFiles";
 import { normalizeAbsoluteFsPath } from "../../../domain/workspacePath";
 import { writeWorkspaceFileDragData } from "../../../domain/workspaceFileDrag";
+import type { WorkspaceGitStatusEntry } from "../../../../shared/ipc/contracts";
 
 const props = withDefaults(
   defineProps<{
     filterText?: string;
+    allowContextMenu?: boolean;
   }>(),
   {
     filterText: "",
+    allowContextMenu: false,
   }
 );
+
+const emit = defineEmits<{
+  fileContextMenu: [path: string, event: MouseEvent];
+}>();
 
 const workspaceFilesStore = useWorkspaceFilesStore();
 const { t } = useI18n();
@@ -111,6 +116,7 @@ type TreeRow =
       isLoading: boolean;
       isActiveFile: boolean;
       isSelectedDirectory: boolean;
+      gitStatus: WorkspaceGitStatusEntry | null;
     }
   | {
       kind: "message";
@@ -205,6 +211,7 @@ const treeRows = computed<TreeRow[]>(() => {
           isActiveFile:
             normalizeAbsoluteFsPath(workspaceFilesStore.activeFilePath) === normalizeAbsoluteFsPath(entry.path),
           isSelectedDirectory: false,
+          gitStatus: workspaceFilesStore.gitStatusForPath(entry.path),
         });
         hasMatchedChildren = true;
       }
@@ -224,6 +231,7 @@ const treeRows = computed<TreeRow[]>(() => {
         isLoading,
         isActiveFile: false,
         isSelectedDirectory,
+        gitStatus: workspaceFilesStore.gitStatusForDirectory(normalizedPath),
       },
     ];
     if (isExpanded) rows.push(...childRows);
@@ -250,6 +258,7 @@ const treeRowClass = (row: Extract<TreeRow, { kind: "entry" }>) => ({
   "is-file": !row.isDirectory,
   "is-active-file": row.isActiveFile,
   "is-selected-directory": row.isSelectedDirectory,
+  "is-deleting": workspaceFilesStore.isFileDeleting(row.path),
   "is-drag-source": draggingTreePath.value === normalizeAbsoluteFsPath(row.path),
 });
 
@@ -261,7 +270,19 @@ const treeMessageStyle = (row: Extract<TreeRow, { kind: "message" }>) => ({
   paddingLeft: `${24 + row.depth * 14}px`,
 });
 
+const treeRowMetaText = (row: Extract<TreeRow, { kind: "entry" }>) => {
+  if (workspaceFilesStore.isFileDeleting(row.path)) return t("workspaceFiles.deleting");
+  if (row.isLoading) return t("workspaceFiles.loading");
+  return "";
+};
+
+const gitStatusTitle = (row: Extract<TreeRow, { kind: "entry" }>) => {
+  if (!row.gitStatus) return "";
+  return `${row.gitStatus.code} ${row.gitStatus.relativePath}`;
+};
+
 const onOpenTreeRow = (row: Extract<TreeRow, { kind: "entry" }>) => {
+  if (workspaceFilesStore.isFileDeleting(row.path)) return;
   if (row.isDirectory) {
     if (hasFilter.value) return;
     void workspaceFilesStore.toggleDirectoryExpanded(row.path);
@@ -270,7 +291,18 @@ const onOpenTreeRow = (row: Extract<TreeRow, { kind: "entry" }>) => {
   void workspaceFilesStore.openFile(row.path);
 };
 
+const onTreeRowContextMenu = (row: Extract<TreeRow, { kind: "entry" }>, event: MouseEvent) => {
+  if (!props.allowContextMenu || row.isDirectory || workspaceFilesStore.isFileDeleting(row.path)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  emit("fileContextMenu", normalizeAbsoluteFsPath(row.path), event);
+};
+
 const onTreeRowDragStart = (row: Extract<TreeRow, { kind: "entry" }>, event: DragEvent) => {
+  if (workspaceFilesStore.isFileDeleting(row.path)) {
+    event.preventDefault();
+    return;
+  }
   draggingTreePath.value = normalizeAbsoluteFsPath(row.path);
   writeWorkspaceFileDragData(event.dataTransfer, row.path, {
     kind: row.isDirectory ? "directory" : "file",

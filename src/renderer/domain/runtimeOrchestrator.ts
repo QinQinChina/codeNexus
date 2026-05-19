@@ -4186,6 +4186,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
           if (threadId) {
             void hydrateThreadHandoffDiagnostics(threadId, { force: true });
             void notifyCompletedTurnIfBackground(threadId);
+            workspaceFilesStore.scheduleGitStatusRefresh(500);
             setTimeout(() => {
               if (!threadStore.runningThreadIds.has(threadId)) void flushQueueForThread(threadId);
             }, 120);

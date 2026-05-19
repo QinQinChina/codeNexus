@@ -1,5 +1,5 @@
 import type { CodexServerRequestMessage } from "../../../shared/codex-protocol";
-import { isOfficialServerRequestMethod, type OfficialServerRequestMethod, type ServerRequestMethod } from "./protocolMethods";
+import { isOfficialServerRequestMethod, type OfficialServerRequestMethod } from "./protocolMethods";
 
 export type AppServerRequest = CodexServerRequestMessage;
 

@@ -336,6 +336,29 @@ export type HistoryUpdatedPayload = {
 // 反向补丁 dry-run/apply 的统一返回结构。
 export type WorkspaceReverseDiffResult = { ok: true; files: string[] } | { ok: false; error: string; files?: string[] };
 
+export type WorkspaceGitStatusCode = "M" | "A" | "D" | "R" | "C" | "U" | "?";
+
+export type WorkspaceGitStatusEntry = {
+  path: string;
+  relativePath: string;
+  code: WorkspaceGitStatusCode;
+  raw: string;
+};
+
+export type WorkspaceGitStatusResult =
+  | {
+      ok: true;
+      root: string;
+      entries: WorkspaceGitStatusEntry[];
+    }
+  | {
+      ok: false;
+      root: string;
+      entries: [];
+      reason: "not_git" | "failed";
+      message: string;
+    };
+
 export type AppWindowState = {
   isMaximized: boolean;
   isMinimized: boolean;
@@ -680,6 +703,7 @@ export type CodexDesktopWorkspaceApi = {
   select(): Promise<string | null>;
   dryRunApplyReverseDiff(args: { cwd: string; diffText: string }): Promise<WorkspaceReverseDiffResult>;
   applyReverseDiff(args: { cwd: string; diffText: string }): Promise<WorkspaceReverseDiffResult>;
+  readGitStatus(args: { cwd: string }): Promise<WorkspaceGitStatusResult>;
 };
 
 export type CodexDesktopHistoryApi = {
