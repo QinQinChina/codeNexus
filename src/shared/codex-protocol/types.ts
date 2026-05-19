@@ -226,7 +226,15 @@ type OfficialCodexRpcResultMap = {
 };
 
 export type CodexOfficialRpcMethod = ClientRequest["method"];
-export type CodexRpcMethod = CodexOfficialRpcMethod;
+export type UnsupportedLegacyCodexRpcMethod =
+  | "fuzzyFileSearch"
+  | "fuzzyFileSearch/sessionStart"
+  | "fuzzyFileSearch/sessionUpdate"
+  | "fuzzyFileSearch/sessionStop"
+  | "getConversationSummary"
+  | "gitDiffToRemote"
+  | "getAuthStatus";
+export type CodexRpcMethod = Exclude<CodexOfficialRpcMethod, UnsupportedLegacyCodexRpcMethod>;
 export type CodexClientNotificationMethod = ClientNotification["method"];
 export type CodexServerRequestMethod = ServerRequest["method"];
 export type CodexServerNotificationMethod = ServerNotification["method"];
@@ -237,16 +245,18 @@ export type CodexServerNotificationMessage = { kind: "notification" } & ServerNo
 
 type MissingCodexRpcResultMethods = Exclude<CodexOfficialRpcMethod, keyof OfficialCodexRpcResultMap>;
 type ExtraCodexRpcResultMethods = Exclude<keyof OfficialCodexRpcResultMap, CodexOfficialRpcMethod>;
+type UnknownUnsupportedLegacyCodexRpcMethods = Exclude<UnsupportedLegacyCodexRpcMethod, CodexOfficialRpcMethod>;
 type _AssertNoMissingCodexRpcResultMethods = AssertNever<MissingCodexRpcResultMethods>;
 type _AssertNoExtraCodexRpcResultMethods = AssertNever<ExtraCodexRpcResultMethods>;
+type _AssertNoUnknownUnsupportedLegacyCodexRpcMethods = AssertNever<UnknownUnsupportedLegacyCodexRpcMethods>;
 
-export type CodexRpcParams<M extends string> = M extends CodexOfficialRpcMethod
+export type CodexRpcParams<M extends CodexOfficialRpcMethod> = M extends CodexOfficialRpcMethod
   ? Extract<ClientRequest, { method: M }> extends { params: infer P }
     ? P
     : undefined
   : unknown;
 
-export type CodexRpcResult<M extends string> = M extends keyof OfficialCodexRpcResultMap
+export type CodexRpcResult<M extends CodexOfficialRpcMethod> = M extends keyof OfficialCodexRpcResultMap
   ? OfficialCodexRpcResultMap[M]
   : unknown;
 
@@ -256,12 +266,12 @@ export type CodexNotifyParams<M extends string> = M extends ClientNotification["
     : undefined
   : unknown;
 
-export type CodexRpcArgs<M extends string = string> =
+export type CodexRpcArgs<M extends CodexRpcMethod = CodexRpcMethod> =
   CodexRpcParams<M> extends undefined
     ? { serverId: string; method: M; params?: undefined }
     : { serverId: string; method: M; params: CodexRpcParams<M> };
 
-export type CodexRpcResponse<M extends string = string> = {
+export type CodexRpcResponse<M extends CodexRpcMethod = CodexRpcMethod> = {
   result: CodexRpcResult<M>;
 };
 

@@ -90,11 +90,17 @@ export const SERVER_NOTIFICATION_METHODS: readonly ServerNotificationMethod[] = 
 
 type MissingServerRequestMethods = Exclude<ServerRequestMethod, (typeof SERVER_REQUEST_METHODS)[number]>;
 type ExtraServerRequestMethods = Exclude<(typeof SERVER_REQUEST_METHODS)[number], ServerRequestMethod>;
+type UnknownUnsupportedLegacyServerRequestMethods = Exclude<
+  UnsupportedLegacyServerRequestMethod,
+  OfficialServerRequestMethod
+>;
 type MissingServerNotificationMethods = Exclude<ServerNotificationMethod, (typeof SERVER_NOTIFICATION_METHODS)[number]>;
 type ExtraServerNotificationMethods = Exclude<(typeof SERVER_NOTIFICATION_METHODS)[number], ServerNotificationMethod>;
 
 type _AssertNoMissingServerRequestMethods = AssertNever<MissingServerRequestMethods>;
 type _AssertNoExtraServerRequestMethods = AssertNever<ExtraServerRequestMethods>;
+type _AssertNoUnknownUnsupportedLegacyServerRequestMethods =
+  AssertNever<UnknownUnsupportedLegacyServerRequestMethods>;
 type _AssertNoMissingServerNotificationMethods = AssertNever<MissingServerNotificationMethods>;
 type _AssertNoExtraServerNotificationMethods = AssertNever<ExtraServerNotificationMethods>;
 

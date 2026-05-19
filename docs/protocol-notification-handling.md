@@ -4,10 +4,12 @@
 
 ## 结论
 
-当前项目的协议方法白名单已经和官方生成协议对齐：
+当前项目的 `ServerNotification` 方法白名单和官方生成协议对齐；`ServerRequest` 则区分“官方生成全集”和“客户端支持集”：
 
 - `ServerNotification`: 64 个方法，定义在 `src/renderer/app/events/protocolMethods.ts`
-- `ServerRequest`: 10 个方法，定义在 `src/renderer/app/events/protocolMethods.ts`
+- 官方 `ServerRequest`: 10 个方法，类型来源于生成协议
+- 客户端支持的 `ServerRequest`: 8 个 v2 方法，定义在 `src/renderer/app/events/protocolMethods.ts`
+- 不再兼容的 legacy `ServerRequest`: `applyPatchApproval`、`execCommandApproval`
 - 协议类型来源：`src/generated/codex-app-server/ServerNotification.ts`
 
 但“协议层接收”不等于“聊天 UI 语义处理”。真正进入聊天事件流水线的处理入口是：
@@ -21,6 +23,7 @@
 当前状态可以概括为：
 
 - 官方 64 个 `ServerNotification` 均在白名单内。
+- 客户端只把 v2 `ServerRequest` 进入请求处理流程；legacy approval request 会返回 not implemented，不进入审批 UI。
 - 非官方通知会在 `normalizeNotification` 中被丢弃。
 - 核心聊天相关通知已经有语义处理。
 - 一批官方通知已经被识别并有意隐藏、路由到 debug，或交给其他面板处理，不进入主聊天 UI。

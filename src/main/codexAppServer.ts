@@ -8,6 +8,7 @@ import { discoverExistingCodexPaths } from "./codexNativeDiscovery";
 import type {
   CodexIncomingMessage,
   CodexNotifyParams,
+  CodexRpcMethod,
   CodexRpcParams,
   CodexRpcResult,
   JsonRpcId as ProtocolJsonRpcId,
@@ -196,7 +197,7 @@ export class CodexAppServer {
     this.rl = undefined;
   }
 
-  async request<M extends string>(
+  async request<M extends CodexRpcMethod>(
     method: M,
     params?: CodexRpcParams<M>,
     timeoutMs = 120_000

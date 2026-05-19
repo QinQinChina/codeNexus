@@ -670,7 +670,7 @@ export type CodexDesktopCodexServerApi = {
     capabilities?: { experimentalApi?: boolean };
   }>;
   stop(args: { serverId: string }): Promise<{ ok: true }>;
-  rpc<M extends string>(args: CodexRpcArgs<M>): Promise<CodexRpcResponse<M>>;
+  rpc<M extends CodexRpcMethod>(args: CodexRpcArgs<M>): Promise<CodexRpcResponse<M>>;
   notify<M extends string>(args: CodexNotifyArgs<M>): Promise<{ ok: true }>;
   respond(args: { serverId: string; id: number | string; result?: unknown; error?: unknown }): Promise<{ ok: true }>;
   onEvent(cb: (payload: CodexEventPayload) => void): () => void;
@@ -718,4 +718,10 @@ export type CodexDesktopApi = {
   history: CodexDesktopHistoryApi;
 };
 
-import type { CodexIncomingMessage, CodexNotifyArgs, CodexRpcArgs, CodexRpcResponse } from "../codex-protocol/index";
+import type {
+  CodexIncomingMessage,
+  CodexNotifyArgs,
+  CodexRpcArgs,
+  CodexRpcMethod,
+  CodexRpcResponse,
+} from "../codex-protocol/index";

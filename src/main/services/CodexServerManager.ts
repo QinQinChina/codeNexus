@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { CodexAppServer, type JsonRpcId, type ServerMode } from "../codexAppServer";
-import type { CodexIncomingMessage, CodexNotifyArgs, CodexRpcArgs, CodexRpcResult } from "../../shared/codex-protocol";
+import type {
+  CodexIncomingMessage,
+  CodexNotifyArgs,
+  CodexRpcArgs,
+  CodexRpcMethod,
+  CodexRpcResult,
+} from "../../shared/codex-protocol";
 
 type ServerRecord = {
   server: CodexAppServer;
@@ -54,7 +60,7 @@ export class CodexServerManager {
     if (firstError) throw firstError;
   }
 
-  async request<M extends string>(args: CodexRpcArgs<M>): Promise<CodexRpcResult<M>> {
+  async request<M extends CodexRpcMethod>(args: CodexRpcArgs<M>): Promise<CodexRpcResult<M>> {
     const record = this.getServer(args.serverId);
     return await record.server.request(args.method, args.params);
   }
