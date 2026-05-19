@@ -2,6 +2,7 @@ import { codexDesktop } from "../../api/codexDesktopClient";
 import { sandboxPolicyFromUi } from "../../shared/sandboxPolicy";
 import type { TurnStartParams } from "../../../generated/codex-app-server/v2/TurnStartParams";
 import type { UserInput as CodexUserInput } from "../../../generated/codex-app-server/v2/UserInput";
+import type { AskForApproval } from "../../../generated/codex-app-server/v2/AskForApproval";
 import { IMAGE_GENERATION_DYNAMIC_TOOL_DEVELOPER_INSTRUCTIONS } from "../../../shared/dynamicTools";
 import type { UserTurnInput } from "../types";
 import {
@@ -29,7 +30,7 @@ export type TurnStartRuntimeDeps = {
   getReasoningEffort: () => string;
   getReasoningSummary: () => string;
   getSandboxMode: () => string;
-  getApprovalPolicy: () => string;
+  getApprovalPolicy: () => AskForApproval;
   getApprovalsReviewer: () => unknown;
   toCodexUserInputs: (values: UserTurnInput[]) => CodexUserInput[];
   parseJsonRpcError: (error: unknown) => JsonRpcErrorLike | null;
@@ -45,7 +46,7 @@ export type TurnStartRuntime = {
     model?: string;
     effort?: string;
     summary?: string;
-    approvalPolicy?: string;
+    approvalPolicy?: TurnStartParams["approvalPolicy"];
     approvalsReviewer?: TurnStartParams["approvalsReviewer"];
     sandboxMode?: string;
     composeModeOverride?: ComposeMode;
@@ -71,7 +72,7 @@ export function createTurnStartRuntime(deps: TurnStartRuntimeDeps): TurnStartRun
     const requestedModel = normalizeModelName(params.model ?? deps.getModel());
     const requestedEffort = normalizeEffort(params.effort ?? deps.getReasoningEffort());
     const requestedSummary = normalizeReasoningSummary(params.summary ?? deps.getReasoningSummary());
-    const hasApprovalPolicyOverride = String(params.approvalPolicy ?? "").trim().length > 0;
+    const hasApprovalPolicyOverride = params.approvalPolicy != null;
     const requestedApprovalPolicy = normalizeApprovalPolicy(
       hasApprovalPolicyOverride ? params.approvalPolicy : deps.getApprovalPolicy()
     );

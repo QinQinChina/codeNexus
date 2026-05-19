@@ -1,5 +1,6 @@
 // 领域类型定义：跨组件/Store 复用的状态与数据结构。
 import type { ApprovalsReviewer } from "../../generated/codex-app-server/v2/ApprovalsReviewer";
+import type { AskForApproval } from "../../generated/codex-app-server/v2/AskForApproval";
 import type { SandboxMode } from "../../generated/codex-app-server/v2/SandboxMode";
 import type { ThreadSourceKind } from "../../generated/codex-app-server/v2/ThreadSourceKind";
 import type { TextElement } from "../../generated/codex-app-server/v2/TextElement";
@@ -146,14 +147,12 @@ export type GlobalConfigDraft = {
   modelAutoCompactTokenLimit: number | null;
   modelReasoningEffort: string;
   modelReasoningSummary: string;
-  approvalPolicy: string;
+  approvalPolicy: AskForApproval;
   approvalsReviewer: ApprovalsReviewer;
   sandboxMode: SandboxMode;
   windowsElevatedSandboxEnabled: boolean;
   unifiedExecEnabled: boolean;
   applyPatchStreamingEventsEnabled: boolean;
-  codeModeEnabled: boolean;
-  codeModeOnlyEnabled: boolean;
 };
 
 export type McpResourceEntry = {

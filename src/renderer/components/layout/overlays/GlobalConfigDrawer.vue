@@ -321,13 +321,106 @@
                   <div class="global-field-stack">
                     <SelectDropdown
                       id="sel-global-approval-policy"
-                      v-model="configStore.draft.approvalPolicy"
+                      :modelValue="approvalPolicySelectValue"
                       class="context-input mono"
                       :disabled="approvalPolicySelectDisabled"
                       :options="approvalPolicyOptions"
+                      @update:modelValue="onApprovalPolicyChanged"
                     />
                     <div v-if="approvalPolicyHintText" class="global-model-manage-hint">
                       {{ approvalPolicyHintText }}
+                    </div>
+                    <div v-if="approvalPolicySelectValue === 'granular'" class="global-toggle-list">
+                      <label class="global-toggle-row">
+                        <div class="global-toggle-copy">
+                          <span class="global-toggle-title">{{ t("globalConfig.granularSandboxApproval") }}</span>
+                          <span class="global-toggle-note mono">sandbox_approval</span>
+                        </div>
+                        <span class="skill-switch">
+                          <input
+                            class="skill-switch-input"
+                            type="checkbox"
+                            :checked="granularApprovalPolicy.granular.sandbox_approval"
+                            :disabled="globalControlsDisabled"
+                            @change="onGranularApprovalFlagChanged('sandbox_approval', $event)"
+                          />
+                          <span class="skill-switch-track" aria-hidden="true"
+                            ><span class="skill-switch-thumb"></span
+                          ></span>
+                        </span>
+                      </label>
+                      <label class="global-toggle-row">
+                        <div class="global-toggle-copy">
+                          <span class="global-toggle-title">{{ t("globalConfig.granularRules") }}</span>
+                          <span class="global-toggle-note mono">rules</span>
+                        </div>
+                        <span class="skill-switch">
+                          <input
+                            class="skill-switch-input"
+                            type="checkbox"
+                            :checked="granularApprovalPolicy.granular.rules"
+                            :disabled="globalControlsDisabled"
+                            @change="onGranularApprovalFlagChanged('rules', $event)"
+                          />
+                          <span class="skill-switch-track" aria-hidden="true"
+                            ><span class="skill-switch-thumb"></span
+                          ></span>
+                        </span>
+                      </label>
+                      <label class="global-toggle-row">
+                        <div class="global-toggle-copy">
+                          <span class="global-toggle-title">{{ t("globalConfig.granularSkillApproval") }}</span>
+                          <span class="global-toggle-note mono">skill_approval</span>
+                        </div>
+                        <span class="skill-switch">
+                          <input
+                            class="skill-switch-input"
+                            type="checkbox"
+                            :checked="granularApprovalPolicy.granular.skill_approval"
+                            :disabled="globalControlsDisabled"
+                            @change="onGranularApprovalFlagChanged('skill_approval', $event)"
+                          />
+                          <span class="skill-switch-track" aria-hidden="true"
+                            ><span class="skill-switch-thumb"></span
+                          ></span>
+                        </span>
+                      </label>
+                      <label class="global-toggle-row">
+                        <div class="global-toggle-copy">
+                          <span class="global-toggle-title">{{ t("globalConfig.granularRequestPermissions") }}</span>
+                          <span class="global-toggle-note mono">request_permissions</span>
+                        </div>
+                        <span class="skill-switch">
+                          <input
+                            class="skill-switch-input"
+                            type="checkbox"
+                            :checked="granularApprovalPolicy.granular.request_permissions"
+                            :disabled="globalControlsDisabled"
+                            @change="onGranularApprovalFlagChanged('request_permissions', $event)"
+                          />
+                          <span class="skill-switch-track" aria-hidden="true"
+                            ><span class="skill-switch-thumb"></span
+                          ></span>
+                        </span>
+                      </label>
+                      <label class="global-toggle-row">
+                        <div class="global-toggle-copy">
+                          <span class="global-toggle-title">{{ t("globalConfig.granularMcpElicitations") }}</span>
+                          <span class="global-toggle-note mono">mcp_elicitations</span>
+                        </div>
+                        <span class="skill-switch">
+                          <input
+                            class="skill-switch-input"
+                            type="checkbox"
+                            :checked="granularApprovalPolicy.granular.mcp_elicitations"
+                            :disabled="globalControlsDisabled"
+                            @change="onGranularApprovalFlagChanged('mcp_elicitations', $event)"
+                          />
+                          <span class="skill-switch-track" aria-hidden="true"
+                            ><span class="skill-switch-thumb"></span
+                          ></span>
+                        </span>
+                      </label>
                     </div>
                   </div>
                 </label>
@@ -392,43 +485,6 @@
                     <span class="skill-switch">
                       <input
                         v-model="configStore.draft.unifiedExecEnabled"
-                        class="skill-switch-input"
-                        type="checkbox"
-                        :disabled="globalControlsDisabled"
-                      />
-                      <span class="skill-switch-track" aria-hidden="true"
-                        ><span class="skill-switch-thumb"></span
-                      ></span>
-                    </span>
-                  </label>
-                  <label class="global-toggle-row" :class="{ 'is-dirty': isGlobalConfigFieldDirty('codeModeEnabled') }">
-                    <div class="global-toggle-copy">
-                      <span class="global-toggle-title">Code Mode</span>
-                      <span class="global-toggle-note mono">{{ t("globalConfig.codeModeNote") }}</span>
-                    </div>
-                    <span class="skill-switch">
-                      <input
-                        v-model="configStore.draft.codeModeEnabled"
-                        class="skill-switch-input"
-                        type="checkbox"
-                        :disabled="globalControlsDisabled"
-                      />
-                      <span class="skill-switch-track" aria-hidden="true"
-                        ><span class="skill-switch-thumb"></span
-                      ></span>
-                    </span>
-                  </label>
-                  <label
-                    class="global-toggle-row"
-                    :class="{ 'is-dirty': isGlobalConfigFieldDirty('codeModeOnlyEnabled') }"
-                  >
-                    <div class="global-toggle-copy">
-                      <span class="global-toggle-title">{{ t("globalConfig.codeModeOnly") }}</span>
-                      <span class="global-toggle-note mono">{{ t("globalConfig.codeModeOnlyNote") }}</span>
-                    </div>
-                    <span class="skill-switch">
-                      <input
-                        v-model="configStore.draft.codeModeOnlyEnabled"
                         class="skill-switch-input"
                         type="checkbox"
                         :disabled="globalControlsDisabled"
@@ -503,7 +559,10 @@ import {
   OFFICIAL_REASONING_EFFORT_OPTIONS,
   OFFICIAL_REASONING_SUMMARY_OPTIONS,
   OFFICIAL_SANDBOX_MODE_OPTIONS,
+  createDefaultGranularApprovalPolicy,
   createDefaultGlobalConfigDraft,
+  isGranularApprovalPolicy,
+  normalizeApprovalPolicy,
 } from "../../../domain/serverInterop";
 import type { GlobalConfigDraft } from "../../../domain/types";
 import { useModelCatalogStore } from "../../../stores/modelCatalog.store";
@@ -708,6 +767,14 @@ const approvalsReviewerLabels = computed<Record<string, string>>(() => ({
   user: t("globalConfig.reviewerUser"),
 }));
 
+const approvalPolicyLabels = computed<Record<string, string>>(() => ({
+  untrusted: "untrusted",
+  "on-failure": "on-failure",
+  "on-request": "on-request",
+  never: "never",
+  granular: t("globalConfig.approvalPolicyGranular"),
+}));
+
 const sandboxModeLabels = computed<Record<string, string>>(() => ({
   "read-only": t("globalConfig.sandboxReadOnly"),
   "workspace-write": t("globalConfig.sandboxWorkspaceWrite"),
@@ -738,6 +805,43 @@ const buildRestrictedSelectState = (
   }
 
   return { hasRestrictions: true, hasUnsupported, values };
+};
+
+const toApprovalPolicyOptionValue = (value: unknown): string | null => {
+  if (typeof value === "string") return value;
+  if (isGranularApprovalPolicy(value)) return "granular";
+  return null;
+};
+
+const approvalPolicySelectValue = computed(() =>
+  isGranularApprovalPolicy(configStore.draft.approvalPolicy) ? "granular" : String(configStore.draft.approvalPolicy)
+);
+
+type GranularApprovalFlag = keyof ReturnType<typeof createDefaultGranularApprovalPolicy>["granular"];
+
+const granularApprovalPolicy = computed(() =>
+  isGranularApprovalPolicy(configStore.draft.approvalPolicy)
+    ? configStore.draft.approvalPolicy
+    : createDefaultGranularApprovalPolicy()
+);
+
+const onApprovalPolicyChanged = (value: string) => {
+  configStore.setDraft({
+    approvalPolicy: value === "granular" ? createDefaultGranularApprovalPolicy() : normalizeApprovalPolicy(value),
+  });
+};
+
+const onGranularApprovalFlagChanged = (key: GranularApprovalFlag, event: Event) => {
+  const target = event.target as HTMLInputElement | null;
+  const current = granularApprovalPolicy.value;
+  configStore.setDraft({
+    approvalPolicy: {
+      granular: {
+        ...current.granular,
+        [key]: Boolean(target?.checked),
+      },
+    },
+  });
 };
 
 const formatRestrictedValues = (values: string[], labels?: Record<string, string>) => {
@@ -788,7 +892,7 @@ const buildRestrictedHintText = (restriction: RestrictedSelectState, labels?: Re
 
 const approvalPolicyRestriction = computed(() =>
   buildRestrictedSelectState(
-    configRequirementsStore.requirements?.allowedApprovalPolicies,
+    configRequirementsStore.requirements?.allowedApprovalPolicies?.map(toApprovalPolicyOptionValue),
     OFFICIAL_APPROVAL_POLICY_OPTIONS
   )
 );
@@ -804,9 +908,10 @@ const sandboxModeRestriction = computed(() =>
 
 const approvalPolicyOptions = computed(() =>
   buildRestrictedSelectOptions(
-    String(configStore.draft.approvalPolicy ?? ""),
+    approvalPolicySelectValue.value,
     OFFICIAL_APPROVAL_POLICY_OPTIONS,
-    approvalPolicyRestriction.value
+    approvalPolicyRestriction.value,
+    approvalPolicyLabels.value
   )
 );
 const approvalsReviewerOptions = computed(() =>
@@ -870,7 +975,7 @@ const configRequirementsSummaryText = computed(() => {
 
 const approvalPolicyHintText = computed(() => {
   if (configRequirementsStore.loadState === "error") return "";
-  return buildRestrictedHintText(approvalPolicyRestriction.value);
+  return buildRestrictedHintText(approvalPolicyRestriction.value, approvalPolicyLabels.value);
 });
 
 const sandboxModeHintText = computed(() => {
@@ -917,8 +1022,6 @@ const GLOBAL_CONFIG_DIRTY_KEYS: Array<keyof GlobalConfigDraft> = [
   "windowsElevatedSandboxEnabled",
   "unifiedExecEnabled",
   "applyPatchStreamingEventsEnabled",
-  "codeModeEnabled",
-  "codeModeOnlyEnabled",
 ];
 
 const globalConfigDirtyCount = computed(

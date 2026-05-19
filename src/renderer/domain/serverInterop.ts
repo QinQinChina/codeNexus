@@ -4,6 +4,7 @@ import { sandboxKebabFromUi } from "../shared/sandboxPolicy";
 import type { ReasoningEffort } from "../../generated/codex-app-server/ReasoningEffort";
 import type { ReasoningSummary } from "../../generated/codex-app-server/ReasoningSummary";
 import type { ApprovalsReviewer } from "../../generated/codex-app-server/v2/ApprovalsReviewer";
+import type { AskForApproval } from "../../generated/codex-app-server/v2/AskForApproval";
 import type { ConfigReadResponse } from "../../generated/codex-app-server/v2/ConfigReadResponse";
 import type { ConfigRequirements } from "../../generated/codex-app-server/v2/ConfigRequirements";
 import type { ConfigRequirementsReadResponse } from "../../generated/codex-app-server/v2/ConfigRequirementsReadResponse";
@@ -43,7 +44,13 @@ function readPathValue(root: unknown, path: string): { found: boolean; value: un
 
 export const OFFICIAL_REASONING_SUMMARY_OPTIONS = ["auto", "concise", "detailed", "none"] as const;
 export const OFFICIAL_REASONING_EFFORT_OPTIONS = ["low", "medium", "high", "xhigh"] as const;
-export const OFFICIAL_APPROVAL_POLICY_OPTIONS = ["untrusted", "on-failure", "on-request", "never"] as const;
+export const OFFICIAL_APPROVAL_POLICY_STRING_OPTIONS = [
+  "untrusted",
+  "on-failure",
+  "on-request",
+  "never",
+] as const satisfies readonly Extract<AskForApproval, string>[];
+export const OFFICIAL_APPROVAL_POLICY_OPTIONS = [...OFFICIAL_APPROVAL_POLICY_STRING_OPTIONS, "granular"] as const;
 export const OFFICIAL_APPROVALS_REVIEWER_OPTIONS = [
   "user",
   "auto_review",
@@ -77,8 +84,41 @@ export function normalizeEffort(value: unknown): ReasoningEffort {
   return normalizeEnumValue(value, "high", OFFICIAL_REASONING_EFFORT_OPTIONS);
 }
 
-export function normalizeApprovalPolicy(value: unknown): string {
-  return normalizeEnumValue(value, "never", OFFICIAL_APPROVAL_POLICY_OPTIONS);
+export function createDefaultGranularApprovalPolicy(): Extract<AskForApproval, { granular: unknown }> {
+  return {
+    granular: {
+      sandbox_approval: true,
+      rules: true,
+      skill_approval: true,
+      request_permissions: true,
+      mcp_elicitations: true,
+    },
+  };
+}
+
+function normalizeGranularApprovalPolicy(value: unknown): Extract<AskForApproval, { granular: unknown }> {
+  const defaults = createDefaultGranularApprovalPolicy();
+  const granular = toRecord(toRecord(value)?.granular);
+  if (!granular) return defaults;
+  return {
+    granular: {
+      sandbox_approval: normalizeBooleanFlag(granular.sandbox_approval, defaults.granular.sandbox_approval),
+      rules: normalizeBooleanFlag(granular.rules, defaults.granular.rules),
+      skill_approval: normalizeBooleanFlag(granular.skill_approval, defaults.granular.skill_approval),
+      request_permissions: normalizeBooleanFlag(granular.request_permissions, defaults.granular.request_permissions),
+      mcp_elicitations: normalizeBooleanFlag(granular.mcp_elicitations, defaults.granular.mcp_elicitations),
+    },
+  };
+}
+
+export function isGranularApprovalPolicy(value: unknown): value is Extract<AskForApproval, { granular: unknown }> {
+  return Boolean(toRecord(value)?.granular && toRecord(toRecord(value)?.granular));
+}
+
+export function normalizeApprovalPolicy(value: unknown): AskForApproval {
+  if (isGranularApprovalPolicy(value)) return normalizeGranularApprovalPolicy(value);
+  if (String(value ?? "").trim() === "granular") return createDefaultGranularApprovalPolicy();
+  return normalizeEnumValue(value, "never", OFFICIAL_APPROVAL_POLICY_STRING_OPTIONS);
 }
 
 export function normalizeApprovalsReviewer(value: unknown): ApprovalsReviewer {
@@ -133,8 +173,6 @@ export function createDefaultGlobalConfigDraft(): GlobalConfigDraft {
     windowsElevatedSandboxEnabled: false,
     unifiedExecEnabled: false,
     applyPatchStreamingEventsEnabled: false,
-    codeModeEnabled: false,
-    codeModeOnlyEnabled: false,
   };
 }
 
@@ -153,8 +191,6 @@ export function extractGlobalConfigFromReadResult(result: unknown): GlobalConfig
   const windowsSandboxNode = readPathValue(root, "windows.sandbox");
   const unifiedExecNode = readPathValue(root, "features.unified_exec");
   const applyPatchStreamingEventsNode = readPathValue(root, "features.apply_patch_streaming_events");
-  const codeModeNode = readPathValue(root, "features.code_mode");
-  const codeModeOnlyNode = readPathValue(root, "features.code_mode_only");
 
   return {
     model: normalizeModelName(modelNode.value),
@@ -187,8 +223,6 @@ export function extractGlobalConfigFromReadResult(result: unknown): GlobalConfig
       applyPatchStreamingEventsNode.value,
       defaults.applyPatchStreamingEventsEnabled
     ),
-    codeModeEnabled: normalizeBooleanFlag(codeModeNode.value, defaults.codeModeEnabled),
-    codeModeOnlyEnabled: normalizeBooleanFlag(codeModeOnlyNode.value, defaults.codeModeOnlyEnabled),
   };
 }
 
@@ -229,8 +263,10 @@ export function buildConfigBatchChangesFromDraft(
   ) {
     changes.push({ keyPath: "model_reasoning_summary", value: normalizeReasoningSummary(draft.modelReasoningSummary) });
   }
-  if (normalizeApprovalPolicy(draft.approvalPolicy) !== normalizeApprovalPolicy(baseline.approvalPolicy)) {
-    changes.push({ keyPath: "approval_policy", value: normalizeApprovalPolicy(draft.approvalPolicy) });
+  const normalizedDraftApprovalPolicy = normalizeApprovalPolicy(draft.approvalPolicy);
+  const normalizedBaselineApprovalPolicy = normalizeApprovalPolicy(baseline.approvalPolicy);
+  if (JSON.stringify(normalizedDraftApprovalPolicy) !== JSON.stringify(normalizedBaselineApprovalPolicy)) {
+    changes.push({ keyPath: "approval_policy", value: normalizedDraftApprovalPolicy });
   }
   if (normalizeApprovalsReviewer(draft.approvalsReviewer) !== normalizeApprovalsReviewer(baseline.approvalsReviewer)) {
     changes.push({ keyPath: "approvals_reviewer", value: normalizeApprovalsReviewer(draft.approvalsReviewer) });
@@ -253,12 +289,6 @@ export function buildConfigBatchChangesFromDraft(
       keyPath: "features.apply_patch_streaming_events",
       value: Boolean(draft.applyPatchStreamingEventsEnabled),
     });
-  }
-  if (Boolean(draft.codeModeEnabled) !== Boolean(baseline.codeModeEnabled)) {
-    changes.push({ keyPath: "features.code_mode", value: Boolean(draft.codeModeEnabled) });
-  }
-  if (Boolean(draft.codeModeOnlyEnabled) !== Boolean(baseline.codeModeOnlyEnabled)) {
-    changes.push({ keyPath: "features.code_mode_only", value: Boolean(draft.codeModeOnlyEnabled) });
   }
   return changes;
 }
