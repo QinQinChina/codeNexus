@@ -19,6 +19,11 @@ export const IPC_APP_CHANNELS = {
   appCodexProviderTest: "app:codexProvider:test",
   appCodexSkillRootsRead: "app:codexSkillRoots:read",
   appCodexSkillRootsSetForWorkspace: "app:codexSkillRoots:setForWorkspace",
+  appCodexConfigSwitcherRead: "app:codexConfigSwitcher:read",
+  appCodexConfigSwitcherSave: "app:codexConfigSwitcher:save",
+  appCodexConfigSwitcherActivateProfile: "app:codexConfigSwitcher:activateProfile",
+  appCodexConfigSwitcherImportCurrent: "app:codexConfigSwitcher:importCurrent",
+  appCodexConfigSwitcherRestoreBackup: "app:codexConfigSwitcher:restoreBackup",
   appListNotificationSounds: "app:notificationSound:list",
   appReadNotificationSoundDataUrl: "app:notificationSound:readDataUrl",
   appSystemNotificationShow: "app:systemNotification:show",
@@ -34,10 +39,6 @@ export const IPC_APP_CHANNELS = {
   appImageGenerationTaskCancel: "app:imageGeneration:taskCancel",
   appImageGenerationTaskDelete: "app:imageGeneration:taskDelete",
   appImageGenerationTaskRetry: "app:imageGeneration:taskRetry",
-  appRemoteSyncGetState: "app:remoteSync:getState",
-  appRemoteSyncLogin: "app:remoteSync:login",
-  appRemoteSyncLogout: "app:remoteSync:logout",
-  appRemoteSyncFlush: "app:remoteSync:flush",
   // 窗口控制（自定义标题栏）
   appWindowGetState: "app:window:getState",
   appWindowMinimize: "app:window:minimize",
@@ -45,5 +46,4 @@ export const IPC_APP_CHANNELS = {
   appWindowClose: "app:window:close",
   appWindowState: "app:window:state",
   appWindowClosingState: "app:window:closingState",
-  appRemoteSyncState: "app:remoteSync:state",
 } as const;

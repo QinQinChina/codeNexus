@@ -53,6 +53,7 @@ function normalizeArgs(value: unknown): ImageGenerationGenerateArgs | null {
     threadId: toNullableText(record.threadId),
     turnId: toNullableText(record.turnId),
     callId: toNullableText(record.callId),
+    workspacePath: toNullableText(record.workspacePath),
     mode: record.mode === "edit" ? "edit" : record.mode === "generate" ? "generate" : null,
     prompt,
     inputImages: Array.isArray(record.inputImages)

@@ -1,10 +1,10 @@
 <template>
   <footer class="bottom-bar" role="navigation" :aria-label="t('bottomBar.aria')">
-    <div class="bottom-bar__left"></div>
+    <div class="bottom-bar__left">
+      <CodexProfileSwitch class="bottom-bar__profile-switch" />
+    </div>
 
     <div class="bottom-bar__right">
-      <CodexProfileSwitch class="bottom-bar__profile-switch" />
-
       <div class="bottom-bar__conn mono" :class="connectionStateClass">
         <span class="bottom-bar__conn-icon" aria-hidden="true">
           <span class="bottom-bar__conn-dot"></span>
@@ -101,30 +101,16 @@ onBeforeUnmount(() => {
 
 .bottom-bar .bottom-bar__profile-switch {
   flex: 0 1 auto;
-  width: min(360px, 34vw);
-  max-width: min(360px, 34vw);
+  width: fit-content;
+  max-width: min(260px, 42vw);
   height: 26px;
-  margin-left: 8px;
+  margin-left: 4px;
   margin-right: 4px;
-  padding-top: 1px;
-  padding-bottom: 1px;
-  border-color: color-mix(in srgb, var(--panel-border, var(--border)) 72%, transparent);
-  background: var(--control-surface, var(--button-bg));
 }
 
 .bottom-bar .bottom-bar__profile-switch :deep(.codex-profile-switch__select) {
   min-width: 130px;
   max-width: min(260px, 26vw);
-  height: 22px;
-}
-
-.bottom-bar .bottom-bar__profile-switch :deep(.codex-profile-switch__empty) {
-  height: 22px;
-}
-
-.bottom-bar .bottom-bar__profile-switch :deep(.codex-profile-switch__settings) {
-  width: 24px;
-  min-width: 24px;
   height: 22px;
 }
 

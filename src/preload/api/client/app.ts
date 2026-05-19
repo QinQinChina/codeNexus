@@ -60,5 +60,13 @@ export function createAppApi(ipcRenderer: IpcRenderer): CodexDesktopApi["app"] {
     // 为当前工作区设置 skill roots：联动工作区与技能配置。
     setCodexSkillRootsForWorkspace: (args) =>
       ipcRenderer.invoke(IPC_APP_CHANNELS.appCodexSkillRootsSetForWorkspace, args),
+    readCodexConfigSwitcher: () => ipcRenderer.invoke(IPC_APP_CHANNELS.appCodexConfigSwitcherRead),
+    saveCodexConfigSwitcher: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appCodexConfigSwitcherSave, args),
+    activateCodexConfigSwitcherProfile: (args) =>
+      ipcRenderer.invoke(IPC_APP_CHANNELS.appCodexConfigSwitcherActivateProfile, args),
+    importCurrentCodexConfigSwitcher: (args) =>
+      ipcRenderer.invoke(IPC_APP_CHANNELS.appCodexConfigSwitcherImportCurrent, args),
+    restoreCodexConfigSwitcherBackup: (args) =>
+      ipcRenderer.invoke(IPC_APP_CHANNELS.appCodexConfigSwitcherRestoreBackup, args),
   } satisfies CodexDesktopApi["app"];
 }

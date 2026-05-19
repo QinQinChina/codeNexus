@@ -6,6 +6,7 @@ import { HistoryService } from "../../services/HistoryService";
 import type { LocalSettingsService } from "../../services/LocalSettingsService";
 import type { CodexProfileService } from "../../services/CodexProfileService";
 import type { CodexSkillRootsService } from "../../services/CodexSkillRootsService";
+import type { CodexConfigSwitcherService } from "../../services/CodexConfigSwitcherService";
 import type { ImageGenerationHistoryService } from "../../services/ImageGenerationHistoryService";
 import type { ImageGenerationTaskService } from "../../services/ImageGenerationTaskService";
 import type { ThreadArtifactService } from "../../services/ThreadArtifactService";
@@ -17,7 +18,6 @@ import { registerCacheHandlers } from "./cache.handlers";
 import { registerCodexHandlers } from "./codex.handlers";
 import { registerHistoryHandlers } from "./history.handlers";
 import { registerWorkspaceHandlers } from "./workspace.handlers";
-import type { RemoteStateSyncService } from "../../services/RemoteStateSyncService";
 import { CacheRegistryService } from "../../services/CacheRegistryService";
 import type { HistoryThreadRunningStateResult } from "../../../shared/ipc/contracts";
 
@@ -37,9 +37,9 @@ export type IpcHandlersDeps = {
   localSettingsService: LocalSettingsService;
   codexProfileService: CodexProfileService;
   codexSkillRootsService: CodexSkillRootsService;
+  codexConfigSwitcherService: CodexConfigSwitcherService;
   imageGenerationHistoryService: ImageGenerationHistoryService;
   imageGenerationTaskService: ImageGenerationTaskService;
-  remoteSyncService: RemoteStateSyncService;
   cacheRegistryService: CacheRegistryService;
 };
 
@@ -49,9 +49,9 @@ export function registerAllHandlers(deps: IpcHandlersDeps) {
     localSettingsService: deps.localSettingsService,
     codexProfileService: deps.codexProfileService,
     codexSkillRootsService: deps.codexSkillRootsService,
+    codexConfigSwitcherService: deps.codexConfigSwitcherService,
     imageGenerationHistoryService: deps.imageGenerationHistoryService,
     imageGenerationTaskService: deps.imageGenerationTaskService,
-    remoteSyncService: deps.remoteSyncService,
   });
   registerCodexHandlers({ serverManager: deps.serverManager, sendEvent: deps.sendCodexEvent });
   registerCacheHandlers({ cacheRegistryService: deps.cacheRegistryService });

@@ -1,6 +1,13 @@
-import type { LocalRemoteSyncSettings, UserLocalSettings, UserLocalSettingsPatch } from "../localSettings";
+import type { UserLocalSettings, UserLocalSettingsPatch } from "../localSettings";
 import type { CodexProviderProfileInput, CodexProviderProfilesState } from "../codexProfiles";
 import type { CodexSkillRootsState } from "../codexSkillRoots";
+import type {
+  CodexConfigSwitcherActivateResult,
+  CodexConfigSwitcherImportArgs,
+  CodexConfigSwitcherMutationResult,
+  CodexConfigSwitcherSnapshot,
+  CodexConfigSwitcherState,
+} from "../codexConfigSwitcher";
 import type { ThreadSourceKind } from "../../generated/codex-app-server/v2/ThreadSourceKind";
 
 // IPC 契约类型：定义 renderer 可通过 preload 调用的桌面 API 形态与数据结构。
@@ -348,53 +355,6 @@ export type AppWindowClosingState = {
   steps: AppClosingStep[];
 };
 
-export type RemoteSyncPlanStep = {
-  step: string;
-  status: "pending" | "inProgress" | "completed";
-};
-
-export type RemoteSyncThreadSummary = {
-  threadId: string;
-  title: string;
-  updatedAt: number;
-  running: boolean;
-  activeTurnId: string | null;
-  lastError: string | null;
-  planTurnId: string | null;
-  planExplanation: string | null;
-  planSteps: RemoteSyncPlanStep[];
-};
-
-export type RemoteSyncSnapshotPayload = {
-  generatedAt: number;
-  threads: RemoteSyncThreadSummary[];
-};
-
-export type RemoteSyncEventPayload = {
-  id: string;
-  occurredAt: number;
-  eventType: "turnStarted" | "turnCompleted" | "planUpdated";
-  threadId: string;
-  turnId?: string;
-  payload?: unknown;
-};
-
-export type AppRemoteSyncPhase = "disabled" | "idle" | "syncing" | "error";
-
-export type AppRemoteSyncState = {
-  phase: AppRemoteSyncPhase;
-  enabled: boolean;
-  configured: boolean;
-  authenticated: boolean;
-  serverBaseUrl: string | null;
-  username: string | null;
-  desktopId: string | null;
-  lastSyncedAt: number;
-  pendingQueueSize: number;
-  lastError: string | null;
-  settings: LocalRemoteSyncSettings;
-};
-
 export type CacheScope = "main" | "renderer";
 
 export type CacheStatsItem = {
@@ -467,6 +427,7 @@ export type ImageGenerationGenerateArgs = {
   threadId?: string | null;
   turnId?: string | null;
   callId?: string | null;
+  workspacePath?: string | null;
   mode?: "generate" | "edit" | null;
   prompt: string;
   inputImages?: Array<{
@@ -500,6 +461,7 @@ export type ImageGenerationHistoryItem = {
   id: string;
   createdAt: number;
   updatedAt: number;
+  workspacePath: string | null;
   model: string;
   prompt: string;
   revisedPrompt: string | null;
@@ -673,6 +635,11 @@ export type CodexDesktopAppApi = {
     workspacePath: string;
     roots: string[];
   }): Promise<CodexSkillRootsMutationResult>;
+  readCodexConfigSwitcher(): Promise<CodexConfigSwitcherSnapshot>;
+  saveCodexConfigSwitcher(args: { state: CodexConfigSwitcherState }): Promise<CodexConfigSwitcherMutationResult>;
+  activateCodexConfigSwitcherProfile(args: { profileId: string }): Promise<CodexConfigSwitcherActivateResult>;
+  importCurrentCodexConfigSwitcher(args: CodexConfigSwitcherImportArgs): Promise<CodexConfigSwitcherMutationResult>;
+  restoreCodexConfigSwitcherBackup(args: { backupId: string }): Promise<CodexConfigSwitcherMutationResult>;
 };
 
 export type CodexDesktopWindowApi = {
@@ -688,14 +655,6 @@ export type CodexDesktopLocalStateApi = {
   initialSettingsSnapshot: LocalSettingsSnapshot;
   readSettings(): Promise<LocalSettingsSnapshot>;
   patchSettings(args: { patch: UserLocalSettingsPatch }): Promise<PatchedLocalSettingsSnapshot>;
-};
-
-export type CodexDesktopRemoteSyncApi = {
-  getState(): Promise<{ state: AppRemoteSyncState }>;
-  login(args: { password: string }): Promise<{ ok: boolean; state: AppRemoteSyncState; error?: string }>;
-  logout(): Promise<{ ok: true; state: AppRemoteSyncState }>;
-  flush(): Promise<{ ok: boolean; state: AppRemoteSyncState; error?: string }>;
-  onState(cb: (payload: { state: AppRemoteSyncState }) => void): () => void;
 };
 
 export type CodexDesktopCacheApi = {
@@ -753,7 +712,6 @@ export type CodexDesktopApi = {
   app: CodexDesktopAppApi;
   window: CodexDesktopWindowApi;
   localState: CodexDesktopLocalStateApi;
-  remoteSync: CodexDesktopRemoteSyncApi;
   cache: CodexDesktopCacheApi;
   codexServer: CodexDesktopCodexServerApi;
   workspace: CodexDesktopWorkspaceApi;

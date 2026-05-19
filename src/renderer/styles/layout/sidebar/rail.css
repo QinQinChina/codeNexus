@@ -27,8 +27,8 @@
   --lsb-control-bg-hover: var(--control-surface-hover);
   --lsb-control-border: var(--control-border);
   --lsb-control-border-hover: var(--control-border-hover);
-  --lsb-radius: 8px;
-  --lsb-radius-sm: 6px;
+  --lsb-radius: 4px;
+  --lsb-radius-sm: 3px;
   --lsb-pad-x: 14px;
   --lsb-focus: 0 0 0 2px color-mix(in srgb, var(--focus-ring, var(--accent-soft)) 78%, transparent);
   --lsb-active-shadow:

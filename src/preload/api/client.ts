@@ -5,7 +5,6 @@ import { createCacheApi } from "./client/cache";
 import { createCodexServerApi } from "./client/codexServer";
 import { createHistoryApi } from "./client/history";
 import { createLocalStateApi } from "./client/localState";
-import { createRemoteSyncApi } from "./client/remoteSync";
 import { createWindowApi } from "./client/window";
 import { createWorkspaceApi } from "./client/workspace";
 
@@ -21,8 +20,6 @@ export function createCodexDesktopApi(
     window: createWindowApi(ipcRenderer),
     // 本地设置：注入首屏快照并读取/修改用户配置。
     localState: createLocalStateApi(ipcRenderer, initialLocalSettingsSnapshot),
-    // 远程同步：登录、登出与队列刷新。
-    remoteSync: createRemoteSyncApi(ipcRenderer),
     // 缓存管理：查看和清理各类缓存。
     cache: createCacheApi(ipcRenderer),
     // Codex 服务：启动进程、请求/通知与事件订阅。

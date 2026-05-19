@@ -19,7 +19,6 @@ export type McpStatusState = Pick<
 export type McpRuntime = {
   requestMcpStatusList: () => Promise<McpStatusState[]>;
   requestReloadMcpConfig: () => Promise<void>;
-  requestWriteMcpEnabled: (serverKey: string, enabled: boolean) => Promise<void>;
   requestStartMcpOAuthLogin: (serverKey: string) => Promise<string>;
   requestMcpResourceRead: (params: {
     threadId: string;
@@ -86,18 +85,6 @@ export function createMcpRuntime(deps: McpRuntimeDeps): McpRuntime {
     await codexDesktop.codexServer.rpc({ serverId, method: "config/mcpServer/reload" });
   };
 
-  const requestWriteMcpEnabled = async (serverKey: string, enabled: boolean): Promise<void> => {
-    const serverId = deps.requireActiveWorkspaceServerId();
-    const id = String(serverKey ?? "").trim();
-    if (!id) throw new Error("missing mcp server id");
-    const keyPath = `mcp_servers.${id}.enabled`;
-    await codexDesktop.codexServer.rpc({
-      serverId,
-      method: "config/value/write",
-      params: { keyPath, value: enabled, mergeStrategy: "replace" },
-    });
-  };
-
   const requestStartMcpOAuthLogin = async (serverKey: string): Promise<string> => {
     const serverId = deps.requireActiveWorkspaceServerId();
     const id = String(serverKey ?? "").trim();
@@ -142,7 +129,6 @@ export function createMcpRuntime(deps: McpRuntimeDeps): McpRuntime {
   return {
     requestMcpStatusList,
     requestReloadMcpConfig,
-    requestWriteMcpEnabled,
     requestStartMcpOAuthLogin,
     requestMcpResourceRead,
   };

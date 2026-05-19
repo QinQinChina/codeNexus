@@ -3,6 +3,7 @@ import { codexDesktop } from "../api/codexDesktopClient";
 import { getCachedUserLocalSettings } from "../domain/localSettings";
 import { translate } from "../i18n/translate";
 import { showToast } from "../ui/toast";
+import { useRuntimeStore } from "./runtime.store";
 import type {
   ImageGenerationGenerateArgs,
   ImageGenerationHistoryItem,
@@ -10,7 +11,7 @@ import type {
 } from "../../shared/ipc/contracts";
 
 export type ImageWorkbenchMode = "generate" | "edit";
-export type ImageWorkbenchHistoryStatus = "ready" | "pending" | "failed";
+export type ImageWorkbenchHistoryStatus = "ready" | "pending" | "failed" | "canceled";
 export type ImageWorkbenchHistoryItem = ImageGenerationHistoryItem & {
   workbenchStatus?: ImageWorkbenchHistoryStatus;
   requestId?: string;
@@ -68,14 +69,17 @@ function taskToHistoryItem(task: ImageGenerationTaskItem, model: string): ImageW
   const inputImages = Array.isArray(args.inputImages) ? args.inputImages : [];
   const mode: ImageWorkbenchMode = inputImages.length > 0 ? "edit" : "generate";
   const pending = task.status === "queued" || task.status === "running";
+  const failed = task.status === "failed";
+  const canceled = task.status === "canceled";
   return {
     id: `task:${task.id}`,
     requestId: `task:${task.id}`,
     taskId: task.id,
-    workbenchStatus: pending ? "pending" : "failed",
+    workbenchStatus: pending ? "pending" : canceled ? "canceled" : failed ? "failed" : "failed",
     pendingImageCount: Number(args.n) || 1,
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
+    workspacePath: args.workspacePath ?? null,
     model,
     prompt: args.prompt,
     revisedPrompt: null,
@@ -91,7 +95,9 @@ function taskToHistoryItem(task: ImageGenerationTaskItem, model: string): ImageW
       ? task.status === "queued"
         ? translate("imageWorkbench.queued")
         : translate("imageWorkbench.generating")
-      : task.errorText || translate("imageWorkbench.imageGenerationFailed"),
+      : canceled
+        ? task.errorText || translate("imageWorkbench.canceled")
+        : task.errorText || translate("imageWorkbench.imageGenerationFailed"),
   };
 }
 
@@ -144,7 +150,14 @@ export const useImageWorkbenchStore = defineStore("imageWorkbench", {
       const id = String(state.selectedHistoryId ?? "").trim();
       if (!id) return null;
       const item = state.historyItems.find((entry) => entry.id === id) ?? null;
-      if (!item || item.workbenchStatus === "pending" || item.workbenchStatus === "failed") return null;
+      if (
+        !item ||
+        item.workbenchStatus === "pending" ||
+        item.workbenchStatus === "failed" ||
+        item.workbenchStatus === "canceled"
+      ) {
+        return null;
+      }
       return item;
     },
   },
@@ -295,7 +308,14 @@ export const useImageWorkbenchStore = defineStore("imageWorkbench", {
       const normalized = String(id ?? "").trim();
       if (!normalized) return;
       const item = this.historyItems.find((entry) => entry.id === normalized);
-      if (!item || item.workbenchStatus === "pending" || item.workbenchStatus === "failed") return;
+      if (
+        !item ||
+        item.workbenchStatus === "pending" ||
+        item.workbenchStatus === "failed" ||
+        item.workbenchStatus === "canceled"
+      ) {
+        return;
+      }
       this.selectedHistoryId = normalized;
     },
     backToHistory() {
@@ -419,7 +439,9 @@ export const useImageWorkbenchStore = defineStore("imageWorkbench", {
       this.errorText = "";
       const inputImages = this.inputImages.map((item) => ({ dataUrl: item.dataUrl, name: item.name }));
       const mode: ImageWorkbenchMode = inputImages.length > 0 ? "edit" : "generate";
+      const runtimeStore = useRuntimeStore();
       const args: ImageGenerationGenerateArgs = {
+        workspacePath: String(runtimeStore.workspacePath ?? "").trim() || null,
         prompt: this.prompt.trim(),
         inputImages: mode === "edit" ? inputImages : null,
         maskDataUrl: mode === "edit" ? this.maskDataUrl : null,

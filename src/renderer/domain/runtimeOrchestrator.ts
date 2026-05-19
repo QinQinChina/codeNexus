@@ -38,6 +38,7 @@ import { useUserInputStore } from "../stores/userInput.store";
 import { useMessageQueueStore } from "../stores/messageQueue.store";
 import { useCodexProfilesStore } from "../stores/codexProfiles.store";
 import { useCodexSkillRootsStore } from "../stores/codexSkillRoots.store";
+import { useCodexConfigSwitcherStore } from "../stores/codexConfigSwitcher.store";
 import { resolveHistoryRewriteRollback } from "./historyRewriteRollback";
 import { useApprovalStore } from "../stores/approval.store";
 import { useWorkspaceFilesStore } from "../stores/workspaceFiles.store";
@@ -120,12 +121,15 @@ import {
   buildBuiltinDynamicToolSpecs,
 } from "../../shared/dynamicTools";
 import { buildNewThreadComposeSeed } from "../../shared/newThreadComposeSeed";
+import { codexMcpServerSpecToConfigValue, parseCodexMcpJsonImport } from "../../shared/codexMcp";
 import {
-  codexMcpServerSpecToConfigValue,
-  parseCodexMcpJsonImport,
-  validateCodexMcpServerConfig,
-  type CodexMcpServerConfig,
-} from "../../shared/codexMcp";
+  getActiveCodexConfigSwitcherProfile,
+  normalizeCodexConfigSwitcherMcpServers,
+  normalizeCodexConfigSwitcherState,
+  type CodexConfigSwitcherProfile,
+  type CodexConfigSwitcherSkillEntry,
+  type CodexConfigSwitcherState,
+} from "../../shared/codexConfigSwitcher";
 import type { CodexProviderProfile } from "../../shared/codexProfiles";
 import type {
   AppTextEncoding,
@@ -247,10 +251,12 @@ export type RuntimeOrchestrator = {
   toggleSkill: (skillPath: string, enabled: boolean) => Promise<void>;
   addSkillRoot: (root: string) => Promise<void>;
   removeSkillRoot: (root: string) => Promise<void>;
+  refreshCodexConfigSwitcher: () => Promise<void>;
+  importCurrentCodexConfigProfile: () => Promise<void>;
+  activateCodexConfigProfile: (profileId: string) => Promise<void>;
   refreshMcp: () => Promise<void>;
   reloadMcpConfig: () => Promise<void>;
   toggleMcpEnabled: (serverKey: string, enabled: boolean) => Promise<void>;
-  upsertMcpServer: (config: CodexMcpServerConfig) => Promise<void>;
   deleteMcpServer: (serverId: string) => Promise<void>;
   importMcpServersFromJson: (text: string) => Promise<{ imported: number; errors: string[] }>;
   startMcpOAuthLogin: (serverKey: string) => Promise<void>;
@@ -306,6 +312,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const workspaceFilesStore = useWorkspaceFilesStore(pinia);
   const codexProfilesStore = useCodexProfilesStore(pinia);
   const codexSkillRootsStore = useCodexSkillRootsStore(pinia);
+  const codexConfigSwitcherStore = useCodexConfigSwitcherStore(pinia);
 
   // 运行期缓存：会话恢复、历史分页、工作区<->服务映射、右侧面板快照。
   const resumedThreadIds = new Set<string>();
@@ -731,13 +738,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     getWorkspaceForThread,
     ensureServerForWorkspace: (workspace) => ensureServerForWorkspace(workspace),
   });
-  const {
-    requestMcpStatusList,
-    requestReloadMcpConfig,
-    requestWriteMcpEnabled,
-    requestStartMcpOAuthLogin,
-    requestMcpResourceRead,
-  } = mcpRuntime;
+  const { requestMcpStatusList, requestReloadMcpConfig, requestStartMcpOAuthLogin, requestMcpResourceRead } =
+    mcpRuntime;
 
   const requestThreadRollback = async (threadIdValue: string, turns: number): Promise<boolean> => {
     const tid = String(threadIdValue ?? "").trim();
@@ -1862,6 +1864,152 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     }
   };
 
+  const readEffectiveMcpServersFromCodexConfig = async () => {
+    const configResult = await requestConfigRead();
+    return normalizeCodexConfigSwitcherMcpServers((configResult.config as Record<string, unknown> | null)?.mcp_servers);
+  };
+
+  const refreshCodexConfigSwitcher = async () => {
+    await codexConfigSwitcherStore.refresh();
+  };
+
+  const assertNoCcswitchManagedCodexConfig = () => {
+    if (!codexConfigSwitcherStore.ccswitch.detected) return;
+    const reason = codexConfigSwitcherStore.ccswitch.reasons.join(", ") || "detected";
+    throw new Error(
+      `检测到 ccswitch（${reason}），已禁用 CodeNexus 全局配置切换器写入，避免覆盖 ~/.codex/config.toml。`
+    );
+  };
+
+  const writeCodexConfigSwitcherState = async (state: CodexConfigSwitcherState) => {
+    assertNoCcswitchManagedCodexConfig();
+    await codexConfigSwitcherStore.saveState(normalizeCodexConfigSwitcherState(state));
+  };
+
+  const skillToSwitcherEntry = (skill: SkillState): CodexConfigSwitcherSkillEntry | null => {
+    const path = String(skill.path ?? "").trim();
+    if (!path) return null;
+    return {
+      id: path,
+      name: String(skill.displayName || skill.name || path).trim() || path,
+      path,
+      enabled: Boolean(skill.enabled),
+    };
+  };
+
+  const collectCurrentSwitcherSkills = async () => {
+    if (skillsStore.loadState !== "ready") await refreshSkills(true);
+    const skills = skillsStore.items
+      .map(skillToSwitcherEntry)
+      .filter((item): item is CodexConfigSwitcherSkillEntry => Boolean(item));
+    return {
+      skills,
+      enabledSkillIds: skills.filter((skill) => skill.enabled).map((skill) => skill.id),
+    };
+  };
+
+  const syncSwitcherSkillsToCodex = async (profile: CodexConfigSwitcherProfile) => {
+    const enabledIds = new Set(profile.skillIds);
+    for (const skill of codexConfigSwitcherStore.state.skills) {
+      const path = String(skill.path ?? "").trim();
+      if (!path) continue;
+      await writeSkillConfig(path, enabledIds.has(skill.id));
+    }
+  };
+
+  const syncSwitcherProfileToCodex = async (profile: CodexConfigSwitcherProfile) => {
+    assertNoCcswitchManagedCodexConfig();
+    const activation = await codexDesktop.app.activateCodexConfigSwitcherProfile({ profileId: profile.id });
+    codexConfigSwitcherStore.applySnapshot(activation);
+    try {
+      await requestConfigBatchWrite([{ keyPath: "mcp_servers", value: profile.mcpServers }]);
+      await syncSwitcherSkillsToCodex(profile);
+      await requestReloadMcpConfig();
+      invalidateMcpSnapshot(runtimeStore.workspacePath);
+      await refreshMcp();
+      showToast({ kind: "success", title: "Codex 配置已切换", message: profile.name });
+    } catch (error) {
+      await codexDesktop.app
+        .restoreCodexConfigSwitcherBackup({ backupId: activation.backup.id })
+        .catch(() => undefined);
+      throw error;
+    }
+  };
+
+  const getRequiredActiveSwitcherProfile = (): CodexConfigSwitcherProfile => {
+    const profile = getActiveCodexConfigSwitcherProfile(codexConfigSwitcherStore.state);
+    if (!profile) throw new Error("请先导入当前 Codex 配置，创建受管配置集。");
+    return profile;
+  };
+
+  const importCurrentCodexConfigProfile = async () => {
+    try {
+      assertNoCcswitchManagedCodexConfig();
+      const mcpServers = await readEffectiveMcpServersFromCodexConfig();
+      const skills = await collectCurrentSwitcherSkills();
+      const snapshot = await codexDesktop.app.importCurrentCodexConfigSwitcher({
+        name: "Imported Codex",
+        mcpServers,
+        skills: skills.skills,
+        enabledSkillIds: skills.enabledSkillIds,
+      });
+      codexConfigSwitcherStore.applySnapshot(snapshot);
+      const profile = getRequiredActiveSwitcherProfile();
+      await syncSwitcherProfileToCodex(profile);
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      showToast({ kind: "error", title: "Codex 配置导入失败", message: msg });
+      throw e;
+    }
+  };
+
+  const activateCodexConfigProfile = async (profileId: string) => {
+    assertNoCcswitchManagedCodexConfig();
+    const profile =
+      codexConfigSwitcherStore.state.profiles.find((item) => item.id === String(profileId ?? "").trim()) ?? null;
+    if (!profile) throw new Error("配置集不存在。");
+    try {
+      await syncSwitcherProfileToCodex(profile);
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      showToast({ kind: "error", title: "Codex 配置切换失败", message: msg });
+      throw e;
+    }
+  };
+
+  const upsertActiveSwitcherMcpServers = async (servers: Record<string, Record<string, unknown>>) => {
+    if (codexConfigSwitcherStore.loadState === "idle") await refreshCodexConfigSwitcher();
+    assertNoCcswitchManagedCodexConfig();
+    let profile = getActiveCodexConfigSwitcherProfile(codexConfigSwitcherStore.state);
+    if (!profile) {
+      const current = await readEffectiveMcpServersFromCodexConfig();
+      const snapshot = await codexDesktop.app.importCurrentCodexConfigSwitcher({
+        name: "Imported Codex",
+        mcpServers: current,
+      });
+      codexConfigSwitcherStore.applySnapshot(snapshot);
+      profile = getRequiredActiveSwitcherProfile();
+    }
+    const now = Date.now();
+    const nextProfile: CodexConfigSwitcherProfile = {
+      ...profile,
+      mcpServers: {
+        ...profile.mcpServers,
+        ...servers,
+      },
+      updatedAt: now,
+    };
+    const nextState: CodexConfigSwitcherState = {
+      ...codexConfigSwitcherStore.state,
+      activeProfileId: nextProfile.id,
+      profiles: codexConfigSwitcherStore.state.profiles.map((item) =>
+        item.id === nextProfile.id ? nextProfile : item
+      ),
+    };
+    await writeCodexConfigSwitcherState(nextState);
+    await syncSwitcherProfileToCodex(nextProfile);
+  };
+
   const refreshMcp = async () => {
     const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
     if (!getServerIdForWorkspace(workspace)) {
@@ -2035,8 +2183,25 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
     if (!getServerIdForWorkspace(workspace)) return;
     try {
-      await requestWriteMcpEnabled(serverKey, enabled);
-      await requestReloadMcpConfig();
+      const id = String(serverKey ?? "").trim();
+      const profile = getRequiredActiveSwitcherProfile();
+      const current = profile.mcpServers[id];
+      if (!current) throw new Error(`受管配置集中没有 MCP：${id}`);
+      const nextProfile: CodexConfigSwitcherProfile = {
+        ...profile,
+        mcpServers: {
+          ...profile.mcpServers,
+          [id]: { ...current, enabled },
+        },
+        updatedAt: Date.now(),
+      };
+      await writeCodexConfigSwitcherState({
+        ...codexConfigSwitcherStore.state,
+        profiles: codexConfigSwitcherStore.state.profiles.map((item) =>
+          item.id === nextProfile.id ? nextProfile : item
+        ),
+      });
+      await syncSwitcherProfileToCodex(nextProfile);
       invalidateMcpSnapshot(workspace);
       pushEvent("mcp", `enabled=${enabled ? "true" : "false"}\n${serverKey}`, { threadId: APP_TIMELINE_ID });
       await refreshMcp();
@@ -2048,40 +2213,27 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     }
   };
 
-  const upsertMcpServer = async (config: CodexMcpServerConfig) => {
-    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
-    if (!getServerIdForWorkspace(workspace)) throw new Error("未连接服务，无法写入 MCP 配置。");
-    const error = validateCodexMcpServerConfig(config);
-    if (error) throw new Error(error);
-    const id = String(config.id ?? "").trim();
-    try {
-      await requestConfigBatchWrite([
-        {
-          keyPath: `mcp_servers.${id}`,
-          value: codexMcpServerSpecToConfigValue(config),
-        },
-      ]);
-      await requestReloadMcpConfig();
-      invalidateMcpSnapshot(workspace);
-      pushEvent("mcp", `upserted\n${id}`, { threadId: APP_TIMELINE_ID });
-      await refreshMcp();
-      showToast({ kind: "success", title: "MCP 已保存", message: id });
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : String(e);
-      pushEvent("mcp:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
-      showToast({ kind: "error", title: "MCP 保存失败", message: msg });
-      throw e;
-    }
-  };
-
   const deleteMcpServer = async (serverId: string) => {
     const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
     if (!getServerIdForWorkspace(workspace)) throw new Error("未连接服务，无法写入 MCP 配置。");
     const id = String(serverId ?? "").trim();
     if (!id) throw new Error("缺少 MCP ID。");
     try {
-      await requestConfigBatchWrite([{ keyPath: `mcp_servers.${id}`, value: null }]);
-      await requestReloadMcpConfig();
+      const profile = getRequiredActiveSwitcherProfile();
+      const nextMcpServers = { ...profile.mcpServers };
+      delete nextMcpServers[id];
+      const nextProfile: CodexConfigSwitcherProfile = {
+        ...profile,
+        mcpServers: nextMcpServers,
+        updatedAt: Date.now(),
+      };
+      await writeCodexConfigSwitcherState({
+        ...codexConfigSwitcherStore.state,
+        profiles: codexConfigSwitcherStore.state.profiles.map((item) =>
+          item.id === nextProfile.id ? nextProfile : item
+        ),
+      });
+      await syncSwitcherProfileToCodex(nextProfile);
       invalidateMcpSnapshot(workspace);
       pushEvent("mcp", `deleted\n${id}`, { threadId: APP_TIMELINE_ID });
       await refreshMcp();
@@ -2100,13 +2252,9 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     const parsed = parseCodexMcpJsonImport(text);
     if (parsed.servers.length === 0) return { imported: 0, errors: parsed.errors };
     try {
-      await requestConfigBatchWrite(
-        parsed.servers.map((server) => ({
-          keyPath: `mcp_servers.${server.id}`,
-          value: codexMcpServerSpecToConfigValue(server),
-        }))
+      await upsertActiveSwitcherMcpServers(
+        Object.fromEntries(parsed.servers.map((server) => [server.id, codexMcpServerSpecToConfigValue(server)]))
       );
-      await requestReloadMcpConfig();
       invalidateMcpSnapshot(workspace);
       pushEvent("mcp", `imported ${parsed.servers.length} servers`, { threadId: APP_TIMELINE_ID });
       await refreshMcp();
@@ -4215,10 +4363,12 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     toggleSkill,
     addSkillRoot,
     removeSkillRoot,
+    refreshCodexConfigSwitcher,
+    importCurrentCodexConfigProfile,
+    activateCodexConfigProfile,
     refreshMcp,
     reloadMcpConfig,
     toggleMcpEnabled,
-    upsertMcpServer,
     deleteMcpServer,
     importMcpServersFromJson,
     startMcpOAuthLogin,

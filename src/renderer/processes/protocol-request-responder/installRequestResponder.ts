@@ -14,6 +14,7 @@ import { useTimelineStore } from "../../stores/timeline.store";
 import { useUserInputStore } from "../../stores/userInput.store";
 import { useApprovalStore } from "../../stores/approval.store";
 import { useImageWorkbenchStore } from "../../stores/imageWorkbench.store";
+import { useRuntimeStore } from "../../stores/runtime.store";
 import { normalizeUserInputPrompt } from "../../domain/userInputInterop";
 import { safeJsonStringify } from "../../utils/safeJson";
 import { isCodexServerRequestMessage } from "../../../shared/codex-protocol";
@@ -324,6 +325,7 @@ export function installRequestResponder(pinia: Pinia) {
   const userInputStore = useUserInputStore(pinia);
   const approvalStore = useApprovalStore(pinia);
   const imageWorkbenchStore = useImageWorkbenchStore(pinia);
+  const runtimeStore = useRuntimeStore(pinia);
 
   const unsubscribe = codexDesktop.codexServer.onEvent((payload) => {
     const msg = payload?.msg;
@@ -400,6 +402,7 @@ export function installRequestResponder(pinia: Pinia) {
             threadId: toolParams.threadId,
             turnId: toolParams.turnId,
             callId: toolParams.callId,
+            workspacePath: String(runtimeStore.workspacePath ?? "").trim() || null,
             prompt: args.prompt,
             inputImages: referenceResolution.inputImages.length > 0 ? referenceResolution.inputImages : null,
             size: args.size,

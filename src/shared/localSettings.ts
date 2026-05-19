@@ -1,16 +1,6 @@
 import { normalizeCustomModelIds } from "./modelCatalog";
 import { normalizeBuiltinDynamicToolName, type BuiltinDynamicToolName } from "./dynamicTools";
 
-export type LocalRemoteSyncSettings = {
-  enabled: boolean;
-  serverBaseUrl: string | null;
-  username: string | null;
-  accessToken: string | null;
-  refreshToken: string | null;
-  desktopId: string | null;
-  heartbeatIntervalSec: number;
-};
-
 export type LocalImageGenerationSettings = {
   enabled: boolean;
   baseUrl: string | null;
@@ -61,7 +51,6 @@ export type UserLocalSettings = {
   models: {
     customIds: string[];
   };
-  remoteSync: LocalRemoteSyncSettings;
   imageGeneration: LocalImageGenerationSettings;
   dynamicTools: LocalDynamicToolsSettings;
   developer: {
@@ -92,15 +81,6 @@ export type UserLocalSettingsPatch = {
   models?: Partial<{
     customIds: string[] | null;
   }>;
-  remoteSync?: Partial<{
-    enabled: boolean;
-    serverBaseUrl: string | null;
-    username: string | null;
-    accessToken: string | null;
-    refreshToken: string | null;
-    desktopId: string | null;
-    heartbeatIntervalSec: number | null;
-  }>;
   imageGeneration?: Partial<{
     enabled: boolean;
     baseUrl: string | null;
@@ -124,9 +104,6 @@ export type UserLocalSettingsPatch = {
 };
 
 export const DEFAULT_NOTIFICATION_SOUND_VOLUME_PERCENT = 70;
-export const DEFAULT_REMOTE_SYNC_HEARTBEAT_INTERVAL_SEC = 15;
-export const MIN_REMOTE_SYNC_HEARTBEAT_INTERVAL_SEC = 5;
-export const MAX_REMOTE_SYNC_HEARTBEAT_INTERVAL_SEC = 120;
 export const DEFAULT_IMAGE_GENERATION_MODEL = "gpt-image-2";
 export const DEFAULT_IMAGE_GENERATION_SIZE = "1024x1024";
 export const DEFAULT_IMAGE_GENERATION_QUALITY = "auto";
@@ -216,15 +193,6 @@ export const DEFAULT_USER_LOCAL_SETTINGS: UserLocalSettings = {
   models: {
     customIds: [],
   },
-  remoteSync: {
-    enabled: false,
-    serverBaseUrl: null,
-    username: null,
-    accessToken: null,
-    refreshToken: null,
-    desktopId: null,
-    heartbeatIntervalSec: DEFAULT_REMOTE_SYNC_HEARTBEAT_INTERVAL_SEC,
-  },
   imageGeneration: {
     enabled: false,
     baseUrl: null,
@@ -295,24 +263,6 @@ function normalizeMainView(value: unknown, fallback: MainView): MainView {
   if (value === "image") return "image";
   if (value === "chat") return "chat";
   return fallback;
-}
-
-function normalizeRemoteSyncSettings(value: unknown): LocalRemoteSyncSettings {
-  const record = toRecord(value);
-  return {
-    enabled: toBoolean(record?.enabled, DEFAULT_USER_LOCAL_SETTINGS.remoteSync.enabled),
-    serverBaseUrl: toNullableString(record?.serverBaseUrl, DEFAULT_USER_LOCAL_SETTINGS.remoteSync.serverBaseUrl),
-    username: toNullableString(record?.username, DEFAULT_USER_LOCAL_SETTINGS.remoteSync.username),
-    accessToken: toNullableString(record?.accessToken, DEFAULT_USER_LOCAL_SETTINGS.remoteSync.accessToken),
-    refreshToken: toNullableString(record?.refreshToken, DEFAULT_USER_LOCAL_SETTINGS.remoteSync.refreshToken),
-    desktopId: toNullableString(record?.desktopId, DEFAULT_USER_LOCAL_SETTINGS.remoteSync.desktopId),
-    heartbeatIntervalSec: toIntegerInRange(
-      record?.heartbeatIntervalSec,
-      DEFAULT_USER_LOCAL_SETTINGS.remoteSync.heartbeatIntervalSec,
-      MIN_REMOTE_SYNC_HEARTBEAT_INTERVAL_SEC,
-      MAX_REMOTE_SYNC_HEARTBEAT_INTERVAL_SEC
-    ),
-  };
 }
 
 function normalizeImageGenerationSettings(value: unknown): LocalImageGenerationSettings {
@@ -399,7 +349,6 @@ export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
   const ui = toRecord(root?.ui);
   const notification = toRecord(root?.notification);
   const models = toRecord(root?.models);
-  const remoteSync = toRecord(root?.remoteSync);
   const imageGeneration = toRecord(root?.imageGeneration);
   const dynamicTools = toRecord(root?.dynamicTools);
   const developer = toRecord(root?.developer);
@@ -446,7 +395,6 @@ export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
     models: {
       customIds: normalizeCustomModelIds(models?.customIds),
     },
-    remoteSync: normalizeRemoteSyncSettings(remoteSync),
     imageGeneration: normalizeImageGenerationSettings(imageGeneration),
     dynamicTools: normalizeDynamicToolsSettings(dynamicTools),
     developer: {
@@ -463,7 +411,6 @@ export function mergeUserLocalSettings(
   const patchUi = toRecord(patch?.ui);
   const patchNotification = toRecord(patch?.notification);
   const patchModels = toRecord(patch?.models);
-  const patchRemoteSync = toRecord(patch?.remoteSync);
   const patchImageGeneration = toRecord(patch?.imageGeneration);
   const patchDynamicTools = toRecord(patch?.dynamicTools);
   const patchDeveloper = toRecord(patch?.developer);
@@ -512,29 +459,6 @@ export function mergeUserLocalSettings(
     },
     models: {
       customIds: patchModels && "customIds" in patchModels ? patchModels.customIds : current.models.customIds,
-    },
-    remoteSync: {
-      enabled: patchRemoteSync && "enabled" in patchRemoteSync ? patchRemoteSync.enabled : current.remoteSync.enabled,
-      serverBaseUrl:
-        patchRemoteSync && "serverBaseUrl" in patchRemoteSync
-          ? patchRemoteSync.serverBaseUrl
-          : current.remoteSync.serverBaseUrl,
-      username:
-        patchRemoteSync && "username" in patchRemoteSync ? patchRemoteSync.username : current.remoteSync.username,
-      accessToken:
-        patchRemoteSync && "accessToken" in patchRemoteSync
-          ? patchRemoteSync.accessToken
-          : current.remoteSync.accessToken,
-      refreshToken:
-        patchRemoteSync && "refreshToken" in patchRemoteSync
-          ? patchRemoteSync.refreshToken
-          : current.remoteSync.refreshToken,
-      desktopId:
-        patchRemoteSync && "desktopId" in patchRemoteSync ? patchRemoteSync.desktopId : current.remoteSync.desktopId,
-      heartbeatIntervalSec:
-        patchRemoteSync && "heartbeatIntervalSec" in patchRemoteSync
-          ? patchRemoteSync.heartbeatIntervalSec
-          : current.remoteSync.heartbeatIntervalSec,
     },
     imageGeneration: {
       enabled:

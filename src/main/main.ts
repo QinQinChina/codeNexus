@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Menu } from "electron";
 import { readFile, rm, stat } from "node:fs/promises";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { IPC_APP_CHANNELS, IPC_EVENT_CHANNELS, type AppClosingStep, type AppWindowClosingState } from "../shared/ipc";
 import { HistoryStore, type HistoryThread } from "./historyStore";
@@ -10,10 +11,10 @@ import { HistoryService } from "./services/HistoryService";
 import { CodexServerManager } from "./services/CodexServerManager";
 import { CodexProfileService } from "./services/CodexProfileService";
 import { CodexSkillRootsService } from "./services/CodexSkillRootsService";
+import { CodexConfigSwitcherService } from "./services/CodexConfigSwitcherService";
 import { ImageGenerationHistoryService } from "./services/ImageGenerationHistoryService";
 import { ImageGenerationTaskService } from "./services/ImageGenerationTaskService";
 import { LocalSettingsService } from "./services/LocalSettingsService";
-import { RemoteStateSyncService } from "./services/RemoteStateSyncService";
 import { CacheRegistryService } from "./services/CacheRegistryService";
 import { ThreadArtifactService } from "./services/ThreadArtifactService";
 import { ThreadTaskService } from "./services/ThreadTaskService";
@@ -39,7 +40,6 @@ const codexServerManager = new CodexServerManager();
 const workspacePatchService = new WorkspacePatchService();
 const runtimeThreadStateTracker = new RuntimeThreadStateTracker();
 const cacheRegistryService = new CacheRegistryService();
-let remoteStateSyncService: RemoteStateSyncService | null = null;
 
 const APP_CLOSE_OVERLAY_BOOT_MS = 56;
 const APP_CLOSE_PREPARE_MS = 200;
@@ -95,11 +95,6 @@ function stopCodexServersForClose(_reason: string) {
     codexServerManager.stopAll();
   } catch (error) {
     console.warn("[app-close] stop codex servers failed", error);
-  }
-  try {
-    remoteStateSyncService?.stop();
-  } catch (error) {
-    console.warn("[app-close] stop remote sync failed", error);
   }
 }
 
@@ -177,6 +172,13 @@ app
     const localSettingsService = new LocalSettingsService(join(app.getPath("userData"), "user-settings.json"));
     const codexProfileService = new CodexProfileService(join(app.getPath("userData"), "codex-profiles.json"));
     const codexSkillRootsService = new CodexSkillRootsService(join(app.getPath("userData"), "codex-skill-roots.json"));
+    const codexConfigSwitcherService = new CodexConfigSwitcherService(
+      join(app.getPath("userData"), "codex-config-switcher.json"),
+      join(homedir(), ".codex", "config.toml"),
+      join(app.getPath("userData"), "backups", "codex-config"),
+      join(homedir(), ".cc-switch"),
+      join(homedir(), ".cc-switch", "cc-switch.db")
+    );
     const imageGenerationHistoryService = new ImageGenerationHistoryService(
       join(app.getPath("userData"), "image-generation-history.json")
     );
@@ -191,13 +193,6 @@ app
       join(app.getPath("userData"), "thread-title-overrides.json")
     );
     const initialLocalSettings = await localSettingsService.read();
-    remoteStateSyncService = new RemoteStateSyncService({
-      localSettingsService,
-      onState: (payload) => {
-        sendToRenderer(IPC_APP_CHANNELS.appRemoteSyncState, payload);
-      },
-    });
-    await remoteStateSyncService.start(initialLocalSettings.settings);
 
     cacheRegistryService.registerProvider({
       namespace: "main.history.disk",
@@ -233,24 +228,11 @@ app
         historyStore.clearMemoryCaches();
       },
     });
-    cacheRegistryService.registerProvider({
-      namespace: "main.remoteSync.queue",
-      clearable: false,
-      getStats: async () => {
-        if (!remoteStateSyncService) return { items: 0, bytes: 0, updatedAt: Date.now(), note: "同步队列缓存" };
-        return {
-          ...(await remoteStateSyncService.getQueueCacheStats()),
-          note: "同步队列缓存（不可清理）",
-        };
-      },
-    });
-
     registerAllHandlers({
       getMainWindow: () => mainWindow,
       serverManager: codexServerManager,
       sendCodexEvent: (payload) => {
         runtimeThreadStateTracker.observeEvent(payload);
-        remoteStateSyncService?.observeCodexEvent(payload);
         sendToRenderer(IPC_EVENT_CHANNELS.codexEvent, payload);
       },
       historyService,
@@ -258,22 +240,20 @@ app
       threadArtifactService,
       threadTitleOverrideService,
       onHistoryUpdated: (items: HistoryThread[]) => {
-        remoteStateSyncService?.observeHistoryThreads(items);
         pushHistoryUpdate(items);
       },
       decorateHistoryItems: (items: HistoryThread[]) => runtimeThreadStateTracker.decorateHistoryItems(items),
       onHistoryThreadDeleted: (threadId: string) => {
         runtimeThreadStateTracker.clearThread(threadId);
-        remoteStateSyncService?.clearThread(threadId);
       },
       getThreadRunningState: (threadId: string) => runtimeThreadStateTracker.getThreadRunningState(threadId),
       workspacePatchService,
       localSettingsService,
       codexProfileService,
       codexSkillRootsService,
+      codexConfigSwitcherService,
       imageGenerationHistoryService,
       imageGenerationTaskService,
-      remoteSyncService: remoteStateSyncService,
       cacheRegistryService,
     });
 
@@ -289,9 +269,6 @@ app
 
     mainWindow.webContents.once("did-finish-load", () => {
       pushWindowClosingState("idle");
-      if (remoteStateSyncService) {
-        sendToRenderer(IPC_APP_CHANNELS.appRemoteSyncState, { state: remoteStateSyncService.getState() });
-      }
     });
 
     mainWindow.on("close", (event) => {

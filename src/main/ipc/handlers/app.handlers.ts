@@ -16,10 +16,11 @@ import type {
 import type { LocalSettingsService } from "../../services/LocalSettingsService";
 import type { CodexProfileService } from "../../services/CodexProfileService";
 import type { CodexSkillRootsService } from "../../services/CodexSkillRootsService";
+import type { CodexConfigSwitcherService } from "../../services/CodexConfigSwitcherService";
 import type { ImageGenerationHistoryService } from "../../services/ImageGenerationHistoryService";
 import type { ImageGenerationTaskService } from "../../services/ImageGenerationTaskService";
-import type { RemoteStateSyncService } from "../../services/RemoteStateSyncService";
 import type { CodexProviderProfileInput } from "../../../shared/codexProfiles";
+import type { CodexConfigSwitcherImportArgs, CodexConfigSwitcherState } from "../../../shared/codexConfigSwitcher";
 
 function isPathWithinDir(filePath: string, dirPath: string): boolean {
   const file = resolve(String(filePath ?? ""));
@@ -502,6 +503,7 @@ export async function generateImagesWithSettings(
 
   if (savedImages.length === 0) throw new Error(`图片${mode === "edit" ? "编辑" : "生成"}结果保存失败。`);
   const historyItem = await imageGenerationHistoryService.create({
+    workspacePath: toNullableText(args?.workspacePath),
     model,
     prompt,
     revisedPrompt: savedImages.find((image) => image.revisedPrompt)?.revisedPrompt ?? null,
@@ -611,17 +613,17 @@ export function registerAppHandlers(deps: {
   localSettingsService: LocalSettingsService;
   codexProfileService: CodexProfileService;
   codexSkillRootsService: CodexSkillRootsService;
+  codexConfigSwitcherService: CodexConfigSwitcherService;
   imageGenerationHistoryService: ImageGenerationHistoryService;
   imageGenerationTaskService: ImageGenerationTaskService;
-  remoteSyncService: RemoteStateSyncService;
 }) {
   const {
     localSettingsService,
     codexProfileService,
     codexSkillRootsService,
+    codexConfigSwitcherService,
     imageGenerationHistoryService,
     imageGenerationTaskService,
-    remoteSyncService,
   } = deps;
   const getWindowOrNull = (): BrowserWindow | null => {
     const win = deps.getMainWindow();
@@ -744,7 +746,6 @@ export function registerAppHandlers(deps: {
 
   ipcMain.handle(IPC_APP_CHANNELS.appLocalSettingsPatch, async (_evt, args: { patch: UserLocalSettingsPatch }) => {
     const settings = await localSettingsService.patch(args?.patch ?? {});
-    remoteSyncService.onSettingsUpdated(settings);
     const win = getWindowOrNull();
     if (win) {
       try {
@@ -879,20 +880,30 @@ export function registerAppHandlers(deps: {
     }
   );
 
-  ipcMain.handle(IPC_APP_CHANNELS.appRemoteSyncGetState, async () => {
-    return { state: remoteSyncService.getState() };
+  ipcMain.handle(IPC_APP_CHANNELS.appCodexConfigSwitcherRead, async () => {
+    return await codexConfigSwitcherService.read();
   });
 
-  ipcMain.handle(IPC_APP_CHANNELS.appRemoteSyncLogin, async (_evt, args: { password: string }) => {
-    return await remoteSyncService.login({ password: args?.password ?? "" });
+  ipcMain.handle(
+    IPC_APP_CHANNELS.appCodexConfigSwitcherSave,
+    async (_evt, args: { state: CodexConfigSwitcherState }) => {
+      return await codexConfigSwitcherService.save(args?.state ?? null);
+    }
+  );
+
+  ipcMain.handle(IPC_APP_CHANNELS.appCodexConfigSwitcherActivateProfile, async (_evt, args: { profileId: string }) => {
+    return await codexConfigSwitcherService.activateProfile(args?.profileId ?? "");
   });
 
-  ipcMain.handle(IPC_APP_CHANNELS.appRemoteSyncLogout, async () => {
-    return await remoteSyncService.logout();
-  });
+  ipcMain.handle(
+    IPC_APP_CHANNELS.appCodexConfigSwitcherImportCurrent,
+    async (_evt, args: CodexConfigSwitcherImportArgs) => {
+      return await codexConfigSwitcherService.importCurrentConfig(args ?? {});
+    }
+  );
 
-  ipcMain.handle(IPC_APP_CHANNELS.appRemoteSyncFlush, async () => {
-    return await remoteSyncService.flushNow();
+  ipcMain.handle(IPC_APP_CHANNELS.appCodexConfigSwitcherRestoreBackup, async (_evt, args: { backupId: string }) => {
+    return await codexConfigSwitcherService.restoreBackup(args?.backupId ?? "");
   });
 
   ipcMain.handle(IPC_APP_CHANNELS.appListNotificationSounds, async () => {

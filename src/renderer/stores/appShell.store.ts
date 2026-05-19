@@ -14,7 +14,7 @@ import { refreshDomI18nFallback } from "../i18n/domFallback";
 import { setUiI18nLanguage } from "../i18n";
 
 export type IntegrationsDrawerTab = "skills" | "mcp";
-export type SettingsTab = "global" | "profiles" | "sound" | "image" | "env" | "integrations" | "remote";
+export type SettingsTab = "global" | "profiles" | "sound" | "image" | "env" | "integrations";
 export type SettingsIntegrationsTab = "skills" | "mcp";
 
 const DEFAULT_LEFT_SIDEBAR_WIDTH_PX = 320;

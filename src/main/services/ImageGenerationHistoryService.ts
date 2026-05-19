@@ -61,6 +61,7 @@ function normalizeItem(value: unknown): ImageGenerationHistoryItem | null {
     id,
     createdAt: toTimestamp(record.createdAt),
     updatedAt: toTimestamp(record.updatedAt ?? record.createdAt),
+    workspacePath: toNullableText(record.workspacePath),
     model: toText(record.model, "gpt-image-2"),
     prompt,
     revisedPrompt: toNullableText(record.revisedPrompt),

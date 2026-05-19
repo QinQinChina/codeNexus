@@ -1131,8 +1131,8 @@ textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-
 
 /* === Composer input system === */
 .composer {
-  --composer-radius: 6px;
-  --composer-control-radius: 5px;
+  --composer-radius: 4px;
+  --composer-control-radius: 3px;
   --composer-gap: 10px;
   --composer-padding: 12px;
   --composer-control-h: 30px;

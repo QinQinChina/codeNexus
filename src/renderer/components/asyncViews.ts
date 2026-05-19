@@ -4,6 +4,7 @@ export const DebugTimelineSidebar = defineAsyncComponent(() => import("./layout/
 export const AppClosingOverlay = defineAsyncComponent(() => import("./layout/overlays/AppClosingOverlay.vue"));
 export const LeftSidebar = defineAsyncComponent(() => import("./layout/LeftSidebar.vue"));
 export const ImageWorkbench = defineAsyncComponent(() => import("./layout/image/ImageWorkbench.vue"));
+export const ImageWorkspaceSidebar = defineAsyncComponent(() => import("./layout/image/ImageWorkspaceSidebar.vue"));
 export const ImageSettingsSidebar = defineAsyncComponent(() => import("./layout/image/ImageSettingsSidebar.vue"));
 export const SettingsPage = defineAsyncComponent(() => import("./layout/SettingsPage.vue"));
 export const WorkspaceEditorPane = defineAsyncComponent(() => import("./layout/workspace/WorkspaceEditorPane.vue"));

@@ -2,7 +2,8 @@
   <div class="app-shell">
     <TopBar key="topbar" />
     <main ref="mainRef" class="main" :class="mainClass" :style="mainStyle">
-      <LeftSidebar v-if="showLeftSidebar" class="tasks-pane-host" />
+      <ImageWorkspaceSidebar v-if="showImageWorkspaceSidebar" class="tasks-pane-host" />
+      <LeftSidebar v-else-if="showLeftSidebar" class="tasks-pane-host" />
 
       <SettingsPage v-if="settingsOpen" key="settings" id="center-content" />
       <ImageWorkbench v-else-if="mainView === 'image'" key="image" id="center-content" />
@@ -60,6 +61,7 @@ import {
   AppClosingOverlay,
   DebugTimelineSidebar,
   ImageWorkbench,
+  ImageWorkspaceSidebar,
   ImageSettingsSidebar,
   LeftSidebar,
   SettingsPage,
@@ -72,7 +74,6 @@ import { useAppShellStore } from "./stores/appShell.store";
 import { useNotificationSoundStore } from "./stores/notificationSound.store";
 import { useRuntimeStore } from "./stores/runtime.store";
 import { useModelCatalogStore } from "./stores/modelCatalog.store";
-import { useRemoteSyncStore } from "./stores/remoteSync.store";
 import { useWorkspaceFilesStore } from "./stores/workspaceFiles.store";
 import type { AppWindowState } from "../shared/ipc/contracts";
 import {
@@ -93,7 +94,6 @@ const appClosingStore = useAppClosingStore();
 const runtimeStore = useRuntimeStore();
 const notificationSoundStore = useNotificationSoundStore();
 const modelCatalogStore = useModelCatalogStore();
-const remoteSyncStore = useRemoteSyncStore();
 const workspaceFilesStore = useWorkspaceFilesStore();
 appShellStore.initLocalSettings();
 runtimeStore.initLocalDraftState();
@@ -101,12 +101,12 @@ notificationSoundStore.initLocalSettings();
 modelCatalogStore.initLocalSettings();
 appClosingStore.initBridge();
 void notificationSoundStore.refreshAvailable();
-void remoteSyncStore.initBridge();
 
 const settingsOpen = computed(() => appShellStore.settingsOpen);
 const showAppClosingOverlay = computed(() => appClosingStore.visible);
 const mainView = computed(() => appShellStore.mainView);
 const showLeftSidebar = computed(() => !settingsOpen.value && appShellStore.leftSidebarVisible);
+const showImageWorkspaceSidebar = computed(() => showLeftSidebar.value && mainView.value === "image");
 const showDebugSidebar = computed(
   () => !settingsOpen.value && mainView.value === "chat" && runtimeStore.timelineDebugEnabled
 );

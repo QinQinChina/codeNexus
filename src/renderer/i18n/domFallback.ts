@@ -38,8 +38,6 @@ const TRANSLATIONS: Record<string, string> = {
   运行状态: "Runtime",
   提示音: "Notification sound",
   线程结束提醒与音量: "Thread completion alerts and volume",
-  远程同步: "Remote sync",
-  "设备同步、登录与队列状态": "Device sync, login, and queue status",
   环境检测: "Environment checks",
   本机依赖与运行环境: "Local dependencies and runtime",
   全局配置: "Global configuration",

@@ -131,6 +131,70 @@
                   <section class="integrations-config-section">
                     <div class="integrations-section-head">
                       <div>
+                        <div class="integrations-mcp-section-title">{{ t("integrations.switcherTitle") }}</div>
+                        <div class="integrations-section-subtitle dim">
+                          {{ t("integrations.switcherSubtitle") }}
+                        </div>
+                      </div>
+                      <div class="row" style="gap: 6px">
+                        <button
+                          class="btn-mini"
+                          type="button"
+                          :disabled="!canManageSwitcher || hasCcswitchConflict"
+                          @click="onImportCurrentCodexConfig"
+                        >
+                          {{ t("integrations.importCurrent") }}
+                        </button>
+                        <button
+                          class="btn-mini"
+                          type="button"
+                          :disabled="!canActivateSwitcherProfile || hasCcswitchConflict"
+                          @click="onActivateSwitcherProfile"
+                        >
+                          {{ t("integrations.activate") }}
+                        </button>
+                      </div>
+                    </div>
+                    <div class="integrations-root-add">
+                      <select
+                        v-model="switcherSelectedProfileId"
+                        class="context-input mono"
+                        :disabled="
+                          !canManageSwitcher || hasCcswitchConflict || codexConfigSwitcherStore.profiles.length === 0
+                        "
+                      >
+                        <option value="">{{ t("integrations.noManagedProfile") }}</option>
+                        <option
+                          v-for="profile in codexConfigSwitcherStore.profiles"
+                          :key="profile.id"
+                          :value="profile.id"
+                        >
+                          {{ profile.name }}
+                        </option>
+                      </select>
+                    </div>
+                    <div class="integrations-section-subtitle mono dim">
+                      {{ switcherStatusText }}
+                    </div>
+                    <div
+                      v-if="hasCcswitchConflict"
+                      class="integrations-section-subtitle mono"
+                      :class="{ 'is-error': true }"
+                    >
+                      {{ ccswitchConflictText }}
+                    </div>
+                    <div
+                      v-if="switcherErrorText"
+                      class="integrations-section-subtitle mono"
+                      :class="{ 'is-error': true }"
+                    >
+                      {{ switcherErrorText }}
+                    </div>
+                  </section>
+
+                  <section class="integrations-config-section">
+                    <div class="integrations-section-head">
+                      <div>
                         <div class="integrations-mcp-section-title">{{ t("integrations.mcpJsonImport") }}</div>
                         <div class="integrations-section-subtitle dim">
                           {{ t("integrations.mcpJsonImportDesc", { schema: mcpJsonSchemaText }) }}
@@ -155,98 +219,6 @@
                     </div>
                   </section>
 
-                  <section class="integrations-config-section">
-                    <div class="integrations-section-head">
-                      <div>
-                        <div class="integrations-mcp-section-title">{{ t("integrations.mcpManualConfig") }}</div>
-                        <div class="integrations-section-subtitle dim">{{ t("integrations.mcpManualConfigDesc") }}</div>
-                      </div>
-                      <button class="btn-mini" type="button" @click="resetMcpForm">
-                        {{ t("integrations.clear") }}
-                      </button>
-                    </div>
-                    <div class="integrations-mcp-form">
-                      <label class="global-row">
-                        <span class="context-label">ID</span>
-                        <input v-model="mcpForm.id" class="context-input mono" type="text" placeholder="filesystem" />
-                      </label>
-                      <label class="global-row">
-                        <span class="context-label">{{ t("integrations.transport") }}</span>
-                        <select v-model="mcpForm.type" class="context-input mono">
-                          <option value="stdio">stdio</option>
-                          <option value="http">http</option>
-                          <option value="sse">sse</option>
-                        </select>
-                      </label>
-                      <label v-if="mcpForm.type === 'stdio'" class="global-row">
-                        <span class="context-label">Command</span>
-                        <input v-model="mcpForm.command" class="context-input mono" type="text" placeholder="npx" />
-                      </label>
-                      <label v-if="mcpForm.type === 'stdio'" class="global-row">
-                        <span class="context-label">Args</span>
-                        <textarea
-                          v-model="mcpForm.args"
-                          class="context-input integrations-small-textarea mono"
-                          placeholder='["-y","@modelcontextprotocol/server-filesystem","."]'
-                        ></textarea>
-                      </label>
-                      <label v-if="mcpForm.type === 'stdio'" class="global-row">
-                        <span class="context-label">Env</span>
-                        <textarea
-                          v-model="mcpForm.env"
-                          class="context-input integrations-small-textarea mono"
-                          placeholder='{"TOKEN":"..."}'
-                        ></textarea>
-                      </label>
-                      <label v-if="mcpForm.type === 'stdio'" class="global-row">
-                        <span class="context-label">CWD</span>
-                        <input
-                          v-model="mcpForm.cwd"
-                          class="context-input mono"
-                          type="text"
-                          :placeholder="t('integrations.cwdPlaceholder')"
-                        />
-                      </label>
-                      <label v-if="mcpForm.type !== 'stdio'" class="global-row">
-                        <span class="context-label">URL</span>
-                        <input v-model="mcpForm.url" class="context-input mono" type="url" placeholder="https://..." />
-                      </label>
-                      <label v-if="mcpForm.type !== 'stdio'" class="global-row">
-                        <span class="context-label">Headers</span>
-                        <textarea
-                          v-model="mcpForm.headers"
-                          class="context-input integrations-small-textarea mono"
-                          placeholder='{"Authorization":"Bearer ..."}'
-                        ></textarea>
-                      </label>
-                      <label class="global-row global-row-checkbox">
-                        <span class="context-label">{{ t("integrations.enable") }}</span>
-                        <span class="integrations-checkbox-line">
-                          <input v-model="mcpForm.enabled" type="checkbox" />
-                        </span>
-                      </label>
-                    </div>
-                    <div v-if="mcpFormError" class="global-field-error">{{ mcpFormError }}</div>
-                    <div class="integrations-form-actions">
-                      <button
-                        class="btn-mini"
-                        type="button"
-                        :disabled="!canWriteMcpConfig || mcpFormPending"
-                        @click="onSaveMcpForm"
-                      >
-                        {{ t("integrations.saveMcp") }}
-                      </button>
-                      <button
-                        class="btn-mini danger"
-                        type="button"
-                        :disabled="!canWriteMcpConfig || mcpFormPending || !mcpForm.id"
-                        @click="onDeleteMcpForm"
-                      >
-                        {{ t("integrations.deleteMcp") }}
-                      </button>
-                    </div>
-                  </section>
-
                   <section class="integrations-mcp-resource">
                     <div class="integrations-mcp-section-title">{{ t("integrations.resources") }}</div>
                     <McpResourcePanel />
@@ -266,7 +238,7 @@
                             class="skill-switch-input"
                             type="checkbox"
                             :checked="server.enabled"
-                            :disabled="mcpPendingId === server.id"
+                            :disabled="mcpPendingId === server.id || hasCcswitchConflict"
                             @click.stop
                             @change="onMcpEnabledChanged(server.id, $event)"
                           />
@@ -317,9 +289,6 @@
                           {{ server.message }}
                         </div>
                         <div class="mcp-actions">
-                          <button type="button" class="btn-mini" @click.prevent.stop="onEditMcpServer(server)">
-                            {{ t("integrations.edit") }}
-                          </button>
                           <button type="button" class="btn-mini" @click.prevent.stop="onOpenMcpResources(server.id)">
                             {{ t("integrations.viewResources") }}
                           </button>
@@ -334,6 +303,7 @@
                           <button
                             type="button"
                             class="btn-mini danger"
+                            :disabled="hasCcswitchConflict"
                             @click.prevent.stop="onDeleteMcpServer(server.id)"
                           >
                             {{ t("integrations.delete") }}
@@ -353,7 +323,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { codexDesktop } from "../../../api/codexDesktopClient";
 import McpResourcePanel from "../../mcp/McpResourcePanel.vue";
@@ -367,12 +337,9 @@ import { useSkillsUiStore } from "../../../stores/skillsUi.store";
 import { useMcpStore } from "../../../stores/mcp.store";
 import { useMcpResourceStore } from "../../../stores/mcpResource.store";
 import { useCodexSkillRootsStore } from "../../../stores/codexSkillRoots.store";
+import { useCodexConfigSwitcherStore } from "../../../stores/codexConfigSwitcher.store";
 import type { McpServerState, SkillState } from "../../../domain/types";
-import {
-  normalizeCodexMcpServerId,
-  type CodexMcpServerConfig,
-  type CodexMcpTransport,
-} from "../../../../shared/codexMcp";
+import { normalizeCodexMcpServerId } from "../../../../shared/codexMcp";
 
 const runtime = getRuntimeOrchestrator();
 const { t } = useI18n();
@@ -383,6 +350,7 @@ const skillsUiStore = useSkillsUiStore();
 const mcpStore = useMcpStore();
 const mcpResourceStore = useMcpResourceStore();
 const codexSkillRootsStore = useCodexSkillRootsStore();
+const codexConfigSwitcherStore = useCodexConfigSwitcherStore();
 const mcpJsonSchemaText = '{"mcpServers": {...}}';
 
 const props = defineProps<{ mode?: "drawer" | "settings" }>();
@@ -525,7 +493,15 @@ const onSkillToggleRequest = ({ skill, enabled }: { skill: SkillState; enabled: 
 
 const canRefreshMcp = computed(() => Boolean(runtimeStore.serverId) && mcpStore.loadState !== "loading");
 const canReloadMcp = computed(() => Boolean(runtimeStore.serverId) && mcpStore.loadState !== "loading");
-const canWriteMcpConfig = computed(() => Boolean(runtimeStore.serverId) && !mcpFormPending.value);
+const hasCcswitchConflict = computed(() => Boolean(codexConfigSwitcherStore.ccswitch.detected));
+const ccswitchConflictText = computed(() =>
+  t("integrations.ccswitchDetected", {
+    path: codexConfigSwitcherStore.ccswitch.databasePath || codexConfigSwitcherStore.ccswitch.dataDir,
+  })
+);
+const canWriteMcpConfig = computed(
+  () => Boolean(runtimeStore.serverId) && !mcpConfigPending.value && !hasCcswitchConflict.value
+);
 const mcpStateText = computed(() => {
   if (!runtimeStore.serverId) return t("skills.disconnected");
   if (mcpStore.loadState === "loading") return t("skills.loading");
@@ -539,152 +515,66 @@ const mcpStateText = computed(() => {
 
 const mcpPendingId = ref("");
 const mcpOauthPendingId = ref("");
-const mcpFormPending = ref(false);
-const mcpFormError = ref("");
+const mcpConfigPending = ref(false);
+const switcherPending = ref(false);
+const switcherSelectedProfileId = ref("");
+const switcherErrorText = ref("");
 const mcpJsonText = ref("");
 const mcpJsonResultText = ref("");
 const mcpJsonResultIsError = ref(false);
-const mcpForm = reactive({
-  id: "",
-  enabled: true,
-  type: "stdio" as CodexMcpTransport,
-  command: "",
-  args: "",
-  env: "",
-  cwd: "",
-  url: "",
-  headers: "",
+
+const canManageSwitcher = computed(() => Boolean(runtimeStore.serverId) && !switcherPending.value);
+const canActivateSwitcherProfile = computed(
+  () => canManageSwitcher.value && Boolean(String(switcherSelectedProfileId.value ?? "").trim())
+);
+const switcherStatusText = computed(() => {
+  if (codexConfigSwitcherStore.loadState === "loading") return t("skills.loading");
+  if (codexConfigSwitcherStore.loadState === "error") return codexConfigSwitcherStore.errorText;
+  const active = codexConfigSwitcherStore.activeProfile;
+  const count = codexConfigSwitcherStore.profiles.length;
+  const target = codexConfigSwitcherStore.codexConfigPath || "~/.codex/config.toml";
+  if (!active) return t("integrations.switcherEmpty", { target });
+  return t("integrations.switcherActive", { name: active.name, count, target });
 });
 
-const toText = (value: unknown): string => String(value ?? "").trim();
-
-const parseStringArrayField = (text: string, label: string): string[] => {
-  const raw = String(text ?? "").trim();
-  if (!raw) return [];
-  if (raw.startsWith("[")) {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) throw new Error(t("integrations.jsonArrayRequired", { label }));
-    return parsed.map((item) => String(item ?? "")).filter(Boolean);
-  }
-  return raw
-    .split(/\r?\n/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-};
-
-const parseStringRecordField = (text: string, label: string): Record<string, string> | undefined => {
-  const raw = String(text ?? "").trim();
-  if (!raw) return undefined;
-  if (raw.startsWith("{")) {
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      throw new Error(t("integrations.jsonObjectRequired", { label }));
-    }
-    const out: Record<string, string> = {};
-    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
-      const normalizedKey = String(key ?? "").trim();
-      if (!normalizedKey) continue;
-      out[normalizedKey] = String(value ?? "");
-    }
-    return Object.keys(out).length > 0 ? out : undefined;
-  }
-  const out: Record<string, string> = {};
-  for (const line of raw.split(/\r?\n/)) {
-    const idx = line.indexOf("=");
-    if (idx <= 0) continue;
-    const key = line.slice(0, idx).trim();
-    if (!key) continue;
-    out[key] = line.slice(idx + 1).trim();
-  }
-  return Object.keys(out).length > 0 ? out : undefined;
-};
-
-const stringifyRecord = (value: Record<string, string> | undefined): string => {
-  if (!value || Object.keys(value).length === 0) return "";
-  return JSON.stringify(value, null, 2);
-};
-
-const resetMcpForm = () => {
-  mcpForm.id = "";
-  mcpForm.enabled = true;
-  mcpForm.type = "stdio";
-  mcpForm.command = "";
-  mcpForm.args = "";
-  mcpForm.env = "";
-  mcpForm.cwd = "";
-  mcpForm.url = "";
-  mcpForm.headers = "";
-  mcpFormError.value = "";
-};
-
-const buildMcpFormConfig = (): CodexMcpServerConfig => {
-  const id = normalizeCodexMcpServerId(mcpForm.id);
-  const type = mcpForm.type === "http" || mcpForm.type === "sse" ? mcpForm.type : "stdio";
-  const server =
-    type === "stdio"
-      ? {
-          type,
-          command: toText(mcpForm.command),
-          args: parseStringArrayField(mcpForm.args, "Args"),
-          env: parseStringRecordField(mcpForm.env, "Env"),
-          cwd: toText(mcpForm.cwd) || undefined,
-        }
-      : {
-          type,
-          url: toText(mcpForm.url),
-          headers: parseStringRecordField(mcpForm.headers, "Headers"),
-        };
-  return {
-    id,
-    enabled: Boolean(mcpForm.enabled),
-    server,
-  };
-};
-
-const onEditMcpServer = (server: McpServerState) => {
-  mcpForm.id = server.id;
-  mcpForm.enabled = server.enabled;
-  mcpForm.type = server.type ?? (server.url ? "http" : "stdio");
-  mcpForm.command = server.command ?? "";
-  mcpForm.args = server.args && server.args.length > 0 ? JSON.stringify(server.args, null, 2) : "";
-  mcpForm.env = stringifyRecord(server.env);
-  mcpForm.cwd = server.cwd ?? "";
-  mcpForm.url = server.url ?? "";
-  mcpForm.headers = stringifyRecord(server.headers);
-  mcpFormError.value = "";
-};
-
-const onSaveMcpForm = async () => {
-  mcpFormPending.value = true;
-  mcpFormError.value = "";
+const onImportCurrentCodexConfig = async () => {
+  switcherPending.value = true;
+  switcherErrorText.value = "";
   try {
-    await runtime.upsertMcpServer(buildMcpFormConfig());
+    await runtime.importCurrentCodexConfigProfile();
+    switcherSelectedProfileId.value = codexConfigSwitcherStore.state.activeProfileId ?? "";
   } catch (error: any) {
-    mcpFormError.value = String(error?.message ?? error ?? t("integrations.saveFailed"));
+    switcherErrorText.value = String(error?.message ?? error ?? t("integrations.importFailed"));
   } finally {
-    mcpFormPending.value = false;
+    switcherPending.value = false;
   }
 };
 
-const onDeleteMcpForm = async () => {
-  const id = normalizeCodexMcpServerId(mcpForm.id);
+const onActivateSwitcherProfile = async () => {
+  const id = String(switcherSelectedProfileId.value ?? "").trim();
   if (!id) return;
-  await onDeleteMcpServer(id);
+  switcherPending.value = true;
+  switcherErrorText.value = "";
+  try {
+    await runtime.activateCodexConfigProfile(id);
+  } catch (error: any) {
+    switcherErrorText.value = String(error?.message ?? error ?? t("integrations.activateFailed"));
+  } finally {
+    switcherPending.value = false;
+  }
 };
 
 const onDeleteMcpServer = async (serverId: string) => {
+  if (hasCcswitchConflict.value) return;
   const id = normalizeCodexMcpServerId(serverId);
   if (!id) return;
   if (!window.confirm(t("integrations.confirmDeleteMcp", { id }))) return;
-  mcpFormPending.value = true;
-  mcpFormError.value = "";
+  mcpConfigPending.value = true;
   try {
     await runtime.deleteMcpServer(id);
-    if (normalizeCodexMcpServerId(mcpForm.id) === id) resetMcpForm();
-  } catch (error: any) {
-    mcpFormError.value = String(error?.message ?? error ?? t("integrations.deleteFailed"));
+  } catch {
   } finally {
-    mcpFormPending.value = false;
+    mcpConfigPending.value = false;
   }
 };
 
@@ -697,7 +587,7 @@ const onImportMcpJson = async () => {
     mcpJsonResultIsError.value = true;
     return;
   }
-  mcpFormPending.value = true;
+  mcpConfigPending.value = true;
   try {
     const res = await runtime.importMcpServersFromJson(text);
     mcpJsonResultIsError.value = res.imported === 0 || res.errors.length > 0;
@@ -710,11 +600,12 @@ const onImportMcpJson = async () => {
     mcpJsonResultIsError.value = true;
     mcpJsonResultText.value = String(error?.message ?? error ?? t("integrations.importFailed"));
   } finally {
-    mcpFormPending.value = false;
+    mcpConfigPending.value = false;
   }
 };
 
 const onToggleMcp = async (serverId: string, enabled: boolean) => {
+  if (hasCcswitchConflict.value) return;
   if (!serverId || mcpPendingId.value === serverId) return;
   mcpPendingId.value = serverId;
   try {
@@ -788,6 +679,7 @@ watch(
   () => open.value,
   (isOpen) => {
     if (!isOpen) return;
+    if (codexConfigSwitcherStore.loadState === "idle") void runtime.refreshCodexConfigSwitcher();
     if (runtimeStore.serverId) {
       if (activeTab.value === "skills") void runtime.refreshSkills(false);
       else void runtime.refreshMcp();
@@ -808,12 +700,22 @@ watch(
       if (runtimeStore.serverId) void runtime.refreshSkills(false);
       return;
     }
+    if (codexConfigSwitcherStore.loadState === "idle") void runtime.refreshCodexConfigSwitcher();
     if (runtimeStore.serverId) void runtime.refreshMcp();
   }
 );
 
+watch(
+  () => codexConfigSwitcherStore.state.activeProfileId,
+  (id) => {
+    switcherSelectedProfileId.value = id ?? "";
+  },
+  { immediate: true }
+);
+
 onMounted(() => {
   if (codexSkillRootsStore.loadState === "idle") void codexSkillRootsStore.refresh();
+  if (codexConfigSwitcherStore.loadState === "idle") void runtime.refreshCodexConfigSwitcher();
   if (runtimeStore.serverId) {
     void runtime.refreshMcp();
     void runtime.refreshSkills(false);

@@ -6,7 +6,14 @@
         <div class="topbar-menu-anchor topbar-menu-anchor--approval">
           <TopBarApprovalMenu :open="approvalMenuOpen" @toggle="toggleApprovalMenu" @close="closeApprovalMenu" />
         </div>
-        <div class="topbar-mainview-switch" :aria-label="t('topbar.mainView')">
+        <div
+          class="topbar-mainview-switch"
+          :class="{
+            'is-chat': appShellStore.mainView === 'chat',
+            'is-image': appShellStore.mainView === 'image',
+          }"
+          :aria-label="t('topbar.mainView')"
+        >
           <button
             class="topbar-mainview-btn"
             :class="{ 'is-active': appShellStore.mainView === 'chat' }"
@@ -127,6 +134,11 @@ const filesPaneVisible = computed(
 );
 const threadPaneTitle = computed(() => {
   if (appShellStore.settingsOpen) return t("topbar.threadPanelHiddenInSettings");
+  if (appShellStore.mainView === "image") {
+    return appShellStore.leftSidebarVisible
+      ? t("topbar.closeImageWorkspacePanel")
+      : t("topbar.openImageWorkspacePanel");
+  }
   return appShellStore.leftSidebarVisible ? t("topbar.closeThreadPanel") : t("topbar.openThreadPanel");
 });
 const filesPaneTitle = computed(() => {
