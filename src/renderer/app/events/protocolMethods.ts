@@ -16,6 +16,7 @@ export const SERVER_REQUEST_METHODS: readonly ServerRequestMethod[] = [
   "item/permissions/requestApproval",
   "item/tool/call",
   "account/chatgptAuthTokens/refresh",
+  "attestation/generate",
   "applyPatchApproval",
   "execCommandApproval",
 ];

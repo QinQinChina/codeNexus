@@ -7,7 +7,7 @@
 当前项目的协议方法白名单已经和官方生成协议对齐：
 
 - `ServerNotification`: 64 个方法，定义在 `src/renderer/app/events/protocolMethods.ts`
-- `ServerRequest`: 9 个方法，定义在 `src/renderer/app/events/protocolMethods.ts`
+- `ServerRequest`: 10 个方法，定义在 `src/renderer/app/events/protocolMethods.ts`
 - 协议类型来源：`src/generated/codex-app-server/ServerNotification.ts`
 
 但“协议层接收”不等于“聊天 UI 语义处理”。真正进入聊天事件流水线的处理入口是：

@@ -410,7 +410,7 @@ export class CodexAppServer {
         title: null,
         version: app.getVersion(),
       },
-      capabilities: this.experimentalApiOptIn ? { experimentalApi: true } : null,
+      capabilities: this.experimentalApiOptIn ? { experimentalApi: true, requestAttestation: false } : null,
     };
     const result = await this.request("initialize", initializeParams);
     // 备注：Codex app-server 的 initialize result 往往只返回 userAgent，不会回显 capabilities。

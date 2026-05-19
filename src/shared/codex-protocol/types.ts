@@ -17,6 +17,7 @@ import type { ConfigReadResponse } from "../../generated/codex-app-server/v2/Con
 import type { ConfigRequirementsReadResponse } from "../../generated/codex-app-server/v2/ConfigRequirementsReadResponse";
 import type { ConfigWriteResponse } from "../../generated/codex-app-server/v2/ConfigWriteResponse";
 import type { ExperimentalFeatureEnablementSetResponse } from "../../generated/codex-app-server/v2/ExperimentalFeatureEnablementSetResponse";
+import type { EnvironmentAddResponse } from "../../generated/codex-app-server/v2/EnvironmentAddResponse";
 import type { ListMcpServerStatusResponse } from "../../generated/codex-app-server/v2/ListMcpServerStatusResponse";
 import type { AppsListResponse } from "../../generated/codex-app-server/v2/AppsListResponse";
 import type { CollaborationModeListResponse } from "../../generated/codex-app-server/v2/CollaborationModeListResponse";
@@ -57,6 +58,7 @@ import type { PluginInstallResponse } from "../../generated/codex-app-server/v2/
 import type { PluginListResponse } from "../../generated/codex-app-server/v2/PluginListResponse";
 import type { PluginReadResponse } from "../../generated/codex-app-server/v2/PluginReadResponse";
 import type { PluginShareDeleteResponse } from "../../generated/codex-app-server/v2/PluginShareDeleteResponse";
+import type { PluginShareCheckoutResponse } from "../../generated/codex-app-server/v2/PluginShareCheckoutResponse";
 import type { PluginShareListResponse } from "../../generated/codex-app-server/v2/PluginShareListResponse";
 import type { PluginShareSaveResponse } from "../../generated/codex-app-server/v2/PluginShareSaveResponse";
 import type { PluginShareUpdateTargetsResponse } from "../../generated/codex-app-server/v2/PluginShareUpdateTargetsResponse";
@@ -66,6 +68,9 @@ import type { ProcessKillResponse } from "../../generated/codex-app-server/v2/Pr
 import type { ProcessResizePtyResponse } from "../../generated/codex-app-server/v2/ProcessResizePtyResponse";
 import type { ProcessSpawnResponse } from "../../generated/codex-app-server/v2/ProcessSpawnResponse";
 import type { ProcessWriteStdinResponse } from "../../generated/codex-app-server/v2/ProcessWriteStdinResponse";
+import type { RemoteControlDisableResponse } from "../../generated/codex-app-server/v2/RemoteControlDisableResponse";
+import type { RemoteControlEnableResponse } from "../../generated/codex-app-server/v2/RemoteControlEnableResponse";
+import type { RemoteControlStatusReadResponse } from "../../generated/codex-app-server/v2/RemoteControlStatusReadResponse";
 import type { ReviewStartResponse } from "../../generated/codex-app-server/v2/ReviewStartResponse";
 import type { SendAddCreditsNudgeEmailResponse } from "../../generated/codex-app-server/v2/SendAddCreditsNudgeEmailResponse";
 import type { SkillsConfigWriteResponse } from "../../generated/codex-app-server/v2/SkillsConfigWriteResponse";
@@ -160,6 +165,7 @@ type OfficialCodexRpcResultMap = {
   "plugin/share/updateTargets": PluginShareUpdateTargetsResponse;
   "plugin/share/list": PluginShareListResponse;
   "plugin/share/delete": PluginShareDeleteResponse;
+  "plugin/share/checkout": PluginShareCheckoutResponse;
   "plugin/install": PluginInstallResponse;
   "plugin/uninstall": PluginUninstallResponse;
   "app/list": AppsListResponse;
@@ -167,7 +173,11 @@ type OfficialCodexRpcResultMap = {
   "modelProvider/capabilities/read": ModelProviderCapabilitiesReadResponse;
   "experimentalFeature/list": ExperimentalFeatureListResponse;
   "experimentalFeature/enablement/set": ExperimentalFeatureEnablementSetResponse;
+  "remoteControl/enable": RemoteControlEnableResponse;
+  "remoteControl/disable": RemoteControlDisableResponse;
+  "remoteControl/status/read": RemoteControlStatusReadResponse;
   "collaborationMode/list": CollaborationModeListResponse;
+  "environment/add": EnvironmentAddResponse;
   "mcpServerStatus/list": ListMcpServerStatusResponse;
   "config/mcpServer/reload": McpServerRefreshResponse;
   "mcpServer/oauth/login": McpServerOauthLoginResponse;
