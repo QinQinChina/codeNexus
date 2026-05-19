@@ -1,5 +1,5 @@
 import type { CodexServerRequestMessage } from "../../../shared/codex-protocol";
-import { isServerRequestMethod, type ServerRequestMethod } from "./protocolMethods";
+import { isOfficialServerRequestMethod, type OfficialServerRequestMethod, type ServerRequestMethod } from "./protocolMethods";
 
 export type AppServerRequest = CodexServerRequestMessage;
 
@@ -24,12 +24,10 @@ export type JsonRpcResponsePayload = {
   error?: JsonRpcErrorPayload;
 };
 
-const APPROVAL_METHODS = new Set<ServerRequestMethod>([
+const APPROVAL_METHODS = new Set<string>([
   "item/commandExecution/requestApproval",
   "item/fileChange/requestApproval",
   "item/permissions/requestApproval",
-  "applyPatchApproval",
-  "execCommandApproval",
 ]);
 
 function isJsonRpcId(value: unknown): value is number | string {
@@ -52,15 +50,14 @@ export function isServerRequest(msg: unknown): msg is AppServerRequest {
   const record = msg as Record<string, unknown>;
   if (record.kind !== "request") return false;
   const method = typeof record.method === "string" ? record.method.trim() : "";
-  if (!method || !isServerRequestMethod(method)) return false;
+  if (!method || !isOfficialServerRequestMethod(method)) return false;
   if (!isJsonRpcId(record.id)) return false;
   return isRequestParams(record.params);
 }
 
 export function getServerRequestThreadId(request: AppServerRequest): string {
   const params = toRecord(request.params);
-  // Some request shapes use conversationId instead of threadId (e.g. applyPatchApproval/execCommandApproval).
-  return String(params.threadId ?? params.conversationId ?? "").trim();
+  return String(params.threadId ?? "").trim();
 }
 
 export function getServerRequestTurnId(request: AppServerRequest): string {
@@ -70,10 +67,10 @@ export function getServerRequestTurnId(request: AppServerRequest): string {
 
 export function getServerRequestItemId(request: AppServerRequest): string {
   const params = toRecord(request.params);
-  return String(params.itemId ?? params.callId ?? "").trim();
+  return String(params.itemId ?? "").trim();
 }
 
-export function classifyServerRequest(method: ServerRequestMethod): RequestHandlingResult {
+export function classifyServerRequest(method: OfficialServerRequestMethod): RequestHandlingResult {
   if (APPROVAL_METHODS.has(method)) {
     return { kind: "approval", isKnownMethod: true, requiresResponse: true };
   }
@@ -115,7 +112,7 @@ export function buildAuthRefreshNotImplementedError(method: string): JsonRpcErro
   });
 }
 
-export function buildInvalidUserInputPayloadError(method: ServerRequestMethod): JsonRpcErrorPayload {
+export function buildInvalidUserInputPayloadError(method: OfficialServerRequestMethod): JsonRpcErrorPayload {
   if (method === "mcpServer/elicitation/request") {
     return buildJsonRpcError(-32602, "invalid mcp elicitation payload");
   }

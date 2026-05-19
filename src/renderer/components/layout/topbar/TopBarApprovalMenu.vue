@@ -82,15 +82,6 @@
                   :maxItems="4"
                 />
 
-                <div v-if="activeApprovalPrompt.kind === 'applyPatch'" class="grid gap-2">
-                  <DetailDisclosure
-                    v-for="file in applyPatchFiles(activeApprovalPrompt)"
-                    :key="file.path"
-                    :defaultOpen="false"
-                    :content="file.body"
-                  />
-                </div>
-
                 <div class="row user-input-actions" style="gap: 8px; flex-wrap: wrap">
                   <button type="button" @click="emit('close')">{{ t("topbarApproval.closeMenu") }}</button>
 
@@ -105,21 +96,6 @@
                       {{ t("topbarApproval.acceptForSession") }}
                     </button>
                     <button type="button" @click="runtime.submitActiveApprovalPrompt('accept')">
-                      {{ t("topbarApproval.accept") }}
-                    </button>
-                  </template>
-
-                  <template v-else-if="activeApprovalPrompt.kind === 'applyPatch'">
-                    <button type="button" @click="runtime.submitActiveApprovalPrompt('denied')">
-                      {{ t("topbarApproval.decline") }}
-                    </button>
-                    <button type="button" class="danger" @click="runtime.submitActiveApprovalPrompt('abort')">
-                      {{ t("topbarApproval.declineAndStop") }}
-                    </button>
-                    <button type="button" @click="runtime.submitActiveApprovalPrompt('approved_for_session')">
-                      {{ t("topbarApproval.acceptForSession") }}
-                    </button>
-                    <button type="button" @click="runtime.submitActiveApprovalPrompt('approved')">
                       {{ t("topbarApproval.accept") }}
                     </button>
                   </template>
@@ -151,20 +127,6 @@
                     </button>
                   </template>
 
-                  <template v-else>
-                    <button type="button" @click="runtime.submitActiveApprovalPrompt('denied')">
-                      {{ t("topbarApproval.decline") }}
-                    </button>
-                    <button type="button" class="danger" @click="runtime.submitActiveApprovalPrompt('abort')">
-                      {{ t("topbarApproval.declineAndStop") }}
-                    </button>
-                    <button type="button" @click="runtime.submitActiveApprovalPrompt('approved_for_session')">
-                      {{ t("topbarApproval.acceptForSession") }}
-                    </button>
-                    <button type="button" @click="runtime.submitActiveApprovalPrompt('approved')">
-                      {{ t("topbarApproval.accept") }}
-                    </button>
-                  </template>
                 </div>
               </div>
             </template>
@@ -179,13 +141,11 @@
 import { computed, defineAsyncComponent } from "vue";
 import { ShieldCheck } from "lucide-vue-next";
 import { useI18n } from "vue-i18n";
-import type { FileChange } from "../../../../generated/codex-app-server";
 import type { CommandExecutionApprovalDecision } from "../../../../generated/codex-app-server/v2/CommandExecutionApprovalDecision";
 import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
 import { useRuntimeStore } from "../../../stores/runtime.store";
 import { useApprovalStore, type ApprovalPrompt } from "../../../stores/approval.store";
 
-const DetailDisclosure = defineAsyncComponent(() => import("../../ui/DetailDisclosure.vue"));
 const GuardianReviewDiagnostics = defineAsyncComponent(() => import("../../guardian/GuardianReviewDiagnostics.vue"));
 
 const props = defineProps<{
@@ -230,16 +190,14 @@ function toText(value: unknown): string {
 
 const approvalHeaderText = (prompt: ApprovalPrompt) => {
   if (prompt.kind === "fileChange") return t("topbarApproval.fileChangeRequest");
-  if (prompt.kind === "applyPatch") return t("topbarApproval.applyPatchRequest");
   if (prompt.kind === "commandExecution") return t("topbarApproval.commandExecutionRequest");
   if (prompt.kind === "permissions") return t("topbarApproval.permissionsRequest");
   return t("topbarApproval.approvalRequest");
 };
 
 const approvalMetaText = (prompt: ApprovalPrompt) => {
-  const kind = String(prompt.kind ?? "approval");
   const method = String((prompt as any)?.method ?? "");
-  return [kind, method, approvalPromptAgeText(prompt)].filter(Boolean).join(" · ");
+  return [prompt.kind, method, approvalPromptAgeText(prompt)].filter(Boolean).join(" · ");
 };
 
 const approvalQueueItemMetaText = (prompt: ApprovalPrompt) => {
@@ -282,9 +240,6 @@ const approvalInfoRows = (prompt: ApprovalPrompt): ApprovalInfoRow[] => {
   if (grantRoot) rows.push({ label: t("topbarApproval.grantRoot"), value: grantRoot });
   if (cwd) rows.push({ label: t("topbarApproval.cwd"), value: cwd });
   if (command) rows.push({ label: t("topbarApproval.command"), value: command });
-  if (prompt.kind === "applyPatch") {
-    rows.push({ label: t("topbarApproval.fileCount"), value: String(applyPatchFiles(prompt).length) });
-  }
   return rows;
 };
 
@@ -354,29 +309,5 @@ const toCommandExecutionDecisionButtons = (prompt: ApprovalPrompt): CommandExecu
     buttons.push({ key: `obj:${fallbackKey}`, label: fallbackKey, decision, kind: "primary" });
   }
   return buttons.slice(0, 10);
-};
-
-const applyPatchFiles = (
-  prompt: ApprovalPrompt
-): Array<{ path: string; kind: FileChange["type"] | "unknown"; movePath: string; body: string }> => {
-  if (prompt.kind !== "applyPatch") return [];
-  const fc = (prompt as any).params?.fileChanges ?? {};
-  const out: Array<{ path: string; kind: FileChange["type"] | "unknown"; movePath: string; body: string }> = [];
-  for (const [path, change] of Object.entries(fc)) {
-    const c = change as any;
-    if (!c) continue;
-    if (c.type === "update") {
-      out.push({
-        path: String(path ?? ""),
-        kind: c.type,
-        movePath: toText(c.move_path),
-        body: toText(c.unified_diff),
-      });
-      continue;
-    }
-    out.push({ path: String(path ?? ""), kind: c.type, movePath: "", body: toText(c.content) });
-  }
-  out.sort((a, b) => a.path.localeCompare(b.path));
-  return out;
 };
 </script>

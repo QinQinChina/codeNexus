@@ -4115,16 +4115,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         const decisionText = typeof decision === "string" ? decision : safeJsonStringify(decision, { space: 0 });
         const level = typeof decisionText === "string" && decisionText.startsWith("accept") ? "info" : "warn";
         pushEvent("approval:fileChange", `decision=${decisionText}`, { threadId, level });
-      } else if (prompt.method === "applyPatchApproval") {
-        // decision: approved | approved_for_session | denied | abort (per local schema)
-        await codexDesktop.codexServer.respond({
-          serverId: prompt.serverId,
-          id: prompt.requestId,
-          result: { decision },
-        });
-        const decisionText = typeof decision === "string" ? decision : safeJsonStringify(decision, { space: 0 });
-        const level = typeof decisionText === "string" && decisionText.startsWith("approved") ? "info" : "warn";
-        pushEvent("approval:applyPatch", `decision=${decisionText}`, { threadId, level });
       } else if (prompt.method === "item/commandExecution/requestApproval") {
         // decision: accept | acceptForSession | decline | cancel | { acceptWithExecpolicyAmendment } | { applyNetworkPolicyAmendment }
         await codexDesktop.codexServer.respond({
@@ -4160,17 +4150,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
           });
           pushEvent("approval:permissions", `decision=${normalizedDecision || "decline"}`, { threadId, level: "warn" });
         }
-      } else if (prompt.method === "execCommandApproval") {
-        // decision: approved | approved_for_session | denied | abort | (and possibly object decisions)
-        await codexDesktop.codexServer.respond({
-          serverId: prompt.serverId,
-          id: prompt.requestId,
-          result: { decision },
-        });
-        const decisionText = typeof decision === "string" ? decision : safeJsonStringify(decision, { space: 0 });
-        const normalized = typeof decisionText === "string" ? decisionText : "";
-        const level = normalized.includes("denied") || normalized.includes("abort") ? "warn" : "info";
-        pushEvent("approval:execCommand", `decision=${decisionText}`, { threadId, level });
       }
 
       approvalStore.remove(prompt.serverId, prompt.requestId);

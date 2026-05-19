@@ -1,18 +1,16 @@
-// Approval store: queue and manage server approval requests (file changes / patch apply).
+// Approval store: queue and manage v2 server approval requests.
 import { defineStore } from "pinia";
 import type { OfficialCodexServerRequest } from "../../shared/codex-protocol";
 
-export type ApprovalPromptKind = "fileChange" | "applyPatch" | "commandExecution" | "permissions" | "execCommand";
+export type ApprovalPromptKind = "fileChange" | "commandExecution" | "permissions";
 
 type ApprovalRequest = Extract<
   OfficialCodexServerRequest,
   {
     method:
       | "item/fileChange/requestApproval"
-      | "applyPatchApproval"
       | "item/commandExecution/requestApproval"
-      | "item/permissions/requestApproval"
-      | "execCommandApproval";
+      | "item/permissions/requestApproval";
   }
 >;
 
@@ -30,20 +28,13 @@ type ApprovalPromptBase<M extends ApprovalRequest["method"], K extends ApprovalP
 };
 
 export type FileChangeApprovalPrompt = ApprovalPromptBase<"item/fileChange/requestApproval", "fileChange">;
-export type ApplyPatchApprovalPrompt = ApprovalPromptBase<"applyPatchApproval", "applyPatch">;
 export type CommandExecutionApprovalPrompt = ApprovalPromptBase<
   "item/commandExecution/requestApproval",
   "commandExecution"
 >;
 export type PermissionsApprovalPrompt = ApprovalPromptBase<"item/permissions/requestApproval", "permissions">;
-export type ExecCommandApprovalPrompt = ApprovalPromptBase<"execCommandApproval", "execCommand">;
 
-export type ApprovalPrompt =
-  | FileChangeApprovalPrompt
-  | ApplyPatchApprovalPrompt
-  | CommandExecutionApprovalPrompt
-  | PermissionsApprovalPrompt
-  | ExecCommandApprovalPrompt;
+export type ApprovalPrompt = FileChangeApprovalPrompt | CommandExecutionApprovalPrompt | PermissionsApprovalPrompt;
 
 function keyForPrompt(serverId: string, requestId: number | string): string {
   return `${String(serverId ?? "").trim()}:${String(requestId ?? "").trim()}`;

@@ -3,10 +3,8 @@ import type { AppServerRequest } from "./requestHandlers";
 
 const APPROVAL_KIND_BY_METHOD = {
   "item/fileChange/requestApproval": "fileChange",
-  applyPatchApproval: "applyPatch",
   "item/commandExecution/requestApproval": "commandExecution",
   "item/permissions/requestApproval": "permissions",
-  execCommandApproval: "execCommand",
 } as const satisfies Record<ApprovalPrompt["method"], ApprovalPromptKind>;
 
 function toText(value: unknown): string {
@@ -37,9 +35,9 @@ export function buildApprovalPromptFromRequest(
   if (!kind) return null;
 
   const params = toRecord(request.params);
-  const threadId = toText(params.threadId ?? params.conversationId) || "__app__";
+  const threadId = toText(params.threadId) || "__app__";
   const turnId = toNullableText(params.turnId);
-  const itemId = toNullableText(params.itemId ?? params.callId);
+  const itemId = toNullableText(params.itemId);
 
   return {
     kind,

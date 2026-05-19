@@ -3,7 +3,9 @@ import type {
   CodexServerRequestMethod as OfficialServerRequestMethod,
 } from "../../../shared/codex-protocol";
 
-export type ServerRequestMethod = OfficialServerRequestMethod;
+export type { OfficialServerRequestMethod };
+export type UnsupportedLegacyServerRequestMethod = "applyPatchApproval" | "execCommandApproval";
+export type ServerRequestMethod = Exclude<OfficialServerRequestMethod, UnsupportedLegacyServerRequestMethod>;
 export type ServerNotificationMethod = OfficialServerNotificationMethod;
 
 type AssertNever<T extends never> = T;
@@ -17,8 +19,6 @@ export const SERVER_REQUEST_METHODS: readonly ServerRequestMethod[] = [
   "item/tool/call",
   "account/chatgptAuthTokens/refresh",
   "attestation/generate",
-  "applyPatchApproval",
-  "execCommandApproval",
 ];
 
 export const SERVER_NOTIFICATION_METHODS: readonly ServerNotificationMethod[] = [
@@ -99,7 +99,15 @@ type _AssertNoMissingServerNotificationMethods = AssertNever<MissingServerNotifi
 type _AssertNoExtraServerNotificationMethods = AssertNever<ExtraServerNotificationMethods>;
 
 const SERVER_REQUEST_METHOD_SET = new Set<string>(SERVER_REQUEST_METHODS);
+const UNSUPPORTED_LEGACY_SERVER_REQUEST_METHOD_SET = new Set<string>([
+  "applyPatchApproval",
+  "execCommandApproval",
+]);
 const SERVER_NOTIFICATION_METHOD_SET = new Set<string>(SERVER_NOTIFICATION_METHODS);
+
+export function isOfficialServerRequestMethod(method: string): method is OfficialServerRequestMethod {
+  return SERVER_REQUEST_METHOD_SET.has(method) || UNSUPPORTED_LEGACY_SERVER_REQUEST_METHOD_SET.has(method);
+}
 
 export function isServerRequestMethod(method: string): method is ServerRequestMethod {
   return SERVER_REQUEST_METHOD_SET.has(method);
