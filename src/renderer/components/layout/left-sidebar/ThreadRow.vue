@@ -42,7 +42,13 @@
               @keydown="onRenameKeydown"
               @blur="commitRename"
             />
-            <span v-else class="lsb-thread-title-text" @dblclick.stop.prevent="beginRename">{{ displayTitle }}</span>
+            <span
+              v-else
+              class="lsb-thread-title-text"
+              :title="threadTitleTooltip"
+              @dblclick.stop.prevent="beginRename"
+              >{{ displayTitle }}</span
+            >
           </template>
           <span v-if="hasUserInputQuestion" class="lsb-badge is-question">{{ t("threadRow.qa") }}</span>
           <span v-if="agentNicknameBadge" class="lsb-badge">{{ agentNicknameBadge }}</span>
@@ -109,6 +115,7 @@ type ThreadRowItem = {
     updatedAt: number;
     cwd?: string;
     agentNickname?: string;
+    gitInfoSummary?: string;
     localStatus?: "creating" | "ready";
   };
   depth: number;
@@ -144,6 +151,10 @@ const agentNicknameBadge = computed(() => {
 
 const threadStore = useThreadStore();
 const displayTitle = computed(() => threadStore.displayThreadTitle(props.row.item.id, props.row.item.title));
+const threadTitleTooltip = computed(() => {
+  const git = String(props.row.item.gitInfoSummary ?? "").trim();
+  return git ? `${displayTitle.value}\n${git}` : displayTitle.value;
+});
 const threadId = computed(() => String(props.row.item.id ?? "").trim());
 const hasUserInputQuestion = computed(() => props.shouldShowUserInputBadge(threadId.value));
 const threadVisualStatus = computed<ThreadVisualStatus>(() => {

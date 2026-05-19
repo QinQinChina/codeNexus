@@ -34,7 +34,6 @@
           </span>
         </button>
       </div>
-
     </div>
 
     <div id="thread-history" class="lsb-scroll app-scrollbar">
@@ -114,7 +113,16 @@ import { showToast } from "../../../ui/toast";
 
 type ThreadListItem = Pick<
   ThreadHistoryItem,
-  "id" | "title" | "meta" | "updatedAt" | "cwd" | "forkedFromId" | "agentNickname" | "agentRole" | "agentPath"
+  | "id"
+  | "title"
+  | "meta"
+  | "updatedAt"
+  | "cwd"
+  | "forkedFromId"
+  | "agentNickname"
+  | "agentRole"
+  | "agentPath"
+  | "gitInfoSummary"
 > & {
   localStatus?: LocalThreadItem["status"];
 };
@@ -204,6 +212,7 @@ const visibleThreadItems = computed<ThreadListItem[]>(() => {
       agentNickname: item.agentNickname,
       agentRole: item.agentRole,
       agentPath: item.agentPath,
+      gitInfoSummary: item.gitInfoSummary,
       localStatus: item.status,
     });
   }
@@ -235,6 +244,7 @@ const threadGroups = computed<ThreadGroup[]>(() => {
       agentNickname: sourceItem.agentNickname,
       agentRole: sourceItem.agentRole,
       agentPath: sourceItem.agentPath,
+      gitInfoSummary: sourceItem.gitInfoSummary,
       localStatus: sourceItem.localStatus,
     };
     const cwd = String(item.cwd ?? "").trim();
@@ -318,8 +328,13 @@ const isInvalidWorkspaceItem = (item: { cwd?: string }) => {
 };
 const shouldShowUserInputBadge = (threadIdValue: string) =>
   userInputStore.queueSizeForThread(String(threadIdValue ?? "").trim()) > 0;
-const threadAriaLabel = (row: ThreadRowModel) =>
-  t("threadHistory.openThreadAria", { title: threadStore.displayThreadTitle(row.item.id, row.item.title) });
+const threadAriaLabel = (row: ThreadRowModel) => {
+  const title = threadStore.displayThreadTitle(row.item.id, row.item.title);
+  const git = String(row.item.gitInfoSummary ?? "").trim();
+  return git
+    ? `${t("threadHistory.openThreadAria", { title })} · ${git}`
+    : t("threadHistory.openThreadAria", { title });
+};
 const shouldShowThreadAttention = (threadId: string) => {
   const tid = String(threadId ?? "").trim();
   return Boolean(tid && tid !== runtimeStore.currentThreadId && threadStore.attentionThreadIds.has(tid));

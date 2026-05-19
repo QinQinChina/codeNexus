@@ -38,6 +38,7 @@ export type HistoryThread = {
   agentNickname?: string;
   agentRole?: string;
   agentPath?: string;
+  gitInfoSummary?: string;
 };
 
 export type HistoryThreadMetadataPatch = {
@@ -47,6 +48,7 @@ export type HistoryThreadMetadataPatch = {
   agentNickname?: string | null;
   agentRole?: string | null;
   agentPath?: string | null;
+  gitInfoSummary?: string | null;
 };
 
 export type HistoryThreadTitleOverridesResult = {

@@ -1105,6 +1105,18 @@ const toNumberOrNull = (value: unknown): number | null => {
   return null;
 };
 
+const toEpochMs = (value: unknown): number | null => {
+  const raw = typeof value === "number" ? value : typeof value === "string" ? Number(value.trim()) : Number.NaN;
+  if (!Number.isFinite(raw) || raw <= 0) return null;
+  return raw >= 1_000_000_000_000 ? Math.round(raw) : Math.round(raw * 1000);
+};
+
+const eventLifecycleTimeMs = (event: TimelineEventItem, payload: Record<string, any> | null): number => {
+  if (event.method === "item/started") return toEpochMs(payload?.startedAtMs) ?? event.createdAt;
+  if (event.method === "item/completed") return toEpochMs(payload?.completedAtMs) ?? event.createdAt;
+  return event.createdAt;
+};
+
 const toPositiveLineNumberOrNull = (value: unknown): number | null => {
   const numberValue = typeof value === "number" ? value : typeof value === "string" ? Number(value.trim()) : Number.NaN;
   if (!Number.isFinite(numberValue)) return null;
@@ -1254,7 +1266,7 @@ const parseFileChangeEvent = (event: TimelineEventItem): ParsedFileChangeEvent |
     method: event.method,
     statusRaw,
     changes: parseOfficialFileUpdateChanges((item as any).changes),
-    createdAt: event.createdAt,
+    createdAt: eventLifecycleTimeMs(event, payload),
     hasError,
   };
 };
@@ -1340,7 +1352,7 @@ const parseCommandExecutionEvent = (event: TimelineEventItem): ParsedCommandEven
         : typeof item.aggregatedOutput === "string"
           ? item.aggregatedOutput
           : "",
-    createdAt: event.createdAt,
+    createdAt: eventLifecycleTimeMs(event, payload),
   };
 };
 
@@ -1562,6 +1574,7 @@ const parseMcpToolCallEvent = (
     ? String(payload.message ?? "inProgress").trim()
     : String(item?.status ?? payload.status ?? "").trim();
   const durationMs = isProgressEvent ? null : toNumberOrNull(item?.durationMs);
+  const createdAt = isProgressEvent ? event.createdAt : eventLifecycleTimeMs(event, payload);
 
   const argumentsValue = item?.arguments ?? callHint?.argumentsValue;
   const argumentsRaw = toPrettyJsonOrText(argumentsValue);
@@ -1580,7 +1593,9 @@ const parseMcpToolCallEvent = (
   const metaRaw = resultRecord?._meta == null ? "" : toPrettyJsonOrText(resultRecord._meta);
   const toolDefinition = toolDefinitionsByKey.get(toMcpToolDefinitionKey(server, tool));
   const outputSchemaRaw = toolDefinition?.outputSchema == null ? "" : toPrettyJsonOrText(toolDefinition.outputSchema);
-  const candidateResourceUri = findExplicitResourceUri(resultRecord?.structuredContent ?? resultValue);
+  const candidateResourceUri =
+    String(item?.mcpAppResourceUri ?? "").trim() ||
+    findExplicitResourceUri(resultRecord?.structuredContent ?? resultValue);
   const relatedResource = candidateResourceUri
     ? resourceReadsByKey.get(toMcpResourceLookupKey(server, candidateResourceUri))
     : null;
@@ -1633,11 +1648,11 @@ const parseMcpToolCallEvent = (
     metaRaw,
     outputSchemaRaw,
     errorText,
-    relatedResourceUri: relatedResource?.uri ?? "",
+    relatedResourceUri: relatedResource?.uri ?? candidateResourceUri,
     relatedResourceSourceTab: relatedResource?.sourceTab ?? "resources",
     relatedResourceTemplateKey: relatedResource?.templateKey ?? "",
-    relatedResourceLabel: relatedResource ? "打开相关资源结果" : "",
-    createdAt: event.createdAt,
+    relatedResourceLabel: candidateResourceUri ? "打开相关资源结果" : "",
+    createdAt,
   };
 };
 

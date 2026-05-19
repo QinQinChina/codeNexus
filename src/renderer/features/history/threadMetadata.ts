@@ -1,4 +1,5 @@
 import type { HistoryThreadMetadataPatch } from "../../../shared/ipc/contracts";
+import type { GitInfo } from "../../../generated/codex-app-server/v2/GitInfo";
 import type { SessionSource } from "../../../generated/codex-app-server/v2/SessionSource";
 import type { Thread as ServerThread } from "../../../generated/codex-app-server/v2/Thread";
 import type { ThreadSourceKind } from "../../../generated/codex-app-server/v2/ThreadSourceKind";
@@ -21,6 +22,22 @@ function toRecord(value: unknown): Record<string, unknown> | null {
 export function normalizeOptionalText(value: unknown): string | null {
   const normalized = String(value ?? "").trim();
   return normalized ? normalized : null;
+}
+
+export function toEpochMs(value: unknown): number | null {
+  const raw = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  if (!Number.isFinite(raw) || raw <= 0) return null;
+  return raw >= 1_000_000_000_000 ? Math.round(raw) : Math.round(raw * 1000);
+}
+
+export function buildGitInfoSummary(gitInfo: GitInfo | null | undefined): string | null {
+  if (!gitInfo) return null;
+  const branch = normalizeOptionalText(gitInfo.branch);
+  const sha = normalizeOptionalText(gitInfo.sha);
+  const originUrl = normalizeOptionalText(gitInfo.originUrl);
+  const shortSha = sha ? sha.slice(0, 8) : null;
+  const parts = [branch, shortSha, originUrl].filter((part): part is string => Boolean(part));
+  return parts.length > 0 ? parts.join(" · ") : null;
 }
 
 export function extractThreadSourceDetails(source: SessionSource | null | undefined): ThreadSourceDetails {
@@ -84,12 +101,16 @@ export function buildHistoryThreadMetadataPatchFromServerThread(
     agentNickname: normalizeOptionalText(thread.agentNickname) ?? sourceDetails.agentNickname,
     agentRole: normalizeOptionalText(thread.agentRole) ?? sourceDetails.agentRole,
     agentPath: sourceDetails.agentPath,
+    gitInfoSummary: buildGitInfoSummary(thread.gitInfo),
   };
 }
 
 export function buildThreadHistoryMetadataFromServerThread(
-  thread: Pick<ServerThread, "source" | "forkedFromId" | "agentNickname" | "agentRole">
-): Pick<ThreadHistoryItem, "threadSourceKind" | "forkedFromId" | "agentNickname" | "agentRole" | "agentPath"> {
+  thread: Pick<ServerThread, "source" | "forkedFromId" | "agentNickname" | "agentRole" | "gitInfo">
+): Pick<
+  ThreadHistoryItem,
+  "threadSourceKind" | "forkedFromId" | "agentNickname" | "agentRole" | "agentPath" | "gitInfoSummary"
+> {
   const sourceDetails = extractThreadSourceDetails(thread.source);
   return {
     threadSourceKind: sourceDetails.threadSourceKind ?? undefined,
@@ -97,6 +118,7 @@ export function buildThreadHistoryMetadataFromServerThread(
     agentNickname: normalizeOptionalText(thread.agentNickname) ?? sourceDetails.agentNickname ?? undefined,
     agentRole: normalizeOptionalText(thread.agentRole) ?? sourceDetails.agentRole ?? undefined,
     agentPath: sourceDetails.agentPath ?? undefined,
+    gitInfoSummary: buildGitInfoSummary(thread.gitInfo) ?? undefined,
   };
 }
 

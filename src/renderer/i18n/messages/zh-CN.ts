@@ -991,6 +991,9 @@ export default {
       cumulativeTotal: "累计总计",
       contextWindow: "上下文窗口",
     },
+    memoryCitation: {
+      summary: "记忆引用 · {entries} 条 · 线程 {threads} 个",
+    },
     planActions: {
       executing: "执行中...",
       executePlan: "执行计划",

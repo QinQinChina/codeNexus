@@ -471,15 +471,23 @@ export const useThreadStore = defineStore("thread", {
       this.completedTurnsByThread.set(threadId, stack);
     },
     // 记录已完成 turn，并带上该 turn 的 diff 快照用于回滚。
-    markTurnCompleted(threadId: string, turnId: string) {
+    markTurnCompleted(threadId: string, turnId: string, completedAtMs?: number | null, durationMs?: number | null) {
       if (!threadId || !turnId) return;
       const diffText = this.turnDiffByThread.get(threadId)?.get(turnId) ?? "";
       const stack = this.completedTurnsByThread.get(threadId) ?? [];
+      const completedAt =
+        typeof completedAtMs === "number" && Number.isFinite(completedAtMs) && completedAtMs > 0
+          ? Math.round(completedAtMs)
+          : Date.now();
+      const normalizedDurationMs =
+        typeof durationMs === "number" && Number.isFinite(durationMs) && durationMs >= 0
+          ? Math.round(durationMs)
+          : null;
       const existingIndex = stack.findIndex((entry) => entry.turnId === turnId);
       if (existingIndex >= 0) {
-        stack[existingIndex] = { turnId, diffText, completedAt: Date.now() };
+        stack[existingIndex] = { turnId, diffText, completedAt, durationMs: normalizedDurationMs };
       } else {
-        stack.push({ turnId, diffText, completedAt: Date.now() });
+        stack.push({ turnId, diffText, completedAt, durationMs: normalizedDurationMs });
       }
       if (stack.length > 60) stack.splice(0, stack.length - 60);
       this.completedTurnsByThread.set(threadId, stack);
@@ -510,12 +518,14 @@ export const useThreadStore = defineStore("thread", {
         const diffText = typeof entry?.diffText === "string" ? entry.diffText : "";
         const completedAtRaw = Number(entry?.completedAt);
         const completedAt = Number.isFinite(completedAtRaw) ? completedAtRaw : 0;
+        const durationMsRaw = Number(entry?.durationMs);
+        const durationMs = Number.isFinite(durationMsRaw) && durationMsRaw >= 0 ? Math.round(durationMsRaw) : null;
         const existingIndex = indexByTurnId.get(turnId);
         if (existingIndex == null) {
           indexByTurnId.set(turnId, normalized.length);
-          normalized.push({ turnId, diffText, completedAt });
+          normalized.push({ turnId, diffText, completedAt, durationMs });
         } else {
-          normalized[existingIndex] = { turnId, diffText, completedAt };
+          normalized[existingIndex] = { turnId, diffText, completedAt, durationMs };
         }
       }
       normalized.sort((a, b) => a.completedAt - b.completedAt);

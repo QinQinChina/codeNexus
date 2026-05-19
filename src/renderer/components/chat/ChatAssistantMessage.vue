@@ -23,18 +23,24 @@
         :rawText="event.paramsText"
       />
       <AgentMarkdownContent v-else class="chat-bubble-body agent-markdown-body min-w-0" :html="markdownHtml" />
+      <details v-if="memoryCitationSummary" class="assistant-memory-citation">
+        <summary class="assistant-memory-citation__summary mono">{{ memoryCitationSummary }}</summary>
+        <pre class="assistant-memory-citation__body mono">{{ memoryCitationRaw }}</pre>
+      </details>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, defineAsyncComponent, defineComponent, h } from "vue";
+import { useI18n } from "vue-i18n";
 import AgentMarkdownContent from "../ui/AgentMarkdownContent.vue";
 import ChatPlanDeltaActions from "./ChatPlanDeltaActions.vue";
 import type { TimelineEventItem } from "../../domain/types";
 import type { PlanDeltaExecUiState } from "../layout/types/chat.types";
 import type { SandboxMode } from "../../stores/runtime.store";
 import { CHAT_ROW_BASE_CLASS } from "../layout/chat/chatPresentation";
+import { safeJsonStringify } from "../../utils/safeJson";
 
 type OptionInput =
   | string
@@ -77,6 +83,7 @@ const props = defineProps<{
   sandboxModeOptions: readonly OptionInput[];
 }>();
 
+const { t } = useI18n();
 const isPlanDelta = computed(() => props.event.method === "item/plan/delta");
 const planActionDisabled = computed(() => props.isTurnRunning || Boolean(props.execState?.executing));
 const shouldCollapsePlan = computed(() => {
@@ -84,6 +91,22 @@ const shouldCollapsePlan = computed(() => {
   if (!state?.collapseWhileExecuting) return false;
   return Boolean(state.executing || props.isTurnRunning);
 });
+const memoryCitation = computed(() => {
+  const params = props.event.params as any;
+  const citation = params?.item?.memoryCitation;
+  return citation && typeof citation === "object" && !Array.isArray(citation) ? citation : null;
+});
+const memoryCitationSummary = computed(() => {
+  const citation = memoryCitation.value;
+  if (!citation) return "";
+  const entries = Array.isArray(citation.entries) ? citation.entries.length : 0;
+  const threads = Array.isArray(citation.threadIds) ? citation.threadIds.length : 0;
+  if (entries <= 0 && threads <= 0) return "";
+  return t("chat.memoryCitation.summary", { entries, threads });
+});
+const memoryCitationRaw = computed(() =>
+  memoryCitation.value ? safeJsonStringify(memoryCitation.value, { space: 2 }) : ""
+);
 
 defineEmits<{
   (e: "execute-plan", event: TimelineEventItem): void;
@@ -116,5 +139,30 @@ defineEmits<{
 
 .assistant-card-loading__line--short {
   width: min(190px, 48%);
+}
+
+.assistant-memory-citation {
+  margin-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  padding-top: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.assistant-memory-citation__summary {
+  cursor: pointer;
+  user-select: none;
+}
+
+.assistant-memory-citation__body {
+  margin-top: 6px;
+  max-height: 180px;
+  overflow: auto;
+  border-radius: 4px;
+  background: var(--ui-code-bg);
+  padding: 8px;
+  color: var(--ui-code-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 </style>

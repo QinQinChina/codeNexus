@@ -23,6 +23,7 @@ export type HistoryThread = {
   agentNickname?: string;
   agentRole?: string;
   agentPath?: string;
+  gitInfoSummary?: string;
 };
 
 export type HistoryThreadMetadataPatch = {
@@ -32,6 +33,7 @@ export type HistoryThreadMetadataPatch = {
   agentNickname?: string | null;
   agentRole?: string | null;
   agentPath?: string | null;
+  gitInfoSummary?: string | null;
 };
 
 export type HistoryMessage = {
@@ -147,7 +149,13 @@ type ScanDiskDiagStats = {
   slowFiles: SlowFileStat[];
 };
 
-type HistoryThreadMetadataKeys = "threadSourceKind" | "forkedFromId" | "agentNickname" | "agentRole" | "agentPath";
+type HistoryThreadMetadataKeys =
+  | "threadSourceKind"
+  | "forkedFromId"
+  | "agentNickname"
+  | "agentRole"
+  | "agentPath"
+  | "gitInfoSummary";
 
 type HistoryThreadMetadata = Pick<HistoryThread, HistoryThreadMetadataKeys>;
 
@@ -158,6 +166,7 @@ type NormalizedHistoryThreadMetadataPatch = {
   agentNickname?: string | undefined;
   agentRole?: string | undefined;
   agentPath?: string | undefined;
+  gitInfoSummary?: string | undefined;
 };
 
 const HISTORY_THREAD_SOURCE_KINDS: readonly ThreadSourceKind[] = [
@@ -214,6 +223,7 @@ function toPersistedThread(item: HistoryThread): PersistedHistoryThread {
     agentNickname: item.agentNickname,
     agentRole: item.agentRole,
     agentPath: item.agentPath,
+    gitInfoSummary: item.gitInfoSummary,
   };
 }
 
@@ -233,6 +243,7 @@ function toHistoryThread(item: PersistedHistoryThread, source: HistorySource): H
     agentNickname: item.agentNickname,
     agentRole: item.agentRole,
     agentPath: item.agentPath,
+    gitInfoSummary: item.gitInfoSummary,
   };
 }
 
@@ -251,6 +262,7 @@ function copyHistoryThreadMetadata(
     agentNickname: normalizeText(item?.agentNickname),
     agentRole: normalizeText(item?.agentRole),
     agentPath: normalizeText(item?.agentPath),
+    gitInfoSummary: normalizeText(item?.gitInfoSummary),
   };
 }
 
@@ -289,6 +301,7 @@ function sanitizeHistoryThreadMetadataPatch(input: unknown): NormalizedHistoryTh
   assignOptionalMetadataPatchValue(patch, source, "agentNickname");
   assignOptionalMetadataPatchValue(patch, source, "agentRole");
   assignOptionalMetadataPatchValue(patch, source, "agentPath");
+  assignOptionalMetadataPatchValue(patch, source, "gitInfoSummary");
   return patch;
 }
 
@@ -302,6 +315,7 @@ function mergeMetadataPatches(
   if (Object.prototype.hasOwnProperty.call(next, "agentNickname")) merged.agentNickname = next.agentNickname;
   if (Object.prototype.hasOwnProperty.call(next, "agentRole")) merged.agentRole = next.agentRole;
   if (Object.prototype.hasOwnProperty.call(next, "agentPath")) merged.agentPath = next.agentPath;
+  if (Object.prototype.hasOwnProperty.call(next, "gitInfoSummary")) merged.gitInfoSummary = next.gitInfoSummary;
   return merged;
 }
 
@@ -316,6 +330,7 @@ function applyHistoryThreadMetadataPatch<T extends HistoryThread | PersistedHist
   if (Object.prototype.hasOwnProperty.call(patch, "agentNickname")) next.agentNickname = patch.agentNickname;
   if (Object.prototype.hasOwnProperty.call(patch, "agentRole")) next.agentRole = patch.agentRole;
   if (Object.prototype.hasOwnProperty.call(patch, "agentPath")) next.agentPath = patch.agentPath;
+  if (Object.prototype.hasOwnProperty.call(patch, "gitInfoSummary")) next.gitInfoSummary = patch.gitInfoSummary;
   return next;
 }
 
@@ -328,7 +343,8 @@ function hasSameHistoryThreadMetadata(
     left.forkedFromId === right.forkedFromId &&
     left.agentNickname === right.agentNickname &&
     left.agentRole === right.agentRole &&
-    left.agentPath === right.agentPath
+    left.agentPath === right.agentPath &&
+    left.gitInfoSummary === right.gitInfoSummary
   );
 }
 
@@ -931,6 +947,7 @@ function sanitizePersistedHistoryThread(input: unknown): PersistedHistoryThread 
     agentNickname: normalizeText((input as any).agentNickname),
     agentRole: normalizeText((input as any).agentRole),
     agentPath: normalizeText((input as any).agentPath),
+    gitInfoSummary: normalizeText((input as any).gitInfoSummary),
   };
 }
 

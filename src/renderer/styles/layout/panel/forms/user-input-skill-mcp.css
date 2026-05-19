@@ -14,6 +14,57 @@
   gap: 10px;
 }
 
+.approval-dock {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--composer-divider);
+}
+
+.approval-dock-card {
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--border-warning, var(--border)) 62%, transparent);
+  border-radius: var(--composer-control-radius, 5px);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-warning-soft) 42%, transparent), transparent 58%),
+    color-mix(in srgb, var(--surface-1) 78%, transparent);
+}
+
+.approval-dock-queue {
+  display: grid;
+  gap: 6px;
+}
+
+.approval-dock-queue-item {
+  min-width: 0;
+  justify-content: flex-start;
+  gap: 6px;
+  text-align: left;
+}
+
+.approval-dock-queue-item.is-active {
+  border-color: var(--border-accent, var(--accent));
+  background: var(--bg-accent-soft, var(--accent-soft));
+  color: var(--fg-accent, var(--text));
+}
+
+.approval-dock-detail {
+  max-height: 180px;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid var(--ui-code-border);
+  border-radius: var(--composer-control-radius, 5px);
+  background: var(--ui-code-bg);
+  color: var(--text);
+  font-size: 11px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.approval-dock-actions {
+  gap: 8px;
+}
+
 .user-input-head {
   display: flex;
   align-items: baseline;

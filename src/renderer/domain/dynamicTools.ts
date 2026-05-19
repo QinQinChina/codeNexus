@@ -13,10 +13,12 @@ export type DynamicToolTimelineStatus =
 
 export type DynamicToolTimelineItem = {
   callId: string;
+  namespace: string;
   toolName: string;
   label: string;
   status: DynamicToolTimelineStatus;
   approvalRequired: boolean;
+  durationMs: number | null;
   argsRaw: string;
   argsSummary: string;
   resultSummary: string;
@@ -103,6 +105,7 @@ export function buildDynamicToolTimelineItemFromProtocolItem(item: unknown): Dyn
   if (raw.type !== "dynamicToolCall") return null;
 
   const callId = String(raw.id ?? "").trim();
+  const namespace = String(raw.namespace ?? "").trim();
   const toolName = String(raw.tool ?? "").trim();
   if (!callId || !toolName) return null;
 
@@ -118,10 +121,15 @@ export function buildDynamicToolTimelineItemFromProtocolItem(item: unknown): Dyn
 
   return {
     callId,
+    namespace,
     toolName,
-    label: dynamicToolLabel(toolName),
+    label: namespace ? dynamicToolLabel(`${namespace}/${toolName}`) : dynamicToolLabel(toolName),
     status,
     approvalRequired: false,
+    durationMs:
+      typeof raw.durationMs === "number" && Number.isFinite(raw.durationMs) && raw.durationMs >= 0
+        ? Math.round(raw.durationMs)
+        : null,
     argsRaw: toPrettyJson(args),
     argsSummary: dynamicToolArgsSummary(toolName, args),
     resultSummary: status === "failed" ? "" : outputSummary,

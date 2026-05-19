@@ -63,6 +63,7 @@ export type ThreadHistoryItem = {
   agentNickname?: string;
   agentRole?: string;
   agentPath?: string;
+  gitInfoSummary?: string;
 };
 
 export type LocalThreadStatus = "creating" | "ready";
@@ -82,6 +83,7 @@ export type LocalThreadItem = {
   agentNickname?: string;
   agentRole?: string;
   agentPath?: string;
+  gitInfoSummary?: string;
 };
 
 export type TimelineEventLevel = "info" | "warn" | "error";
@@ -338,4 +340,5 @@ export type CompletedTurnState = {
   turnId: string;
   diffText: string;
   completedAt: number;
+  durationMs?: number | null;
 };

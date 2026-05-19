@@ -3,9 +3,6 @@
     <header class="topbar">
       <div class="topbar-left row">
         <TopBarWorkspaceButton />
-        <div class="topbar-menu-anchor topbar-menu-anchor--approval">
-          <TopBarApprovalMenu :open="approvalMenuOpen" @toggle="toggleApprovalMenu" @close="closeApprovalMenu" />
-        </div>
         <div
           class="topbar-mainview-switch"
           :class="{
@@ -95,7 +92,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, ref } from "vue";
+import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import {
   Image as ImageIcon,
@@ -116,13 +113,10 @@ import { useWorkspaceFilesStore } from "../../stores/workspaceFiles.store";
 import "./topbar/topbar.css";
 import type { MainView } from "../../../shared/localSettings";
 
-const TopBarApprovalMenu = defineAsyncComponent(() => import("./topbar/TopBarApprovalMenu.vue"));
-
 const appShellStore = useAppShellStore();
 const { t } = useI18n();
 const runtimeStore = useRuntimeStore();
 const workspaceFilesStore = useWorkspaceFilesStore();
-const approvalMenuOpen = ref(false);
 
 const hasWorkspace = computed(() => Boolean(String(runtimeStore.workspacePath ?? "").trim()));
 const filesPaneVisible = computed(
@@ -147,14 +141,6 @@ const filesPaneTitle = computed(() => {
   if (appShellStore.mainView !== "chat") return t("topbar.filesPanelHiddenInImage");
   return filesPaneVisible.value ? t("topbar.closeFilesPanel") : t("topbar.openFilesPanel");
 });
-
-function toggleApprovalMenu() {
-  approvalMenuOpen.value = !approvalMenuOpen.value;
-}
-
-function closeApprovalMenu() {
-  approvalMenuOpen.value = false;
-}
 
 function onSetMainView(next: MainView) {
   if (next === "image") {

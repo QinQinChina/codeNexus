@@ -1207,14 +1207,18 @@ export function installEventPipeline(pinia: Pinia) {
             ""
         ).trim();
         const historyMetadata = buildThreadHistoryMetadataFromServerThread(thread);
+        const serverTitle = String(thread.name ?? thread.preview ?? "").trim();
+        const createdAt = toEpochMs(thread.createdAt);
+        const updatedAt = toEpochMs(thread.updatedAt) ?? Date.now();
         const nextThreadPatch = {
           id: threadId,
-          title: resolveThreadTitle(threadId, existingTitle || `Thread ${threadId.slice(-8)}`),
+          title: resolveThreadTitle(threadId, serverTitle || existingTitle || `Thread ${threadId.slice(-8)}`),
           meta: cwdText || "无工作区",
           cwd: cwdText || undefined,
           modelProvider: String(thread.modelProvider ?? "").trim() || undefined,
           ...historyMetadata,
-          updatedAt: Date.now(),
+          ...(createdAt ? { createdAt } : {}),
+          updatedAt,
           running: false,
         };
         if (threadStore.hasLocalThread(threadId)) {
@@ -1337,7 +1341,12 @@ export function installEventPipeline(pinia: Pinia) {
         threadStore.setActiveTurn(effectiveThreadId, "");
         if (completedTurnId) {
           bindTurnThread(effectiveThreadId, completedTurnId, n.serverId);
-          threadStore.markTurnCompleted(effectiveThreadId, completedTurnId);
+          threadStore.markTurnCompleted(
+            effectiveThreadId,
+            completedTurnId,
+            toEpochMs(params.turn.completedAt),
+            toFiniteNumber(params.turn.durationMs)
+          );
         }
         if (completedTurnId) {
           completeThinkingEvent({

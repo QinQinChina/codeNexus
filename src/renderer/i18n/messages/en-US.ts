@@ -995,6 +995,9 @@ export default {
       cumulativeTotal: "Cumulative total",
       contextWindow: "Context window",
     },
+    memoryCitation: {
+      summary: "Memory citations · {entries} entries · {threads} threads",
+    },
     planActions: {
       executing: "Executing...",
       executePlan: "Execute plan",

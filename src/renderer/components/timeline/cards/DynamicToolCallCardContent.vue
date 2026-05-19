@@ -17,6 +17,7 @@
       >
         {{ t("dynamicTool.approvalRequired") }}
       </span>
+      <span v-if="durationText" class="mono text-[11px] dim">{{ durationText }}</span>
     </div>
 
     <div v-if="item.argsSummary" class="mono dim whitespace-pre-wrap [overflow-wrap:anywhere] break-words text-[11px]">
@@ -94,6 +95,12 @@ const imageItems = computed(() => props.item.contentItems.filter((item) => item.
 const textItems = computed(() =>
   props.item.contentItems.filter((item) => item.type === "inputText").map((item) => item.text)
 );
+const durationText = computed(() => {
+  const ms = props.item.durationMs;
+  if (ms == null || !Number.isFinite(ms)) return "";
+  if (ms >= 1000) return `${(ms / 1000).toFixed(ms >= 10_000 ? 0 : 1)}s`;
+  return `${Math.max(0, Math.round(ms))}ms`;
+});
 const resultRawText = computed(() => {
   const imageLines = imageItems.value.map((item, index) => `image[${index + 1}]: ${item.imageUrl}`);
   return [...textItems.value, ...imageLines].filter(Boolean).join("\n\n");

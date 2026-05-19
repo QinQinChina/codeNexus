@@ -21,6 +21,7 @@
         @dragleave="onComposerDragLeave"
         @drop="onComposerDrop"
       >
+        <ApprovalDock v-if="variant !== 'inline'" />
         <UserInputDock v-if="variant !== 'inline' && hasPendingComposerUserInput" />
         <div v-if="isWorkspaceFileDragOver" class="composer-file-drop-overlay" aria-hidden="true">
           {{ t("composer.dropFiles") }}
@@ -217,6 +218,7 @@ import ComposerModelReasoningPicker from "./ComposerModelReasoningPicker.vue";
 import ComposerSandboxPicker from "./ComposerSandboxPicker.vue";
 
 const UserInputDock = defineAsyncComponent(() => import("../../userInput/UserInputDock.vue"));
+const ApprovalDock = defineAsyncComponent(() => import("../../approval/ApprovalDock.vue"));
 
 type SelectOption = {
   value: string;
