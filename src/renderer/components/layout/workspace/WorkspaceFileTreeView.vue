@@ -25,6 +25,7 @@
           :aria-expanded="row.isDirectory ? String(row.isExpanded) : undefined"
           :aria-selected="row.isActiveFile || row.isSelectedDirectory ? 'true' : 'false'"
           :data-tree-path="row.path"
+          :title="treeRowTitle(row)"
           @click="onOpenTreeRow(row)"
           @contextmenu="onTreeRowContextMenu(row, $event)"
           @dragstart="onTreeRowDragStart(row, $event)"
@@ -279,6 +280,11 @@ const treeRowMetaText = (row: Extract<TreeRow, { kind: "entry" }>) => {
 const gitStatusTitle = (row: Extract<TreeRow, { kind: "entry" }>) => {
   if (!row.gitStatus) return "";
   return `${row.gitStatus.code} ${row.gitStatus.relativePath}`;
+};
+
+const treeRowTitle = (row: Extract<TreeRow, { kind: "entry" }>) => {
+  const gitText = gitStatusTitle(row);
+  return gitText ? `${row.label}\n${row.path}\n${gitText}` : `${row.label}\n${row.path}`;
 };
 
 const onOpenTreeRow = (row: Extract<TreeRow, { kind: "entry" }>) => {

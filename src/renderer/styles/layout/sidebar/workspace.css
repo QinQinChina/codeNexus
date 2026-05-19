@@ -156,7 +156,8 @@
 .workspace-files-tree-surface {
   min-height: 0;
   flex: 1 1 auto;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   border-radius: 0;
   border: 0;
   background: linear-gradient(180deg, color-mix(in srgb, var(--wf-surface) 6%, transparent), transparent 32%);
@@ -178,6 +179,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  overflow: hidden;
   border: 0;
   background: transparent;
   color: var(--text);
@@ -313,7 +315,9 @@
 
 .workspace-file-tree-row__label {
   min-width: 0;
+  max-width: 100%;
   flex: 1 1 auto;
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
