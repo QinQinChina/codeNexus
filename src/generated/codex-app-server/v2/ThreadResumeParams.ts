@@ -19,46 +19,57 @@ import type { SandboxMode } from "./SandboxMode";
  *
  * Prefer using thread_id whenever possible.
  */
-export type ThreadResumeParams = { threadId: string,
-/**
- * [UNSTABLE] FOR CODEX CLOUD - DO NOT USE.
- * If specified, the thread will be resumed with the provided history
- * instead of loaded from disk.
- */
-history?: Array<ResponseItem> | null,
-/**
- * [UNSTABLE] Specify the rollout path to resume from.
- * If specified, the thread_id param will be ignored.
- */
-path?: string | null,
-/**
- * Configuration overrides for the resumed thread, if any.
- */
-model?: string | null, modelProvider?: string | null, serviceTier?: string | null | null, cwd?: string | null,
-/**
- * Replace the thread's runtime workspace roots. Relative paths are
- * resolved against the effective cwd for the thread.
- */
-runtimeWorkspaceRoots?: Array<string> | null, approvalPolicy?: AskForApproval | null,
-/**
- * Override where approval requests are routed for review on this thread
- * and subsequent turns.
- */
-approvalsReviewer?: ApprovalsReviewer | null, sandbox?: SandboxMode | null,
-/**
- * Named profile id for the resumed thread. Cannot be combined with
- * `sandbox`.
- */
-permissions?: string | null, config?: { [key in string]?: JsonValue } | null, baseInstructions?: string | null, developerInstructions?: string | null, personality?: Personality | null,
-/**
- * When true, return only thread metadata and live-resume state without
- * populating `thread.turns`. This is useful when the client plans to call
- * `thread/turns/list` immediately after resuming.
- */
-excludeTurns?: boolean,
-/**
- * Deprecated and ignored by app-server. Kept only so older clients can
- * continue sending the field while rollout persistence always uses the
- * limited history policy.
- */
-persistExtendedHistory: boolean, };
+export type ThreadResumeParams = {
+  threadId: string;
+  /**
+   * [UNSTABLE] FOR CODEX CLOUD - DO NOT USE.
+   * If specified, the thread will be resumed with the provided history
+   * instead of loaded from disk.
+   */
+  history?: Array<ResponseItem> | null;
+  /**
+   * [UNSTABLE] Specify the rollout path to resume from.
+   * If specified, the thread_id param will be ignored.
+   */
+  path?: string | null;
+  /**
+   * Configuration overrides for the resumed thread, if any.
+   */
+  model?: string | null;
+  modelProvider?: string | null;
+  serviceTier?: string | null | null;
+  cwd?: string | null;
+  /**
+   * Replace the thread's runtime workspace roots. Relative paths are
+   * resolved against the effective cwd for the thread.
+   */
+  runtimeWorkspaceRoots?: Array<string> | null;
+  approvalPolicy?: AskForApproval | null;
+  /**
+   * Override where approval requests are routed for review on this thread
+   * and subsequent turns.
+   */
+  approvalsReviewer?: ApprovalsReviewer | null;
+  sandbox?: SandboxMode | null;
+  /**
+   * Named profile id for the resumed thread. Cannot be combined with
+   * `sandbox`.
+   */
+  permissions?: string | null;
+  config?: { [key in string]?: JsonValue } | null;
+  baseInstructions?: string | null;
+  developerInstructions?: string | null;
+  personality?: Personality | null;
+  /**
+   * When true, return only thread metadata and live-resume state without
+   * populating `thread.turns`. This is useful when the client plans to call
+   * `thread/turns/list` immediately after resuming.
+   */
+  excludeTurns?: boolean;
+  /**
+   * Deprecated and ignored by app-server. Kept only so older clients can
+   * continue sending the field while rollout persistence always uses the
+   * limited history policy.
+   */
+  persistExtendedHistory: boolean;
+};

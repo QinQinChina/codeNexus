@@ -3,7 +3,10 @@ import type { OfficialCodexServerNotification } from "../../../shared/codex-prot
 
 export type NotificationMethod = ServerNotificationMethod;
 
-type SupportedOfficialServerNotification = Extract<OfficialCodexServerNotification, { method: ServerNotificationMethod }>;
+type SupportedOfficialServerNotification = Extract<
+  OfficialCodexServerNotification,
+  { method: ServerNotificationMethod }
+>;
 
 type OfficialNormalizedNotification = SupportedOfficialServerNotification & {
   threadId?: string;

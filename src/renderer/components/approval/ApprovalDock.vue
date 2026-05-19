@@ -14,7 +14,11 @@
       <template v-if="!activeApprovalPrompt">
         <div class="grid gap-2">
           <div>{{ t("topbarApproval.noPending") }}</div>
-          <GuardianReviewDiagnostics :threadId="guardianThreadId" :focusTargetItemId="guardianTargetItemId" :maxItems="4" />
+          <GuardianReviewDiagnostics
+            :threadId="guardianThreadId"
+            :focusTargetItemId="guardianTargetItemId"
+            :maxItems="4"
+          />
         </div>
       </template>
       <template v-else>
@@ -43,7 +47,11 @@
           </div>
 
           <div v-if="approvalInfoRows(activeApprovalPrompt).length" class="grid gap-1.5">
-            <div v-for="row in approvalInfoRows(activeApprovalPrompt)" :key="row.label" class="user-input-question mono">
+            <div
+              v-for="row in approvalInfoRows(activeApprovalPrompt)"
+              :key="row.label"
+              class="user-input-question mono"
+            >
               <span class="dim">{{ row.label }}：</span>{{ row.value }}
             </div>
           </div>
@@ -52,7 +60,11 @@
             approvalDetailText(activeApprovalPrompt)
           }}</pre>
 
-          <GuardianReviewDiagnostics :threadId="guardianThreadId" :focusTargetItemId="guardianTargetItemId" :maxItems="4" />
+          <GuardianReviewDiagnostics
+            :threadId="guardianThreadId"
+            :focusTargetItemId="guardianTargetItemId"
+            :maxItems="4"
+          />
 
           <div class="user-input-actions approval-dock-actions">
             <template v-if="activeApprovalPrompt.kind === 'fileChange'">

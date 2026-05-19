@@ -74,16 +74,16 @@
 
 这些通知不是“未处理”。当前代码会识别它们，并按产品语义选择不展示在主聊天时间线中。部分通知会在 `timelineDebugEnabled` 开启时写入 debug timeline，便于排查协议事件；部分通知由其他功能面板消费。
 
-| 通知                              | 当前处理                                                      |
-| --------------------------------- | ------------------------------------------------------------- |
-| `skills/changed`                  | 已识别；不进主聊天 UI，由集成/技能相关面板自行处理            |
-| `mcpServer/startupStatus/updated` | 已识别；不进主聊天 UI，由集成/MCP 状态相关面板自行处理        |
-| `process/outputDelta`             | 已识别；不进主聊天 UI，debug 开启时写 debug timeline          |
-| `process/exited`                  | 已识别；不进主聊天 UI，debug 开启时写 debug timeline          |
-| `remoteControl/status/changed`    | 已识别；不进主聊天 UI，debug 开启时写 debug timeline          |
-| `thread/goal/updated`             | 已识别；不进主聊天 UI，debug 开启时写 debug timeline          |
-| `thread/goal/cleared`             | 已识别；不进主聊天 UI，debug 开启时写 debug timeline          |
-| `account/rateLimits/updated`      | 已识别；默认不进主聊天 UI，debug 开启时写 debug timeline      |
+| 通知                              | 当前处理                                                 |
+| --------------------------------- | -------------------------------------------------------- |
+| `skills/changed`                  | 已识别；不进主聊天 UI，由集成/技能相关面板自行处理       |
+| `mcpServer/startupStatus/updated` | 已识别；不进主聊天 UI，由集成/MCP 状态相关面板自行处理   |
+| `process/outputDelta`             | 已识别；不进主聊天 UI，debug 开启时写 debug timeline     |
+| `process/exited`                  | 已识别；不进主聊天 UI，debug 开启时写 debug timeline     |
+| `remoteControl/status/changed`    | 已识别；不进主聊天 UI，debug 开启时写 debug timeline     |
+| `thread/goal/updated`             | 已识别；不进主聊天 UI，debug 开启时写 debug timeline     |
+| `thread/goal/cleared`             | 已识别；不进主聊天 UI，debug 开启时写 debug timeline     |
+| `account/rateLimits/updated`      | 已识别；默认不进主聊天 UI，debug 开启时写 debug timeline |
 
 ## 默认追加但没有专门业务语义的通知
 

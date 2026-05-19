@@ -23,10 +23,7 @@
                 :disabled="workbench.historyLoading"
                 @click="refresh"
               >
-                <RefreshCw
-                  :class="{ 'is-spinning': workbench.historyLoading }"
-                  aria-hidden="true"
-                />
+                <RefreshCw :class="{ 'is-spinning': workbench.historyLoading }" aria-hidden="true" />
               </button>
             </div>
           </header>
@@ -126,15 +123,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import {
-  ChevronDown,
-  Image as ImageIcon,
-  Loader2,
-  RefreshCw,
-  RotateCcw,
-  Trash2,
-  X,
-} from "lucide-vue-next";
+import { ChevronDown, Image as ImageIcon, Loader2, RefreshCw, RotateCcw, Trash2, X } from "lucide-vue-next";
 import { readLocalImageDataUrl } from "../../../features/media/localImageCache";
 import { useImageWorkbenchStore, type ImageWorkbenchHistoryItem } from "../../../stores/imageWorkbench.store";
 import { useRuntimeStore } from "../../../stores/runtime.store";

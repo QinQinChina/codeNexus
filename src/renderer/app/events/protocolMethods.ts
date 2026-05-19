@@ -107,8 +107,7 @@ type ExtraServerNotificationMethods = Exclude<(typeof SERVER_NOTIFICATION_METHOD
 
 type _AssertNoMissingServerRequestMethods = AssertNever<MissingServerRequestMethods>;
 type _AssertNoExtraServerRequestMethods = AssertNever<ExtraServerRequestMethods>;
-type _AssertNoUnknownUnsupportedLegacyServerRequestMethods =
-  AssertNever<UnknownUnsupportedLegacyServerRequestMethods>;
+type _AssertNoUnknownUnsupportedLegacyServerRequestMethods = AssertNever<UnknownUnsupportedLegacyServerRequestMethods>;
 type _AssertNoUnknownUnsupportedDeprecatedServerNotificationMethods =
   AssertNever<UnknownUnsupportedDeprecatedServerNotificationMethods>;
 type _AssertNoMissingServerNotificationMethods = AssertNever<MissingServerNotificationMethods>;
