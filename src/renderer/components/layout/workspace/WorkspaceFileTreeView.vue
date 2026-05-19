@@ -4,6 +4,7 @@
     class="workspace-files-tree-surface app-scrollbar"
     role="tree"
     :aria-label="t('workspaceFiles.treeAria')"
+    @wheel="onTreeSurfaceWheel"
   >
     <div v-if="!workspaceFilesStore.hasWorkspace" class="workspace-files-placeholder">
       {{ t("workspaceFiles.chooseWorkspaceFirst") }}
@@ -11,7 +12,7 @@
     <div v-else-if="treeRows.length === 0" class="workspace-files-placeholder">
       {{ t("workspaceFiles.notLoaded") }}
     </div>
-    <template v-else>
+    <div v-else class="workspace-files-tree-content" :style="treeContentStyle">
       <template v-for="row in treeRows" :key="row.key">
         <button
           v-if="row.kind === 'entry'"
@@ -70,7 +71,7 @@
           {{ row.text }}
         </div>
       </template>
-    </template>
+    </div>
   </div>
 </template>
 
@@ -253,6 +254,16 @@ const treeRows = computed<TreeRow[]>(() => {
   return rows;
 });
 
+const maxTreeDepth = computed(() =>
+  treeRows.value.reduce((maxDepth, row) => (row.depth > maxDepth ? row.depth : maxDepth), 0)
+);
+
+const horizontalDepthOverflow = computed(() => Math.max(0, maxTreeDepth.value - 8));
+
+const treeContentStyle = computed(() => ({
+  minWidth: horizontalDepthOverflow.value > 0 ? `calc(100% + ${horizontalDepthOverflow.value * 14}px)` : "100%",
+}));
+
 const treeRowClass = (row: Extract<TreeRow, { kind: "entry" }>) => ({
   "is-root": row.depth === 0,
   "is-directory": row.isDirectory,
@@ -317,6 +328,15 @@ const onTreeRowDragStart = (row: Extract<TreeRow, { kind: "entry" }>, event: Dra
 
 const onTreeRowDragEnd = () => {
   draggingTreePath.value = "";
+};
+
+const onTreeSurfaceWheel = (event: WheelEvent) => {
+  const surface = treeSurfaceRef.value;
+  if (!surface || !event.shiftKey || event.deltaY === 0) return;
+  const maxScrollLeft = surface.scrollWidth - surface.clientWidth;
+  if (maxScrollLeft <= 0) return;
+  event.preventDefault();
+  surface.scrollLeft = Math.max(0, Math.min(maxScrollLeft, surface.scrollLeft + event.deltaY));
 };
 
 function scrollActiveRowIntoView() {

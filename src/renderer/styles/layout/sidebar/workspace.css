@@ -156,12 +156,17 @@
 .workspace-files-tree-surface {
   min-height: 0;
   flex: 1 1 auto;
-  overflow-x: hidden;
+  overflow-x: auto;
   overflow-y: auto;
   border-radius: 0;
   border: 0;
   background: linear-gradient(180deg, color-mix(in srgb, var(--wf-surface) 6%, transparent), transparent 32%);
   padding: 6px 0 24px;
+  overscroll-behavior: contain;
+}
+
+.workspace-files-tree-content {
+  min-width: 100%;
 }
 
 .workspace-files-placeholder {
