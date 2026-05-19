@@ -2,12 +2,22 @@
   <div class="app-shell">
     <TopBar key="topbar" />
     <main ref="mainRef" class="main" :class="mainClass" :style="mainStyle">
-      <ImageWorkspaceSidebar v-if="showImageWorkspaceSidebar" class="tasks-pane-host" />
-      <LeftSidebar v-else-if="showLeftSidebar" class="tasks-pane-host" />
+      <Transition :name="leftPaneTransitionName" mode="out-in">
+        <ImageWorkspaceSidebar v-if="showImageWorkspaceSidebar" key="image-workspace" class="tasks-pane-host" />
+        <LeftSidebar v-else-if="showLeftSidebar" key="threads" class="tasks-pane-host" />
+      </Transition>
 
-      <SettingsPage v-if="settingsOpen" key="settings" id="center-content" />
-      <ImageWorkbench v-else-if="mainView === 'image'" key="image" id="center-content" />
-      <CenterPane v-else key="chat" />
+      <Transition :name="mainViewTransitionName" mode="out-in">
+        <div v-if="settingsOpen" key="settings" class="center-content-host">
+          <SettingsPage />
+        </div>
+        <div v-else-if="mainView === 'image'" key="image" class="center-content-host">
+          <ImageWorkbench />
+        </div>
+        <div v-else key="chat" class="center-content-host">
+          <CenterPane />
+        </div>
+      </Transition>
       <div
         v-if="!settingsOpen && showEditorPane"
         class="center-workbench-sash"
@@ -144,11 +154,32 @@ const UNIFIED_SIDEBAR_WIDTH_PX = 300;
 const CENTER_EDITOR_KEYBOARD_STEP_PX = 20;
 
 const mainRef = ref<HTMLElement | null>(null);
+const mainViewTransitionName = ref("main-view-fade");
+const leftPaneTransitionName = ref("left-pane-switch-forward");
 const editorResizeState = ref<{
   startClientX: number;
   startWidthPx: number;
   previewWidthPx: number;
 } | null>(null);
+
+watch(
+  () => [appShellStore.mainView, appShellStore.settingsOpen] as const,
+  ([nextView, nextSettingsOpen], [previousView, previousSettingsOpen]) => {
+    if (nextSettingsOpen || previousSettingsOpen) {
+      mainViewTransitionName.value = "main-view-fade";
+      leftPaneTransitionName.value = "left-pane-switch-fade";
+      return;
+    }
+
+    const isForward = previousView === "chat" && nextView === "image";
+    const isBack = previousView === "image" && nextView === "chat";
+    if (!isForward && !isBack) return;
+
+    const direction = isForward ? "forward" : "back";
+    mainViewTransitionName.value = `main-view-${direction}`;
+    leftPaneTransitionName.value = `left-pane-switch-${direction}`;
+  }
+);
 
 const showEditorPane = computed(
   () => !settingsOpen.value && mainView.value === "chat" && workspaceFilesStore.hasOpenTabs
