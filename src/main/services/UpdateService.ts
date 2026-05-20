@@ -1,0 +1,224 @@
+import { app } from "electron";
+import { autoUpdater } from "electron-updater";
+import type { AppUpdateProgress, AppUpdateSnapshot, AppUpdateStatus } from "../../shared/ipc/contracts";
+
+type UpdateInfoLike = {
+  version?: unknown;
+  releaseName?: unknown;
+  releaseNotes?: unknown;
+};
+
+type ProgressInfoLike = {
+  percent?: unknown;
+  transferred?: unknown;
+  total?: unknown;
+  bytesPerSecond?: unknown;
+};
+
+function readErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String((error as any)?.message ?? error ?? "");
+  return message.trim() || "更新检查失败。";
+}
+
+function normalizeText(value: unknown): string | null {
+  const text = String(value ?? "").trim();
+  return text || null;
+}
+
+function normalizeReleaseNotes(value: unknown): string | null {
+  if (typeof value === "string") return normalizeText(value);
+  if (Array.isArray(value)) {
+    const notes = value
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object") return String((item as any).note ?? "").trim();
+        return "";
+      })
+      .filter(Boolean)
+      .join("\n\n");
+    return normalizeText(notes);
+  }
+  return null;
+}
+
+function normalizeProgress(value: ProgressInfoLike): AppUpdateProgress {
+  const percent = Number(value.percent);
+  const transferred = Number(value.transferred);
+  const total = Number(value.total);
+  const bytesPerSecond = Number(value.bytesPerSecond);
+  return {
+    percent: Number.isFinite(percent) ? Math.max(0, Math.min(100, percent)) : 0,
+    transferred: Number.isFinite(transferred) ? Math.max(0, Math.round(transferred)) : 0,
+    total: Number.isFinite(total) ? Math.max(0, Math.round(total)) : 0,
+    bytesPerSecond: Number.isFinite(bytesPerSecond) ? Math.max(0, Math.round(bytesPerSecond)) : 0,
+  };
+}
+
+export class UpdateService {
+  private state: AppUpdateSnapshot;
+  private startupTimer: NodeJS.Timeout | null = null;
+
+  constructor(private readonly emitState: (snapshot: AppUpdateSnapshot) => void) {
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = false;
+
+    this.state = {
+      status: app.isPackaged ? "idle" : "unsupported",
+      currentVersion: app.getVersion(),
+      latestVersion: null,
+      releaseName: null,
+      releaseNotes: null,
+      updateAvailable: false,
+      downloaded: false,
+      progress: null,
+      errorMessage: app.isPackaged ? null : "开发模式不连接正式更新源。",
+      checkedAt: null,
+      isPackaged: app.isPackaged,
+    };
+
+    this.bindAutoUpdaterEvents();
+  }
+
+  getState(): AppUpdateSnapshot {
+    return { ...this.state, progress: this.state.progress ? { ...this.state.progress } : null };
+  }
+
+  scheduleStartupCheck(delayMs = 3_000): void {
+    if (!app.isPackaged || this.startupTimer) return;
+    this.startupTimer = setTimeout(
+      () => {
+        this.startupTimer = null;
+        void this.checkForUpdates();
+      },
+      Math.max(0, Math.round(delayMs))
+    );
+    this.startupTimer.unref?.();
+  }
+
+  async checkForUpdates(): Promise<AppUpdateSnapshot> {
+    if (!app.isPackaged) {
+      this.patchState({
+        status: "unsupported",
+        errorMessage: "开发模式不连接正式更新源。",
+        checkedAt: Date.now(),
+      });
+      return this.getState();
+    }
+    if (this.state.status === "checking" || this.state.status === "downloading") return this.getState();
+
+    this.patchState({
+      status: "checking",
+      progress: null,
+      errorMessage: null,
+      checkedAt: Date.now(),
+    });
+
+    try {
+      await autoUpdater.checkForUpdates();
+    } catch (error) {
+      this.patchState({
+        status: "error",
+        errorMessage: readErrorMessage(error),
+        checkedAt: Date.now(),
+      });
+    }
+    return this.getState();
+  }
+
+  async downloadUpdate(): Promise<AppUpdateSnapshot> {
+    if (!app.isPackaged) return this.checkForUpdates();
+    if (this.state.status === "downloaded") return this.getState();
+    if (!this.state.updateAvailable && this.state.status !== "available") {
+      this.patchState({
+        status: "error",
+        errorMessage: "当前没有可下载的更新。",
+      });
+      return this.getState();
+    }
+
+    this.patchState({ status: "downloading", errorMessage: null });
+    try {
+      await autoUpdater.downloadUpdate();
+    } catch (error) {
+      this.patchState({
+        status: "error",
+        errorMessage: readErrorMessage(error),
+      });
+    }
+    return this.getState();
+  }
+
+  quitAndInstall(): void {
+    if (this.state.status !== "downloaded") return;
+    autoUpdater.quitAndInstall(false, true);
+  }
+
+  private bindAutoUpdaterEvents(): void {
+    autoUpdater.on("checking-for-update", () => {
+      this.patchState({
+        status: "checking",
+        progress: null,
+        errorMessage: null,
+        checkedAt: Date.now(),
+      });
+    });
+    autoUpdater.on("update-available", (info: UpdateInfoLike) => {
+      this.patchState({
+        status: "available",
+        latestVersion: normalizeText(info?.version),
+        releaseName: normalizeText(info?.releaseName),
+        releaseNotes: normalizeReleaseNotes(info?.releaseNotes),
+        updateAvailable: true,
+        downloaded: false,
+        progress: null,
+        errorMessage: null,
+        checkedAt: Date.now(),
+      });
+    });
+    autoUpdater.on("update-not-available", (info: UpdateInfoLike) => {
+      this.patchState({
+        status: "not_available",
+        latestVersion: normalizeText(info?.version) ?? this.state.currentVersion,
+        releaseName: normalizeText(info?.releaseName),
+        releaseNotes: normalizeReleaseNotes(info?.releaseNotes),
+        updateAvailable: false,
+        downloaded: false,
+        progress: null,
+        errorMessage: null,
+        checkedAt: Date.now(),
+      });
+    });
+    autoUpdater.on("download-progress", (progress: ProgressInfoLike) => {
+      this.patchState({
+        status: "downloading",
+        updateAvailable: true,
+        downloaded: false,
+        progress: normalizeProgress(progress),
+        errorMessage: null,
+      });
+    });
+    autoUpdater.on("update-downloaded", (info: UpdateInfoLike) => {
+      this.patchState({
+        status: "downloaded",
+        latestVersion: normalizeText(info?.version) ?? this.state.latestVersion,
+        releaseName: normalizeText(info?.releaseName) ?? this.state.releaseName,
+        releaseNotes: normalizeReleaseNotes(info?.releaseNotes) ?? this.state.releaseNotes,
+        updateAvailable: true,
+        downloaded: true,
+        progress: { percent: 100, transferred: 0, total: 0, bytesPerSecond: 0 },
+        errorMessage: null,
+      });
+    });
+    autoUpdater.on("error", (error: unknown) => {
+      this.patchState({
+        status: "error",
+        errorMessage: readErrorMessage(error),
+      });
+    });
+  }
+
+  private patchState(patch: Partial<AppUpdateSnapshot> & { status?: AppUpdateStatus }): void {
+    this.state = { ...this.state, ...patch };
+    this.emitState(this.getState());
+  }
+}

@@ -19,6 +19,7 @@ import type { CodexSkillRootsService } from "../../services/CodexSkillRootsServi
 import type { CodexConfigSwitcherService } from "../../services/CodexConfigSwitcherService";
 import type { ImageGenerationHistoryService } from "../../services/ImageGenerationHistoryService";
 import type { ImageGenerationTaskService } from "../../services/ImageGenerationTaskService";
+import type { UpdateService } from "../../services/UpdateService";
 import type { CodexProviderProfileInput } from "../../../shared/codexProfiles";
 import type { CodexConfigSwitcherImportArgs, CodexConfigSwitcherState } from "../../../shared/codexConfigSwitcher";
 
@@ -616,6 +617,7 @@ export function registerAppHandlers(deps: {
   codexConfigSwitcherService: CodexConfigSwitcherService;
   imageGenerationHistoryService: ImageGenerationHistoryService;
   imageGenerationTaskService: ImageGenerationTaskService;
+  updateService: UpdateService;
 }) {
   const {
     localSettingsService,
@@ -624,6 +626,7 @@ export function registerAppHandlers(deps: {
     codexConfigSwitcherService,
     imageGenerationHistoryService,
     imageGenerationTaskService,
+    updateService,
   } = deps;
   const getWindowOrNull = (): BrowserWindow | null => {
     const win = deps.getMainWindow();
@@ -956,6 +959,23 @@ export function registerAppHandlers(deps: {
       }
     }
   );
+
+  ipcMain.handle(IPC_APP_CHANNELS.appUpdateGetState, async () => {
+    return updateService.getState();
+  });
+
+  ipcMain.handle(IPC_APP_CHANNELS.appUpdateCheck, async () => {
+    return await updateService.checkForUpdates();
+  });
+
+  ipcMain.handle(IPC_APP_CHANNELS.appUpdateDownload, async () => {
+    return await updateService.downloadUpdate();
+  });
+
+  ipcMain.handle(IPC_APP_CHANNELS.appUpdateInstall, async () => {
+    updateService.quitAndInstall();
+    return { ok: true as const };
+  });
 
   ipcMain.handle(IPC_APP_CHANNELS.appFileChangeLogAppend, async (_evt, args: { record: unknown }) => {
     // 统一落盘到 ~/.codex/logs，便于和 ~/.codex/sessions 并排排查。

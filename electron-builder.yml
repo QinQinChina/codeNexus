@@ -1,6 +1,13 @@
 appId: com.codenexus.desktop
 productName: CodeNexus
 
+publish:
+  provider: github
+  owner: zhenyue6612
+  repo: codeNexus
+  releaseType: release
+  channel: latest
+
 directories:
   buildResources: build
   output: release
@@ -27,6 +34,7 @@ extraResources:
 
 win:
   icon: build/icon.ico
+  artifactName: "${productName}-Setup-${version}.${ext}"
   signAndEditExecutable: true
   target:
     - target: nsis

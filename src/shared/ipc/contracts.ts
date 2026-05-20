@@ -432,6 +432,37 @@ export type SystemNotificationShowResult =
   | { ok: true }
   | { ok: false; reason: "unsupported" | "failed"; message?: string };
 
+export type AppUpdateStatus =
+  | "unsupported"
+  | "idle"
+  | "checking"
+  | "available"
+  | "not_available"
+  | "downloading"
+  | "downloaded"
+  | "error";
+
+export type AppUpdateProgress = {
+  percent: number;
+  transferred: number;
+  total: number;
+  bytesPerSecond: number;
+};
+
+export type AppUpdateSnapshot = {
+  status: AppUpdateStatus;
+  currentVersion: string;
+  latestVersion: string | null;
+  releaseName: string | null;
+  releaseNotes: string | null;
+  updateAvailable: boolean;
+  downloaded: boolean;
+  progress: AppUpdateProgress | null;
+  errorMessage: string | null;
+  checkedAt: number | null;
+  isPackaged: boolean;
+};
+
 export type AppDirectoryEntry = {
   fileName: string;
   isDirectory: boolean;
@@ -636,6 +667,11 @@ export type CodexDesktopAppApi = {
   listNotificationSounds(): Promise<{ items: NotificationSoundItem[] }>;
   readNotificationSoundDataUrl(args: { id: string }): Promise<{ ok: true; dataUrl: string }>;
   showSystemNotification(args: SystemNotificationShowArgs): Promise<SystemNotificationShowResult>;
+  getUpdateState(): Promise<AppUpdateSnapshot>;
+  checkForUpdates(): Promise<AppUpdateSnapshot>;
+  downloadUpdate(): Promise<AppUpdateSnapshot>;
+  installUpdate(): Promise<{ ok: true }>;
+  onUpdateState(cb: (payload: AppUpdateSnapshot) => void): () => void;
   appendFileChangeLog(args: { record: unknown }): Promise<{ ok: true; path: string }>;
   readClipboardImageDataUrl(): Promise<{ ok: true; dataUrl: string | null }>;
   writeClipboardImageFromPath(args: { path: string }): Promise<{ ok: true }>;

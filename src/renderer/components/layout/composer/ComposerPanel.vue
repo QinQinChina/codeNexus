@@ -29,7 +29,7 @@
         <div
           :ref="bindComposerInputRef"
           :id="inputId || 'input'"
-          class="composer-input-editor"
+          class="composer-input-editor app-scrollbar"
           contenteditable="true"
           role="textbox"
           aria-multiline="true"

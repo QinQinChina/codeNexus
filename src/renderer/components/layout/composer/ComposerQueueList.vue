@@ -5,6 +5,8 @@
       'is-expanded': expanded,
       'has-failed': failedCount > 0,
       'is-sending': sendingCount > 0,
+      'has-multiple': items.length > 1,
+      'has-deep-stack': items.length > 2,
     }"
     :style="{
       '--composer-queue-collapsed-h': `${6 + stackDepth * 6}px`,
@@ -82,7 +84,10 @@
         <span class="composer-queue-summary-title">{{ summaryTitle }}</span>
         <span class="composer-queue-summary-preview">{{ summaryPreview }}</span>
       </span>
-      <span class="composer-queue-summary-count mono">{{ items.length }}</span>
+      <span class="composer-queue-summary-orb" aria-hidden="true">
+        <MessageCircle class="composer-queue-summary-orb-icon" />
+        <span class="composer-queue-summary-count mono">{{ items.length }}</span>
+      </span>
       <ChevronDown class="composer-queue-chevron" :class="{ 'is-expanded': expanded }" aria-hidden="true" />
     </button>
   </div>
@@ -91,7 +96,16 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { AlertTriangle, ChevronDown, ListChecks, LoaderCircle, Pencil, SendHorizontal, Trash2 } from "lucide-vue-next";
+import {
+  AlertTriangle,
+  ChevronDown,
+  ListChecks,
+  LoaderCircle,
+  MessageCircle,
+  Pencil,
+  SendHorizontal,
+  Trash2,
+} from "lucide-vue-next";
 import type { QueuedMessage } from "../../../stores/messageQueue.store";
 
 const props = defineProps<{

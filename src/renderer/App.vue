@@ -42,13 +42,14 @@
     </main>
     <BottomBar />
     <div class="app-overlays">
+      <OnboardingTour v-if="appShellStore.onboardingTourOpen" />
       <AppClosingOverlay v-if="showAppClosingOverlay" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import TopBar from "./components/layout/TopBar.vue";
 import CenterPane from "./components/layout/CenterPane.vue";
@@ -64,6 +65,7 @@ import {
   WorkspaceEditorPane,
   WorkspaceFilesSidebar,
 } from "./components/asyncViews";
+import OnboardingTour from "./components/layout/overlays/OnboardingTour.vue";
 import { codexDesktop } from "./api/codexDesktopClient";
 import { useAppClosingStore } from "./stores/appClosing.store";
 import { useAppShellStore } from "./stores/appShell.store";
@@ -137,6 +139,12 @@ onMounted(() => {
       applyWindowStateToDocument(payload);
     });
   } catch {}
+
+  void nextTick(() => {
+    window.setTimeout(() => {
+      appShellStore.maybeStartOnboardingTour();
+    }, 260);
+  });
 });
 
 watch(

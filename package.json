@@ -30,6 +30,7 @@
     "@lezer/highlight": "^1.2.3",
     "codemirror": "^6.0.2",
     "dompurify": "^3.4.5",
+    "electron-updater": "^6.8.3",
     "html-to-image": "^1.11.13",
     "lucide-vue-next": "^0.574.0",
     "markdown-it": "^14.1.1",

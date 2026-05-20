@@ -22,6 +22,15 @@ export function createAppApi(ipcRenderer: IpcRenderer): CodexDesktopApi["app"] {
     readNotificationSoundDataUrl: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appReadNotificationSoundDataUrl, args),
     // 显示系统通知：用于任务完成、更新提醒等场景。
     showSystemNotification: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appSystemNotificationShow, args),
+    getUpdateState: () => ipcRenderer.invoke(IPC_APP_CHANNELS.appUpdateGetState),
+    checkForUpdates: () => ipcRenderer.invoke(IPC_APP_CHANNELS.appUpdateCheck),
+    downloadUpdate: () => ipcRenderer.invoke(IPC_APP_CHANNELS.appUpdateDownload),
+    installUpdate: () => ipcRenderer.invoke(IPC_APP_CHANNELS.appUpdateInstall),
+    onUpdateState: (cb) => {
+      const listener = (_evt: unknown, payload: any) => cb(payload);
+      ipcRenderer.on(IPC_APP_CHANNELS.appUpdateState, listener);
+      return () => ipcRenderer.off(IPC_APP_CHANNELS.appUpdateState, listener);
+    },
     // 追加文件变更日志：给时间线和调试页留痕。
     appendFileChangeLog: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appFileChangeLogAppend, args),
     // 读取剪贴板图片：把当前剪贴板内容转成可预览数据。

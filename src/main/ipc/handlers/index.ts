@@ -12,6 +12,7 @@ import type { ImageGenerationTaskService } from "../../services/ImageGenerationT
 import type { ThreadArtifactService } from "../../services/ThreadArtifactService";
 import type { ThreadTaskService } from "../../services/ThreadTaskService";
 import type { ThreadTitleOverrideService } from "../../services/ThreadTitleOverrideService";
+import type { UpdateService } from "../../services/UpdateService";
 import { WorkspacePatchService } from "../../services/WorkspacePatchService";
 import { registerAppHandlers } from "./app.handlers";
 import { registerCacheHandlers } from "./cache.handlers";
@@ -40,6 +41,7 @@ export type IpcHandlersDeps = {
   codexConfigSwitcherService: CodexConfigSwitcherService;
   imageGenerationHistoryService: ImageGenerationHistoryService;
   imageGenerationTaskService: ImageGenerationTaskService;
+  updateService: UpdateService;
   cacheRegistryService: CacheRegistryService;
 };
 
@@ -52,6 +54,7 @@ export function registerAllHandlers(deps: IpcHandlersDeps) {
     codexConfigSwitcherService: deps.codexConfigSwitcherService,
     imageGenerationHistoryService: deps.imageGenerationHistoryService,
     imageGenerationTaskService: deps.imageGenerationTaskService,
+    updateService: deps.updateService,
   });
   registerCodexHandlers({ serverManager: deps.serverManager, sendEvent: deps.sendCodexEvent });
   registerCacheHandlers({ cacheRegistryService: deps.cacheRegistryService });

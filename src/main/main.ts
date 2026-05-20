@@ -19,6 +19,7 @@ import { CacheRegistryService } from "./services/CacheRegistryService";
 import { ThreadArtifactService } from "./services/ThreadArtifactService";
 import { ThreadTaskService } from "./services/ThreadTaskService";
 import { ThreadTitleOverrideService } from "./services/ThreadTitleOverrideService";
+import { UpdateService } from "./services/UpdateService";
 import { WorkspacePatchService } from "./services/WorkspacePatchService";
 import { createMainWindow } from "./windows/mainWindow";
 
@@ -59,6 +60,10 @@ function sendToRenderer(channel: string, payload: unknown) {
     mainWindow.webContents.send(channel, payload);
   } catch {}
 }
+
+const updateService = new UpdateService((payload) => {
+  sendToRenderer(IPC_APP_CHANNELS.appUpdateState, payload);
+});
 
 function pushHistoryUpdate(items: HistoryThread[]) {
   sendToRenderer(IPC_EVENT_CHANNELS.historyUpdated, { items: runtimeThreadStateTracker.decorateHistoryItems(items) });
@@ -159,6 +164,11 @@ app.on("before-quit", () => {
   stopCodexServersForClose("before-quit");
 });
 
+(app as any).on("before-quit-for-update", () => {
+  allowMainWindowClose = true;
+  stopCodexServersForClose("before-quit-for-update");
+});
+
 app
   .whenReady()
   .then(async () => {
@@ -254,6 +264,7 @@ app
       codexConfigSwitcherService,
       imageGenerationHistoryService,
       imageGenerationTaskService,
+      updateService,
       cacheRegistryService,
     });
 
@@ -269,6 +280,7 @@ app
 
     mainWindow.webContents.once("did-finish-load", () => {
       pushWindowClosingState("idle");
+      updateService.scheduleStartupCheck();
     });
 
     mainWindow.on("close", (event) => {

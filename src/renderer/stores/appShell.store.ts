@@ -4,6 +4,7 @@ import type { ServerConnState } from "../domain/types";
 import { getCachedUserLocalSettings, patchUserLocalSettings } from "../domain/localSettings";
 import {
   DEFAULT_UI_WORKSPACE_FILE_ICON_THEME,
+  ONBOARDING_TOUR_VERSION,
   normalizeUiLanguage,
   normalizeUiWorkspaceFileIconTheme,
   type UiLanguage,
@@ -14,7 +15,7 @@ import { refreshDomI18nFallback } from "../i18n/domFallback";
 import { setUiI18nLanguage } from "../i18n";
 
 export type IntegrationsDrawerTab = "skills" | "mcp";
-export type SettingsTab = "global" | "profiles" | "sound" | "image" | "env" | "integrations";
+export type SettingsTab = "global" | "profiles" | "sound" | "image" | "env" | "integrations" | "update";
 export type SettingsIntegrationsTab = "skills" | "mcp";
 
 const DEFAULT_LEFT_SIDEBAR_WIDTH_PX = 300;
@@ -72,6 +73,10 @@ export const useAppShellStore = defineStore("appShell", {
     centerEditorWidthPx: DEFAULT_CENTER_EDITOR_WIDTH_PX,
     workspaceFileIconTheme: DEFAULT_UI_WORKSPACE_FILE_ICON_THEME as UiWorkspaceFileIconTheme,
     threadWorkspaceGroupsCollapsed: {} as Record<string, boolean>,
+    onboardingTourOpen: false,
+    onboardingTourStepIndex: 0,
+    onboardingTourManual: false,
+    workspaceMenuTourReady: false,
   }),
   actions: {
     // 统一维护服务连接状态与错误文案。
@@ -115,9 +120,44 @@ export const useAppShellStore = defineStore("appShell", {
             centerEditorWidthPx: this.centerEditorWidthPx,
             workspaceFileIconTheme: this.workspaceFileIconTheme,
             threadWorkspaceGroupsCollapsed: { ...this.threadWorkspaceGroupsCollapsed },
+            onboardingTourSeenVersion: cached.settings.ui.onboardingTourSeenVersion,
           },
         });
       }
+    },
+    maybeStartOnboardingTour() {
+      const cached = getCachedUserLocalSettings();
+      if (cached.settings.ui.onboardingTourSeenVersion >= ONBOARDING_TOUR_VERSION) return;
+      this.startOnboardingTour({ manual: false });
+    },
+    startOnboardingTour(opts?: { manual?: boolean }) {
+      this.onboardingTourManual = Boolean(opts?.manual);
+      this.onboardingTourStepIndex = 0;
+      this.onboardingTourOpen = true;
+      this.settingsOpen = false;
+      this.setMainView("chat", { save: false });
+      this.setLeftSidebarVisible(true, { save: false });
+    },
+    closeOnboardingTour(opts?: { markSeen?: boolean }) {
+      this.onboardingTourOpen = false;
+      this.onboardingTourStepIndex = 0;
+      this.workspaceMenuTourReady = false;
+      if (!opts?.markSeen) return;
+      void patchUserLocalSettings({ ui: { onboardingTourSeenVersion: ONBOARDING_TOUR_VERSION } });
+    },
+    setOnboardingTourStepIndex(next: number) {
+      const n = Number(next);
+      if (!Number.isFinite(n)) return;
+      this.onboardingTourStepIndex = Math.max(0, Math.round(n));
+    },
+    previousOnboardingStep() {
+      this.setOnboardingTourStepIndex(this.onboardingTourStepIndex - 1);
+    },
+    nextOnboardingStep() {
+      this.setOnboardingTourStepIndex(this.onboardingTourStepIndex + 1);
+    },
+    setWorkspaceMenuTourReady(next: boolean) {
+      this.workspaceMenuTourReady = Boolean(next);
     },
     setLanguage(next: UiLanguage, opts?: { save?: boolean }) {
       const shouldSave = opts?.save ?? true;
