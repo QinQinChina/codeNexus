@@ -49,8 +49,9 @@ const applyState = (next: AppUpdateSnapshot) => {
   Object.assign(updateState, next);
 };
 
-const visible = computed(() =>
-  updateState.status === "available" || updateState.status === "downloading" || updateState.status === "downloaded"
+const visible = computed(
+  () =>
+    updateState.status === "available" || updateState.status === "downloading" || updateState.status === "downloaded"
 );
 
 const progressPercent = computed(() => {

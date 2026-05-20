@@ -137,7 +137,6 @@ onMounted(() => {
       applyWindowStateToDocument(payload);
     });
   } catch {}
-
 });
 
 watch(
