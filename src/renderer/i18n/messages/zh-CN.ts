@@ -104,6 +104,15 @@ export default {
       error: "更新失败",
     },
   },
+  topbarUpdate: {
+    available: "检测到新版本",
+    downloading: "下载中 {percent}%",
+    install: "重启安装",
+    availableAria: "检测到新版本，点击下载更新",
+    availableVersionAria: "检测到新版本 {version}，点击下载更新",
+    downloadingAria: "更新下载中，进度 {percent}%",
+    installAria: "更新已下载，点击重启安装",
+  },
   settingsImageGeneration: {
     aria: "图片生成设置",
     title: "图片生成",
@@ -764,36 +773,6 @@ export default {
     recentCount: "最近 {count} 条",
     chatThread: "对话线程",
   },
-  onboardingTour: {
-    progress: "{current}/{total}",
-    previous: "上一步",
-    next: "下一步",
-    finish: "完成",
-    skip: "跳过引导",
-    targetMissing: "当前步骤的目标控件暂不可见，可以继续下一步。",
-    steps: {
-      workspace: {
-        title: "先选择工作区",
-        body: "点击这里选择项目目录。后续线程、文件面板和 Codex 运行都会围绕当前工作区展开。",
-      },
-      thread: {
-        title: "创建一个新线程",
-        body: "每个线程对应一次连续任务。你可以从这里新建线程，也可以在左侧列表切换历史会话。",
-      },
-      composer: {
-        title: "把任务写在这里",
-        body: "在底部输入框描述你的目标，按发送开始执行。可以粘贴图片，也可以把工作区文件拖到输入框里。",
-      },
-      mode: {
-        title: "选择执行方式",
-        body: "执行模式会直接处理任务；计划模式会先产出方案。旁边还能切换模型、推理强度和权限范围。",
-      },
-      settings: {
-        title: "需要调整时进入设置",
-        body: "设置里可以管理全局配置、模型供应商、Skills、MCP、图片生成、提示音和环境检测。",
-      },
-    },
-  },
   globalConfig: {
     title: "全局配置",
     dirtyCount: "已修改 {count} 项",
@@ -808,9 +787,6 @@ export default {
     fontSizeLarge: "大",
     languageTitle: "语言",
     languageDesc: "选择界面显示语言，切换后立即生效。",
-    onboardingTitle: "新手引导",
-    onboardingDesc: "重新查看首次上手流程，快速了解工作区、线程、输入框和设置入口。",
-    onboardingStart: "重新查看",
     format: "格式",
     model: "模型",
     builtinModelHint: "内置预设保留，可在下方追加自定义模型。",

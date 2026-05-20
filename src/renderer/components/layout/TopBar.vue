@@ -79,6 +79,7 @@
           </div>
           <div class="topbar-control-divider" aria-hidden="true"></div>
           <div class="control-group control-group-actions">
+            <TopBarUpdateNotice />
             <TopBarThemeSwitch />
           </div>
 
@@ -106,6 +107,7 @@ import {
 import TopBarWorkspaceButton from "./topbar/TopBarWorkspaceButton.vue";
 import TopBarPlanSummary from "./topbar/TopBarPlanSummary.vue";
 import TopBarThemeSwitch from "./topbar/TopBarThemeSwitch.vue";
+import TopBarUpdateNotice from "./topbar/TopBarUpdateNotice.vue";
 import TopBarWindowControls from "./topbar/TopBarWindowControls.vue";
 import { useAppShellStore } from "../../stores/appShell.store";
 import { useRuntimeStore } from "../../stores/runtime.store";

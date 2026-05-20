@@ -105,6 +105,15 @@ export default {
       error: "Update failed",
     },
   },
+  topbarUpdate: {
+    available: "Update available",
+    downloading: "Downloading {percent}%",
+    install: "Restart to install",
+    availableAria: "Update available. Click to download.",
+    availableVersionAria: "Version {version} is available. Click to download.",
+    downloadingAria: "Update downloading, {percent}% complete.",
+    installAria: "Update downloaded. Click to restart and install.",
+  },
   settingsImageGeneration: {
     aria: "Image generation settings",
     title: "Image generation",
@@ -769,36 +778,6 @@ export default {
     recentCount: "Latest {count}",
     chatThread: "Chat thread",
   },
-  onboardingTour: {
-    progress: "{current}/{total}",
-    previous: "Back",
-    next: "Next",
-    finish: "Done",
-    skip: "Skip tour",
-    targetMissing: "The target control for this step is not visible right now. You can continue.",
-    steps: {
-      workspace: {
-        title: "Select a workspace first",
-        body: "Choose the project folder here. Threads, the files panel, and Codex runs are scoped to the current workspace.",
-      },
-      thread: {
-        title: "Create a new thread",
-        body: "Each thread is a continuous task. Start a new thread here, or switch back to previous sessions in the left list.",
-      },
-      composer: {
-        title: "Write the task here",
-        body: "Describe your goal in the bottom input and send it to begin. You can paste images or drag workspace files into the composer.",
-      },
-      mode: {
-        title: "Choose how Codex works",
-        body: "Execute mode handles the task directly; Plan mode writes a plan first. Model, reasoning, and permissions sit beside it.",
-      },
-      settings: {
-        title: "Use settings when you need control",
-        body: "Settings manage global config, model providers, Skills, MCP, image generation, notification sound, and environment checks.",
-      },
-    },
-  },
   globalConfig: {
     title: "Global configuration",
     dirtyCount: "{count} changed",
@@ -813,9 +792,6 @@ export default {
     fontSizeLarge: "Large",
     languageTitle: "Language",
     languageDesc: "Choose the interface language. Changes apply immediately.",
-    onboardingTitle: "Onboarding tour",
-    onboardingDesc: "Replay the first-run guide for workspace, threads, the composer, and settings.",
-    onboardingStart: "Replay",
     format: "Format",
     model: "Model",
     builtinModelHint: "Built-in presets are kept. Add custom models below.",

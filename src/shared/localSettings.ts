@@ -43,7 +43,6 @@ export type UserLocalSettings = {
     workspaceFileIconTheme: UiWorkspaceFileIconTheme;
     threadWorkspaceGroupsCollapsed: LocalThreadWorkspaceGroupsCollapsedState;
     globalConfigAdvancedOpen: boolean;
-    onboardingTourSeenVersion: number;
   };
   notification: {
     selectedSoundId: string | null;
@@ -74,7 +73,6 @@ export type UserLocalSettingsPatch = {
     workspaceFileIconTheme: UiWorkspaceFileIconTheme | null;
     threadWorkspaceGroupsCollapsed: Record<string, boolean> | null;
     globalConfigAdvancedOpen: boolean;
-    onboardingTourSeenVersion: number | null;
   }>;
   notification?: Partial<{
     selectedSoundId: string | null;
@@ -125,7 +123,6 @@ export const DEFAULT_UI_LANGUAGE: UiLanguage = "zh-CN";
 export const DEFAULT_UI_FONT_FAMILY_PRESET: UiFontFamilyPreset = "alibaba-puhuiti";
 export const DEFAULT_UI_FONT_SIZE_PRESET: UiFontSizePreset = "medium";
 export const DEFAULT_UI_WORKSPACE_FILE_ICON_THEME: UiWorkspaceFileIconTheme = "vscode-icons";
-export const ONBOARDING_TOUR_VERSION = 1;
 const UI_FONT_SIZE_ZOOM_FACTORS: Record<UiFontSizePreset, number> = {
   small: 0.92,
   medium: 1,
@@ -188,7 +185,6 @@ export const DEFAULT_USER_LOCAL_SETTINGS: UserLocalSettings = {
     workspaceFileIconTheme: DEFAULT_UI_WORKSPACE_FILE_ICON_THEME,
     threadWorkspaceGroupsCollapsed: {},
     globalConfigAdvancedOpen: false,
-    onboardingTourSeenVersion: 0,
   },
   notification: {
     selectedSoundId: null,
@@ -238,13 +234,6 @@ function toPositiveInteger(value: unknown, fallback: number): number {
   if (!Number.isFinite(n)) return fallback;
   const rounded = Math.round(n);
   return rounded > 0 ? rounded : fallback;
-}
-
-function toNonNegativeInteger(value: unknown, fallback: number): number {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return fallback;
-  const rounded = Math.round(n);
-  return rounded >= 0 ? rounded : fallback;
 }
 
 function toIntegerInRange(value: unknown, fallback: number, min: number, max: number): number {
@@ -390,10 +379,6 @@ export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
         ui?.globalConfigAdvancedOpen,
         DEFAULT_USER_LOCAL_SETTINGS.ui.globalConfigAdvancedOpen
       ),
-      onboardingTourSeenVersion: toNonNegativeInteger(
-        ui?.onboardingTourSeenVersion,
-        DEFAULT_USER_LOCAL_SETTINGS.ui.onboardingTourSeenVersion
-      ),
     },
     notification: {
       selectedSoundId: toNullableString(
@@ -461,10 +446,6 @@ export function mergeUserLocalSettings(
         patchUi && "globalConfigAdvancedOpen" in patchUi
           ? patchUi.globalConfigAdvancedOpen
           : current.ui.globalConfigAdvancedOpen,
-      onboardingTourSeenVersion:
-        patchUi && "onboardingTourSeenVersion" in patchUi
-          ? patchUi.onboardingTourSeenVersion
-          : current.ui.onboardingTourSeenVersion,
     },
     notification: {
       selectedSoundId:

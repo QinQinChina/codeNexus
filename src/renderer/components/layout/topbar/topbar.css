@@ -337,11 +337,95 @@
 }
 
 .topbar .control-group-actions {
-  gap: 2px;
+  gap: 4px;
 }
 
 .topbar .control-group-window {
   margin-left: 6px;
+}
+
+.topbar button.topbar-update-notice {
+  max-width: clamp(104px, 14vw, 162px);
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--accent) 36%, var(--tb-control-border) 64%);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 14%, transparent), transparent),
+    color-mix(in srgb, var(--tb-control-bg) 86%, var(--accent) 14%);
+  color: var(--topbar-btn-active-text);
+}
+
+.topbar button.topbar-update-notice:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--tb-control-border) 48%);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 20%, transparent), transparent),
+    color-mix(in srgb, var(--tb-control-hover) 82%, var(--accent) 18%);
+}
+
+.topbar button.topbar-update-notice:disabled {
+  opacity: 0.82;
+}
+
+.topbar button.topbar-update-notice.is-downloaded {
+  border-color: color-mix(in srgb, var(--success) 46%, var(--tb-control-border) 54%);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--success) 18%, transparent), transparent),
+    color-mix(in srgb, var(--tb-control-bg) 84%, var(--success) 16%);
+}
+
+.topbar-update-notice__icon {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  stroke-width: 2.2;
+}
+
+.topbar-update-notice.is-downloading .topbar-update-notice__icon {
+  animation: topbar-update-spin 0.9s linear infinite;
+}
+
+.topbar-update-notice__text {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-update-slide-enter-active {
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.topbar-update-slide-leave-active {
+  transition:
+    opacity 120ms ease,
+    transform 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.topbar-update-slide-enter-from,
+.topbar-update-slide-leave-to {
+  opacity: 0;
+  transform: translateX(18px);
+}
+
+.topbar-update-slide-enter-to,
+.topbar-update-slide-leave-from {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+@keyframes topbar-update-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .topbar button.topbar-theme-switch {
@@ -1067,9 +1151,15 @@
   .topbar-plan-caret,
   .topbar-plan-step-slide-enter-active,
   .topbar-plan-step-slide-leave-active,
+  .topbar-update-slide-enter-active,
+  .topbar-update-slide-leave-active,
   .dynamic-tools-switch-track,
   .dynamic-tools-switch-thumb {
     transition: none;
+  }
+
+  .topbar-update-notice.is-downloading .topbar-update-notice__icon {
+    animation: none;
   }
 
   .topbar button.topbar-theme-switch:hover:not(:disabled),

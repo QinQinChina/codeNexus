@@ -100,17 +100,6 @@
               </div>
             </section>
 
-            <section v-if="isSettings" class="global-config-guide-entry global-config-local-entry">
-              <div class="guide-entry-text">
-                <div class="guide-entry-title">{{ t("globalConfig.onboardingTitle") }}</div>
-                <div class="guide-entry-desc">{{ t("globalConfig.onboardingDesc") }}</div>
-              </div>
-              <button class="btn-mini global-config-onboarding-btn" type="button" @click="onStartOnboardingTour">
-                <Compass class="global-config-onboarding-icon" aria-hidden="true" />
-                <span>{{ t("globalConfig.onboardingStart") }}</span>
-              </button>
-            </section>
-
             <div class="global-config-grid">
               <section class="global-config-section">
                 <label class="global-row" :class="{ 'is-dirty': isGlobalConfigFieldDirty('model') }">
@@ -550,7 +539,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { Compass, RotateCw } from "lucide-vue-next";
+import { RotateCw } from "lucide-vue-next";
 import SelectDropdown from "../../ui/SelectDropdown.vue";
 import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
 import { actionModal, confirmModal } from "../../../ui/modal";
@@ -620,10 +609,6 @@ const onOverlayClick = () => {
 const onUiLanguageChanged = (value: unknown) => {
   const normalized: UiLanguage = value === "en-US" ? "en-US" : "zh-CN";
   appShellStore.setLanguage(normalized);
-};
-
-const onStartOnboardingTour = () => {
-  appShellStore.startOnboardingTour({ manual: true });
 };
 
 type GlobalConfigPendingActionKey = "close" | "refresh";
@@ -1347,19 +1332,6 @@ if (!configStore.snapshot) configStore.applySnapshot(createDefaultGlobalConfigDr
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 10px;
-}
-
-.global-config-onboarding-btn {
-  align-self: center;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 30px;
-}
-
-.global-config-onboarding-icon {
-  width: 14px;
-  height: 14px;
 }
 
 .global-model-manager {

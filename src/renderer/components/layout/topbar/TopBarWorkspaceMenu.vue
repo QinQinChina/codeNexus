@@ -15,7 +15,7 @@
     <ChevronDown class="topbar-pill-caret" aria-hidden="true" />
   </button>
 
-  <Transition name="topbar-fly" @after-enter="onWorkspaceMenuAfterEnter" @after-leave="onWorkspaceMenuAfterLeave">
+  <Transition name="topbar-fly">
     <div v-if="props.open" class="topbar-menu-shell topbar-menu-shell--workspace" @click.stop>
       <div
         class="topbar-dropdown app-scrollbar topbar-menu topbar-menu--workspace"
@@ -44,11 +44,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount } from "vue";
+import { computed } from "vue";
 import { ChevronDown } from "lucide-vue-next";
 import { useI18n } from "vue-i18n";
 import { getRuntimeOrchestrator } from "../../../domain/runtimeOrchestrator";
-import { useAppShellStore } from "../../../stores/appShell.store";
 import { useRuntimeStore } from "../../../stores/runtime.store";
 
 const props = defineProps<{
@@ -61,7 +60,6 @@ const emit = defineEmits<{
 }>();
 
 const runtime = getRuntimeOrchestrator();
-const appShellStore = useAppShellStore();
 const runtimeStore = useRuntimeStore();
 const { t } = useI18n();
 
@@ -77,20 +75,8 @@ const workspaceMenuActionLabel = computed(() =>
   runtimeStore.workspacePath ? t("topbarExtra.changeWorkspace") : t("topbarExtra.selectWorkspace")
 );
 
-function onWorkspaceMenuAfterEnter() {
-  appShellStore.setWorkspaceMenuTourReady(true);
-}
-
-function onWorkspaceMenuAfterLeave() {
-  appShellStore.setWorkspaceMenuTourReady(false);
-}
-
 async function onSelectWorkspace() {
   emit("close");
   await runtime.selectWorkspace();
 }
-
-onBeforeUnmount(() => {
-  appShellStore.setWorkspaceMenuTourReady(false);
-});
 </script>
