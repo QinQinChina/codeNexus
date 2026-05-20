@@ -448,7 +448,7 @@ function normalizeUserMessageText(value: unknown): string | undefined {
     .trim();
   const baseText = normalizeText(withoutTags);
   if (imageCount <= 0) return baseText;
-  return baseText ? `${baseText}\n（附图 ${imageCount} 张）` : `（附图 ${imageCount} 张）`;
+  return baseText ? `${baseText}\n[Attached images: ${imageCount}]` : `[Attached images: ${imageCount}]`;
 }
 
 function toEpochMillis(value: unknown): number | undefined {

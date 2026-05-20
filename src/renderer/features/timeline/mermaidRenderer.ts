@@ -1,3 +1,5 @@
+import { translate } from "../../i18n/translate";
+
 export type MermaidTone = "light" | "dark";
 
 type MermaidModule = typeof import("mermaid");
@@ -29,7 +31,7 @@ export async function sanitizeDiagramSvg(svg: string) {
   const svgDocument = parser.parseFromString(svg, "image/svg+xml");
   // Never inject unsanitized SVG when parsing fails.
   if (svgDocument.querySelector("parsererror")) {
-    throw new Error("SVG 解析失败");
+    throw new Error(translate("mermaid.svgParseFailed"));
   }
 
   svgDocument.querySelectorAll("script, iframe, object, embed").forEach((element) => element.remove());
@@ -101,7 +103,7 @@ export function readMermaidTone(): MermaidTone {
 export function normalizeMermaidError(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error ?? "");
   const normalized = raw.replace(/\s+/g, " ").trim();
-  if (!normalized) return "Mermaid 渲染失败，已回退为代码块。";
+  if (!normalized) return translate("agentMarkdown.mermaidRenderFailedFallback");
   return normalized.slice(0, 220);
 }
 
@@ -133,7 +135,7 @@ export async function renderMermaidDiagram(args: { id: string; source: string; t
     const result = await mermaid.render(id, source);
     const sanitized = await sanitizeDiagramSvg(result.svg);
     if (!sanitized.trim()) {
-      throw new Error("Mermaid SVG 为空");
+      throw new Error(translate("mermaid.emptySvg"));
     }
     return sanitized;
   });

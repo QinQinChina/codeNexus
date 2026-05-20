@@ -1,4 +1,5 @@
 import { codexDesktop } from "../../api/codexDesktopClient";
+import { translate } from "../../i18n/translate";
 import { normalizeMcpStatusListResult } from "../serverInterop";
 import type { McpResourceContentState, McpServerState } from "../types";
 import type { ListMcpServerStatusParams } from "../../../generated/codex-app-server/v2/ListMcpServerStatusParams";
@@ -95,7 +96,7 @@ export function createMcpRuntime(deps: McpRuntimeDeps): McpRuntime {
       params: { name: id },
     });
     const url = typeof result.authorizationUrl === "string" ? result.authorizationUrl : "";
-    if (!url) throw new Error("服务端未返回 authorizationUrl");
+    if (!url) throw new Error(translate("runtime.mcpOauthMissingAuthorizationUrl"));
     return url;
   };
 
@@ -107,12 +108,12 @@ export function createMcpRuntime(deps: McpRuntimeDeps): McpRuntime {
     const threadId = String(params.threadId ?? "").trim();
     const serverKey = String(params.serverKey ?? "").trim();
     const uri = String(params.uri ?? "").trim();
-    if (!threadId) throw new Error("缺少 threadId，无法读取 MCP 资源。");
-    if (!serverKey) throw new Error("缺少 MCP 服务器标识。");
-    if (!uri) throw new Error("缺少资源 URI。");
+    if (!threadId) throw new Error(translate("runtime.mcpResourceThreadRequired"));
+    if (!serverKey) throw new Error(translate("runtime.mcpServerKeyRequired"));
+    if (!uri) throw new Error(translate("runtime.mcpResourceUriRequired"));
     const workspace = normalizePath(deps.getWorkspaceForThread(threadId) || deps.getWorkspacePath());
     const serverId = await deps.ensureServerForWorkspace(workspace);
-    if (!serverId) throw new Error("未连接服务。");
+    if (!serverId) throw new Error(translate("runtime.noService"));
     const rpcParams: McpResourceReadParams = {
       threadId,
       server: serverKey,

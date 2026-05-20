@@ -1,4 +1,5 @@
 import { codexDesktop } from "../../api/codexDesktopClient";
+import { translate } from "../../i18n/translate";
 import { isIpcHandlerMissingError } from "../../shared/ipcErrors";
 import type {
   WorkspaceDirectoryReadResult,
@@ -55,7 +56,7 @@ async function readTextFileViaLocalIpc(path: string): Promise<string> {
   } catch (error) {
     const msg = readErrorMessage(error);
     if (isIpcHandlerMissingError(msg, IPC_APP_CHANNELS.appReadTextFile)) {
-      throw new Error("主进程未加载文件读取能力，请重启应用后重试。");
+      throw new Error(translate("runtime.mainFileReadCapabilityMissing"));
     }
     throw error;
   }
@@ -78,7 +79,7 @@ async function readTextFileDetailViaLocalIpc(
   } catch (error) {
     const msg = readErrorMessage(error);
     if (isIpcHandlerMissingError(msg, IPC_APP_CHANNELS.appReadTextFile)) {
-      throw new Error("主进程未加载文件读取能力，请重启应用后重试。");
+      throw new Error(translate("runtime.mainFileReadCapabilityMissing"));
     }
     throw error;
   }
@@ -92,7 +93,7 @@ async function writeTextFileViaLocalIpc(path: string, content: string): Promise<
   } catch (error) {
     const msg = readErrorMessage(error);
     if (isIpcHandlerMissingError(msg, IPC_APP_CHANNELS.appWriteTextFile)) {
-      throw new Error("主进程未加载文件写入能力，请重启应用后重试。");
+      throw new Error(translate("runtime.mainFileWriteCapabilityMissing"));
     }
     throw error;
   }
@@ -124,7 +125,7 @@ async function readDirectoryViaLocalIpc(path: string): Promise<WorkspaceDirector
   } catch (error) {
     const msg = readErrorMessage(error);
     if (isIpcHandlerMissingError(msg, IPC_APP_CHANNELS.appReadDirectory)) {
-      throw new Error("主进程未加载目录读取能力，请重启应用后重试。");
+      throw new Error(translate("runtime.mainDirectoryReadCapabilityMissing"));
     }
     throw error;
   }
@@ -146,7 +147,7 @@ async function getMetadataViaLocalIpc(path: string): Promise<WorkspaceFileMetada
   } catch (error) {
     const msg = readErrorMessage(error);
     if (isIpcHandlerMissingError(msg, IPC_APP_CHANNELS.appGetFileMetadata)) {
-      throw new Error("主进程未加载文件元数据能力，请重启应用后重试。");
+      throw new Error(translate("runtime.mainFileMetadataCapabilityMissing"));
     }
     throw error;
   }
@@ -160,7 +161,7 @@ async function deleteFileViaLocalIpc(path: string): Promise<void> {
   } catch (error) {
     const msg = readErrorMessage(error);
     if (isIpcHandlerMissingError(msg, IPC_APP_CHANNELS.appDeleteFile)) {
-      throw new Error("主进程未加载文件删除能力，请重启应用后重试。");
+      throw new Error(translate("runtime.mainFileDeleteCapabilityMissing"));
     }
     throw error;
   }

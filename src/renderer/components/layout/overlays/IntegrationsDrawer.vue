@@ -14,8 +14,8 @@
         <section class="global-config-drawer-panel" @click.stop>
           <header class="global-config-drawer-head">
             <!--
-              三段式头部：左标题 / 中间 Tabs 固定居中 / 右侧状态与关闭。
-              解决右侧内容长度变化导致 Tabs “被挤向左”的问题。
+              Three-zone header: left title, centered tabs, right status/actions.
+              Keeps tabs centered when the right-side content changes width.
             -->
             <div class="integrations-head-grid">
               <div class="integrations-head-left">

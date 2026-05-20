@@ -15,6 +15,7 @@ import { useUserInputStore } from "../../stores/userInput.store";
 import { useApprovalStore } from "../../stores/approval.store";
 import { useImageWorkbenchStore } from "../../stores/imageWorkbench.store";
 import { useRuntimeStore } from "../../stores/runtime.store";
+import { translate } from "../../i18n/translate";
 import { normalizeUserInputPrompt } from "../../domain/userInputInterop";
 import { safeJsonStringify } from "../../utils/safeJson";
 import { isCodexServerRequestMessage } from "../../../shared/codex-protocol";
@@ -273,17 +274,17 @@ async function waitForImageGenerationTask(taskId: string): Promise<ImageGenerati
   while (Date.now() - startedAt < IMAGE_TOOL_TASK_WAIT_TIMEOUT_MS) {
     const taskRes = await codexDesktop.app.listImageGenerationTasks();
     const task = (Array.isArray(taskRes.tasks) ? taskRes.tasks : []).find((item) => item.id === taskId);
-    if (!task) throw new Error("图片生成任务不存在或已被删除。");
+    if (!task) throw new Error(translate("runtime.imageTaskMissingOrDeleted"));
     if (task.status === "succeeded" || task.status === "failed" || task.status === "canceled") return task;
     await sleep(IMAGE_TOOL_TASK_POLL_INTERVAL_MS);
   }
-  throw new Error("图片生成任务等待超时。");
+  throw new Error(translate("runtime.imageTaskWaitTimeout"));
 }
 
 async function resolveImageGenerationHistoryItem(historyId: string): Promise<ImageGenerationHistoryItem> {
   const historyRes = await codexDesktop.app.listImageGenerationHistory();
   const item = (Array.isArray(historyRes.items) ? historyRes.items : []).find((entry) => entry.id === historyId);
-  if (!item) throw new Error("图片生成已完成，但未找到对应历史记录。");
+  if (!item) throw new Error(translate("runtime.imageHistoryMissingAfterCompletion"));
   return item;
 }
 
@@ -393,10 +394,10 @@ export function installRequestResponder(pinia: Pinia) {
         );
 
         try {
-          if (!args.prompt) throw new Error("图片生成提示词不能为空。");
+          if (!args.prompt) throw new Error(translate("runtime.imagePromptRequired"));
           const referenceResolution = await resolveImageToolReferenceImages(timelineStore, toolParams);
           if (referenceResolution.requestedCount > 0 && referenceResolution.inputImages.length === 0) {
-            throw new Error("当前消息包含参考图片，但这些图片都无法读取。");
+            throw new Error(translate("runtime.referenceImagesUnreadable"));
           }
           const submitResult = await codexDesktop.app.submitImageGenerationTask({
             threadId: toolParams.threadId,
@@ -411,7 +412,7 @@ export function installRequestResponder(pinia: Pinia) {
             n: args.n,
           });
           const submittedTaskId = String(submitResult.task?.id ?? "").trim();
-          if (!submittedTaskId) throw new Error("图片生成任务提交失败。");
+          if (!submittedTaskId) throw new Error(translate("runtime.imageTaskSubmitFailed"));
           imageWorkbenchStore.generationTasks = Array.isArray(submitResult.tasks) ? submitResult.tasks : [];
           imageWorkbenchStore.mergeHistoryAndTasks(
             filterPersistedImageWorkbenchHistoryItems(imageWorkbenchStore.historyItems),
@@ -438,11 +439,14 @@ export function installRequestResponder(pinia: Pinia) {
           await syncImageWorkbenchTasksLazy(imageWorkbenchStore);
           if (completedTask.status !== "succeeded") {
             throw new Error(
-              completedTask.errorText || `图片生成任务${completedTask.status === "canceled" ? "已取消" : "失败"}。`
+              completedTask.errorText ||
+                (completedTask.status === "canceled"
+                  ? translate("runtime.imageTaskCanceled")
+                  : translate("runtime.imageTaskFailed"))
             );
           }
           const historyId = String(completedTask.historyId ?? "").trim();
-          if (!historyId) throw new Error("图片生成任务已完成，但缺少历史记录 ID。");
+          if (!historyId) throw new Error(translate("runtime.imageTaskMissingHistoryId"));
           const historyItem = await resolveImageGenerationHistoryItem(historyId);
           const savedPaths = historyItem.images.map((image) => image.path).filter(Boolean);
           const revisedPrompt = historyItem.revisedPrompt ?? null;
@@ -472,7 +476,7 @@ export function installRequestResponder(pinia: Pinia) {
           });
         } catch (error: any) {
           await syncImageWorkbenchTasksLazy(imageWorkbenchStore);
-          const message = String(error?.message ?? error ?? "图片生成失败");
+          const message = String(error?.message ?? error ?? translate("runtime.imageGenerationFailed"));
           upsertImageGenerationEvent(timelineStore, toolParams, "item/completed", `failed: ${message}`, message, {
             errorText: message,
             level: "error",

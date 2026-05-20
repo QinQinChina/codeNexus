@@ -17,7 +17,7 @@ type ProgressInfoLike = {
 
 function readErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String((error as any)?.message ?? error ?? "");
-  return message.trim() || "更新检查失败。";
+  return message.trim() || "Update check failed.";
 }
 
 function normalizeText(value: unknown): string | null {
@@ -71,7 +71,7 @@ export class UpdateService {
       updateAvailable: false,
       downloaded: false,
       progress: null,
-      errorMessage: app.isPackaged ? null : "开发模式不连接正式更新源。",
+      errorMessage: app.isPackaged ? null : "Development mode does not connect to the production update feed.",
       checkedAt: null,
       isPackaged: app.isPackaged,
     };
@@ -99,7 +99,7 @@ export class UpdateService {
     if (!app.isPackaged) {
       this.patchState({
         status: "unsupported",
-        errorMessage: "开发模式不连接正式更新源。",
+        errorMessage: "Development mode does not connect to the production update feed.",
         checkedAt: Date.now(),
       });
       return this.getState();
@@ -131,7 +131,7 @@ export class UpdateService {
     if (!this.state.updateAvailable && this.state.status !== "available") {
       this.patchState({
         status: "error",
-        errorMessage: "当前没有可下载的更新。",
+        errorMessage: "There is no update available to download.",
       });
       return this.getState();
     }

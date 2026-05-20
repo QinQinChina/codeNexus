@@ -89,7 +89,7 @@ export class ThreadTitleOverrideService {
   async setOverride(args: { threadId: string; title: string }): Promise<void> {
     const threadId = normalizeThreadId(args?.threadId);
     const title = normalizeTitle(args?.title);
-    if (!threadId) throw new Error("threadId 不能为空");
+    if (!threadId) throw new Error("threadId is required");
     if (!title) {
       await this.clearOverride({ threadId });
       return;
@@ -129,7 +129,7 @@ export class ThreadTitleOverrideService {
       raw = await readFile(this.filePath, "utf8");
     } catch (error: any) {
       if (error?.code === "ENOENT") return createEmptyStore();
-      throw new Error(`读取线程标题覆盖失败：${readErrorMessage(error)}`);
+      throw new Error(`Failed to read thread title overrides: ${readErrorMessage(error)}`);
     }
     if (!String(raw).trim()) {
       return createEmptyStore();

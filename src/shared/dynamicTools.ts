@@ -22,7 +22,7 @@ export const BUILTIN_DYNAMIC_TOOL_DEFINITIONS: Record<BuiltinDynamicToolName, Bu
   image_generate: {
     namespace: IMAGE_GENERATION_DYNAMIC_TOOL_NAMESPACE,
     name: IMAGE_GENERATION_DYNAMIC_TOOL_NAME,
-    label: "生成图片",
+    label: "Generate image",
     description: `${IMAGE_GENERATION_DYNAMIC_TOOL_DEVELOPER_INSTRUCTIONS} Rewrite the user's request into a complete visual prompt before calling. When image attachments are present in the current user message, they are supplied automatically as reference images; do not include image bytes or paths in the tool arguments.`,
     requiresApproval: false,
     inputSchema: {

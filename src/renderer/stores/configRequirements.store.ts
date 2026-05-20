@@ -1,10 +1,11 @@
 import { defineStore } from "pinia";
 import type { ConfigRequirements } from "../../generated/codex-app-server/v2/ConfigRequirements";
+import { translate } from "../i18n/translate";
 
 export const useConfigRequirementsStore = defineStore("configRequirements", {
   state: () => ({
     loadState: "idle" as "idle" | "loading" | "ready" | "error",
-    statusText: "未连接服务" as string,
+    statusText: translate("runtime.noService") as string,
     requirements: null as ConfigRequirements | null,
   }),
   actions: {
@@ -15,7 +16,7 @@ export const useConfigRequirementsStore = defineStore("configRequirements", {
     setRequirements(next: ConfigRequirements | null) {
       this.requirements = next;
     },
-    resetState(statusText = "未连接服务") {
+    resetState(statusText = translate("runtime.noService")) {
       this.loadState = "idle";
       this.statusText = statusText;
       this.requirements = null;

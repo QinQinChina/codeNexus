@@ -3,6 +3,7 @@ import type { FileUpdateChange } from "../../../../generated/codex-app-server/v2
 import type { PatchApplyStatus } from "../../../../generated/codex-app-server/v2/PatchApplyStatus";
 import type { PatchChangeKind } from "../../../../generated/codex-app-server/v2/PatchChangeKind";
 import { safeJsonStringify } from "../../../utils/safeJson";
+import { translate } from "../../../i18n/translate";
 import {
   parseMcpResourceReadEvent,
   toMcpResourceLookupKey,
@@ -845,7 +846,7 @@ const buildSpecializedCommandNode = (
         outputKey: item.outputKey,
         exitCode: item.exitCode,
         durationMs: item.durationMs,
-        name: action.name || fallbackName || path || "读取内容",
+        name: action.name || fallbackName || path || translate("timelineBuild.readContent"),
         path,
         startLine: action.startLine,
         endLine: action.endLine,
@@ -1077,25 +1078,33 @@ const toMcpResultSummaries = (result: unknown) => {
   const firstEventLine = eventLines[0]?.replace(/^-+\s*/, "").trim() ?? "";
 
   const resultSummary = runLine
-    ? `执行: ${shortenText(runLine, 180)}`
+    ? translate("timelineBuild.executing", { text: shortenText(runLine, 180) })
     : fallbackLine
-      ? `结果: ${shortenText(fallbackLine, 180)}`
+      ? translate("timelineBuild.result", { text: shortenText(fallbackLine, 180) })
       : toInlineValueSummary(result, 180)
-        ? `结果: ${toInlineValueSummary(result, 180)}`
+        ? translate("timelineBuild.result", { text: toInlineValueSummary(result, 180) })
         : "";
 
   const pageSummary =
     pageUrl || pageTitle
-      ? `页面: ${shortenText([pageTitle, pageUrl].filter(Boolean).join(" ｜ "), 220)}`
+      ? translate("timelineBuild.page", {
+          text: shortenText([pageTitle, pageUrl].filter(Boolean).join(translate("timelineFormat.separator")), 220),
+        })
       : pageLine
-        ? `页面: ${shortenText(pageLine, 220)}`
+        ? translate("timelineBuild.page", { text: shortenText(pageLine, 220) })
         : "";
 
   const snapshotSummary =
-    snapshotLines.length > 0 ? `快照: ${shortenText(snapshotLine || `${snapshotLines.length} 行`, 180)}` : "";
+    snapshotLines.length > 0
+      ? translate("timelineBuild.snapshot", {
+          text: shortenText(snapshotLine || translate("timelineBuild.lineCount", { count: snapshotLines.length }), 180),
+        })
+      : "";
 
   const eventsSummary =
-    eventLines.length > 0 ? `事件: ${eventLines.length} 条 ｜ ${shortenText(firstEventLine, 180)}` : "";
+    eventLines.length > 0
+      ? translate("timelineBuild.events", { count: eventLines.length, text: shortenText(firstEventLine, 180) })
+      : "";
 
   return { resultSummary, pageSummary, snapshotSummary, eventsSummary };
 };
@@ -1308,7 +1317,7 @@ const parseCommandExecutionEvent = (event: TimelineEventItem): ParsedCommandEven
       itemId,
       turnId,
       method: event.method,
-      command: "终端交互",
+      command: translate("timelineBuild.terminalInteraction"),
       cwd: "",
       processId: String(payload.processId ?? "").trim(),
       source: "terminalInteraction",
@@ -1330,7 +1339,7 @@ const parseCommandExecutionEvent = (event: TimelineEventItem): ParsedCommandEven
   const commandAction = String(item.commandActions?.[0]?.command ?? "").trim();
   const commandRaw = String(item.command ?? "").trim();
   const hasCommand = Boolean(commandAction || commandRaw);
-  const command = commandAction || commandRaw || "命令执行";
+  const command = commandAction || commandRaw || translate("timelineBuild.commandExecution");
   const actions = normalizeCommandParsedActions(item.commandActions, command);
   const turnId = String(payload.turnId ?? event.turnId ?? "").trim() || "unknown";
   return {
@@ -1578,7 +1587,9 @@ const parseMcpToolCallEvent = (
 
   const argumentsValue = item?.arguments ?? callHint?.argumentsValue;
   const argumentsRaw = toPrettyJsonOrText(argumentsValue);
-  const argumentsSummary = argumentsRaw ? `参数: ${toInlineValueSummary(argumentsValue, 220)}` : "参数: —";
+  const argumentsSummary = argumentsRaw
+    ? translate("timelineBuild.arguments", { text: toInlineValueSummary(argumentsValue, 220) })
+    : translate("timelineBuild.argumentsEmpty");
 
   const rawResultValue = item?.result ?? callHint?.resultValue;
   const resultValue = tryParseJsonText(rawResultValue) ?? rawResultValue;
@@ -1606,14 +1617,14 @@ const parseMcpToolCallEvent = (
       resultRaw = progressMessage;
       resultSummaryBundle = {
         ...resultSummaryBundle,
-        resultSummary: `进度: ${shortenText(progressMessage, 180)}`,
+        resultSummary: translate("timelineBuild.progress", { text: shortenText(progressMessage, 180) }),
       };
     }
   }
 
   const errorValue = item?.error;
   const errorCompact = toInlineValueSummary(errorValue, 220);
-  const errorText = errorCompact ? `错误: ${errorCompact}` : "";
+  const errorText = errorCompact ? translate("timelineBuild.error", { text: errorCompact }) : "";
   const normalizedStatus = String(statusRaw ?? "")
     .trim()
     .toLowerCase();
@@ -1624,7 +1635,10 @@ const parseMcpToolCallEvent = (
     if (!resultSummaryBundle.resultSummary) {
       const payloadSummary = toInlineValueSummary(item ?? payload, 200);
       if (payloadSummary) {
-        resultSummaryBundle = { ...resultSummaryBundle, resultSummary: `结果: ${payloadSummary}` };
+        resultSummaryBundle = {
+          ...resultSummaryBundle,
+          resultSummary: translate("timelineBuild.result", { text: payloadSummary }),
+        };
       }
     }
   }
@@ -1651,7 +1665,7 @@ const parseMcpToolCallEvent = (
     relatedResourceUri: relatedResource?.uri ?? candidateResourceUri,
     relatedResourceSourceTab: relatedResource?.sourceTab ?? "resources",
     relatedResourceTemplateKey: relatedResource?.templateKey ?? "",
-    relatedResourceLabel: candidateResourceUri ? "打开相关资源结果" : "",
+    relatedResourceLabel: candidateResourceUri ? translate("timelineBuild.openRelatedResourceResult") : "",
     createdAt,
   };
 };
@@ -2098,14 +2112,14 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
       const incomingCommand = String(commandEvent.command ?? "").trim();
       const isPlaceholderCommand =
         incomingCommand === "" ||
-        incomingCommand === "命令执行" ||
+        incomingCommand === translate("timelineBuild.commandExecution") ||
         incomingCommand === "shell_command" ||
         incomingCommand === "—";
       if (commandEvent.hasCommand && !isPlaceholderCommand) {
         baseItem.commandFull = incomingCommand;
         baseItem.commandShort = shortenText(incomingCommand, 150);
       } else if (!String(baseItem.commandFull ?? "").trim()) {
-        baseItem.commandFull = incomingCommand || "命令执行";
+        baseItem.commandFull = incomingCommand || translate("timelineBuild.commandExecution");
         baseItem.commandShort = shortenText(baseItem.commandFull, 150);
       }
       if (commandEvent.cwd) baseItem.cwd = commandEvent.cwd;
@@ -2187,7 +2201,7 @@ export function buildTimelineRenderNodes(params: BuildTimelineNodesParams): Time
         durationMs: null,
         startedAt: null,
         completedAt: null,
-        argumentsSummary: "参数: —",
+        argumentsSummary: translate("timelineBuild.argumentsEmpty"),
         argumentsRaw: "",
         resultSummary: "",
         pageSummary: "",

@@ -68,8 +68,8 @@ export class ThreadArtifactService {
     payload: HistoryThreadArtifactPayload;
   }): Promise<HistoryThreadArtifact> {
     return this.runExclusive(async () => {
-      const threadId = this.readRequiredText(args?.threadId, "INVALID_THREAD_ID", "threadId 不能为空");
-      const title = this.readRequiredText(args?.title, "INVALID_TITLE", "title 不能为空");
+      const threadId = this.readRequiredText(args?.threadId, "INVALID_THREAD_ID", "threadId is required");
+      const title = this.readRequiredText(args?.title, "INVALID_TITLE", "title is required");
       const kind = this.readKind(args?.kind);
       const description = typeof args?.description === "string" ? args.description.trim() : "";
       const payload = this.readPayload(kind, args?.payload);
@@ -92,7 +92,7 @@ export class ThreadArtifactService {
   }
 
   async listArtifacts(args: { threadId: string; limit?: number }): Promise<HistoryThreadArtifact[]> {
-    const threadId = this.readRequiredText(args?.threadId, "INVALID_THREAD_ID", "threadId 不能为空");
+    const threadId = this.readRequiredText(args?.threadId, "INVALID_THREAD_ID", "threadId is required");
     const limitRaw = Number(args?.limit);
     const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.round(limitRaw)) : 20;
 
@@ -105,11 +105,11 @@ export class ThreadArtifactService {
   }
 
   async getArtifact(args: { artifactId: string }): Promise<HistoryThreadArtifact> {
-    const artifactId = this.readRequiredText(args?.artifactId, "INVALID_ARTIFACT_ID", "artifactId 不能为空");
+    const artifactId = this.readRequiredText(args?.artifactId, "INVALID_ARTIFACT_ID", "artifactId is required");
     const artifacts = await this.readArtifactsFromDisk();
     const found = artifacts.find((item) => item.artifactId === artifactId) ?? null;
     if (!found) {
-      throw new ThreadArtifactServiceError("ARTIFACT_NOT_FOUND", "未找到 artifact");
+      throw new ThreadArtifactServiceError("ARTIFACT_NOT_FOUND", "Artifact was not found");
     }
     return { ...found, payload: { ...found.payload } };
   }
@@ -131,29 +131,32 @@ export class ThreadArtifactService {
   }
 
   private readKind(value: unknown): HistoryThreadArtifactKind {
-    if (!isArtifactKind(value)) throw new ThreadArtifactServiceError("INVALID_KIND", "kind 不合法");
+    if (!isArtifactKind(value)) throw new ThreadArtifactServiceError("INVALID_KIND", "kind is invalid");
     return value;
   }
 
   private readPayload(kind: HistoryThreadArtifactKind, value: unknown): HistoryThreadArtifactPayload {
-    if (!isPlainObject(value)) throw new ThreadArtifactServiceError("INVALID_PAYLOAD", "payload 必须是对象");
+    if (!isPlainObject(value)) throw new ThreadArtifactServiceError("INVALID_PAYLOAD", "payload must be an object");
     const payload = value as Record<string, unknown>;
 
     if (kind === "text") {
-      const text = this.readRequiredText(payload.text, "INVALID_PAYLOAD", "text 不能为空");
+      const text = this.readRequiredText(payload.text, "INVALID_PAYLOAD", "text is required");
       if (text.length > ARTIFACT_TEXT_MAX_CHARS) {
-        throw new ThreadArtifactServiceError("ARTIFACT_TOO_LARGE", `text 超过长度上限（${ARTIFACT_TEXT_MAX_CHARS}）`);
+        throw new ThreadArtifactServiceError(
+          "ARTIFACT_TOO_LARGE",
+          `text exceeds the ${ARTIFACT_TEXT_MAX_CHARS} character limit`
+        );
       }
       return { text };
     }
 
     if (kind === "file") {
-      const path = this.readRequiredText(payload.path, "INVALID_PAYLOAD", "path 不能为空");
+      const path = this.readRequiredText(payload.path, "INVALID_PAYLOAD", "path is required");
       return { path };
     }
 
     if (kind === "link") {
-      const url = this.readRequiredText(payload.url, "INVALID_PAYLOAD", "url 不能为空");
+      const url = this.readRequiredText(payload.url, "INVALID_PAYLOAD", "url is required");
       return { url };
     }
 
@@ -163,10 +166,13 @@ export class ThreadArtifactService {
     try {
       jsonText = JSON.stringify(valueRaw);
     } catch {
-      throw new ThreadArtifactServiceError("INVALID_PAYLOAD", "value 无法序列化为 JSON");
+      throw new ThreadArtifactServiceError("INVALID_PAYLOAD", "value could not be serialized as JSON");
     }
     if (jsonText.length > ARTIFACT_JSON_MAX_CHARS) {
-      throw new ThreadArtifactServiceError("ARTIFACT_TOO_LARGE", `json 超过长度上限（${ARTIFACT_JSON_MAX_CHARS}）`);
+      throw new ThreadArtifactServiceError(
+        "ARTIFACT_TOO_LARGE",
+        `json exceeds the ${ARTIFACT_JSON_MAX_CHARS} character limit`
+      );
     }
     return { value: valueRaw };
   }
@@ -193,7 +199,7 @@ export class ThreadArtifactService {
       if (error?.code === "ENOENT") return [];
       throw new ThreadArtifactServiceError(
         "ARTIFACT_STORE_READ_FAILED",
-        `读取 artifacts 存储失败：${readErrorMessage(error)}`
+        `Failed to read artifacts store: ${readErrorMessage(error)}`
       );
     }
 
@@ -203,7 +209,10 @@ export class ThreadArtifactService {
     try {
       parsed = JSON.parse(raw);
     } catch {
-      throw new ThreadArtifactServiceError("ARTIFACT_STORE_CORRUPTED", "artifacts 存储文件已损坏，无法解析 JSON");
+      throw new ThreadArtifactServiceError(
+        "ARTIFACT_STORE_CORRUPTED",
+        "Artifacts store is corrupted and could not parse JSON"
+      );
     }
 
     return this.parseStorePayload(parsed);
@@ -211,12 +220,15 @@ export class ThreadArtifactService {
 
   private parseStorePayload(payload: unknown): HistoryThreadArtifact[] {
     if (!isPlainObject(payload)) {
-      throw new ThreadArtifactServiceError("ARTIFACT_STORE_CORRUPTED", "artifacts 存储文件结构无效");
+      throw new ThreadArtifactServiceError("ARTIFACT_STORE_CORRUPTED", "Artifacts store has an invalid structure");
     }
     const version = (payload as PersistedThreadArtifactStore).version;
     const artifacts = (payload as PersistedThreadArtifactStore).artifacts;
     if (version !== THREAD_ARTIFACT_STORE_VERSION || !Array.isArray(artifacts)) {
-      throw new ThreadArtifactServiceError("ARTIFACT_STORE_CORRUPTED", "artifacts 存储文件版本或结构不匹配");
+      throw new ThreadArtifactServiceError(
+        "ARTIFACT_STORE_CORRUPTED",
+        "Artifacts store version or structure does not match"
+      );
     }
 
     return artifacts.map((item, index) => this.parseArtifactRecord(item, index));
@@ -224,13 +236,13 @@ export class ThreadArtifactService {
 
   private parseArtifactRecord(value: unknown, index: number): HistoryThreadArtifact {
     if (!isPlainObject(value)) {
-      throw new ThreadArtifactServiceError("ARTIFACT_STORE_CORRUPTED", `artifacts 第 ${index + 1} 条记录无效`);
+      throw new ThreadArtifactServiceError("ARTIFACT_STORE_CORRUPTED", `Artifacts record ${index + 1} is invalid`);
     }
 
     const record = value as Record<string, unknown>;
-    const artifactId = this.readRequiredText(record.artifactId, "ARTIFACT_STORE_CORRUPTED", "artifactId 缺失");
-    const threadId = this.readRequiredText(record.threadId, "ARTIFACT_STORE_CORRUPTED", "threadId 缺失");
-    const title = this.readRequiredText(record.title, "ARTIFACT_STORE_CORRUPTED", "title 缺失");
+    const artifactId = this.readRequiredText(record.artifactId, "ARTIFACT_STORE_CORRUPTED", "artifactId is missing");
+    const threadId = this.readRequiredText(record.threadId, "ARTIFACT_STORE_CORRUPTED", "threadId is missing");
+    const title = this.readRequiredText(record.title, "ARTIFACT_STORE_CORRUPTED", "title is missing");
     const kind = this.readKind(record.kind);
     const description = typeof record.description === "string" ? record.description.trim() : "";
     const createdAtRaw = Number(record.createdAt);
@@ -265,7 +277,7 @@ export class ThreadArtifactService {
     } catch (error) {
       throw new ThreadArtifactServiceError(
         "ARTIFACT_STORE_WRITE_FAILED",
-        `写入 artifacts 存储失败：${readErrorMessage(error)}`
+        `Failed to write artifacts store: ${readErrorMessage(error)}`
       );
     }
   }

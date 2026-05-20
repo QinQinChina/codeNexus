@@ -1,101 +1,154 @@
-# CodeNexus
+<p align="center">
+  English | <a href="./README.zh-CN.md">简体中文</a>
+</p>
 
-`CodeNexus` 是一个面向 Windows 的非官方 Codex 桌面 GUI，基于 `Electron + Vue 3 + Pinia + codex app-server`。
+<p align="center">
+  <img src="./CodeNexus.png" width="112" alt="CodeNexus logo" />
+</p>
 
-## 项目定位
+<h1 align="center">CodeNexus</h1>
 
-| 项目     | 说明                                                               |
-| -------- | ------------------------------------------------------------------ |
-| 产品形态 | ✅ Windows 桌面端 Codex GUI                                        |
-| 当前定位 | ✅ 线程对话、时间线、工作区、Settings（Workspace Team 模式已下线） |
-| 技术栈   | `Electron`、`Vue 3`、`Pinia`、`TypeScript`                         |
-| 官方属性 | ❌ 不是 OpenAI 官方产品                                            |
-| 平台支持 | ✅ 仅支持 Windows 10/11                                            |
+<h3 align="center">Desktop workspace for Codex on Windows — built on the shoulders of giants.</h3>
 
-## 当前能力
+<p align="center">
+  CodeNexus brings Codex sessions, approvals, file changes, workspace context, and configuration into a focused desktop client.
+</p>
 
-| 能力           | 说明                                                                |
-| -------------- | ------------------------------------------------------------------- |
-| 会话与时间线   | 启动线程、发送回合、查看协议事件、文件变更与 diff                   |
-| 工作区与编辑器 | 浏览工作区文件、多标签编辑、工作区拖拽与保存                        |
-| Settings       | 全局配置、提示音、环境检测、Skills / MCP、应用更新                  |
-| Workflow       | 已下线：多角色工作流与团队画布入口已停用                            |
-| 审批与诊断     | 处理 command / apply_patch / permissions 审批，并展示 guardian 诊断 |
-| 扩展能力       | Skills、MCP、MCP 资源读取、OAuth、工具元数据诊断                    |
-| 辅助能力       | 历史回放、主题切换、字体设置、通知音、自动更新                      |
+<p align="center">
+  <a href="https://github.com/zhenyue6612/codeNexus/releases/latest">
+    <img src="https://img.shields.io/github/v/release/zhenyue6612/codeNexus?label=release&color=2ea043" alt="Latest release" />
+  </a>
+  <a href="./LICENSE">
+    <img src="https://img.shields.io/github/license/zhenyue6612/codeNexus?color=6e7681" alt="License" />
+  </a>
+  <img src="https://img.shields.io/badge/platform-Windows-0078D4" alt="Windows" />
+  <img src="https://img.shields.io/badge/Electron-40.8.5-47848F?logo=electron&logoColor=white" alt="Electron 40.8.5" />
+  <img src="https://img.shields.io/badge/Vue-3.5.28-42b883?logo=vuedotjs&logoColor=white" alt="Vue 3.5.28" />
+  <img src="https://img.shields.io/badge/TypeScript-5.7.3-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.7.3" />
+  <img src="https://img.shields.io/badge/pnpm-10.32.1-F69220?logo=pnpm&logoColor=white" alt="pnpm 10.32.1" />
+</p>
 
-## 相比官方 Codex CLI 的侧重点
+<p align="center">
+  <a href="https://github.com/zhenyue6612/codeNexus/releases/latest"><strong>Download Latest Release</strong></a>
+  ·
+  <a href="#screenshots">Screenshots</a>
+  ·
+  <a href="#highlights">Highlights</a>
+  ·
+  <a href="#development">Development</a>
+  ·
+  <a href="#contributing">Contributing</a>
+</p>
 
-官方 Codex CLI 更适合在终端中快速启动 coding agent；CodeNexus 则侧重把 Codex app-server 的会话、审批、文件变化和配置管理组织成一个可视化桌面工作台。它不是官方工具的替代品，而是面向 Windows 桌面使用场景的图形化补充。
+---
 
-| 方向             | CodeNexus 的优势                                                                                 |
-| ---------------- | ------------------------------------------------------------------------------------------------ |
-| 桌面化工作流     | 通过独立 Electron 窗口承载会话、时间线、工作区和设置，减少在终端、文件管理器和编辑器之间来回切换 |
-| 时间线可视化     | 将命令、审批、文件变更、diff、MCP 调用、图片工具和系统事件按会话聚合，适合回看与排查             |
-| 文件与工作区操作 | 内置工作区文件树、多标签编辑和文件变更卡片，更适合在 GUI 中审阅 agent 对项目做了什么             |
-| 审批与诊断       | 将 command / apply_patch / permissions 等审批请求卡片化，并保留 guardian 诊断和协议事件细节      |
-| 配置管理         | 在 Settings 中集中管理全局配置、模型/Provider、Skills、MCP、通知音、主题和环境检测               |
-| 历史与状态保留   | 提供本地历史回放、线程状态、token 使用概览和运行中任务展示，便于跨会话继续工作                   |
-| Windows 体验     | 面向 Windows 10/11 打包和使用，包含系统通知、安装包、窗口生命周期和本地路径处理等桌面细节        |
+## Overview
 
-## 环境要求
+CodeNexus was built to make Codex app-server practical as a self-managed desktop workspace, rather than keeping the entire workflow inside a terminal. It focuses on the parts that matter during real agent work: understanding what happened, reviewing what changed, and keeping the local workspace under the user's control.
 
-| 项目      | 要求                                       |
-| --------- | ------------------------------------------ |
-| 操作系统  | Windows 10/11                              |
-| Node.js   | 建议 LTS                                   |
-| 包管理器  | `pnpm@10`                                  |
-| Codex CLI | 当前协议生成基线为 `@openai/codex@0.131.0` |
+The app handles Codex app-server notifications directly and turns them into a desktop experience with timeline review, approval handling, custom themes, custom notification sounds, workspace file browsing, and a drag-friendly editor for local files.
 
-建议先确认本机可直接运行：
+CodeNexus also supports extending the agent runtime by injecting dynamic tools. The built-in `codenexus.image_generate` tool is wired into that path, so image generation can appear as a native part of the conversation and timeline instead of a separate external workflow.
+
+CodeNexus is not an official OpenAI product. It is an independent desktop interface for Codex-oriented workflows.
+
+## Screenshots
+
+Project screenshots are stored under `docs/screenshots/`.
+
+### Chat timeline
+
+<img src="./docs/screenshots/chat-timeline.png" alt="CodeNexus chat timeline with planning prompt" />
+
+### Workspace and file changes
+
+<img src="./docs/screenshots/workspace-editor.png" alt="CodeNexus workspace file browser and file change review" />
+
+### Image generation workspace
+
+<img src="./docs/screenshots/image-generation.png" alt="CodeNexus image generation workspace" />
+
+### Settings
+
+<img src="./docs/screenshots/settings.png" alt="CodeNexus global settings" />
+
+## Recent Updates
+
+CodeNexus now visualizes streaming output from the Codex protocol, including command/process output deltas and streaming file-change updates. This makes long-running tool calls and patch activity easier to follow while a turn is still in progress.
+
+This capability depends on Codex experimental protocol events. Enable the streaming output experimental feature in Settings before using it.
+
+## Highlights
+
+| Area               | What CodeNexus Provides                                                                                      |
+| ------------------ | ------------------------------------------------------------------------------------------------------------ |
+| Sessions           | Start and continue Codex threads in a persistent desktop workspace.                                          |
+| Timeline           | Review protocol events, command activity, approvals, diffs, MCP calls, and system messages in context.       |
+| Workspace          | Browse project files, open multiple editor tabs, save changes, and inspect agent edits visually.             |
+| Approvals          | Handle command, patch, and permission requests through desktop-native review surfaces.                       |
+| Settings           | Manage providers, models, skills, MCP, notifications, theme, fonts, and update behavior from one place.      |
+| Windows Experience | Installer-oriented packaging, desktop window lifecycle handling, local path support, and update integration. |
+
+## Requirements
+
+| Dependency         | Requirement                         |
+| ------------------ | ----------------------------------- |
+| Operating system   | Windows 10 or Windows 11            |
+| Node.js            | Current LTS recommended             |
+| Package manager    | `pnpm@10`                           |
+| Codex CLI baseline | `@openai/codex@0.131.0`             |
+| Configuration      | CC Switch recommended for Codex CLI |
+
+For Codex CLI provider, model, account, and environment configuration, use [CC Switch](https://github.com/farion1231/cc-switch), an all-in-one desktop manager for Claude Code, Codex, Gemini CLI, OpenCode, OpenClaw, and related agent tools.
+
+After configuration, make sure Codex CLI is available:
 
 ```powershell
-npm i -g @openai/codex@0.131.0
 codex --version
 ```
 
-## 本地开发
+## Development
+
+Install dependencies and start the desktop app in development mode:
 
 ```powershell
 pnpm install
 pnpm run dev
 ```
 
-## 构建与发布
-
-| 命令             | 说明                           |
-| ---------------- | ------------------------------ |
-| `pnpm run build` | 构建 renderer / main / preload |
-| `pnpm run dist`  | 生成 Electron 安装包           |
-
-## 协议类型更新
-
-当前仓库保留了 `codex:types` 脚本，默认将 generated 类型输出到临时目录后再手动比对：
+Run local verification:
 
 ```powershell
-pnpm run codex:types
+pnpm run format:check
+pnpm run lint
 pnpm run typecheck
 ```
 
-## 目录结构
+## Contributing
 
-| 目录            | 说明                                 |
-| --------------- | ------------------------------------ |
-| `src/main`      | Electron 主进程、窗口、IPC、服务编排 |
-| `src/preload`   | `contextBridge` 安全桥接层           |
-| `src/renderer`  | Vue 界面、Pinia 状态、运行时编排     |
-| `src/shared`    | 跨进程共享契约与协议类型             |
-| `scripts`       | 开发、构建、图标、发布脚本           |
-| `src/README.md` | 应用功能文档入口                     |
+Contributions are welcome through pull requests. For code changes, please keep the scope focused, describe the user-facing behavior, and run the local checks before opening a PR.
 
-## 边界说明
+Release publishing is handled by project maintainers through GitHub Actions. Contributors should not create release tags for normal PR work.
 
-- ✅ 仓库包含当前项目需要的界面代码、构建脚本与少量原生辅助程序
-- ✅ 应用窗口标题、图标与安装包名已切换到 `CodeNexus`
-- ✅ 字体、图标与内置提示音等二进制资源授权状态见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
-- ❌ 仓库不提供 OpenAI 账号、Token 或托管服务
-- ❌ 运行本项目产生的模型调用费用与本地数据安全责任由使用者自行承担
+For local community discussion, a QQ group QR code can be added to the Chinese README when the image asset is available.
+
+## Project Structure
+
+| Path           | Purpose                                                         |
+| -------------- | --------------------------------------------------------------- |
+| `src/main`     | Electron main process, windows, IPC, and service orchestration. |
+| `src/preload`  | Secure `contextBridge` preload layer.                           |
+| `src/renderer` | Vue interface, Pinia stores, and runtime coordination.          |
+| `src/shared`   | Cross-process contracts and protocol types.                     |
+| `scripts`      | Development, build, icon, and utility scripts.                  |
+| `music`        | Built-in notification audio resources.                          |
+
+## Boundaries
+
+- CodeNexus does not provide an OpenAI account, API token, hosted service, or model access.
+- Model usage costs, workspace data handling, and local security remain the responsibility of the user.
+- Third-party dependencies and bundled assets follow their respective upstream licenses.
 
 ## License
 
-MIT，见 [LICENSE](LICENSE)。
+MIT. See [LICENSE](LICENSE).

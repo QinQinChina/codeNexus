@@ -14,6 +14,7 @@ import {
   buildProtocolNoticeToast,
 } from "../../features/timeline/protocolNoticeRender";
 import { showToast } from "../../ui/toast";
+import { translate } from "../../i18n/translate";
 import { appendDebugLog } from "../../shared/debugLog";
 import {
   bindThreadCreateAttemptToThread,
@@ -59,12 +60,12 @@ function toFiniteNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-// 将值转换为毫秒时间戳
+// Convert a value to an epoch timestamp in milliseconds.
 function toEpochMs(value: unknown): number | null {
   const raw = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
   if (!Number.isFinite(raw) || raw <= 0) return null;
-  if (raw >= 1_000_000_000_000) return Math.round(raw); // 已经是毫秒
-  return Math.round(raw * 1000); // 从秒转换为毫秒
+  if (raw >= 1_000_000_000_000) return Math.round(raw); // Already milliseconds.
+  return Math.round(raw * 1000); // Convert seconds to milliseconds.
 }
 
 // 提取线程 Token 使用信息
@@ -154,14 +155,14 @@ const HIDDEN_OFFICIAL_NOTIFICATION_METHODS = new Set<OfficialCodexServerNotifica
 ]);
 
 // 思考阶段提示文本
-const THINKING_PHASE_BODY_TEXT: Record<ThinkingPhase, string> = {
-  queued: "请求已提交，等待模型调度。",
-  preparing: "模型正在准备回复。",
-  reasoning: "模型正在分析上下文。",
-  streaming: "模型正在输出内容。",
-  waiting_more: "等待继续输出。",
-  completed: "本回合已完成。",
-  failed: "本回合执行失败。",
+const THINKING_PHASE_BODY_KEY: Record<ThinkingPhase, string> = {
+  queued: "runtime.thinkingQueuedBody",
+  preparing: "runtime.thinkingPreparingBody",
+  reasoning: "runtime.thinkingReasoningBody",
+  streaming: "runtime.thinkingStreamingBody",
+  waiting_more: "runtime.thinkingWaitingMoreBody",
+  completed: "runtime.thinkingCompletedBody",
+  failed: "runtime.thinkingFailedBody",
 };
 
 const THREAD_PREPARING_EVENT_ID = "local:threadPreparing";
@@ -334,7 +335,10 @@ export function installEventPipeline(pinia: Pinia) {
     const key = `${threadId}:${turnId}`;
     clearTimer(contextCompactionSettleTimers, key);
 
-    const text = params.phase === "started" ? "正在压缩上下文…" : "已完成上下文压缩";
+    const text =
+      params.phase === "started"
+        ? translate("runtime.contextCompactionStarted")
+        : translate("runtime.contextCompactionCompleted");
     const eventId = toContextCompactionEventId(threadId, turnId);
     timelineStore.upsertEvent({
       threadId,
@@ -379,7 +383,7 @@ export function installEventPipeline(pinia: Pinia) {
       threadId,
       id: toThinkingEventId(threadId, turnId),
       method: "local/thinking",
-      paramsText: THINKING_PHASE_BODY_TEXT[params.phase],
+      paramsText: translate(THINKING_PHASE_BODY_KEY[params.phase]),
       params: { phase: params.phase },
       turnId,
       level: params.level ?? (params.phase === "failed" ? "error" : "info"),
@@ -1213,7 +1217,7 @@ export function installEventPipeline(pinia: Pinia) {
         const nextThreadPatch = {
           id: threadId,
           title: resolveThreadTitle(threadId, serverTitle || existingTitle || `Thread ${threadId.slice(-8)}`),
-          meta: cwdText || "无工作区",
+          meta: cwdText || translate("runtime.noWorkspace"),
           cwd: cwdText || undefined,
           modelProvider: String(thread.modelProvider ?? "").trim() || undefined,
           ...historyMetadata,

@@ -4,6 +4,7 @@ import type { TurnStartParams } from "../../../generated/codex-app-server/v2/Tur
 import type { UserInput as CodexUserInput } from "../../../generated/codex-app-server/v2/UserInput";
 import type { AskForApproval } from "../../../generated/codex-app-server/v2/AskForApproval";
 import { IMAGE_GENERATION_DYNAMIC_TOOL_DEVELOPER_INSTRUCTIONS } from "../../../shared/dynamicTools";
+import { translate } from "../../i18n/translate";
 import type { UserTurnInput } from "../types";
 import {
   normalizeApprovalPolicy,
@@ -134,13 +135,9 @@ export function createTurnStartRuntime(deps: TurnStartRuntimeDeps): TurnStartRun
           deps.setServerExperimentalApi(params.threadServerId, false);
           if (wantsPlan) {
             deps.setComposeMode("default");
-            deps.warnExperimentalApiUnavailableOnce(
-              "当前 Codex 服务不支持 Plan（experimentalApi 未启用），已自动切回 Agent 模式。建议升级 codex。"
-            );
+            deps.warnExperimentalApiUnavailableOnce(translate("runtime.planUnsupportedDowngrade"));
           } else {
-            deps.warnExperimentalApiUnavailableOnce(
-              "当前 Codex 服务未启用 experimentalApi，部分高级能力将自动降级，建议升级 codex。"
-            );
+            deps.warnExperimentalApiUnavailableOnce(translate("runtime.experimentalApiDowngradeDetail"));
           }
           continue;
         }

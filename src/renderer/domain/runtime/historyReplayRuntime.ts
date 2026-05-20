@@ -124,8 +124,9 @@ export function stripProposedPlanTags(value: unknown): string {
 export function toPlanSignatureText(value: unknown): string {
   const normalized = normalizePlanText(value);
   if (!normalized) return "";
+  const legacyPlanPrefix = "\u6267\u884c\u8ba1\u5212";
   return normalized
-    .replace(/^执行计划\b[:：]?\s*/i, "")
+    .replace(new RegExp(`^${legacyPlanPrefix}\\b[:：]?\\s*`, "i"), "")
     .replace(/\s+/g, " ")
     .trim();
 }

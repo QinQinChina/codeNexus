@@ -136,7 +136,7 @@ function normalizeHttpUrl(value: unknown): string | null {
 
 function normalizeOpenAiModelsEndpoint(baseUrlValue: unknown): string {
   const baseUrl = normalizeHttpUrl(baseUrlValue);
-  if (!baseUrl) throw new Error("供应商 Base URL 无效，请填写 http(s) URL。");
+  if (!baseUrl) throw new Error("Provider Base URL is invalid. Enter an http(s) URL.");
   if (/\/models$/i.test(baseUrl)) return baseUrl;
   if (/\/v1$/i.test(baseUrl)) return `${baseUrl}/models`;
   return `${baseUrl}/v1/models`;
@@ -242,7 +242,7 @@ function normalizeImageOutputCompression(value: unknown, fallback: number): numb
 
 function normalizeImageEndpoint(baseUrlValue: unknown, kind: "generations" | "edits"): string {
   const baseUrl = normalizeHttpUrl(baseUrlValue);
-  if (!baseUrl) throw new Error("图片生成服务地址无效，请填写 http(s) URL。");
+  if (!baseUrl) throw new Error("Image generation service URL is invalid. Enter an http(s) URL.");
   const url = new URL(baseUrl);
   const path = url.pathname.replace(/\/+$/, "");
   if (/\/images\/(generations|edits)$/i.test(path)) {
@@ -370,13 +370,13 @@ export async function generateImagesWithSettings(
   signal?: AbortSignal
 ) {
   const prompt = toNullableText(args?.prompt);
-  if (!prompt) throw new Error("图片生成提示词不能为空。");
+  if (!prompt) throw new Error("Image generation prompt is required.");
 
   const { settings } = await localSettingsService.read();
   const imageSettings = settings.imageGeneration;
-  if (!imageSettings.enabled) throw new Error("图片生成功能未启用，请先在设置中开启。");
-  if (!imageSettings.baseUrl) throw new Error("图片生成服务地址未配置。");
-  if (!imageSettings.apiKey) throw new Error("图片生成 API Key 未配置。");
+  if (!imageSettings.enabled) throw new Error("Image generation is not enabled. Enable it in settings first.");
+  if (!imageSettings.baseUrl) throw new Error("Image generation service URL is not configured.");
+  if (!imageSettings.apiKey) throw new Error("Image generation API Key is not configured.");
 
   const timeoutMs = toIntegerInRange(imageSettings.timeoutMs, 120_000, 10_000, 600_000);
   const inputImages = Array.isArray(args?.inputImages)
@@ -414,14 +414,14 @@ export async function generateImagesWithSettings(
           for (let index = 0; index < inputImages.length; index += 1) {
             const image = inputImages[index];
             const parsed = dataUrlToBlob(image.dataUrl);
-            if (!parsed) throw new Error(`图片输入无效：第 ${index + 1} 张不是有效的 data URL。`);
+            if (!parsed) throw new Error(`Invalid image input: image ${index + 1} is not a valid data URL.`);
             const name = image.name || `image-${index + 1}${imageExtFromMime(parsed.mimeType, outputFormat)}`;
             form.append("image[]", parsed.blob, name);
           }
           const maskDataUrl = toNullableText(args?.maskDataUrl);
           if (maskDataUrl) {
             const parsedMask = dataUrlToBlob(maskDataUrl);
-            if (!parsedMask) throw new Error("图片蒙版无效：不是有效的 data URL。");
+            if (!parsedMask) throw new Error("Invalid image mask: not a valid data URL.");
             form.append("mask", parsedMask.blob, `mask${imageExtFromMime(parsedMask.mimeType, outputFormat)}`);
           }
           return form;
@@ -459,12 +459,15 @@ export async function generateImagesWithSettings(
 
   if (!response.ok) {
     const body = await readErrorBody(response);
-    throw new Error(`图片${mode === "edit" ? "编辑" : "生成"}失败：HTTP ${response.status}${body ? ` ${body}` : ""}`);
+    throw new Error(
+      `Image ${mode === "edit" ? "edit" : "generation"} failed: HTTP ${response.status}${body ? ` ${body}` : ""}`
+    );
   }
 
   const json = (await response.json()) as unknown;
   const images = extractGeneratedImages(json);
-  if (images.length === 0) throw new Error(`图片${mode === "edit" ? "编辑" : "生成"}响应中没有可用图片。`);
+  if (images.length === 0)
+    throw new Error(`Image ${mode === "edit" ? "edit" : "generation"} response contained no usable images.`);
 
   const threadSegment = sanitizePathSegment(args?.threadId, "app");
   const callSegment = sanitizePathSegment(args?.callId, randomUUID());
@@ -478,11 +481,11 @@ export async function generateImagesWithSettings(
     let mimeType = image.mimeType || "";
     if (!buffer && image.url) {
       const imageUrl = normalizeHttpUrl(image.url);
-      if (!imageUrl) throw new Error(`图片下载地址无效：${image.url}`);
+      if (!imageUrl) throw new Error(`Invalid image download URL: ${image.url}`);
       const imageResponse = await fetchWithTimeout(imageUrl, { method: "GET" }, timeoutMs, signal);
       if (!imageResponse.ok) {
         const body = await readErrorBody(imageResponse);
-        throw new Error(`图片下载失败：HTTP ${imageResponse.status}${body ? ` ${body}` : ""}`);
+        throw new Error(`Image download failed: HTTP ${imageResponse.status}${body ? ` ${body}` : ""}`);
       }
       const contentType = imageResponse.headers.get("content-type") || "";
       mimeType = mimeType || contentType.split(";")[0].trim();
@@ -502,7 +505,8 @@ export async function generateImagesWithSettings(
     });
   }
 
-  if (savedImages.length === 0) throw new Error(`图片${mode === "edit" ? "编辑" : "生成"}结果保存失败。`);
+  if (savedImages.length === 0)
+    throw new Error(`Image ${mode === "edit" ? "edit" : "generation"} result could not be saved.`);
   const historyItem = await imageGenerationHistoryService.create({
     workspacePath: toNullableText(args?.workspacePath),
     model,
@@ -815,7 +819,7 @@ export function registerAppHandlers(deps: {
     async (_evt, args: { baseUrl: string; apiKey: string; timeoutMs?: number }) => {
       const endpoint = normalizeOpenAiModelsEndpoint(args?.baseUrl);
       const apiKey = String(args?.apiKey ?? "").trim();
-      if (!apiKey) throw new Error("API Key 不能为空。");
+      if (!apiKey) throw new Error("API Key is required.");
       const timeoutMs = toIntegerInRange(args?.timeoutMs, 15_000, 3_000, 60_000);
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -841,7 +845,7 @@ export function registerAppHandlers(deps: {
           return {
             ok: false,
             status: response.status,
-            message: truncateText(text, 240) || response.statusText || "连接失败",
+            message: truncateText(text, 240) || response.statusText || "Connection failed",
             modelCount,
             models,
             elapsedMs,
@@ -850,7 +854,7 @@ export function registerAppHandlers(deps: {
         return {
           ok: true,
           status: response.status,
-          message: `连接成功，响应时间 ${elapsedMs}ms。`,
+          message: `Connection succeeded, latency ${elapsedMs}ms.`,
           modelCount,
           models,
           elapsedMs,
@@ -859,7 +863,10 @@ export function registerAppHandlers(deps: {
         return {
           ok: false,
           status: null,
-          message: error?.name === "AbortError" ? "连接超时。" : String(error?.message ?? error ?? "连接失败"),
+          message:
+            error?.name === "AbortError"
+              ? "Connection timed out."
+              : String(error?.message ?? error ?? "Connection failed"),
           modelCount: null,
           models: [],
           elapsedMs: Math.max(0, Date.now() - startedAt),

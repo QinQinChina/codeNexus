@@ -118,10 +118,10 @@ export class CodexAppServer {
         const msg =
           err?.code === "ENOENT"
             ? missingWorkspace
-              ? `工作区目录不存在：${spawnCwd}`
-              : `找不到可执行文件：${command}`
+              ? `Workspace directory does not exist: ${spawnCwd}`
+              : `Executable not found: ${command}`
             : String(err?.message ?? err);
-        reject(new Error(`codex app-server 启动失败：${msg}`));
+        reject(new Error(`codex app-server failed to start: ${msg}`));
       });
     });
 
@@ -338,17 +338,17 @@ export class CodexAppServer {
     const cwd = String(spawnCwd ?? "").trim();
     if (!cwd) return;
     if (!existsSync(cwd)) {
-      throw new Error(`工作区目录不存在：${cwd}`);
+      throw new Error(`Workspace directory does not exist: ${cwd}`);
     }
     let stats: ReturnType<typeof statSync>;
     try {
       stats = statSync(cwd);
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
-      throw new Error(`工作区目录不可访问：${cwd}（${msg}）`);
+      throw new Error(`Workspace directory is not accessible: ${cwd} (${msg})`);
     }
     if (!stats.isDirectory()) {
-      throw new Error(`工作区路径不是目录：${cwd}`);
+      throw new Error(`Workspace path is not a directory: ${cwd}`);
     }
   }
 
@@ -362,7 +362,7 @@ export class CodexAppServer {
 
     if (paths.length === 0) {
       throw new Error(
-        "未检测到 codex（native）。请先安装 Node.js LTS（包含 npm），然后执行：npm i -g @openai/codex，并确保 codex 在 PATH 中可用（必要时重启终端/本应用）。"
+        "codex (native) was not detected. Install Node.js LTS (including npm), run: npm i -g @openai/codex, and make sure codex is available on PATH. Restart the terminal or this app if needed."
       );
     }
 
@@ -393,8 +393,8 @@ export class CodexAppServer {
     }
 
     throw new Error(
-      `已找到 codex 但未找到可执行入口（.exe/.cmd/.bat）。where.exe codex 返回：\n${paths.join("\n")}\n\n` +
-        `请确认你能在 PowerShell 中直接运行：codex --version`
+      `codex was found, but no executable entry (.exe/.cmd/.bat) was found. where.exe codex returned:\n${paths.join("\n")}\n\n` +
+        `Confirm that you can run this directly in PowerShell: codex --version`
     );
   }
 

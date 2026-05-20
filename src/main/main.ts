@@ -77,9 +77,9 @@ function buildClosingSteps(phase: AppWindowClosingState["phase"]): AppClosingSte
   const exitAppStatus: AppClosingStep["status"] = phase === "finalizing" ? "inProgress" : "pending";
 
   return [
-    { id: "prepareUi", label: "准备关闭界面", status: prepareUiStatus },
-    { id: "stopTasks", label: "停止后台任务", status: stopTasksStatus },
-    { id: "exitApp", label: "退出应用", status: exitAppStatus },
+    { id: "prepareUi", label: "Preparing interface", status: prepareUiStatus },
+    { id: "stopTasks", label: "Stopping background tasks", status: stopTasksStatus },
+    { id: "exitApp", label: "Exiting application", status: exitAppStatus },
   ];
 }
 
@@ -219,7 +219,7 @@ app
         return {
           items,
           bytes,
-          note: "历史线程缓存文件",
+          note: "History thread cache file",
           updatedAt: Date.now(),
         };
       },
@@ -232,7 +232,7 @@ app
       namespace: "main.history.memory",
       getStats: () => ({
         ...historyStore.getMemoryCacheStats(),
-        note: "历史线程内存缓存",
+        note: "History thread memory cache",
       }),
       clear: () => {
         historyStore.clearMemoryCaches();

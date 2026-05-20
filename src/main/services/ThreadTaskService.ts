@@ -71,8 +71,8 @@ export class ThreadTaskService {
     status?: HistoryThreadTaskStatus;
   }): Promise<HistoryThreadTask> {
     return this.runExclusive(async () => {
-      const threadId = this.readRequiredText(args?.threadId, "INVALID_THREAD_ID", "threadId 不能为空");
-      const title = this.readRequiredText(args?.title, "INVALID_TITLE", "title 不能为空");
+      const threadId = this.readRequiredText(args?.threadId, "INVALID_THREAD_ID", "threadId is required");
+      const title = this.readRequiredText(args?.title, "INVALID_TITLE", "title is required");
       const description = this.readDescription(args?.description);
       const status = this.readStatus(args?.status, THREAD_TASK_DEFAULT_STATUS);
       const tasks = await this.readTasksFromDisk();
@@ -98,8 +98,8 @@ export class ThreadTaskService {
     patch?: HistoryThreadTaskPatch | null;
   }): Promise<{ task: HistoryThreadTask; upserted: boolean }> {
     return this.runExclusive(async () => {
-      const threadId = this.readRequiredText(args?.threadId, "INVALID_THREAD_ID", "threadId 不能为空");
-      const taskId = this.readRequiredText(args?.taskId, "INVALID_TASK_ID", "taskId 不能为空");
+      const threadId = this.readRequiredText(args?.threadId, "INVALID_THREAD_ID", "threadId is required");
+      const taskId = this.readRequiredText(args?.taskId, "INVALID_TASK_ID", "taskId is required");
       const patch = this.readPatch(args?.patch);
       const tasks = await this.readTasksFromDisk();
       const now = Date.now();
@@ -111,7 +111,7 @@ export class ThreadTaskService {
           updatedAt: now,
         };
         if (Object.prototype.hasOwnProperty.call(patch, "title")) {
-          next.title = this.readRequiredText(patch.title, "INVALID_TITLE", "title 不能为空");
+          next.title = this.readRequiredText(patch.title, "INVALID_TITLE", "title is required");
         }
         if (Object.prototype.hasOwnProperty.call(patch, "description")) {
           next.description = this.readDescription(patch.description);
@@ -134,7 +134,7 @@ export class ThreadTaskService {
         updatedAt: now,
       };
       if (Object.prototype.hasOwnProperty.call(patch, "title")) {
-        created.title = this.readRequiredText(patch.title, "INVALID_TITLE", "title 不能为空");
+        created.title = this.readRequiredText(patch.title, "INVALID_TITLE", "title is required");
       }
       if (Object.prototype.hasOwnProperty.call(patch, "description")) {
         created.description = this.readDescription(patch.description);
@@ -154,7 +154,7 @@ export class ThreadTaskService {
     statusIn?: HistoryThreadTaskStatus[] | null;
     includeDone?: boolean;
   }): Promise<HistoryThreadTask[]> {
-    const threadId = this.readRequiredText(args?.threadId, "INVALID_THREAD_ID", "threadId 不能为空");
+    const threadId = this.readRequiredText(args?.threadId, "INVALID_THREAD_ID", "threadId is required");
     const limitRaw = Number(args?.limit);
     const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.round(limitRaw)) : 50;
     const includeDone = args?.includeDone !== false;
@@ -195,7 +195,7 @@ export class ThreadTaskService {
 
   private readDescription(value: unknown): string {
     if (typeof value !== "string") {
-      throw new ThreadTaskServiceError("INVALID_DESCRIPTION", "description 必须是字符串");
+      throw new ThreadTaskServiceError("INVALID_DESCRIPTION", "description must be a string");
     }
     return value.trim();
   }
@@ -203,7 +203,7 @@ export class ThreadTaskService {
   private readStatus(value: unknown, defaultValue: HistoryThreadTaskStatus): HistoryThreadTaskStatus {
     if (typeof value === "undefined") return defaultValue;
     if (!isThreadTaskStatus(value)) {
-      throw new ThreadTaskServiceError("INVALID_STATUS", "status 不合法");
+      throw new ThreadTaskServiceError("INVALID_STATUS", "status is invalid");
     }
     return value;
   }
@@ -213,7 +213,7 @@ export class ThreadTaskService {
       return {};
     }
     if (!isPlainObject(value)) {
-      throw new ThreadTaskServiceError("INVALID_PATCH", "patch 必须是对象");
+      throw new ThreadTaskServiceError("INVALID_PATCH", "patch must be an object");
     }
     return value;
   }
@@ -224,7 +224,10 @@ export class ThreadTaskService {
       raw = await readFile(this.filePath, "utf8");
     } catch (error: any) {
       if (error?.code === "ENOENT") return [];
-      throw new ThreadTaskServiceError("TASK_STORE_READ_FAILED", `读取任务存储失败：${readErrorMessage(error)}`);
+      throw new ThreadTaskServiceError(
+        "TASK_STORE_READ_FAILED",
+        `Failed to read task store: ${readErrorMessage(error)}`
+      );
     }
     if (!String(raw).trim()) {
       return [];
@@ -233,26 +236,26 @@ export class ThreadTaskService {
     try {
       parsed = JSON.parse(raw);
     } catch {
-      throw new ThreadTaskServiceError("TASK_STORE_CORRUPTED", "任务存储文件已损坏，无法解析 JSON");
+      throw new ThreadTaskServiceError("TASK_STORE_CORRUPTED", "Task store is corrupted and could not parse JSON");
     }
     return this.parseStorePayload(parsed);
   }
 
   private parseStorePayload(payload: unknown): HistoryThreadTask[] {
     if (!isPlainObject(payload)) {
-      throw new ThreadTaskServiceError("TASK_STORE_CORRUPTED", "任务存储文件结构无效");
+      throw new ThreadTaskServiceError("TASK_STORE_CORRUPTED", "Task store has an invalid structure");
     }
     const version = (payload as PersistedThreadTaskStore).version;
     const tasks = (payload as PersistedThreadTaskStore).tasks;
     if (version !== THREAD_TASK_STORE_VERSION || !Array.isArray(tasks)) {
-      throw new ThreadTaskServiceError("TASK_STORE_CORRUPTED", "任务存储文件版本或结构不匹配");
+      throw new ThreadTaskServiceError("TASK_STORE_CORRUPTED", "Task store version or structure does not match");
     }
     return tasks.map((item, index) => this.parseTaskRecord(item, index));
   }
 
   private parseTaskRecord(task: unknown, index: number): HistoryThreadTask {
     if (!isPlainObject(task)) {
-      throw new ThreadTaskServiceError("TASK_STORE_CORRUPTED", `任务存储第 ${index + 1} 条记录无效`);
+      throw new ThreadTaskServiceError("TASK_STORE_CORRUPTED", `Task store record ${index + 1} is invalid`);
     }
 
     const taskId = this.readTaskRecordText(task.taskId, index, "taskId");
@@ -261,7 +264,7 @@ export class ThreadTaskService {
     const description = this.readTaskRecordDescription(task.description, index);
     const statusRaw = task.status;
     if (!isThreadTaskStatus(statusRaw)) {
-      throw new ThreadTaskServiceError("TASK_STORE_CORRUPTED", `任务存储第 ${index + 1} 条 status 非法`);
+      throw new ThreadTaskServiceError("TASK_STORE_CORRUPTED", `Task store record ${index + 1} has an invalid status`);
     }
     const createdAt = this.readTaskRecordTimestamp(task.createdAt, index, "createdAt");
     const updatedAt = this.readTaskRecordTimestamp(task.updatedAt, index, "updatedAt");
@@ -279,14 +282,20 @@ export class ThreadTaskService {
 
   private readTaskRecordText(value: unknown, index: number, fieldName: string): string {
     if (typeof value !== "string" || !value.trim()) {
-      throw new ThreadTaskServiceError("TASK_STORE_CORRUPTED", `任务存储第 ${index + 1} 条 ${fieldName} 无效`);
+      throw new ThreadTaskServiceError(
+        "TASK_STORE_CORRUPTED",
+        `Task store record ${index + 1} has an invalid ${fieldName}`
+      );
     }
     return value.trim();
   }
 
   private readTaskRecordDescription(value: unknown, index: number): string {
     if (typeof value !== "string") {
-      throw new ThreadTaskServiceError("TASK_STORE_CORRUPTED", `任务存储第 ${index + 1} 条 description 无效`);
+      throw new ThreadTaskServiceError(
+        "TASK_STORE_CORRUPTED",
+        `Task store record ${index + 1} has an invalid description`
+      );
     }
     return value.trim();
   }
@@ -294,7 +303,10 @@ export class ThreadTaskService {
   private readTaskRecordTimestamp(value: unknown, index: number, fieldName: "createdAt" | "updatedAt"): number {
     const num = Number(value);
     if (!Number.isFinite(num) || num < 0) {
-      throw new ThreadTaskServiceError("TASK_STORE_CORRUPTED", `任务存储第 ${index + 1} 条 ${fieldName} 无效`);
+      throw new ThreadTaskServiceError(
+        "TASK_STORE_CORRUPTED",
+        `Task store record ${index + 1} has an invalid ${fieldName}`
+      );
     }
     return Math.round(num);
   }
@@ -308,7 +320,10 @@ export class ThreadTaskService {
       await mkdir(dirname(this.filePath), { recursive: true });
       await writeFile(this.filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
     } catch (error) {
-      throw new ThreadTaskServiceError("TASK_STORE_WRITE_FAILED", `写入任务存储失败：${readErrorMessage(error)}`);
+      throw new ThreadTaskServiceError(
+        "TASK_STORE_WRITE_FAILED",
+        `Failed to write task store: ${readErrorMessage(error)}`
+      );
     }
   }
 

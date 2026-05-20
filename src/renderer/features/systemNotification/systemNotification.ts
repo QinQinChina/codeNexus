@@ -1,4 +1,5 @@
 import type { CodexDesktopAppApi } from "../../../shared/ipc";
+import { translate } from "../../i18n/translate";
 
 export type SystemNotificationVisibilityState = {
   focused: boolean;
@@ -21,8 +22,8 @@ export async function notifyTurnCompleted(args: {
   const title = String(args.threadTitle ?? "").trim() || "Codex";
   try {
     await args.app.showSystemNotification({
-      title: "任务完成",
-      body: `${title} 已完成一次回复。`,
+      title: translate("systemNotification.taskCompletedTitle"),
+      body: translate("systemNotification.turnCompletedBody", { title }),
       silent: false,
     });
   } catch (error) {

@@ -309,9 +309,9 @@ const onThreadGroupOpenChange = (groupKeyValue: string, open: boolean) =>
 function extractInvalidWorkspacePathFromError(errorText: string): string {
   const text = String(errorText ?? "");
   for (const re of [
-    /工作区目录不存在：([^\r\n。]+)(?:。|$)/,
-    /工作区路径不是目录：([^\r\n。]+)(?:。|$)/,
-    /工作区目录不可访问：([^\r\n。（]+)(?:（|。|$)/,
+    /Workspace directory does not exist:\s*([^\r\n.]+)(?:\.|$)/i,
+    /Workspace path is not a directory:\s*([^\r\n.]+)(?:\.|$)/i,
+    /Workspace directory is not accessible:\s*([^\r\n(]+)(?:\(|\.|$)/i,
   ]) {
     const candidate = String(text.match(re)?.[1] ?? "").trim();
     if (candidate) return candidate;

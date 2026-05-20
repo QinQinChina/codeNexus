@@ -133,7 +133,7 @@ export class HistoryService {
   async threadLastSummary(args: HistoryThreadLastSummaryArgs): Promise<HistoryThreadLastSummaryResult> {
     const threadId = typeof args?.threadId === "string" ? args.threadId.trim() : "";
     if (!threadId) {
-      return createLastSummaryFailure("", "INVALID_THREAD_ID", "threadId 不能为空");
+      return createLastSummaryFailure("", "INVALID_THREAD_ID", "threadId is required");
     }
 
     const messageLimitRaw = Number(args?.messageLimit);
@@ -148,7 +148,7 @@ export class HistoryService {
       source = "disk";
     }
     if (!thread) {
-      return createLastSummaryFailure(threadId, "THREAD_NOT_FOUND", "未找到线程");
+      return createLastSummaryFailure(threadId, "THREAD_NOT_FOUND", "Thread not found");
     }
 
     const messages = await this.historyStore.getThreadMessages(threadId, messageLimit);
@@ -165,7 +165,7 @@ export class HistoryService {
 
     const picked = pickFromTail("assistant") ?? pickFromTail("user");
     if (!picked) {
-      return createLastSummaryFailure(threadId, "SUMMARY_NOT_FOUND", "未找到可用的总结信息", source);
+      return createLastSummaryFailure(threadId, "SUMMARY_NOT_FOUND", "No available summary found", source);
     }
 
     return {

@@ -1,13 +1,8 @@
 # Security Policy
 
-## Supported Versions
+## Runtime Baseline
 
-当前项目仍处于早期阶段。安全修复优先覆盖最新的 `master` 分支和最新发布版本。
-
-| Version | Supported        |
-| ------- | ---------------- |
-| 0.3.x   | Yes              |
-| < 0.3   | Best effort only |
+当前安全策略默认以 `@openai/codex@0.131.0` 作为 Codex CLI / app-server 协议基线。报告与 Codex CLI、app-server、动态工具、MCP 或协议事件相关的问题时，请尽量同时提供本机 `codex --version` 输出。
 
 ## Reporting a Vulnerability
 

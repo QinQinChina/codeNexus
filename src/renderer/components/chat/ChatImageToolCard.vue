@@ -150,7 +150,7 @@ const emptyText = computed(() => {
 
 const revisedPromptBody = computed(() => {
   return String(props.item.revisedPrompt ?? "")
-    .replace(/^修订提示词：\s*/u, "")
+    .replace(new RegExp(`^${t("imageSidebar.revisedPrompt")}[:：]\\s*`, "iu"), "")
     .replace(/^Revised prompt:\s*/iu, "")
     .trim();
 });

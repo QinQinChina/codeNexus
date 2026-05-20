@@ -96,7 +96,10 @@ function normalizeTask(value: unknown): ImageGenerationTaskItem | null {
     args,
     historyId: toNullableText(record.historyId),
     result: null,
-    errorText: persistedStatus === status ? toNullableText(record.errorText) : "应用重启前任务未完成，请重试。",
+    errorText:
+      persistedStatus === status
+        ? toNullableText(record.errorText)
+        : "Task did not finish before app restart. Retry it.",
     retryOf: toNullableText(record.retryOf),
     attempt: Math.max(1, Math.round(Number(record.attempt) || 1)),
   };
@@ -176,7 +179,7 @@ export class ImageGenerationTaskService {
     const task = this.tasks.find((item) => item.id === id) ?? null;
     if (!task) return { canceled: false, task: null, tasks: this.snapshot() };
     if (task.status === "queued") {
-      this.updateTask(id, { status: "canceled", completedAt: Date.now(), errorText: "已取消" });
+      this.updateTask(id, { status: "canceled", completedAt: Date.now(), errorText: "Canceled" });
       await this.persist();
       return { canceled: true, task: this.cloneTask(id), tasks: this.snapshot() };
     }
@@ -206,8 +209,10 @@ export class ImageGenerationTaskService {
     const id = toText(idValue);
     const sourceIndex = this.tasks.findIndex((item) => item.id === id);
     const source = sourceIndex >= 0 ? this.tasks[sourceIndex] : null;
-    if (!source) throw new Error("图片生成任务不存在。");
-    if (source.status === "queued" || source.status === "running") throw new Error("图片生成任务正在进行，不能重试。");
+    if (!source) throw new Error("Image generation task does not exist.");
+    if (source.status === "queued" || source.status === "running") {
+      throw new Error("Image generation task is in progress and cannot be retried.");
+    }
     const now = Date.now();
     const task: ImageGenerationTaskItem = {
       id: randomUUID(),
@@ -304,7 +309,7 @@ export class ImageGenerationTaskService {
         this.updateTask(id, {
           status: aborted ? "canceled" : "failed",
           completedAt: Date.now(),
-          errorText: aborted ? "已取消" : String(error?.message ?? error ?? "unknown error"),
+          errorText: aborted ? "Canceled" : String(error?.message ?? error ?? "unknown error"),
         });
         await this.persist();
       })

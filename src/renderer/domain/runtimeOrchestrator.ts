@@ -15,6 +15,7 @@ import {
   titleFromFirstUserMessage,
 } from "../features/history/threadTitle";
 import { showToast } from "../ui/toast";
+import { translate } from "../i18n/translate";
 import { appendDebugLog } from "../shared/debugLog";
 import { isIpcHandlerMissingError } from "../shared/ipcErrors";
 import { sandboxKebabFromUi } from "../shared/sandboxPolicy";
@@ -340,7 +341,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   let globalConfigAutoLoadAttempted = false;
   const disposers: Array<() => void> = [];
   const THREAD_PREPARING_EVENT_ID = "local:threadPreparing";
-  const THREAD_PREPARING_ENVIRONMENT_TEXT = "正在准备环境…";
+  const threadPreparingEnvironmentText = () => translate("runtime.threadPreparingEnvironment");
 
   // 统一写入时间线事件，默认写到应用级线程。
   const pushEvent = (
@@ -364,7 +365,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       threadId,
       id: THREAD_PREPARING_EVENT_ID,
       method: "local/thinking",
-      paramsText: THREAD_PREPARING_ENVIRONMENT_TEXT,
+      paramsText: threadPreparingEnvironmentText(),
       params: { phase: "preparingEnvironment" },
       level: "info",
       localKind: "thinking",
@@ -493,11 +494,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
 
   const resolveWorkspacePathForFileAccess = (inputPath: string) => {
     const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
-    if (!workspace) throw new Error("未选择工作区。");
+    if (!workspace) throw new Error(translate("runtime.workspaceRequired"));
     const path = resolveWorkspaceFsPath(workspace, inputPath);
-    if (!path) throw new Error("无效的文件路径。");
+    if (!path) throw new Error(translate("runtime.invalidFilePath"));
     if (!isWithinWorkspaceFsPath(workspace, path)) {
-      throw new Error("仅支持访问当前工作区内的文件。");
+      throw new Error(translate("runtime.fileOutsideWorkspace"));
     }
     return { workspace, path };
   };
@@ -577,7 +578,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   };
 
   // 统一重置右侧面板 store，避免状态残留。
-  const resetSidePanelStores = (statusText = "未连接服务") => {
+  const resetSidePanelStores = (statusText = translate("runtime.noService")) => {
     configStore.resetState(statusText);
     configRequirementsStore.resetState(statusText);
     skillsStore.resetState(statusText);
@@ -650,7 +651,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (!serverId) {
       runtimeStore.clearServer();
       appShellStore.setServerConnState("disconnected");
-      resetSidePanelStores("未连接服务");
+      resetSidePanelStores(translate("runtime.noService"));
       return "";
     }
     runtimeStore.setServer(serverId);
@@ -661,15 +662,14 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const warnExperimentalApiUnavailableOnce = (detail: string) => {
     if (warnedExperimentalApiUnavailable) return;
     warnedExperimentalApiUnavailable = true;
-    pushEvent(
-      "experimentalApi",
-      detail || "当前 Codex 服务未启用 experimentalApi，Plan 等能力将自动降级，建议升级 codex。",
-      { threadId: APP_TIMELINE_ID, level: "warn" }
-    );
+    pushEvent("experimentalApi", detail || translate("runtime.experimentalApiDowngradeDetail"), {
+      threadId: APP_TIMELINE_ID,
+      level: "warn",
+    });
     showToast({
       kind: "warn",
-      title: "experimentalApi 未启用",
-      message: detail || "当前 Codex 服务未启用 experimentalApi，Plan 等能力将自动降级；建议升级 codex。",
+      title: translate("runtime.experimentalApiDisabledTitle"),
+      message: detail || translate("runtime.experimentalApiDowngradeMessage"),
     });
   };
 
@@ -701,7 +701,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     requireActiveWorkspaceServerId,
     getWorkspacePath: () => String(runtimeStore.workspacePath ?? "").trim(),
     onBatchWriteUnavailable: () => {
-      pushEvent("config", "config/batchWrite 不可用，已降级为 config/value/write", {
+      pushEvent("config", translate("runtime.configBatchWriteFallback"), {
         threadId: APP_TIMELINE_ID,
         level: "warn",
       });
@@ -757,7 +757,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
       pushEvent("rollback:error", msg || "thread/rollback failed", { threadId: tid, level: "error" });
-      showToast({ kind: "error", title: "撤回失败", message: "thread/rollback 请求失败" });
+      showToast({ kind: "error", title: translate("runtime.rollbackFailedTitle"), message: "thread/rollback failed" });
       return false;
     }
   };
@@ -774,7 +774,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (!serverId) return false;
     try {
       await codexDesktop.codexServer.rpc({ serverId, method: "turn/interrupt", params: { threadId, turnId } });
-      if (!opts?.silentSuccess) pushEvent("interrupt", "已请求停止当前回合", { threadId });
+      if (!opts?.silentSuccess) pushEvent("interrupt", translate("runtime.interruptRequested"), { threadId });
       return true;
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
@@ -857,18 +857,30 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
 
     const tid = String(threadIdValue ?? "").trim();
     if (!tid) {
-      showToast({ kind: "info", title: "无法重写历史", message: "未选择会话。" });
+      showToast({
+        kind: "info",
+        title: translate("runtime.rewriteUnavailableTitle"),
+        message: translate("runtime.noThreadSelected"),
+      });
       return false;
     }
 
     const workspace = normalizeWorkspacePath(getWorkspaceForThread(tid) || runtimeStore.workspacePath);
     const serverId = getServerIdForThread(tid);
     if (!workspace) {
-      showToast({ kind: "error", title: "无法重写历史", message: "未选择工作区或工作区不可用。" });
+      showToast({
+        kind: "error",
+        title: translate("runtime.rewriteUnavailableTitle"),
+        message: translate("runtime.workspaceUnavailable"),
+      });
       return false;
     }
     if (!serverId) {
-      showToast({ kind: "error", title: "无法重写历史", message: "未连接服务或服务不可用。" });
+      showToast({
+        kind: "error",
+        title: translate("runtime.rewriteUnavailableTitle"),
+        message: translate("runtime.serviceUnavailable"),
+      });
       return false;
     }
 
@@ -877,21 +889,37 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (threadStore.runningThreadIds.has(tid)) {
       const activeTurnId = String(threadStore.activeTurnIdByThread.get(tid) ?? "").trim();
       if (!noVisibleOutputBelowAnchor || !activeTurnId || activeTurnId !== anchorTurnId) {
-        showToast({ kind: "warn", title: "线程运行中", message: "请等待当前回合完成后再发送编辑后的消息。" });
+        showToast({
+          kind: "warn",
+          title: translate("runtime.threadRunningTitle"),
+          message: translate("runtime.waitBeforeSendingEditedMessage"),
+        });
         return false;
       }
       const interrupted = await requestTurnInterrupt(tid, anchorTurnId, { silentSuccess: true });
       if (!interrupted) {
-        showToast({ kind: "error", title: "重写失败", message: "停止当前回合失败，请稍后重试。" });
+        showToast({
+          kind: "error",
+          title: translate("runtime.rewriteFailedTitle"),
+          message: translate("runtime.stopTurnFailed"),
+        });
         return false;
       }
       const stopped = await waitForHistoryRewriteRunningTurnToStop(tid, anchorTurnId);
       if (stopped === "timeout") {
-        showToast({ kind: "warn", title: "重写等待超时", message: "当前回合仍在运行，请稍后重试。" });
+        showToast({
+          kind: "warn",
+          title: translate("runtime.rewriteWaitTimeoutTitle"),
+          message: translate("runtime.turnStillRunningRetry"),
+        });
         return false;
       }
       if (threadStore.runningThreadIds.has(tid)) {
-        showToast({ kind: "warn", title: "线程运行中", message: "当前回合仍在运行，请稍后重试。" });
+        showToast({
+          kind: "warn",
+          title: translate("runtime.threadRunningTitle"),
+          message: translate("runtime.turnStillRunningRetry"),
+        });
         return false;
       }
       noVisibleOutputBelowAnchor = hasOutputBelowHistoryRewriteAnchor(tid, anchorTurnId) === false;
@@ -905,8 +933,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       }
       showToast({
         kind: "error",
-        title: "无法重写历史",
-        message: "找不到该消息对应的可撤回回合，请改用最新消息继续对话。",
+        title: translate("runtime.rewriteUnavailableTitle"),
+        message: translate("runtime.rewriteRollbackNotFound"),
       });
       return false;
     }
@@ -915,11 +943,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       let confirmed = false;
       try {
         confirmed = await confirmModalLazy({
-          title: "发送编辑后的历史消息？",
-          message: `会先撤回从该消息开始的 ${rollback.count} 个已完成回合，再发送编辑后的内容。`,
-          detail: "撤回会回退线程上下文，并尝试回退这些回合产生的文件内容改动（不回退命令副作用）。",
-          confirmText: "撤回并发送",
-          cancelText: "取消",
+          title: translate("runtime.sendEditedHistoryTitle"),
+          message: translate("runtime.sendEditedHistoryMessage", { count: rollback.count }),
+          detail: translate("runtime.rollbackDetail"),
+          confirmText: translate("runtime.rollbackAndSend"),
+          cancelText: translate("common.cancel"),
           danger: true,
         });
       } catch (e: any) {
@@ -927,8 +955,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         const isBusy = msg.includes("another modal is already open");
         showToast({
           kind: isBusy ? "warn" : "error",
-          title: "无法打开确认弹窗",
-          message: isBusy ? "当前已有弹窗打开，请先关闭后再重试。" : "打开弹窗失败",
+          title: translate("runtime.confirmModalOpenFailedTitle"),
+          message: isBusy ? translate("runtime.modalAlreadyOpen") : translate("runtime.modalOpenFailed"),
         });
         return false;
       }
@@ -941,8 +969,15 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         diffText: rollback.combinedDiff,
       });
       if (!dry.ok) {
-        pushEvent("rollback:error", `无法回退文件内容：${dry.error}`, { threadId: tid, level: "error" });
-        showToast({ kind: "error", title: "重写失败", message: "文件回退预检失败（工作区可能已手动修改）" });
+        pushEvent("rollback:error", translate("runtime.rollbackFilesFailed", { error: dry.error }), {
+          threadId: tid,
+          level: "error",
+        });
+        showToast({
+          kind: "error",
+          title: translate("runtime.rewriteFailedTitle"),
+          message: translate("runtime.fileRollbackPrecheckFailed"),
+        });
         return false;
       }
     }
@@ -961,11 +996,15 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         timelineStore.removeTurnEvents(tid, rollback.turnIds);
         threadStore.removeTurnsFromState(tid, rollback.turnIds);
         runtimeStore.endHistoryRewrite();
-        pushEvent("rollback:error", `上下文已撤回，但文件回退失败：${applied.error}`, {
+        pushEvent("rollback:error", translate("runtime.contextRolledBackFilesFailed", { error: applied.error }), {
           threadId: tid,
           level: "error",
         });
-        showToast({ kind: "error", title: "部分失败", message: "上下文已撤回，但文件回退失败；请手动检查工作区。" });
+        showToast({
+          kind: "error",
+          title: translate("runtime.partialFailureTitle"),
+          message: translate("runtime.contextRolledBackFilesFailedCheckWorkspace"),
+        });
         return false;
       }
       if (!noVisibleOutputBelowAnchor) {
@@ -982,8 +1021,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (!noVisibleOutputBelowAnchor) {
       showToast({
         kind: "success",
-        title: "历史已回退",
-        message: `已撤回 ${rollback.count} 个回合，正在发送编辑内容。`,
+        title: translate("runtime.historyRolledBackTitle"),
+        message: translate("runtime.historyRolledBackMessage", { count: rollback.count }),
       });
     }
     return true;
@@ -1348,7 +1387,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     } catch (sessionsErr: any) {
       if (!isReplayRequestSeqCurrent(threadIdValue, requestSeq)) return false;
       const sessionsMsg = sessionsErr?.message ? String(sessionsErr.message) : String(sessionsErr);
-      markReplayIncompatible(threadIdValue, `历史回放失败：sessions=${sessionsMsg}`);
+      markReplayIncompatible(threadIdValue, translate("runtime.historyReplayFailed", { message: sessionsMsg }));
       return false;
     }
   };
@@ -1399,7 +1438,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       .catch((sessionsErr: any) => {
         if (!isReplayRequestSeqCurrent(threadId, requestSeq)) return false;
         const sessionsMsg = sessionsErr?.message ? String(sessionsErr.message) : String(sessionsErr);
-        markReplayIncompatible(threadId, `历史回放失败：sessions=${sessionsMsg}`);
+        markReplayIncompatible(threadId, translate("runtime.historyReplayFailed", { message: sessionsMsg }));
         return false;
       })
       .finally(() => {
@@ -1553,12 +1592,12 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
 
   const refreshGlobalConfig = async () => {
     if (!getServerIdForWorkspace(runtimeStore.workspacePath)) {
-      configStore.resetState("未连接服务");
-      configRequirementsStore.resetState("未连接服务");
+      configStore.resetState(translate("runtime.noService"));
+      configRequirementsStore.resetState(translate("runtime.noService"));
       return;
     }
-    configStore.setLoadState("loading", "读取配置中…");
-    configRequirementsStore.setLoadState("loading", "读取 requirements 中…");
+    configStore.setLoadState("loading", translate("runtime.readingConfig"));
+    configRequirementsStore.setLoadState("loading", translate("runtime.readingRequirements"));
 
     const [configResult, requirementsResult] = await Promise.allSettled([
       requestConfigRead(),
@@ -1568,11 +1607,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (configResult.status === "fulfilled") {
       const draft = extractGlobalConfigFromReadResult(configResult.value);
       configStore.applySnapshot(draft);
-      configStore.setLoadState("ready", "已同步生效配置（config/read）");
+      configStore.setLoadState("ready", translate("runtime.configReadSynced"));
     } else {
       const error = configResult.reason;
       const msg = error?.message ? String(error.message) : String(error);
-      configStore.setLoadState("error", `读取失败：${msg}`);
+      configStore.setLoadState("error", translate("runtime.readFailedWithMessage", { message: msg }));
     }
 
     if (requirementsResult.status === "fulfilled") {
@@ -1580,7 +1619,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       configRequirementsStore.setRequirements(requirements);
       configRequirementsStore.setLoadState(
         "ready",
-        requirements ? "已同步服务端限制（configRequirements/read）" : "当前服务端未配置 requirements"
+        requirements ? translate("runtime.requirementsSynced") : translate("runtime.noRequirementsConfigured")
       );
       return;
     }
@@ -1590,10 +1629,13 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     const requirementsMsg = requirementsError?.message ? String(requirementsError.message) : String(requirementsError);
     configRequirementsStore.setRequirements(null);
     if (rpcErr?.code === -32601) {
-      configRequirementsStore.setLoadState("ready", "当前服务端未提供 configRequirements/read，已按无约束处理");
+      configRequirementsStore.setLoadState("ready", translate("runtime.requirementsUnsupported"));
       return;
     }
-    configRequirementsStore.setLoadState("error", `读取 requirements 失败：${requirementsMsg}；已按无约束处理`);
+    configRequirementsStore.setLoadState(
+      "error",
+      translate("runtime.requirementsReadFailed", { message: requirementsMsg })
+    );
   };
 
   const ensureGlobalConfigLoadedOnce = async () => {
@@ -1613,11 +1655,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     const draft = configStore.draft ?? createDefaultGlobalConfigDraft();
     const changes = buildConfigBatchChangesFromDraft(draft, baseline);
     if (changes.length === 0) {
-      configStore.setLoadState("ready", "已同步生效配置（config/read）");
+      configStore.setLoadState("ready", translate("runtime.configReadSynced"));
       return;
     }
     configStore.setSaving(true);
-    configStore.setLoadState("ready", "保存中…");
+    configStore.setLoadState("ready", translate("runtime.saving"));
     try {
       await requestConfigBatchWrite(changes);
       pushEvent("config", `saved ${changes.length} keys`, { threadId: APP_TIMELINE_ID });
@@ -1625,39 +1667,49 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       if (!silentSuccessToast) {
         showToast({
           kind: "success",
-          title: source === "auto" ? "全局配置已自动保存" : "全局配置已保存",
-          message: `已写入 ${changes.length} 项`,
+          title:
+            source === "auto" ? translate("runtime.globalConfigAutoSaved") : translate("runtime.globalConfigSaved"),
+          message: translate("runtime.configItemsWritten", { count: changes.length }),
         });
       }
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
-      configStore.setLoadState("error", `保存失败：${msg}`);
+      configStore.setLoadState("error", translate("runtime.saveFailedWithMessage", { message: msg }));
       pushEvent("config:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
       showToast({
         kind: "error",
-        title: source === "auto" ? "全局配置自动保存失败" : "全局配置保存失败",
+        title:
+          source === "auto"
+            ? translate("runtime.globalConfigAutoSaveFailed")
+            : translate("runtime.globalConfigSaveFailed"),
         message: msg,
       });
     } finally {
       configStore.setSaving(false);
       if (configStore.loadState !== "error") {
-        configStore.setLoadState("ready", configStore.isDirty ? "有未保存改动" : "已同步生效配置（config/read）");
+        configStore.setLoadState(
+          "ready",
+          configStore.isDirty ? translate("runtime.unsavedChanges") : translate("runtime.configReadSynced")
+        );
       }
     }
   };
 
   const resetGlobalConfig = () => {
     configStore.resetToSnapshot();
-    configStore.setLoadState("ready", configStore.isDirty ? "有未保存改动" : "已同步生效配置（config/read）");
+    configStore.setLoadState(
+      "ready",
+      configStore.isDirty ? translate("runtime.unsavedChanges") : translate("runtime.configReadSynced")
+    );
   };
 
   const buildCodexProfileConfigChanges = (profile: CodexProviderProfile) => {
     const providerId = String(profile.modelProviderId ?? "").trim();
-    if (!providerId) throw new Error("模型供应商 ID 不能为空。");
+    if (!providerId) throw new Error(translate("runtime.providerIdRequired"));
     const model = String(profile.model ?? "").trim();
-    if (!model) throw new Error("模型 ID 不能为空。");
+    if (!model) throw new Error(translate("runtime.modelIdRequired"));
     const baseUrl = String(profile.baseUrl ?? "").trim();
-    if (!baseUrl) throw new Error("Base URL 不能为空。");
+    if (!baseUrl) throw new Error(translate("runtime.baseUrlRequired"));
     return [
       { keyPath: "model_provider", value: providerId },
       { keyPath: "model", value: model },
@@ -1678,14 +1730,14 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
 
   const applyCodexProfile = async (profileId: string) => {
     const id = String(profileId ?? "").trim();
-    if (!id) throw new Error("缺少模型配置 ID。");
+    if (!id) throw new Error(translate("runtime.profileIdRequired"));
     if (codexProfilesStore.loadState === "idle") {
       await codexProfilesStore.refresh();
     }
     const profile = codexProfilesStore.profiles.find((item) => item.id === id);
-    if (!profile) throw new Error("找不到该模型配置。");
+    if (!profile) throw new Error(translate("runtime.profileNotFound"));
     const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
-    if (!getServerIdForWorkspace(workspace)) throw new Error("未连接服务，无法应用 Codex 配置。");
+    if (!getServerIdForWorkspace(workspace)) throw new Error(translate("runtime.noServiceCannotApplyCodexConfig"));
 
     codexProfilesStore.applyingProfileId = id;
     try {
@@ -1714,13 +1766,13 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       );
       showToast({
         kind: "success",
-        title: "模型配置已切换",
+        title: translate("runtime.profileSwitchedTitle"),
         message: `${profile.name} · ${profile.model}`,
       });
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
       pushEvent("codex:profile:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
-      showToast({ kind: "error", title: "模型配置切换失败", message: msg });
+      showToast({ kind: "error", title: translate("runtime.profileSwitchFailedTitle"), message: msg });
       throw e;
     } finally {
       codexProfilesStore.applyingProfileId = "";
@@ -1745,7 +1797,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   // 统一外链打开入口。
   const openExternalUrl = async (url: string) => {
     const value = normalizeExternalUrlForOpen(url);
-    if (!value) throw new Error("仅支持 http/https/mailto 外链。");
+    if (!value) throw new Error(translate("runtime.externalUrlUnsupported"));
     await codexDesktop.app.openExternal({ url: value });
   };
 
@@ -1763,11 +1815,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const refreshSkills = async (forceReload = false) => {
     const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
     if (!getServerIdForWorkspace(workspace)) {
-      skillsStore.resetState("未连接服务");
+      skillsStore.resetState(translate("runtime.noService"));
       return;
     }
     if (!workspace) {
-      skillsStore.resetState("未选择工作区");
+      skillsStore.resetState(translate("runtime.noWorkspaceSelected"));
       return;
     }
     const hasVisibleData = skillsStore.loadState === "ready" && skillsStore.items.length > 0;
@@ -1823,16 +1875,16 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
       pushEvent("skills:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
-      showToast({ kind: "error", title: "技能配置失败", message: msg });
+      showToast({ kind: "error", title: translate("runtime.skillConfigFailedTitle"), message: msg });
       throw e;
     }
   };
 
   const addSkillRoot = async (root: string) => {
     const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
-    if (!workspace) throw new Error("未选择工作区。");
+    if (!workspace) throw new Error(translate("runtime.workspaceRequired"));
     const normalizedRoot = String(root ?? "").trim();
-    if (!normalizedRoot) throw new Error("技能目录不能为空。");
+    if (!normalizedRoot) throw new Error(translate("runtime.skillRootRequired"));
     try {
       await codexSkillRootsStore.addRootForWorkspace(workspace, normalizedRoot);
       invalidateSkillsSnapshot(workspace);
@@ -1841,14 +1893,14 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
       pushEvent("skills:roots:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
-      showToast({ kind: "error", title: "技能目录添加失败", message: msg });
+      showToast({ kind: "error", title: translate("runtime.skillRootAddFailedTitle"), message: msg });
       throw e;
     }
   };
 
   const removeSkillRoot = async (root: string) => {
     const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
-    if (!workspace) throw new Error("未选择工作区。");
+    if (!workspace) throw new Error(translate("runtime.workspaceRequired"));
     const normalizedRoot = String(root ?? "").trim();
     if (!normalizedRoot) return;
     try {
@@ -1859,7 +1911,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
       pushEvent("skills:roots:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
-      showToast({ kind: "error", title: "技能目录移除失败", message: msg });
+      showToast({ kind: "error", title: translate("runtime.skillRootRemoveFailedTitle"), message: msg });
       throw e;
     }
   };
@@ -1876,9 +1928,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const assertNoCcswitchManagedCodexConfig = () => {
     if (!codexConfigSwitcherStore.ccswitch.detected) return;
     const reason = codexConfigSwitcherStore.ccswitch.reasons.join(", ") || "detected";
-    throw new Error(
-      `检测到 ccswitch（${reason}），已禁用 CodeNexus 全局配置切换器写入，避免覆盖 ~/.codex/config.toml。`
-    );
+    throw new Error(translate("runtime.ccswitchDetected", { reason }));
   };
 
   const writeCodexConfigSwitcherState = async (state: CodexConfigSwitcherState) => {
@@ -1927,7 +1977,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       await requestReloadMcpConfig();
       invalidateMcpSnapshot(runtimeStore.workspacePath);
       await refreshMcp();
-      showToast({ kind: "success", title: "Codex 配置已切换", message: profile.name });
+      showToast({ kind: "success", title: translate("runtime.codexConfigSwitchedTitle"), message: profile.name });
     } catch (error) {
       await codexDesktop.app
         .restoreCodexConfigSwitcherBackup({ backupId: activation.backup.id })
@@ -1938,7 +1988,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
 
   const getRequiredActiveSwitcherProfile = (): CodexConfigSwitcherProfile => {
     const profile = getActiveCodexConfigSwitcherProfile(codexConfigSwitcherStore.state);
-    if (!profile) throw new Error("请先导入当前 Codex 配置，创建受管配置集。");
+    if (!profile) throw new Error(translate("runtime.importCodexConfigFirst"));
     return profile;
   };
 
@@ -1958,7 +2008,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       await syncSwitcherProfileToCodex(profile);
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
-      showToast({ kind: "error", title: "Codex 配置导入失败", message: msg });
+      showToast({ kind: "error", title: translate("runtime.codexConfigImportFailedTitle"), message: msg });
       throw e;
     }
   };
@@ -1967,12 +2017,12 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     assertNoCcswitchManagedCodexConfig();
     const profile =
       codexConfigSwitcherStore.state.profiles.find((item) => item.id === String(profileId ?? "").trim()) ?? null;
-    if (!profile) throw new Error("配置集不存在。");
+    if (!profile) throw new Error(translate("runtime.configProfileNotFound"));
     try {
       await syncSwitcherProfileToCodex(profile);
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
-      showToast({ kind: "error", title: "Codex 配置切换失败", message: msg });
+      showToast({ kind: "error", title: translate("runtime.codexConfigSwitchFailedTitle"), message: msg });
       throw e;
     }
   };
@@ -2013,13 +2063,13 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const refreshMcp = async () => {
     const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
     if (!getServerIdForWorkspace(workspace)) {
-      mcpStore.resetState("未连接服务");
+      mcpStore.resetState(translate("runtime.noService"));
       return;
     }
     const hasVisibleData = mcpStore.loadState === "ready" && mcpStore.servers.length > 0;
     if (!hasVisibleData) {
       mcpStore.setLoadState("loading");
-      mcpStore.setStatusText("加载中…");
+      mcpStore.setStatusText(translate("runtime.loading"));
     }
     try {
       // 合并配置层与状态层两路数据，得到完整 MCP 展示模型。
@@ -2066,7 +2116,10 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       merged.sort((a, b) => a.id.localeCompare(b.id));
       mcpStore.setServers(merged);
       mcpStore.setLoadState("ready");
-      const statusText = merged.length === 0 ? "暂无 MCP 配置" : `共 ${merged.length} 个 MCP 服务器`;
+      const statusText =
+        merged.length === 0
+          ? translate("integrations.noMcpConfig")
+          : translate("runtime.mcpServerCount", { count: merged.length });
       mcpStore.setStatusText(statusText);
       saveMcpSnapshot(workspace, {
         servers: merged,
@@ -2078,7 +2131,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         mcpStore.setLoadState("ready");
       } else {
         mcpStore.setLoadState("error", msg);
-        mcpStore.setStatusText("加载失败");
+        mcpStore.setStatusText(translate("runtime.loadFailed"));
       }
     }
   };
@@ -2112,7 +2165,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     const current = mcpStore.servers;
     const next = current.map((server) => {
       if (server.id !== name) return server;
-      if (status === "starting") return { ...server, state: "connecting" as const, message: "启动中…" };
+      if (status === "starting")
+        return { ...server, state: "connecting" as const, message: translate("runtime.starting") };
       if (status === "ready") return { ...server, state: "connected" as const, message: undefined };
       if (status === "failed") return { ...server, state: "error" as const, message: error || "failed" };
       if (status === "cancelled") return { ...server, state: "error" as const, message: error || "cancelled" };
@@ -2133,7 +2187,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
                 : "unknown",
         message:
           status === "starting"
-            ? "启动中…"
+            ? translate("runtime.starting")
             : status === "failed"
               ? error || "failed"
               : status === "cancelled"
@@ -2148,7 +2202,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
 
     mcpStore.setServers(next);
     mcpStore.setLoadState("ready");
-    mcpStore.setStatusText(next.length === 0 ? "暂无 MCP 配置" : `共 ${next.length} 个 MCP 服务器`);
+    mcpStore.setStatusText(
+      next.length === 0
+        ? translate("integrations.noMcpConfig")
+        : translate("runtime.mcpServerCount", { count: next.length })
+    );
 
     if (status === "failed" || status === "cancelled") {
       const toastKey = `${workspace}:${name}:${status}:${error}`;
@@ -2156,7 +2214,10 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         mcpStartupFailureToastKeys.add(toastKey);
         showToast({
           kind: "error",
-          title: status === "failed" ? "MCP 启动失败" : "MCP 启动已取消",
+          title:
+            status === "failed"
+              ? translate("runtime.mcpStartupFailedTitle")
+              : translate("runtime.mcpStartupCanceledTitle"),
           message: error ? `${name}：${error}` : name,
         });
       }
@@ -2169,12 +2230,12 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     try {
       await requestReloadMcpConfig();
       invalidateMcpSnapshot(workspace);
-      pushEvent("mcp", "配置已重载", { threadId: APP_TIMELINE_ID });
+      pushEvent("mcp", translate("runtime.configReloaded"), { threadId: APP_TIMELINE_ID });
       await refreshMcp();
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
       pushEvent("mcp:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
-      showToast({ kind: "error", title: "MCP 重载失败", message: msg });
+      showToast({ kind: "error", title: translate("runtime.mcpReloadFailedTitle"), message: msg });
       throw e;
     }
   };
@@ -2186,7 +2247,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       const id = String(serverKey ?? "").trim();
       const profile = getRequiredActiveSwitcherProfile();
       const current = profile.mcpServers[id];
-      if (!current) throw new Error(`受管配置集中没有 MCP：${id}`);
+      if (!current) throw new Error(translate("runtime.managedMcpNotFound", { id }));
       const nextProfile: CodexConfigSwitcherProfile = {
         ...profile,
         mcpServers: {
@@ -2208,16 +2269,16 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
       pushEvent("mcp:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
-      showToast({ kind: "error", title: "MCP 配置失败", message: msg });
+      showToast({ kind: "error", title: translate("runtime.mcpConfigFailedTitle"), message: msg });
       throw e;
     }
   };
 
   const deleteMcpServer = async (serverId: string) => {
     const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
-    if (!getServerIdForWorkspace(workspace)) throw new Error("未连接服务，无法写入 MCP 配置。");
+    if (!getServerIdForWorkspace(workspace)) throw new Error(translate("runtime.noServiceCannotWriteMcpConfig"));
     const id = String(serverId ?? "").trim();
-    if (!id) throw new Error("缺少 MCP ID。");
+    if (!id) throw new Error(translate("runtime.mcpIdRequired"));
     try {
       const profile = getRequiredActiveSwitcherProfile();
       const nextMcpServers = { ...profile.mcpServers };
@@ -2237,18 +2298,18 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       invalidateMcpSnapshot(workspace);
       pushEvent("mcp", `deleted\n${id}`, { threadId: APP_TIMELINE_ID });
       await refreshMcp();
-      showToast({ kind: "success", title: "MCP 已删除", message: id });
+      showToast({ kind: "success", title: translate("runtime.mcpDeletedTitle"), message: id });
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
       pushEvent("mcp:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
-      showToast({ kind: "error", title: "MCP 删除失败", message: msg });
+      showToast({ kind: "error", title: translate("runtime.mcpDeleteFailedTitle"), message: msg });
       throw e;
     }
   };
 
   const importMcpServersFromJson = async (text: string): Promise<{ imported: number; errors: string[] }> => {
     const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
-    if (!getServerIdForWorkspace(workspace)) throw new Error("未连接服务，无法写入 MCP 配置。");
+    if (!getServerIdForWorkspace(workspace)) throw new Error(translate("runtime.noServiceCannotWriteMcpConfig"));
     const parsed = parseCodexMcpJsonImport(text);
     if (parsed.servers.length === 0) return { imported: 0, errors: parsed.errors };
     try {
@@ -2258,12 +2319,16 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       invalidateMcpSnapshot(workspace);
       pushEvent("mcp", `imported ${parsed.servers.length} servers`, { threadId: APP_TIMELINE_ID });
       await refreshMcp();
-      showToast({ kind: "success", title: "MCP JSON 已导入", message: `已导入 ${parsed.servers.length} 个服务器` });
+      showToast({
+        kind: "success",
+        title: translate("runtime.mcpJsonImportedTitle"),
+        message: translate("runtime.mcpServersImported", { count: parsed.servers.length }),
+      });
       return { imported: parsed.servers.length, errors: parsed.errors };
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
       pushEvent("mcp:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
-      showToast({ kind: "error", title: "MCP JSON 导入失败", message: msg });
+      showToast({ kind: "error", title: translate("runtime.mcpJsonImportFailedTitle"), message: msg });
       throw e;
     }
   };
@@ -2274,11 +2339,15 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       const url = await requestStartMcpOAuthLogin(serverKey);
       await openExternalUrl(url);
       pushEvent("mcp", `oauth login started\nid=${serverKey}\nurl=${url}`, { threadId: APP_TIMELINE_ID });
-      showToast({ kind: "success", title: "已打开浏览器", message: `MCP OAuth：${serverKey}` });
+      showToast({
+        kind: "success",
+        title: translate("runtime.browserOpenedTitle"),
+        message: translate("runtime.mcpOauthStarted", { server: serverKey }),
+      });
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
       pushEvent("mcp:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
-      showToast({ kind: "error", title: "MCP OAuth 失败", message: msg });
+      showToast({ kind: "error", title: translate("runtime.mcpOauthFailedTitle"), message: msg });
       throw e;
     }
   };
@@ -2358,9 +2427,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         appShellStore.setServerConnState("connected");
       }
       if (requestedExperimentalApi && !experimentalApi) {
-        warnExperimentalApiUnavailableOnce(
-          "当前 Codex 服务未启用 experimentalApi，Plan 等能力将自动降级，建议升级 codex。"
-        );
+        warnExperimentalApiUnavailableOnce(translate("runtime.experimentalApiDowngradeDetail"));
       }
       pushEvent(
         "server",
@@ -2382,7 +2449,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         appShellStore.setServerConnState("failed", msg);
       }
       pushEvent("server:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
-      showToast({ kind: "error", title: "服务启动失败", message: msg });
+      showToast({ kind: "error", title: translate("runtime.serverStartFailedTitle"), message: msg });
       return "";
     }
   };
@@ -2390,7 +2457,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const startServer = async () => {
     const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
     if (!workspace) {
-      showToast({ kind: "warn", title: "未选择工作区", message: "请先选择工作区后再启动服务。" });
+      showToast({
+        kind: "warn",
+        title: translate("runtime.noWorkspaceSelected"),
+        message: translate("runtime.selectWorkspaceBeforeStartingServer"),
+      });
       return false;
     }
     const serverId = await ensureServerForWorkspace(workspace);
@@ -2421,7 +2492,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (cwd) return true;
     const selected = await codexDesktop.workspace.select();
     if (!selected) {
-      showToast({ kind: "info", title: "已取消发送", message: "已取消选择工作区，消息未发送。" });
+      showToast({
+        kind: "info",
+        title: translate("runtime.sendCanceledTitle"),
+        message: translate("runtime.workspaceSelectionCanceledMessage"),
+      });
       return false;
     }
     return await applyWorkspaceSelection(selected);
@@ -2530,7 +2605,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       ...(oldLocalThread ?? {}),
       id: newThreadId,
       title: nextTitle,
-      meta: String(existing?.meta ?? oldLocalThread?.meta ?? workspace).trim() || "无工作区",
+      meta: String(existing?.meta ?? oldLocalThread?.meta ?? workspace).trim() || translate("runtime.noWorkspace"),
       cwd: workspace || undefined,
       createdAt: oldLocalThread?.createdAt ?? now,
       updatedAt: now,
@@ -2621,7 +2696,10 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         });
         return { ok: true, threadId: nextThreadId };
       } catch (error) {
-        return { ok: false, error: readErrorMessage(error) || "无法创建已禁用官方图片生成的会话" };
+        return {
+          ok: false,
+          error: readErrorMessage(error) || translate("runtime.createImageGenerationDisabledThreadFailed"),
+        };
       }
     }
 
@@ -2636,7 +2714,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
 
     return {
       ok: false,
-      error: "当前会话无法关闭官方 image_generation；请新建会话后再发送。",
+      error: translate("runtime.cannotDisableOfficialImageGenerationForThread"),
     };
   };
 
@@ -2713,17 +2791,30 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   };
 
   const checkEnvironment = async () => {
-    showToast({ kind: "info", title: "检查环境", message: "正在检测 codex/node/npm..." });
+    showToast({
+      kind: "info",
+      title: translate("runtime.checkEnvironmentTitle"),
+      message: translate("runtime.checkingCodexNodeNpm"),
+    });
 
     try {
       const res = await codexDesktop.codexServer.getDiagnostics();
       const ready = Boolean(res.codex.ok) && Boolean(res.node.ok) && Boolean(res.npm.ok);
       const details = [
-        `codex：${res.codex.ok ? "正常" : "缺失"}`,
+        translate("runtime.diagnosticLine", {
+          name: "codex",
+          status: res.codex.ok ? translate("runtime.diagnosticOk") : translate("runtime.diagnosticMissing"),
+        }),
         String(res.codex.details ?? "").trim(),
-        `node：${res.node.ok ? "正常" : "缺失"}`,
+        translate("runtime.diagnosticLine", {
+          name: "node",
+          status: res.node.ok ? translate("runtime.diagnosticOk") : translate("runtime.diagnosticMissing"),
+        }),
         String(res.node.details ?? "").trim(),
-        `npm：${res.npm.ok ? "正常" : "缺失"}`,
+        translate("runtime.diagnosticLine", {
+          name: "npm",
+          status: res.npm.ok ? translate("runtime.diagnosticOk") : translate("runtime.diagnosticMissing"),
+        }),
         String(res.npm.details ?? "").trim(),
       ]
         .filter(Boolean)
@@ -2735,15 +2826,23 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       });
 
       if (ready) {
-        showToast({ kind: "success", title: "环境正常", message: "codex/node/npm 已就绪" });
+        showToast({
+          kind: "success",
+          title: translate("runtime.environmentReadyTitle"),
+          message: translate("runtime.codexNodeNpmReady"),
+        });
         return;
       }
 
       appShellStore.openSettings("env");
-      showToast({ kind: "warn", title: "环境未就绪", message: "请按“环境检测”中的指引手动安装所需环境。" });
+      showToast({
+        kind: "warn",
+        title: translate("runtime.environmentNotReadyTitle"),
+        message: translate("runtime.environmentInstallHint"),
+      });
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
-      showToast({ kind: "error", title: "检查失败", message: msg });
+      showToast({ kind: "error", title: translate("runtime.checkFailedTitle"), message: msg });
       pushEvent("env:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
     }
   };
@@ -2802,8 +2901,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     const optimisticCreatedAt = Date.now();
     const optimisticLocalThread: LocalThreadItem = {
       id: optimisticThreadId,
-      title: "创建中",
-      meta: workspaceBeforeStart || "无工作区",
+      title: translate("runtime.creating"),
+      meta: workspaceBeforeStart || translate("runtime.noWorkspace"),
       cwd: workspaceBeforeStart || undefined,
       createdAt: optimisticCreatedAt,
       updatedAt: optimisticCreatedAt,
@@ -2844,7 +2943,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
             runtimeStore.composeFileMentions = draft.composeFileMentions;
             runtimeStore.saveThreadComposeAttachments(runtimeStore.currentThreadId);
             runtimeStore.saveThreadComposeFileMentions(runtimeStore.currentThreadId);
-            showToast({ kind: "warn", title: "线程创建失败", message: "已恢复待发送内容，请重试发送。" });
+            showToast({
+              kind: "warn",
+              title: translate("runtime.threadCreateFailedTitle"),
+              message: translate("runtime.pendingContentRestored"),
+            });
           } catch {}
         }
       }
@@ -2875,7 +2978,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
             runtimeStore.composeFileMentions = draft.composeFileMentions;
             runtimeStore.saveThreadComposeAttachments(runtimeStore.currentThreadId);
             runtimeStore.saveThreadComposeFileMentions(runtimeStore.currentThreadId);
-            showToast({ kind: "warn", title: "线程创建失败", message: "已恢复待发送内容，请重试发送。" });
+            showToast({
+              kind: "warn",
+              title: translate("runtime.threadCreateFailedTitle"),
+              message: translate("runtime.pendingContentRestored"),
+            });
           } catch {}
         }
       }
@@ -2926,7 +3033,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       const finalizedLocalThread: LocalThreadItem = {
         id,
         title: `Thread ${id.slice(-8)}`,
-        meta: workspace || "无工作区",
+        meta: workspace || translate("runtime.noWorkspace"),
         cwd: workspace || undefined,
         createdAt: optimisticCreatedAt,
         updatedAt: Date.now(),
@@ -2939,7 +3046,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       resumedThreadIds.add(id);
       setThreadWorkspace(id, workspace);
       clearThreadWorkspace(optimisticThreadId);
-      pushEvent("thread", "会话已创建", { threadId: id });
+      pushEvent("thread", translate("runtime.threadCreated"), { threadId: id });
       appendDebugLog("thread.create", "local state applied", {
         attemptId,
         threadId: id,
@@ -2975,7 +3082,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
             runtimeStore.composeFileMentions = draft.composeFileMentions;
             runtimeStore.saveThreadComposeAttachments(runtimeStore.currentThreadId);
             runtimeStore.saveThreadComposeFileMentions(runtimeStore.currentThreadId);
-            showToast({ kind: "warn", title: "线程创建失败", message: "已恢复待发送内容，请重试发送。" });
+            showToast({
+              kind: "warn",
+              title: translate("runtime.threadCreateFailedTitle"),
+              message: translate("runtime.pendingContentRestored"),
+            });
           } catch {}
         }
       }
@@ -3082,17 +3193,17 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (!hasHistoryThread && threadStore.hasLocalThread(id)) {
       invalidateThreadContentCache(threadContentCacheByKey, id);
       clearThreadRuntimeState(id);
-      pushEvent("history", "已移除本地会话", { threadId: APP_TIMELINE_ID });
+      pushEvent("history", translate("runtime.localSessionRemoved"), { threadId: APP_TIMELINE_ID });
       return;
     }
     try {
       await codexDesktop.history.deleteThread({ threadId: id });
       invalidateThreadContentCache(threadContentCacheByKey, id);
       clearThreadRuntimeState(id);
-      pushEvent("history", "已删除会话", { threadId: APP_TIMELINE_ID });
+      pushEvent("history", translate("runtime.sessionDeleted"), { threadId: APP_TIMELINE_ID });
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
-      showToast({ kind: "error", title: "删除失败", message: msg });
+      showToast({ kind: "error", title: translate("runtime.deleteFailedTitle"), message: msg });
       pushEvent("history:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
     }
   };
@@ -3112,7 +3223,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     const serverId = getServerIdForThread(threadId);
     if (!serverId) return false;
     if (!turnIdValue) {
-      pushEvent("steer:error", "缺少 active turnId，无法执行 turn/steer", { threadId, level: "error" });
+      pushEvent("steer:error", translate("runtime.missingActiveTurnForSteer"), { threadId, level: "error" });
       return false;
     }
     const params = {
@@ -3209,13 +3320,21 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
 
     const workspaceReady = await ensureWorkspaceForSend();
     if (!workspaceReady) {
-      showToast({ kind: "error", title: "无法发送", message: "未选择工作区或工作区不可用。" });
+      showToast({
+        kind: "error",
+        title: translate("runtime.cannotSendTitle"),
+        message: translate("runtime.workspaceUnavailable"),
+      });
       return false;
     }
     const activeWorkspace = normalizeWorkspacePath(runtimeStore.workspacePath);
     const activeServerId = await ensureServerForWorkspace(activeWorkspace);
     if (!activeServerId) {
-      showToast({ kind: "error", title: "无法发送", message: "未连接服务或服务不可用。" });
+      showToast({
+        kind: "error",
+        title: translate("runtime.cannotSendTitle"),
+        message: translate("runtime.serviceUnavailable"),
+      });
       return false;
     }
     if (!runtimeStore.currentThreadId) {
@@ -3223,7 +3342,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     }
     let threadId = String(runtimeStore.currentThreadId ?? "").trim();
     if (!threadId) {
-      showToast({ kind: "error", title: "无法发送", message: "会话尚未就绪，请稍后重试。" });
+      showToast({
+        kind: "error",
+        title: translate("runtime.cannotSendTitle"),
+        message: translate("runtime.threadNotReadyRetry"),
+      });
       return false;
     }
     if (isPendingThreadId(threadId)) {
@@ -3265,7 +3388,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     let threadWorkspace = normalizeWorkspacePath(getWorkspaceForThread(threadId) || runtimeStore.workspacePath);
     let threadServerId = await ensureServerForWorkspace(threadWorkspace);
     if (!threadServerId) {
-      showToast({ kind: "error", title: "无法发送", message: "当前会话对应的服务不可用。" });
+      showToast({
+        kind: "error",
+        title: translate("runtime.cannotSendTitle"),
+        message: translate("runtime.threadServiceUnavailable"),
+      });
       return false;
     }
     setThreadWorkspace(threadId, threadWorkspace);
@@ -3277,7 +3404,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       model: requestedModel,
     });
     if (!compatibility.ok) {
-      showToast({ kind: "warn", title: "会话需要新建", message: compatibility.error });
+      showToast({ kind: "warn", title: translate("runtime.threadMustBeRecreatedTitle"), message: compatibility.error });
       pushEvent("turn:error", compatibility.error, { threadId, level: "error" });
       return false;
     }
@@ -3286,7 +3413,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       threadWorkspace = normalizeWorkspacePath(getWorkspaceForThread(threadId) || threadWorkspace);
       threadServerId = await ensureServerForWorkspace(threadWorkspace);
       if (!threadServerId) {
-        showToast({ kind: "error", title: "无法发送", message: "当前会话对应的服务不可用。" });
+        showToast({
+          kind: "error",
+          title: translate("runtime.cannotSendTitle"),
+          message: translate("runtime.threadServiceUnavailable"),
+        });
         return false;
       }
       setThreadWorkspace(threadId, threadWorkspace);
@@ -3299,15 +3430,15 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       const titleSeedText =
         visibleText ||
         (composeFileMentions.length > 0
-          ? `文件 ${composeFileMentions.length} 个`
-          : `图片 ${composeAttachments.length} 张`);
+          ? translate("runtime.fileCount", { count: composeFileMentions.length })
+          : translate("runtime.imageCount", { count: composeAttachments.length }));
       if (!currentTitle || currentTitle === placeholder) {
         if (!isBootstrapThreadTitleSource(titleSeedText)) {
           const nextTitle = titleFromFirstUserMessage(titleSeedText) || placeholder;
           const titlePatch = {
             id: threadId,
             title: nextTitle,
-            meta: String(existing?.meta ?? threadWorkspace ?? "").trim() || "无工作区",
+            meta: String(existing?.meta ?? threadWorkspace ?? "").trim() || translate("runtime.noWorkspace"),
             cwd: String(existing?.cwd ?? threadWorkspace ?? "").trim() || undefined,
             modelProvider: String(existing?.modelProvider ?? "").trim() || undefined,
             updatedAt: Date.now(),
@@ -3334,7 +3465,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (!rewroteHistoryBeforeSend) {
       const resumed = await ensureThreadResumed(threadId);
       if (!resumed) {
-        showToast({ kind: "error", title: "无法发送", message: "会话未就绪（resume 失败）。" });
+        showToast({
+          kind: "error",
+          title: translate("runtime.cannotSendTitle"),
+          message: translate("runtime.threadResumeFailed"),
+        });
         return false;
       }
     }
@@ -3438,8 +3573,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (text) return text;
     const inputs = Array.isArray(message.inputs) ? message.inputs : [];
     const imageCount = inputs.filter((item) => item?.type === "image" || item?.type === "localImage").length;
-    if (imageCount > 0) return `图片 ${imageCount} 张`;
-    return "（空消息）";
+    if (imageCount > 0) return translate("runtime.imageCount", { count: imageCount });
+    return translate("runtime.emptyMessage");
   };
 
   const flushQueueForThread = async (threadIdValue: string) => {
@@ -3569,7 +3704,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const sendHistoryRewriteDraft: RuntimeOrchestrator["sendHistoryRewriteDraft"] = async (draft) => {
     const anchorTurnId = String(draft?.anchorTurnId ?? "").trim();
     if (!anchorTurnId) {
-      showToast({ kind: "error", title: "无法重写历史", message: "找不到该消息对应的回合。" });
+      showToast({
+        kind: "error",
+        title: translate("runtime.rewriteUnavailableTitle"),
+        message: translate("runtime.rewriteTurnNotFound"),
+      });
       return false;
     }
     return await sendOrQueueDraft("auto", {
@@ -3606,7 +3745,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     const prefillText = draft.composeInput || textValue;
     const mentions = draft.composeFileMentions;
     if (!hasMeaningfulComposeText(prefillText) && attachments.length === 0 && mentions.length === 0) {
-      showToast({ kind: "warn", title: "无法编辑排队消息", message: "该排队消息没有可回填的内容。" });
+      showToast({
+        kind: "warn",
+        title: translate("runtime.cannotEditQueuedMessageTitle"),
+        message: translate("runtime.queuedMessageNoEditableContent"),
+      });
       return;
     }
 
@@ -3620,13 +3763,18 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     });
 
     if (failedLocalPaths.length > 0) {
-      const names = failedLocalPaths.slice(0, 2).map((item) => fileNameFromPathLike(item, "图片"));
-      const summary = names.join("、");
-      const suffix = failedLocalPaths.length > 2 ? ` 等 ${failedLocalPaths.length} 张图片` : "";
+      const names = failedLocalPaths
+        .slice(0, 2)
+        .map((item) => fileNameFromPathLike(item, translate("runtime.imageFallbackName")));
+      const summary = names.join(translate("runtime.listSeparator"));
+      const suffix =
+        failedLocalPaths.length > 2 ? translate("runtime.moreImagesSuffix", { count: failedLocalPaths.length }) : "";
       showToast({
         kind: "warn",
-        title: "部分图片未恢复",
-        message: summary ? `${summary}${suffix} 未能回填，请重新添加。` : "部分本地图片未能回填，请重新添加。",
+        title: translate("runtime.someImagesNotRestoredTitle"),
+        message: summary
+          ? translate("runtime.namedImagesNotRestored", { summary: `${summary}${suffix}` })
+          : translate("runtime.someImagesNotRestoredMessage"),
       });
     }
   };
@@ -3723,7 +3871,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       if (!turnIdValue) {
         messageQueueStore.markStatus(threadId, msg.id, "queued");
         patchLocalEvent({ localState: "queued", level: "warn" });
-        pushEvent("steer:error", "缺少 active turnId，无法立即发送排队消息", { threadId, level: "error" });
+        pushEvent("steer:error", translate("runtime.missingActiveTurnForQueuedSteer"), { threadId, level: "error" });
         return;
       }
       const ok = await requestTurnSteer(threadId, queueInput, turnIdValue);
@@ -3756,7 +3904,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (!threadId) return;
     const turnIdValue = String(threadStore.activeTurnIdByThread.get(threadId) ?? "").trim();
     if (!turnIdValue) {
-      pushEvent("interrupt:error", "缺少 active turnId，无法执行 turn/interrupt", { threadId, level: "error" });
+      pushEvent("interrupt:error", translate("runtime.missingActiveTurnForInterrupt"), { threadId, level: "error" });
       return;
     }
     await requestTurnInterrupt(threadId, turnIdValue);
@@ -3783,8 +3931,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (!serverId) {
       showToast({
         kind: "warn",
-        title: "\u65e0\u6cd5\u91cd\u7f6e\u8bb0\u5fc6",
-        message: "\u5f53\u524d\u672a\u8fde\u63a5 Codex \u670d\u52a1\u3002",
+        title: translate("runtime.cannotResetMemoryTitle"),
+        message: translate("runtime.currentlyNoCodexService"),
       });
       return;
     }
@@ -3792,16 +3940,16 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       await codexDesktop.codexServer.rpc({ serverId, method: "memory/reset" });
       showToast({
         kind: "success",
-        title: "\u8bb0\u5fc6\u5df2\u91cd\u7f6e",
-        message: "Codex \u8bb0\u5fc6\u5df2\u6e05\u7a7a\u3002",
+        title: translate("runtime.memoryResetTitle"),
+        message: translate("runtime.memoryResetMessage"),
       });
       pushEvent("memory/reset", "Codex memory reset", { threadId: runtimeStore.currentThreadId || APP_TIMELINE_ID });
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
       showToast({
         kind: "error",
-        title: "\u91cd\u7f6e\u8bb0\u5fc6\u5931\u8d25",
-        message: msg || "memory/reset \u8bf7\u6c42\u5931\u8d25",
+        title: translate("runtime.memoryResetFailedTitle"),
+        message: msg || "memory/reset failed",
       });
       pushEvent("memory/reset:error", msg || "memory/reset failed", {
         threadId: runtimeStore.currentThreadId || APP_TIMELINE_ID,
@@ -3815,8 +3963,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (!threadId) {
       showToast({
         kind: "warn",
-        title: "\u65e0\u6cd5\u8bbe\u7f6e\u8bb0\u5fc6",
-        message: "\u8bf7\u5148\u9009\u62e9\u4e00\u4e2a\u7ebf\u7a0b\u3002",
+        title: translate("runtime.cannotSetMemoryTitle"),
+        message: translate("runtime.selectThreadFirst"),
       });
       return;
     }
@@ -3824,8 +3972,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (!serverId) {
       showToast({
         kind: "warn",
-        title: "\u65e0\u6cd5\u8bbe\u7f6e\u8bb0\u5fc6",
-        message: "\u5f53\u524d\u7ebf\u7a0b\u672a\u8fde\u63a5 Codex \u670d\u52a1\u3002",
+        title: translate("runtime.cannotSetMemoryTitle"),
+        message: translate("runtime.currentThreadNoService"),
       });
       return;
     }
@@ -3834,18 +3982,18 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       const enabled = mode === "enabled";
       showToast({
         kind: "success",
-        title: enabled ? "\u7ebf\u7a0b\u8bb0\u5fc6\u5df2\u542f\u7528" : "\u7ebf\u7a0b\u8bb0\u5fc6\u5df2\u5173\u95ed",
+        title: enabled ? translate("runtime.threadMemoryEnabledTitle") : translate("runtime.threadMemoryDisabledTitle"),
         message: enabled
-          ? "\u5f53\u524d\u7ebf\u7a0b\u4f1a\u4f7f\u7528 Codex \u8bb0\u5fc6\u3002"
-          : "\u5f53\u524d\u7ebf\u7a0b\u4e0d\u4f1a\u4f7f\u7528 Codex \u8bb0\u5fc6\u3002",
+          ? translate("runtime.threadMemoryEnabledMessage")
+          : translate("runtime.threadMemoryDisabledMessage"),
       });
       pushEvent("memory/mode", `thread memory mode: ${mode}`, { threadId });
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
       showToast({
         kind: "error",
-        title: "\u8bbe\u7f6e\u8bb0\u5fc6\u5931\u8d25",
-        message: msg || "thread/memoryMode/set \u8bf7\u6c42\u5931\u8d25",
+        title: translate("runtime.memoryModeSetFailedTitle"),
+        message: msg || "thread/memoryMode/set failed",
       });
       pushEvent("memory/mode:error", msg || "thread/memoryMode/set failed", { threadId, level: "error" });
     }
@@ -3853,41 +4001,65 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
 
   const rollbackTurns = async () => {
     if (!runtimeStore.currentThreadId) {
-      showToast({ kind: "info", title: "无法撤回", message: "未选择会话。" });
+      showToast({
+        kind: "info",
+        title: translate("runtime.rollbackUnavailableTitle"),
+        message: translate("runtime.noThreadSelected"),
+      });
       return;
     }
     const tid = String(runtimeStore.currentThreadId ?? "").trim();
     if (!tid) {
-      showToast({ kind: "info", title: "无法撤回", message: "未选择会话。" });
+      showToast({
+        kind: "info",
+        title: translate("runtime.rollbackUnavailableTitle"),
+        message: translate("runtime.noThreadSelected"),
+      });
       return;
     }
     const workspace = normalizeWorkspacePath(getWorkspaceForThread(tid) || runtimeStore.workspacePath);
     const serverId = getServerIdForThread(tid);
     if (!workspace) {
-      showToast({ kind: "error", title: "无法撤回", message: "未选择工作区或工作区不可用。" });
+      showToast({
+        kind: "error",
+        title: translate("runtime.rollbackUnavailableTitle"),
+        message: translate("runtime.workspaceUnavailable"),
+      });
       return;
     }
     if (!serverId) {
-      showToast({ kind: "error", title: "无法撤回", message: "未连接服务或服务不可用。" });
+      showToast({
+        kind: "error",
+        title: translate("runtime.rollbackUnavailableTitle"),
+        message: translate("runtime.serviceUnavailable"),
+      });
       return;
     }
     if (threadStore.runningThreadIds.has(tid)) {
-      showToast({ kind: "warn", title: "线程运行中", message: "请等待当前回合完成后再撤回。" });
+      showToast({
+        kind: "warn",
+        title: translate("runtime.threadRunningTitle"),
+        message: translate("runtime.waitBeforeRollback"),
+      });
       return;
     }
     const stack = threadStore.completedTurnsByThread.get(tid) ?? [];
     if (stack.length === 0) {
-      showToast({ kind: "info", title: "暂无可撤回回合", message: "当前会话还没有已完成回合。" });
+      showToast({
+        kind: "info",
+        title: translate("runtime.noRollbackTurnsTitle"),
+        message: translate("runtime.noCompletedTurns"),
+      });
       return;
     }
     let n: number | null = null;
     try {
       n = await promptNumberModalLazy({
-        title: "撤回最近 N 轮",
-        message: "撤回会回退线程上下文，并尝试回退这些回合产生的文件内容改动（不回退命令副作用）。",
-        detail: `可撤回：1..${stack.length}`,
-        confirmText: "撤回",
-        cancelText: "取消",
+        title: translate("topbarExtra.rollbackRecent"),
+        message: translate("runtime.rollbackDetail"),
+        detail: translate("runtime.rollbackRange", { count: stack.length }),
+        confirmText: translate("runtime.rollback"),
+        cancelText: translate("common.cancel"),
         danger: true,
         defaultValue: 1,
         min: 1,
@@ -3898,8 +4070,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       const isBusy = msg.includes("another modal is already open");
       showToast({
         kind: isBusy ? "warn" : "error",
-        title: "无法打开撤回弹窗",
-        message: isBusy ? "当前已有弹窗打开，请先关闭后再重试。" : "打开弹窗失败",
+        title: translate("runtime.rollbackModalOpenFailedTitle"),
+        message: isBusy ? translate("runtime.modalAlreadyOpen") : translate("runtime.modalOpenFailed"),
       });
       return;
     }
@@ -3916,8 +4088,15 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (combinedDiff.trim()) {
       const dry = await codexDesktop.workspace.dryRunApplyReverseDiff({ cwd: workspace, diffText: combinedDiff });
       if (!dry.ok) {
-        pushEvent("rollback:error", `无法回退文件内容：${dry.error}`, { threadId: tid, level: "error" });
-        showToast({ kind: "error", title: "撤回失败", message: "文件回退预检失败（工作区可能已手动修改）" });
+        pushEvent("rollback:error", translate("runtime.rollbackFilesFailed", { error: dry.error }), {
+          threadId: tid,
+          level: "error",
+        });
+        showToast({
+          kind: "error",
+          title: translate("runtime.rollbackFailedTitle"),
+          message: translate("runtime.fileRollbackPrecheckFailed"),
+        });
         return;
       }
     }
@@ -3932,11 +4111,15 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       if (!applied.ok) {
         timelineStore.removeTurnEvents(tid, selectedTurnIds);
         threadStore.removeTurnsFromState(tid, selectedTurnIds);
-        pushEvent("rollback:error", `上下文已撤回，但文件回退失败：${applied.error}`, {
+        pushEvent("rollback:error", translate("runtime.contextRolledBackFilesFailed", { error: applied.error }), {
           threadId: tid,
           level: "error",
         });
-        showToast({ kind: "error", title: "部分失败", message: "上下文已撤回，但文件回退失败；请手动检查工作区。" });
+        showToast({
+          kind: "error",
+          title: translate("runtime.partialFailureTitle"),
+          message: translate("runtime.contextRolledBackFilesFailedCheckWorkspace"),
+        });
         return;
       }
       pushEvent("rollback", `files reverted: ${(applied.files ?? []).join(", ")}`, { threadId: tid });
@@ -3946,7 +4129,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
 
     timelineStore.removeTurnEvents(tid, selectedTurnIds);
     threadStore.removeTurnsFromState(tid, selectedTurnIds);
-    showToast({ kind: "success", title: "撤回完成", message: `已撤回最近 ${n} 轮` });
+    showToast({
+      kind: "success",
+      title: translate("runtime.rollbackCompletedTitle"),
+      message: translate("runtime.rollbackCompletedMessage", { count: n }),
+    });
   };
 
   const submitUserInputPromptForThread = async (threadIdValue: unknown) => {
@@ -3963,9 +4150,9 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
           const draft = userInputStore.getDraft(promptThreadId, prompt.requestId, question.id);
           const normalized = draft.map((answer) => answer.trim()).filter(Boolean);
           if (normalized.length === 0) {
-            const detail = `问题未作答：${question.header}`;
+            const detail = translate("runtime.questionUnanswered", { header: question.header });
             pushEvent("plan:input:error", detail, { threadId: promptThreadId || APP_TIMELINE_ID, level: "error" });
-            showToast({ kind: "warn", title: "问答未完成", message: detail });
+            showToast({ kind: "warn", title: translate("runtime.qaIncompleteTitle"), message: detail });
             return;
           }
           // 按 app-server 协议：每题必须回传 answers 数组（即使只有一项）。
@@ -3977,7 +4164,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
           id: prompt.requestId,
           result: { answers },
         });
-        pushEvent("plan:input", `已提交问答（${prompt.questions.length} 题）`, {
+        pushEvent("plan:input", translate("runtime.qaSubmitted", { count: prompt.questions.length }), {
           threadId: promptThreadId || APP_TIMELINE_ID,
         });
       } else if (prompt.kind === "elicitationForm") {
@@ -3986,9 +4173,9 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         const draft = userInputStore.getDraft(promptThreadId, prompt.requestId, question.id);
         const raw = String(draft[0] ?? "").trim();
         if (!raw) {
-          const detail = `MCP 输入未完成：${prompt.serverName}`;
+          const detail = translate("runtime.mcpInputIncomplete", { server: prompt.serverName });
           pushEvent("mcp:elicitation:error", detail, { threadId: promptThreadId || APP_TIMELINE_ID, level: "error" });
-          showToast({ kind: "warn", title: "输入未完成", message: detail });
+          showToast({ kind: "warn", title: translate("runtime.inputIncompleteTitle"), message: detail });
           return;
         }
 
@@ -3996,9 +4183,9 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         try {
           content = JSON.parse(raw) as JsonValue;
         } catch {
-          const detail = "MCP 输入必须是合法 JSON";
+          const detail = translate("runtime.mcpInputInvalidJson");
           pushEvent("mcp:elicitation:error", detail, { threadId: promptThreadId || APP_TIMELINE_ID, level: "error" });
-          showToast({ kind: "warn", title: "JSON 无效", message: detail });
+          showToast({ kind: "warn", title: translate("runtime.invalidJsonTitle"), message: detail });
           return;
         }
 
@@ -4007,7 +4194,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
           id: prompt.requestId,
           result: { action: "accept", content },
         });
-        pushEvent("mcp:elicitation", `已提交 MCP 输入（${prompt.serverName}）`, {
+        pushEvent("mcp:elicitation", translate("runtime.mcpInputSubmitted", { server: prompt.serverName }), {
           threadId: promptThreadId || APP_TIMELINE_ID,
         });
       } else {
@@ -4016,7 +4203,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
           id: prompt.requestId,
           result: { action: "accept", content: null },
         });
-        pushEvent("mcp:elicitation", `已确认 MCP 链接操作（${prompt.serverName}）`, {
+        pushEvent("mcp:elicitation", translate("runtime.mcpLinkConfirmed", { server: prompt.serverName }), {
           threadId: promptThreadId || APP_TIMELINE_ID,
         });
       }
@@ -4026,7 +4213,10 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       const msg = e?.message ? String(e.message) : String(e);
       const eventMethod =
         prompt.method === "mcpServer/elicitation/request" ? "mcp:elicitation:error" : "plan:input:error";
-      const title = prompt.method === "mcpServer/elicitation/request" ? "MCP 输入提交失败" : "问答提交失败";
+      const title =
+        prompt.method === "mcpServer/elicitation/request"
+          ? translate("runtime.mcpInputSubmitFailedTitle")
+          : translate("runtime.qaSubmitFailedTitle");
       pushEvent(eventMethod, msg, { threadId: promptThreadId || APP_TIMELINE_ID, level: "error" });
       showToast({ kind: "error", title, message: msg });
     }
@@ -4069,7 +4259,10 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       });
       showToast({
         kind: "error",
-        title: prompt.method === "mcpServer/elicitation/request" ? "取消 MCP 输入失败" : "取消问答失败",
+        title:
+          prompt.method === "mcpServer/elicitation/request"
+            ? translate("runtime.cancelMcpInputFailedTitle")
+            : translate("runtime.cancelQaFailedTitle"),
         message: msg,
       });
     } finally {
@@ -4154,11 +4347,15 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
 
       approvalStore.remove(prompt.serverId, prompt.requestId);
       const decisionText = typeof decision === "string" ? decision : safeJsonStringify(decision, { space: 0 });
-      showToast({ kind: "success", title: "已提交审批", message: `decision=${decisionText}` });
+      showToast({
+        kind: "success",
+        title: translate("runtime.approvalSubmittedTitle"),
+        message: `decision=${decisionText}`,
+      });
     } catch (e: any) {
       const msg = e?.message ? String(e.message) : String(e);
       pushEvent("approval:error", msg, { threadId, level: "error" });
-      showToast({ kind: "error", title: "审批提交失败", message: msg });
+      showToast({ kind: "error", title: translate("runtime.approvalSubmitFailedTitle"), message: msg });
     }
   };
 
@@ -4269,7 +4466,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
           runtimeStore.clearServer();
           if (!expected) appShellStore.setServerConnState("failed", "codex app-server exited");
           else appShellStore.setServerConnState("disconnected");
-          resetSidePanelStores("未连接服务");
+          resetSidePanelStores(translate("runtime.noService"));
         }
         return;
       }
@@ -4290,7 +4487,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       threadStore.applyThreadTitleOverrides({});
     });
   void refreshHistory(false);
-  resetSidePanelStores("未连接服务");
+  resetSidePanelStores(translate("runtime.noService"));
 
   runtimeOrchestrator = {
     dispose() {

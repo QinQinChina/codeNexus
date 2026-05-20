@@ -2,57 +2,57 @@ import { codexDesktop } from "../../api/codexDesktopClient";
 import { normalizeNotification, type NormalizedNotification } from "../../core/protocol/notifications";
 import { isCodexServerNotificationMessage } from "../../../shared/codex-protocol";
 
-// 通知监听器类型定义
+// Notification listener type.
 export type NotificationListener = (notification: NormalizedNotification) => void;
 
-// 事件桥接器接口
+// Event bridge interface.
 export type EventBridge = {
-  start: () => void; // 启动事件监听
-  stop: () => void; // 停止事件监听
-  subscribe: (listener: NotificationListener) => () => void; // 订阅通知，返回取消订阅函数
+  start: () => void; // Start event listening.
+  stop: () => void; // Stop event listening.
+  subscribe: (listener: NotificationListener) => () => void; // Subscribe and return an unsubscribe function.
 };
 
-// 创建事件桥接器实例
+// Create the event bridge instance.
 export function createEventBridge(): EventBridge {
-  // 存储所有通知监听器
+  // Store all notification listeners.
   const listeners = new Set<NotificationListener>();
-  // 取消订阅函数
+  // Current unsubscribe function.
   let unsubscribe: (() => void) | null = null;
 
-  // 分发通知给所有监听器
+  // Dispatch notifications to every listener.
   const dispatch = (notification: NormalizedNotification) => {
     for (const listener of listeners) {
       listener(notification);
     }
   };
 
-  // 启动事件监听
+  // Start event listening.
   const start = () => {
-    if (unsubscribe) return; // 避免重复启动
-    // 订阅 codexDesktop 的事件流
+    if (unsubscribe) return; // Avoid duplicate starts.
+    // Subscribe to the codexDesktop event stream.
     unsubscribe = codexDesktop.codexServer.onEvent((payload) => {
       const msg = payload?.msg;
-      // 验证消息是否为有效的服务端通知
+      // Validate that the message is a server notification.
       if (!isCodexServerNotificationMessage(msg)) return;
-      // 规范化通知格式
+      // Normalize the notification format.
       const normalized = normalizeNotification(msg, payload?.serverId);
       if (!normalized) return;
-      // 分发给所有监听器
+      // Dispatch to all listeners.
       dispatch(normalized);
     });
   };
 
-  // 停止事件监听
+  // Stop event listening.
   const stop = () => {
     if (!unsubscribe) return;
-    unsubscribe(); // 调用取消订阅函数
+    unsubscribe(); // Call the unsubscribe function.
     unsubscribe = null;
   };
 
-  // 订阅通知
+  // Subscribe to notifications.
   const subscribe = (listener: NotificationListener) => {
     listeners.add(listener);
-    // 返回取消订阅函数
+    // Return an unsubscribe function.
     return () => {
       listeners.delete(listener);
     };

@@ -101,10 +101,10 @@ export function normalizeCodexMcpServerSpec(value: unknown): CodexMcpServerSpec 
 
 export function validateCodexMcpServerConfig(config: CodexMcpServerConfig): string | null {
   const id = normalizeCodexMcpServerId(config.id);
-  if (!id) return "MCP id 不能为空";
+  if (!id) return "MCP id is required";
   const type = normalizeCodexMcpTransport(config.server?.type);
-  if (type === "stdio" && !normalizeText(config.server?.command)) return "stdio MCP 缺少 command";
-  if ((type === "http" || type === "sse") && !normalizeText(config.server?.url)) return `${type} MCP 缺少 url`;
+  if (type === "stdio" && !normalizeText(config.server?.command)) return "stdio MCP is missing command";
+  if ((type === "http" || type === "sse") && !normalizeText(config.server?.url)) return `${type} MCP is missing url`;
   return null;
 }
 
@@ -151,10 +151,10 @@ export function parseCodexMcpJsonImport(text: string): CodexMcpImportResult {
   try {
     parsed = JSON.parse(String(text ?? "").trim());
   } catch (error: any) {
-    return { servers: [], errors: [`JSON 解析失败：${String(error?.message ?? error)}`] };
+    return { servers: [], errors: [`Failed to parse JSON: ${String(error?.message ?? error)}`] };
   }
   const root = toRecord(parsed);
-  if (!root) return { servers: [], errors: ["JSON 顶层必须是对象"] };
+  if (!root) return { servers: [], errors: ["JSON top level must be an object"] };
   const mcpServers = toRecord(root.mcpServers);
   if (mcpServers) {
     for (const [rawId, rawSpec] of Object.entries(mcpServers)) {
