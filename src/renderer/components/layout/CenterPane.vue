@@ -44,8 +44,6 @@
           <ComposerQueueList
             v-if="shouldShowQueueTray"
             :items="queueItems"
-            :expanded="queueTrayExpanded"
-            @update:expanded="queueTrayExpanded = $event"
             @edit="onEditQueuedMessage"
             @send-now="onSendQueuedMessageNow"
             @remove="onRemoveQueuedMessage"
@@ -231,7 +229,6 @@ const composerInputRef = ref<HTMLDivElement | null>(null);
 const composerImageInputRef = ref<HTMLInputElement | null>(null);
 const composeLightboxCloseRef = ref<HTMLButtonElement | null>(null);
 const slashPopoverRef = ref<HTMLDivElement | null>(null);
-const queueTrayExpanded = ref(false);
 const activeSlashIndex = ref(-1);
 const composeLightboxAttachmentId = ref("");
 const slashPopoverPlacement = ref<PopoverPlacement | null>(null);
@@ -307,7 +304,6 @@ const timelineContentRevision = computed(() => timelineStore.threadContentRevisi
 const timelineRevision = computed(() => timelineStore.threadStructureRevisionForThread(timelineKey.value));
 const timelineStats = computed(() => timelineStore.timelineStatsForThread(timelineKey.value));
 const queueItems = computed(() => messageQueueStore.queueByThread.get(timelineKey.value) ?? []);
-const queueFailedCount = computed(() => queueItems.value.filter((item) => item.status === "failed").length);
 const emptyStateMode = computed<"default" | "pendingThread">(() => {
   const tid = currentThreadId.value;
   if (isPendingThreadId(tid)) return "pendingThread";
@@ -782,8 +778,6 @@ function onWindowKeydown(event: KeyboardEvent) {
     runtimeStore.toggleTimelineDebugEnabled();
     return;
   }
-  if (event.key !== "Escape") return;
-  if (queueTrayExpanded.value) queueTrayExpanded.value = false;
 }
 
 function isToggleDebugTimelineShortcut(event: KeyboardEvent) {
@@ -1055,13 +1049,6 @@ function onComposerKeydown(event: KeyboardEvent) {
     });
     return;
   }
-  if (event.key === "Escape") {
-    if (queueTrayExpanded.value) {
-      event.preventDefault();
-      queueTrayExpanded.value = false;
-    }
-    return;
-  }
   if (slashPopoverVisible.value) {
     const commands = filteredSlashCommands.value;
     if (event.key === "ArrowDown") {
@@ -1104,7 +1091,6 @@ async function onInterruptTurnClick() {
 
 async function onEditQueuedMessage(messageId: string) {
   await runtime.editQueuedMessage(messageId);
-  queueTrayExpanded.value = false;
   await nextTick();
   resizeComposerInput();
   composerInputRef.value?.focus();
@@ -1163,33 +1149,18 @@ watch(
 );
 
 watch(
-  () => [queueItems.value.length, queueFailedCount.value] as const,
-  ([nextLength, nextFailedCount], [prevLength, prevFailedCount]) => {
+  () => queueItems.value.length,
+  () => {
     void nextTick(() => {
       notifyTimelineLayoutChange();
       scheduleTimelineViewportStateUpdate();
     });
-    if (nextLength <= 0) {
-      queueTrayExpanded.value = false;
-      return;
-    }
-    if (nextFailedCount > prevFailedCount || (prevLength <= 0 && nextFailedCount > 0)) {
-      queueTrayExpanded.value = true;
-    }
   }
 );
-
-watch(queueTrayExpanded, () => {
-  void nextTick(() => {
-    notifyTimelineLayoutChange();
-    scheduleTimelineViewportStateUpdate();
-  });
-});
 
 watch(
   () => runtimeStore.timelineKey,
   () => {
-    queueTrayExpanded.value = false;
     slashPopoverPlacement.value = null;
   },
   { flush: "post" }
@@ -1253,13 +1224,8 @@ watch(composeLightboxAttachment, (value) => {
   else window.removeEventListener("keydown", onComposeLightboxWindowKeydown, true);
 });
 
-watch(currentThreadId, () => {
-  queueTrayExpanded.value = false;
-});
-
 watch(shouldShowComposerPanel, (visible) => {
   if (!visible) {
-    queueTrayExpanded.value = false;
     if (composerResizeObserver) {
       composerResizeObserver.disconnect();
       composerResizeObserver = null;
@@ -1277,7 +1243,6 @@ watch(
   () => skillsUiStore.managerOpen,
   (open, prev) => {
     if (open && !prev) {
-      queueTrayExpanded.value = false;
       return;
     }
     if (!open && prev) {
