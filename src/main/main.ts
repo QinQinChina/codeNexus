@@ -14,6 +14,7 @@ import { CodexSkillRootsService } from "./services/CodexSkillRootsService";
 import { CodexConfigSwitcherService } from "./services/CodexConfigSwitcherService";
 import { ImageGenerationHistoryService } from "./services/ImageGenerationHistoryService";
 import { ImageGenerationTaskService } from "./services/ImageGenerationTaskService";
+import { FlowchartHistoryService } from "./services/FlowchartHistoryService";
 import { LocalSettingsService } from "./services/LocalSettingsService";
 import { CacheRegistryService } from "./services/CacheRegistryService";
 import { ThreadArtifactService } from "./services/ThreadArtifactService";
@@ -197,6 +198,9 @@ app
       (args, signal) => generateImagesWithSettings(localSettingsService, imageGenerationHistoryService, args, signal),
       2
     );
+    const flowchartHistoryService = new FlowchartHistoryService(
+      join(app.getPath("userData"), "flowchart-history.json")
+    );
     const threadTaskService = new ThreadTaskService(join(app.getPath("userData"), "thread-tasks.json"));
     const threadArtifactService = new ThreadArtifactService(join(app.getPath("userData"), "thread-artifacts.json"));
     const threadTitleOverrideService = new ThreadTitleOverrideService(
@@ -264,6 +268,7 @@ app
       codexConfigSwitcherService,
       imageGenerationHistoryService,
       imageGenerationTaskService,
+      flowchartHistoryService,
       updateService,
       cacheRegistryService,
     });

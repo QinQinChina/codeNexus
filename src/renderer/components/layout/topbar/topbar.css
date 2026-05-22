@@ -259,10 +259,10 @@
 .topbar-mainview-switch {
   --topbar-mainview-gap: 4px;
   --topbar-mainview-pad: 2px;
-  --topbar-mainview-indicator-w: calc((100% - (var(--topbar-mainview-pad) * 2) - var(--topbar-mainview-gap)) / 2);
+  --topbar-mainview-indicator-w: calc((100% - (var(--topbar-mainview-pad) * 2) - (var(--topbar-mainview-gap) * 2)) / 3);
   position: relative;
   display: grid;
-  grid-template-columns: repeat(2, minmax(72px, 1fr));
+  grid-template-columns: repeat(3, minmax(72px, 1fr));
   align-items: center;
   gap: var(--topbar-mainview-gap);
   padding: var(--topbar-mainview-pad);
@@ -291,6 +291,10 @@
 
 .topbar-mainview-switch.is-image::after {
   transform: translateX(calc(100% + var(--topbar-mainview-gap)));
+}
+
+.topbar-mainview-switch.is-flowchart::after {
+  transform: translateX(calc((100% + var(--topbar-mainview-gap)) * 2));
 }
 
 .topbar-mainview-btn {

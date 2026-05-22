@@ -14,6 +14,9 @@
         <div v-else-if="mainView === 'image'" key="image" class="center-content-host">
           <ImageWorkbench />
         </div>
+        <div v-else-if="mainView === 'flowchart'" key="flowchart" class="center-content-host">
+          <FlowchartWorkbench />
+        </div>
         <div v-else key="chat" class="center-content-host">
           <CenterPane />
         </div>
@@ -56,6 +59,7 @@ import BottomBar from "./components/layout/BottomBar.vue";
 import {
   AppClosingOverlay,
   DebugTimelineSidebar,
+  FlowchartWorkbench,
   ImageWorkbench,
   ImageWorkspaceSidebar,
   ImageSettingsSidebar,
@@ -100,7 +104,9 @@ void notificationSoundStore.refreshAvailable();
 const settingsOpen = computed(() => appShellStore.settingsOpen);
 const showAppClosingOverlay = computed(() => appClosingStore.visible);
 const mainView = computed(() => appShellStore.mainView);
-const showLeftSidebar = computed(() => !settingsOpen.value && appShellStore.leftSidebarVisible);
+const showLeftSidebar = computed(
+  () => !settingsOpen.value && appShellStore.leftSidebarVisible && mainView.value !== "flowchart"
+);
 const showImageWorkspaceSidebar = computed(() => showLeftSidebar.value && mainView.value === "image");
 const showDebugSidebar = computed(
   () => !settingsOpen.value && mainView.value === "chat" && runtimeStore.timelineDebugEnabled
@@ -170,8 +176,8 @@ watch(
       return;
     }
 
-    const isForward = previousView === "chat" && nextView === "image";
-    const isBack = previousView === "image" && nextView === "chat";
+    const isForward = previousView === "chat" && (nextView === "image" || nextView === "flowchart");
+    const isBack = (previousView === "image" || previousView === "flowchart") && nextView === "chat";
     if (!isForward && !isBack) return;
 
     const direction = isForward ? "forward" : "back";

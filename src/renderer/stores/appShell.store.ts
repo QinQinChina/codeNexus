@@ -14,7 +14,7 @@ import { refreshDomI18nFallback } from "../i18n/domFallback";
 import { setUiI18nLanguage } from "../i18n";
 
 export type IntegrationsDrawerTab = "skills" | "mcp";
-export type SettingsTab = "global" | "profiles" | "sound" | "image" | "env" | "integrations" | "update";
+export type SettingsTab = "global" | "profiles" | "sound" | "image" | "flowchart" | "env" | "integrations" | "update";
 export type SettingsIntegrationsTab = "skills" | "mcp";
 
 const DEFAULT_LEFT_SIDEBAR_WIDTH_PX = 300;
@@ -130,10 +130,14 @@ export const useAppShellStore = defineStore("appShell", {
     },
     setMainView(next: MainView, opts?: { save?: boolean }) {
       const shouldSave = opts?.save ?? true;
-      const normalized: MainView = next === "image" ? "image" : "chat";
+      const normalized: MainView = next === "image" || next === "flowchart" ? next : "chat";
       this.mainView = normalized;
       if (!shouldSave) return;
       void patchUserLocalSettings({ ui: { mainView: normalized } });
+    },
+    openFlowchartWorkbench(opts?: { save?: boolean }) {
+      this.setMainView("flowchart", opts);
+      this.closeSettings();
     },
     openImageWorkbench(opts?: { save?: boolean }) {
       this.setMainView("image", opts);

@@ -8,6 +8,7 @@
           :class="{
             'is-chat': appShellStore.mainView === 'chat',
             'is-image': appShellStore.mainView === 'image',
+            'is-flowchart': appShellStore.mainView === 'flowchart',
           }"
           :aria-label="t('topbar.mainView')"
         >
@@ -31,6 +32,16 @@
             <ImageIcon class="topbar-mainview-icon" aria-hidden="true" />
             <span>{{ t("topbar.image") }}</span>
           </button>
+          <button
+            class="topbar-mainview-btn"
+            :class="{ 'is-active': appShellStore.mainView === 'flowchart' }"
+            type="button"
+            :aria-label="t('topbar.flowchart')"
+            @click="onSetMainView('flowchart')"
+          >
+            <Workflow class="topbar-mainview-icon" aria-hidden="true" />
+            <span>{{ t("topbar.flowchart") }}</span>
+          </button>
         </div>
       </div>
 
@@ -44,7 +55,7 @@
               class="btn-icon"
               :class="{ 'is-active': appShellStore.leftSidebarVisible }"
               type="button"
-              :disabled="appShellStore.settingsOpen"
+              :disabled="appShellStore.settingsOpen || appShellStore.mainView === 'flowchart'"
               :aria-label="threadPaneTitle"
               :aria-pressed="appShellStore.leftSidebarVisible ? 'true' : 'false'"
               @click="onToggleThreadPane"
@@ -103,6 +114,7 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Settings,
+  Workflow,
 } from "lucide-vue-next";
 import TopBarWorkspaceButton from "./topbar/TopBarWorkspaceButton.vue";
 import TopBarPlanSummary from "./topbar/TopBarPlanSummary.vue";
@@ -135,12 +147,14 @@ const threadPaneTitle = computed(() => {
       ? t("topbar.closeImageWorkspacePanel")
       : t("topbar.openImageWorkspacePanel");
   }
+  if (appShellStore.mainView === "flowchart") return t("topbar.threadPanelHiddenInFlowchart");
   return appShellStore.leftSidebarVisible ? t("topbar.closeThreadPanel") : t("topbar.openThreadPanel");
 });
 const filesPaneTitle = computed(() => {
   if (!hasWorkspace.value) return t("topbar.chooseWorkspaceBeforeFiles");
   if (appShellStore.settingsOpen) return t("topbar.filesPanelHiddenInSettings");
-  if (appShellStore.mainView !== "chat") return t("topbar.filesPanelHiddenInImage");
+  if (appShellStore.mainView === "image") return t("topbar.filesPanelHiddenInImage");
+  if (appShellStore.mainView === "flowchart") return t("topbar.filesPanelHiddenInFlowchart");
   return filesPaneVisible.value ? t("topbar.closeFilesPanel") : t("topbar.openFilesPanel");
 });
 
@@ -149,12 +163,16 @@ function onSetMainView(next: MainView) {
     appShellStore.openImageWorkbench();
     return;
   }
+  if (next === "flowchart") {
+    appShellStore.openFlowchartWorkbench();
+    return;
+  }
   appShellStore.setMainView(next);
   if (appShellStore.settingsOpen) appShellStore.closeSettings();
 }
 
 function onToggleThreadPane() {
-  if (appShellStore.settingsOpen) return;
+  if (appShellStore.settingsOpen || appShellStore.mainView === "flowchart") return;
   appShellStore.toggleLeftSidebarVisible();
 }
 

@@ -1,5 +1,11 @@
 import { normalizeCustomModelIds } from "./modelCatalog";
 import { normalizeBuiltinDynamicToolName, type BuiltinDynamicToolName } from "./dynamicTools";
+import {
+  DEFAULT_FLOWCHART_AI_MODEL,
+  DEFAULT_FLOWCHART_AI_TIMEOUT_MS,
+  MAX_FLOWCHART_AI_TIMEOUT_MS,
+  MIN_FLOWCHART_AI_TIMEOUT_MS,
+} from "./flowchart";
 
 export type LocalImageGenerationSettings = {
   enabled: boolean;
@@ -16,12 +22,20 @@ export type LocalImageGenerationSettings = {
   maxImages: number;
 };
 
+export type LocalFlowchartAiSettings = {
+  enabled: boolean;
+  baseUrl: string | null;
+  apiKey: string | null;
+  model: string;
+  timeoutMs: number;
+};
+
 export type LocalThreadWorkspaceGroupsCollapsedState = Record<string, boolean>;
 export type LocalDynamicToolsSettings = {
   enabledByName: Record<BuiltinDynamicToolName, boolean>;
 };
 
-export type MainView = "chat" | "image";
+export type MainView = "chat" | "image" | "flowchart";
 export type UiLanguage = "zh-CN" | "en-US";
 export type UiFontFamilyPreset = "alibaba-puhuiti" | "source-han-sans-sc";
 export type UiFontSizePreset = "small" | "medium" | "large";
@@ -52,6 +66,7 @@ export type UserLocalSettings = {
     customIds: string[];
   };
   imageGeneration: LocalImageGenerationSettings;
+  flowchartAi: LocalFlowchartAiSettings;
   dynamicTools: LocalDynamicToolsSettings;
   developer: {
     debugLogEnabled: boolean;
@@ -94,6 +109,13 @@ export type UserLocalSettingsPatch = {
     outputCompression: number | null;
     timeoutMs: number | null;
     maxImages: number | null;
+  }>;
+  flowchartAi?: Partial<{
+    enabled: boolean;
+    baseUrl: string | null;
+    apiKey: string | null;
+    model: string | null;
+    timeoutMs: number | null;
   }>;
   dynamicTools?: Partial<{
     enabledByName: Partial<Record<BuiltinDynamicToolName, boolean>> | null;
@@ -207,6 +229,13 @@ export const DEFAULT_USER_LOCAL_SETTINGS: UserLocalSettings = {
     timeoutMs: DEFAULT_IMAGE_GENERATION_TIMEOUT_MS,
     maxImages: DEFAULT_IMAGE_GENERATION_MAX_IMAGES,
   },
+  flowchartAi: {
+    enabled: false,
+    baseUrl: null,
+    apiKey: null,
+    model: DEFAULT_FLOWCHART_AI_MODEL,
+    timeoutMs: DEFAULT_FLOWCHART_AI_TIMEOUT_MS,
+  },
   dynamicTools: {
     enabledByName: buildDefaultDynamicToolsEnabledByName(),
   },
@@ -260,6 +289,7 @@ function normalizeHttpBaseUrl(value: unknown, fallback: string | null): string |
 }
 
 function normalizeMainView(value: unknown, fallback: MainView): MainView {
+  if (value === "flowchart") return "flowchart";
   if (value === "image") return "image";
   if (value === "chat") return "chat";
   return fallback;
@@ -307,6 +337,22 @@ function normalizeImageGenerationSettings(value: unknown): LocalImageGenerationS
   };
 }
 
+function normalizeFlowchartAiSettings(value: unknown): LocalFlowchartAiSettings {
+  const record = toRecord(value);
+  return {
+    enabled: toBoolean(record?.enabled, DEFAULT_USER_LOCAL_SETTINGS.flowchartAi.enabled),
+    baseUrl: normalizeHttpBaseUrl(record?.baseUrl, DEFAULT_USER_LOCAL_SETTINGS.flowchartAi.baseUrl),
+    apiKey: toNullableString(record?.apiKey, DEFAULT_USER_LOCAL_SETTINGS.flowchartAi.apiKey),
+    model: toNonEmptyString(record?.model, DEFAULT_USER_LOCAL_SETTINGS.flowchartAi.model),
+    timeoutMs: toIntegerInRange(
+      record?.timeoutMs,
+      DEFAULT_USER_LOCAL_SETTINGS.flowchartAi.timeoutMs,
+      MIN_FLOWCHART_AI_TIMEOUT_MS,
+      MAX_FLOWCHART_AI_TIMEOUT_MS
+    ),
+  };
+}
+
 function normalizeDynamicToolsSettings(value: unknown): LocalDynamicToolsSettings {
   const record = toRecord(value);
   const enabledRecord = toRecord(record?.enabledByName);
@@ -350,6 +396,7 @@ export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
   const notification = toRecord(root?.notification);
   const models = toRecord(root?.models);
   const imageGeneration = toRecord(root?.imageGeneration);
+  const flowchartAi = toRecord(root?.flowchartAi);
   const dynamicTools = toRecord(root?.dynamicTools);
   const developer = toRecord(root?.developer);
   const inferredMainViewFallback: MainView = DEFAULT_USER_LOCAL_SETTINGS.ui.mainView;
@@ -396,6 +443,7 @@ export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
       customIds: normalizeCustomModelIds(models?.customIds),
     },
     imageGeneration: normalizeImageGenerationSettings(imageGeneration),
+    flowchartAi: normalizeFlowchartAiSettings(flowchartAi),
     dynamicTools: normalizeDynamicToolsSettings(dynamicTools),
     developer: {
       debugLogEnabled: toBoolean(developer?.debugLogEnabled, DEFAULT_USER_LOCAL_SETTINGS.developer.debugLogEnabled),
@@ -412,6 +460,7 @@ export function mergeUserLocalSettings(
   const patchNotification = toRecord(patch?.notification);
   const patchModels = toRecord(patch?.models);
   const patchImageGeneration = toRecord(patch?.imageGeneration);
+  const patchFlowchartAi = toRecord(patch?.flowchartAi);
   const patchDynamicTools = toRecord(patch?.dynamicTools);
   const patchDeveloper = toRecord(patch?.developer);
 
@@ -509,6 +558,18 @@ export function mergeUserLocalSettings(
         patchImageGeneration && "maxImages" in patchImageGeneration
           ? patchImageGeneration.maxImages
           : current.imageGeneration.maxImages,
+    },
+    flowchartAi: {
+      enabled:
+        patchFlowchartAi && "enabled" in patchFlowchartAi ? patchFlowchartAi.enabled : current.flowchartAi.enabled,
+      baseUrl:
+        patchFlowchartAi && "baseUrl" in patchFlowchartAi ? patchFlowchartAi.baseUrl : current.flowchartAi.baseUrl,
+      apiKey: patchFlowchartAi && "apiKey" in patchFlowchartAi ? patchFlowchartAi.apiKey : current.flowchartAi.apiKey,
+      model: patchFlowchartAi && "model" in patchFlowchartAi ? patchFlowchartAi.model : current.flowchartAi.model,
+      timeoutMs:
+        patchFlowchartAi && "timeoutMs" in patchFlowchartAi
+          ? patchFlowchartAi.timeoutMs
+          : current.flowchartAi.timeoutMs,
     },
     dynamicTools: {
       enabledByName:

@@ -1,6 +1,7 @@
 import type { UserLocalSettings, UserLocalSettingsPatch } from "../localSettings";
 import type { CodexProviderProfileInput, CodexProviderProfilesState } from "../codexProfiles";
 import type { CodexSkillRootsState } from "../codexSkillRoots";
+import type { FlowchartDocument, FlowchartTemplateType } from "../flowchart";
 import type {
   CodexConfigSwitcherActivateResult,
   CodexConfigSwitcherImportArgs,
@@ -597,6 +598,45 @@ export type ImageGenerationTaskRetryResult = {
   tasks: ImageGenerationTaskItem[];
 };
 
+export type FlowchartHistoryListResult = {
+  items: FlowchartDocument[];
+};
+
+export type FlowchartHistoryUpsertResult = {
+  ok: true;
+  item: FlowchartDocument;
+  items: FlowchartDocument[];
+};
+
+export type FlowchartHistoryDeleteResult = {
+  ok: true;
+  deleted: boolean;
+  items: FlowchartDocument[];
+};
+
+export type FlowchartAiRunArgs = {
+  operation: "generate" | "modify";
+  templateType: FlowchartTemplateType;
+  prompt: string;
+  currentDocument?: FlowchartDocument | null;
+};
+
+export type FlowchartAiRunResult =
+  | {
+      ok: true;
+      document: FlowchartDocument;
+      rawResponse: string;
+      repaired: boolean;
+      validationErrors: string[];
+    }
+  | {
+      ok: false;
+      errorMessage: string;
+      rawResponse: string | null;
+      repaired: boolean;
+      validationErrors: string[];
+    };
+
 export type LocalSettingsSnapshot = {
   path: string;
   exists: boolean;
@@ -684,6 +724,10 @@ export type CodexDesktopAppApi = {
   cancelImageGenerationTask(args: { id: string }): Promise<ImageGenerationTaskCancelResult>;
   deleteImageGenerationTask(args: { id: string }): Promise<ImageGenerationTaskDeleteResult>;
   retryImageGenerationTask(args: { id: string }): Promise<ImageGenerationTaskRetryResult>;
+  listFlowchartHistory(): Promise<FlowchartHistoryListResult>;
+  upsertFlowchartHistory(args: { document: FlowchartDocument }): Promise<FlowchartHistoryUpsertResult>;
+  deleteFlowchartHistory(args: { id: string }): Promise<FlowchartHistoryDeleteResult>;
+  runFlowchartAi(args: FlowchartAiRunArgs): Promise<FlowchartAiRunResult>;
   readCodexProfiles(): Promise<CodexProviderProfilesSnapshot>;
   upsertCodexProfile(args: { profile: CodexProviderProfileInput }): Promise<CodexProviderProfilesMutationResult>;
   deleteCodexProfile(args: { id: string }): Promise<CodexProviderProfilesMutationResult>;

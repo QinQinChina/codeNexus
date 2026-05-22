@@ -32,6 +32,7 @@
             <CodexProfilesSettingsTab v-else-if="activeTab === 'profiles'" />
             <SettingsSoundTab v-else-if="activeTab === 'sound'" />
             <SettingsImageGenerationTab v-else-if="activeTab === 'image'" />
+            <SettingsFlowchartAiTab v-else-if="activeTab === 'flowchart'" />
             <SettingsUpdateTab v-else-if="activeTab === 'update'" />
             <EnvSetupDrawer v-else-if="activeTab === 'env'" mode="settings" />
             <IntegrationsDrawer v-else-if="activeTab === 'integrations'" mode="settings" />
@@ -46,13 +47,14 @@
 <script setup lang="ts">
 import { computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { Bell, Bot, Download, Image, PlugZap, Settings2, SlidersHorizontal } from "lucide-vue-next";
+import { Bell, Bot, Download, Image, PlugZap, Settings2, SlidersHorizontal, Workflow } from "lucide-vue-next";
 import { useAppShellStore } from "../../stores/appShell.store";
 import GlobalConfigDrawer from "./overlays/GlobalConfigDrawer.vue";
 import EnvSetupDrawer from "./overlays/EnvSetupDrawer.vue";
 import IntegrationsDrawer from "./overlays/IntegrationsDrawer.vue";
 import SettingsSoundTab from "./settings/SettingsSoundTab.vue";
 import SettingsImageGenerationTab from "./settings/SettingsImageGenerationTab.vue";
+import SettingsFlowchartAiTab from "./settings/SettingsFlowchartAiTab.vue";
 import SettingsUpdateTab from "./settings/SettingsUpdateTab.vue";
 import CodexProfilesSettingsTab from "./settings/CodexProfilesSettingsTab.vue";
 
@@ -91,6 +93,12 @@ const tabGroups = computed(() => [
         label: t("settings.tabs.image"),
         desc: t("settings.tabs.imageDesc"),
         icon: Image,
+      },
+      {
+        key: "flowchart" as const,
+        label: t("settings.tabs.flowchart"),
+        desc: t("settings.tabs.flowchartDesc"),
+        icon: Workflow,
       },
     ],
   },

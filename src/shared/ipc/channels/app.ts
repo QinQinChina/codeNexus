@@ -44,6 +44,10 @@ export const IPC_APP_CHANNELS = {
   appImageGenerationTaskCancel: "app:imageGeneration:taskCancel",
   appImageGenerationTaskDelete: "app:imageGeneration:taskDelete",
   appImageGenerationTaskRetry: "app:imageGeneration:taskRetry",
+  appFlowchartHistoryList: "app:flowchart:historyList",
+  appFlowchartHistoryUpsert: "app:flowchart:historyUpsert",
+  appFlowchartHistoryDelete: "app:flowchart:historyDelete",
+  appFlowchartAiRun: "app:flowchart:aiRun",
   // 窗口控制（自定义标题栏）
   appWindowGetState: "app:window:getState",
   appWindowMinimize: "app:window:minimize",
