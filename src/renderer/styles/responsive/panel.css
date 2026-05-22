@@ -149,6 +149,5 @@
   .user-input-options,
   .user-input-actions {
     gap: 8px;
-    /* 语义化 token：供主题（如 Windsurf 等）复用。 */
   }
 }

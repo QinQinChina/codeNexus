@@ -32,7 +32,6 @@ function normalizeTheme(value: unknown): AppThemeName | null {
     .trim()
     .toLowerCase();
   if (APP_THEME_BY_ID.has(raw as AppThemeName)) return raw as AppThemeName;
-  if (raw === "windsurf" || raw === "aurora" || raw === "moss") return "dark";
   return null;
 }
 

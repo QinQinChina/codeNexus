@@ -30,8 +30,6 @@ Renderer theme ids, labels, tone metadata, and cycling order live in `src/render
 - Add seed values in `theme-seeds.css` under `:root[data-theme="<id>"]`.
 - Prefer `tone: "light" | "dark"` for broad component behavior instead of writing one-off selectors for every theme.
 
-Older stored names such as `windsurf`, `aurora`, and `moss` currently normalize to `dark` for compatibility.
-
 ## Token Contract
 
 - Seed tokens define raw palette values only.

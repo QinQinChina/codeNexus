@@ -10,20 +10,9 @@
           const raw = String(window.codexDesktop?.localState?.initialSettingsSnapshot?.settings?.ui?.theme ?? "")
             .trim()
             .toLowerCase();
-          if (
-            raw === "light" ||
-            raw === "pink" ||
-            raw === "dark" ||
-            raw === "tech" ||
-            raw === "hacker" ||
-            raw === "windsurf" ||
-            raw === "aurora" ||
-            raw === "moss"
-          ) {
-            const theme =
-              raw === "light" || raw === "pink" || raw === "dark" || raw === "tech" || raw === "hacker" ? raw : "dark";
-            document.documentElement.dataset.theme = theme;
-            document.documentElement.dataset.tone = theme === "light" || theme === "pink" ? "light" : "dark";
+          if (raw === "light" || raw === "pink" || raw === "dark" || raw === "tech" || raw === "hacker") {
+            document.documentElement.dataset.theme = raw;
+            document.documentElement.dataset.tone = raw === "light" || raw === "pink" ? "light" : "dark";
           }
 
           const rawFont = String(

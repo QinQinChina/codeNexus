@@ -4,7 +4,6 @@ import type { TurnStartParams } from "../../../generated/codex-app-server/v2/Tur
 import type { UserInput as CodexUserInput } from "../../../generated/codex-app-server/v2/UserInput";
 import type { AskForApproval } from "../../../generated/codex-app-server/v2/AskForApproval";
 import { IMAGE_GENERATION_DYNAMIC_TOOL_DEVELOPER_INSTRUCTIONS } from "../../../shared/dynamicTools";
-import { translate } from "../../i18n/translate";
 import type { UserTurnInput } from "../types";
 import {
   normalizeApprovalPolicy,
@@ -17,16 +16,8 @@ import {
 
 type ComposeMode = "default" | "plan";
 
-type JsonRpcErrorLike = {
-  code: number;
-  message: string;
-};
-
 export type TurnStartRuntimeDeps = {
-  getServerExperimentalApi: (serverId: string) => boolean;
-  setServerExperimentalApi: (serverId: string, enabled: boolean) => void;
   getComposeMode: () => ComposeMode;
-  setComposeMode: (mode: ComposeMode) => void;
   getModel: () => string;
   getReasoningEffort: () => string;
   getReasoningSummary: () => string;
@@ -34,8 +25,6 @@ export type TurnStartRuntimeDeps = {
   getApprovalPolicy: () => AskForApproval;
   getApprovalsReviewer: () => unknown;
   toCodexUserInputs: (values: UserTurnInput[]) => CodexUserInput[];
-  parseJsonRpcError: (error: unknown) => JsonRpcErrorLike | null;
-  warnExperimentalApiUnavailableOnce: (detail: string) => void;
 };
 
 export type TurnStartRuntime = {
@@ -54,20 +43,8 @@ export type TurnStartRuntime = {
   }) => Promise<{ ok: true } | { ok: false; error: string }>;
 };
 
-function isExperimentalApiCapabilityError(error: unknown): boolean {
-  const msg =
-    error && typeof error === "object" && "message" in error
-      ? String((error as { message?: unknown }).message ?? "")
-      : String(error ?? "");
-  const normalized = msg.toLowerCase();
-  return (
-    normalized.includes("requires experimentalapi capability") || normalized.includes("experimentalapi capability")
-  );
-}
-
 export function createTurnStartRuntime(deps: TurnStartRuntimeDeps): TurnStartRuntime {
   const startTurnWithInput: TurnStartRuntime["startTurnWithInput"] = async (params) => {
-    const hasExperimentalApi = deps.getServerExperimentalApi(params.threadServerId);
     const composeMode = params.composeModeOverride ?? deps.getComposeMode();
     const wantsPlan = composeMode === "plan";
     const requestedModel = normalizeModelName(params.model ?? deps.getModel());
@@ -84,17 +61,14 @@ export function createTurnStartRuntime(deps: TurnStartRuntimeDeps): TurnStartRun
     const requestedSandboxMode = normalizeSandboxMode(params.sandboxMode ?? deps.getSandboxMode());
 
     // collaborationMode 会影响“本回合及后续回合”的行为，因此即使切回 Agent 也要显式发送 default。
-    const shouldSendCollaborationMode = hasExperimentalApi;
-    const collaborationMode = shouldSendCollaborationMode
-      ? {
-          mode: composeMode,
-          settings: {
-            model: requestedModel,
-            reasoning_effort: requestedEffort,
-            developer_instructions: wantsPlan ? null : IMAGE_GENERATION_DYNAMIC_TOOL_DEVELOPER_INSTRUCTIONS,
-          },
-        }
-      : null;
+    const collaborationMode = {
+      mode: composeMode,
+      settings: {
+        model: requestedModel,
+        reasoning_effort: requestedEffort,
+        developer_instructions: wantsPlan ? null : IMAGE_GENERATION_DYNAMIC_TOOL_DEVELOPER_INSTRUCTIONS,
+      },
+    };
 
     const buildTurnStartParams = (): TurnStartParams => {
       const sandboxPolicy = sandboxPolicyFromUi(requestedSandboxMode, params.threadWorkspace, "camel");
@@ -112,42 +86,18 @@ export function createTurnStartRuntime(deps: TurnStartRuntimeDeps): TurnStartRun
       };
     };
 
-    let includeCollaborationMode = shouldSendCollaborationMode;
-    let collaborationModeFallbackAttempted = false;
-
-    for (let attemptIndex = 0; attemptIndex < 2; attemptIndex += 1) {
-      try {
-        const baseParams = buildTurnStartParams();
-        await codexDesktop.codexServer.rpc({
-          serverId: params.threadServerId,
-          method: "turn/start",
-          params: includeCollaborationMode ? { ...baseParams, collaborationMode } : baseParams,
-        });
-        return { ok: true as const };
-      } catch (error: any) {
-        if (
-          includeCollaborationMode &&
-          !collaborationModeFallbackAttempted &&
-          isExperimentalApiCapabilityError(error)
-        ) {
-          collaborationModeFallbackAttempted = true;
-          includeCollaborationMode = false;
-          deps.setServerExperimentalApi(params.threadServerId, false);
-          if (wantsPlan) {
-            deps.setComposeMode("default");
-            deps.warnExperimentalApiUnavailableOnce(translate("runtime.planUnsupportedDowngrade"));
-          } else {
-            deps.warnExperimentalApiUnavailableOnce(translate("runtime.experimentalApiDowngradeDetail"));
-          }
-          continue;
-        }
-
-        const msg = error?.message ? String(error.message) : String(error);
-        return { ok: false as const, error: msg || "turn/start failed" };
-      }
+    try {
+      const baseParams = buildTurnStartParams();
+      await codexDesktop.codexServer.rpc({
+        serverId: params.threadServerId,
+        method: "turn/start",
+        params: { ...baseParams, collaborationMode },
+      });
+      return { ok: true as const };
+    } catch (error: any) {
+      const msg = error?.message ? String(error.message) : String(error);
+      return { ok: false as const, error: msg || "turn/start failed" };
     }
-
-    return { ok: false as const, error: "turn/start failed" };
   };
 
   return { startTurnWithInput };

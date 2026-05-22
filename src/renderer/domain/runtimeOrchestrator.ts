@@ -327,7 +327,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const threadContentCacheByKey = new Map<string, ThreadContentCacheEntry>();
   const serverIdByWorkspace = new Map<string, string>();
   const workspaceByServerId = new Map<string, string>();
-  const serverExperimentalApiById = new Map<string, boolean>();
   const workspaceByThreadId = new Map<string, string>();
   const threadMetadataHydrationPromiseByWorkspace = new Map<string, Promise<void>>();
   const handoffDiagnosticsPromiseByThread = new Map<string, Promise<void>>();
@@ -662,25 +661,24 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const warnExperimentalApiUnavailableOnce = (detail: string) => {
     if (warnedExperimentalApiUnavailable) return;
     warnedExperimentalApiUnavailable = true;
-    pushEvent("experimentalApi", detail || translate("runtime.experimentalApiDowngradeDetail"), {
+    pushEvent("experimentalApi", detail || translate("runtime.experimentalApiUnavailableDetail"), {
       threadId: APP_TIMELINE_ID,
       level: "warn",
     });
     showToast({
       kind: "warn",
       title: translate("runtime.experimentalApiDisabledTitle"),
-      message: detail || translate("runtime.experimentalApiDowngradeMessage"),
+      message: detail || translate("runtime.experimentalApiUnavailableMessage"),
     });
   };
 
   // 启动成功后登记工作区与服务实例的双向映射。
-  const registerServerForWorkspace = (workspacePathValue: string, serverIdValue: string, experimentalApi = false) => {
+  const registerServerForWorkspace = (workspacePathValue: string, serverIdValue: string) => {
     const workspace = normalizeWorkspacePath(workspacePathValue);
     const serverId = normalizeWorkspacePath(serverIdValue);
     if (!workspace || !serverId) return;
     serverIdByWorkspace.set(workspace, serverId);
     workspaceByServerId.set(serverId, workspace);
-    serverExperimentalApiById.set(serverId, Boolean(experimentalApi));
   };
 
   // 通过 serverId 回收映射并返回对应工作区。
@@ -689,7 +687,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (!serverId) return "";
     const workspace = normalizeWorkspacePath(workspaceByServerId.get(serverId) ?? "");
     workspaceByServerId.delete(serverId);
-    serverExperimentalApiById.delete(serverId);
     if (workspace) {
       const mapped = normalizeWorkspacePath(serverIdByWorkspace.get(workspace) ?? "");
       if (mapped === serverId) serverIdByWorkspace.delete(workspace);
@@ -700,12 +697,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const configRuntime = createConfigRuntime({
     requireActiveWorkspaceServerId,
     getWorkspacePath: () => String(runtimeStore.workspacePath ?? "").trim(),
-    onBatchWriteUnavailable: () => {
-      pushEvent("config", translate("runtime.configBatchWriteFallback"), {
-        threadId: APP_TIMELINE_ID,
-        level: "warn",
-      });
-    },
   });
   const { requestConfigRead, requestConfigRequirementsRead, requestConfigBatchWrite } = configRuntime;
 
@@ -2421,13 +2412,13 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       const serverId = normalizeWorkspacePath(String(res.serverId ?? ""));
       if (!serverId) throw new Error("serverStart did not return serverId");
       const experimentalApi = Boolean(res.capabilities?.experimentalApi);
-      registerServerForWorkspace(workspace, serverId, experimentalApi);
+      registerServerForWorkspace(workspace, serverId);
       if (normalizeWorkspacePath(runtimeStore.workspacePath) === workspace) {
         runtimeStore.setServer(serverId);
         appShellStore.setServerConnState("connected");
       }
       if (requestedExperimentalApi && !experimentalApi) {
-        warnExperimentalApiUnavailableOnce(translate("runtime.experimentalApiDowngradeDetail"));
+        warnExperimentalApiUnavailableOnce(translate("runtime.experimentalApiUnavailableDetail"));
       }
       pushEvent(
         "server",
@@ -3242,10 +3233,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   };
 
   const turnStartRuntime = createTurnStartRuntime({
-    getServerExperimentalApi: (serverId) => Boolean(serverExperimentalApiById.get(serverId)),
-    setServerExperimentalApi: (serverId, enabled) => serverExperimentalApiById.set(serverId, enabled),
     getComposeMode: () => runtimeStore.composeMode,
-    setComposeMode: (mode) => runtimeStore.setComposeMode(mode),
     getModel: () => runtimeStore.model,
     getReasoningEffort: () => runtimeStore.reasoningEffort,
     getReasoningSummary: () => runtimeStore.reasoningSummary,
@@ -3253,8 +3241,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     getApprovalPolicy: () => configStore.draft.approvalPolicy,
     getApprovalsReviewer: () => configStore.draft.approvalsReviewer,
     toCodexUserInputs,
-    parseJsonRpcError,
-    warnExperimentalApiUnavailableOnce,
   });
   const { startTurnWithInput } = turnStartRuntime;
 
