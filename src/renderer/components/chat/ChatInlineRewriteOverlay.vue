@@ -97,6 +97,14 @@ function onInlineComposerKeydown(event: KeyboardEvent) {
     return;
   }
 
+  if (event.key === "Tab" && event.shiftKey) {
+    event.preventDefault();
+    event.stopPropagation();
+    emit("update", { composeMode: props.draft.composeMode === "plan" ? "default" : "plan" });
+    nextTick(() => inlineInputRef.value?.focus({ preventScroll: true }));
+    return;
+  }
+
   if (event.key !== "Enter") return;
   if (event.isComposing) return;
   if (event.shiftKey) return;

@@ -1,47 +1,76 @@
 <template>
   <section
     class="markdown-plan-card chat-bubble-body min-w-0 overflow-hidden rounded-xl border border-[var(--ui-well-border)] bg-[var(--ui-well-bg)] shadow-[var(--chat-row-shadow)]"
-    :class="{ 'is-executing': forceCollapsed }"
+    :class="{
+      'is-executing': forceCollapsed,
+      'is-expanded': isExpanded,
+      'is-preview': !isExpanded && !forceCollapsed,
+    }"
     :aria-label="t('planOutput.aria')"
   >
-    <Collapsible :open="contentOpen" motion="height" @update:open="onContentOpenUpdate">
-      <template #trigger="{ triggerProps, open }">
-        <header
-          class="markdown-plan-card-head grid min-w-0 cursor-pointer select-none grid-cols-[minmax(0,1fr)_auto] items-start gap-3 border-b border-[color:var(--ui-well-border)] px-3 py-2.5 transition-[background,border-color] duration-150"
-          v-bind="triggerProps"
-        >
-          <div class="grid min-w-0 gap-1">
-            <div class="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h2
-                class="markdown-plan-card-title m-0 min-w-0 text-[15px] leading-[1.25] font-semibold text-[var(--text)]"
-              >
-                {{ parsed.title }}
-              </h2>
-              <p
-                v-if="parsed.description"
-                class="markdown-plan-card-description m-0 min-w-[180px] flex-1 text-[12px] leading-[1.4] text-[var(--text-muted)] [overflow-wrap:anywhere]"
-              >
-                {{ parsed.description }}
-              </p>
-            </div>
-            <div v-if="forceCollapsed" class="mono text-[11px] text-[var(--fg-warning)]">
-              {{ t("markdownPlan.executing") }}
-            </div>
-          </div>
-          <ChevronDown
-            class="mt-0.5 h-4 w-4 flex-none text-[var(--text-muted)] transition-[transform,color] duration-200 [stroke-width:2.2]"
-            :class="open ? 'rotate-180 text-[var(--text)]' : ''"
-            aria-hidden="true"
-          />
-        </header>
-      </template>
+    <header
+      class="markdown-plan-card-head grid min-w-0 select-none grid-cols-[minmax(0,1fr)_auto_auto] items-start gap-3 border-b border-[color:var(--ui-well-border)] px-3 py-2.5 transition-[background,border-color] duration-150"
+    >
+      <div
+        class="markdown-plan-card-toggle grid min-w-0 gap-1"
+        role="button"
+        tabindex="0"
+        :aria-expanded="isExpanded ? 'true' : 'false'"
+        @click="toggleExpanded"
+        @keydown="onHeaderKeydown"
+      >
+        <div class="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 class="markdown-plan-card-title m-0 min-w-0 text-[15px] leading-[1.25] font-semibold text-[var(--text)]">
+            {{ parsed.title }}
+          </h2>
+          <p
+            v-if="parsed.description"
+            class="markdown-plan-card-description m-0 min-w-[180px] flex-1 text-[12px] leading-[1.4] text-[var(--text-muted)] [overflow-wrap:anywhere]"
+          >
+            {{ parsed.description }}
+          </p>
+        </div>
+        <div v-if="forceCollapsed" class="mono text-[11px] text-[var(--fg-warning)]">
+          {{ t("markdownPlan.executing") }}
+        </div>
+      </div>
+      <div
+        v-if="$slots.headerActions && !isExpanded"
+        class="markdown-plan-card-head-actions"
+        @click.stop
+        @keydown.stop
+        @pointerdown.stop
+      >
+        <slot name="headerActions" />
+      </div>
+      <button
+        class="markdown-plan-card-chevron-button"
+        type="button"
+        :aria-expanded="isExpanded ? 'true' : 'false'"
+        @click.stop="toggleExpanded"
+      >
+        <ChevronDown
+          class="markdown-plan-card-chevron h-4 w-4 flex-none text-[var(--text-muted)] transition-[transform,color] duration-200 [stroke-width:2.2]"
+          :class="isExpanded ? 'rotate-180 text-[var(--text)]' : ''"
+          aria-hidden="true"
+        />
+      </button>
+    </header>
 
+    <div
+      class="markdown-plan-card-preview-shell"
+      :class="{ 'is-expanded': isExpanded, 'is-force-collapsed': forceCollapsed }"
+      :style="previewShellStyle"
+    >
       <div class="markdown-plan-card-body grid min-w-0 gap-3 px-3 py-3">
         <AgentMarkdownContent class="agent-markdown-body min-w-0" :html="bodyHtml" />
       </div>
-    </Collapsible>
+    </div>
 
-    <div v-if="$slots.actions" class="markdown-plan-card-actions border-t border-[var(--border)] px-3 py-2.5">
+    <div
+      v-if="$slots.actions && isExpanded"
+      class="markdown-plan-card-actions border-t border-[var(--border)] px-3 py-2.5"
+    >
       <slot name="actions" />
     </div>
   </section>
@@ -54,7 +83,6 @@ import { useI18n } from "vue-i18n";
 import { renderMarkdownToSafeHtml } from "../../features/timeline/markdownRenderer";
 import { useMarkdownRendererRefresh } from "../../features/timeline/useMarkdownRendererRefresh";
 import AgentMarkdownContent from "./AgentMarkdownContent.vue";
-import Collapsible from "./Collapsible.vue";
 
 type ParsedMarkdownPlan = {
   title: string;
@@ -68,16 +96,35 @@ type HeadingHit = {
   title: string;
 };
 
-const props = defineProps<{
-  rawText: string;
-  forceCollapsed?: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    rawText: string;
+    forceCollapsed?: boolean;
+    previewHeightPx?: number;
+  }>(),
+  {
+    previewHeightPx: 300,
+  }
+);
 
-const manualOpen = ref(true);
+const isExpanded = ref(false);
 const { t } = useI18n();
 const { markdownRendererTick, refreshWhenReady } = useMarkdownRendererRefresh();
+const previewHeightPx = computed(() => Math.max(140, Math.round(Number(props.previewHeightPx) || 300)));
+const previewShellStyle = computed(() => ({
+  "--markdown-plan-preview-height": `${previewHeightPx.value}px`,
+}));
 
-const contentOpen = computed(() => !props.forceCollapsed && manualOpen.value);
+function toggleExpanded() {
+  if (props.forceCollapsed) return;
+  isExpanded.value = !isExpanded.value;
+}
+
+function onHeaderKeydown(event: KeyboardEvent) {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  event.preventDefault();
+  toggleExpanded();
+}
 
 function stripInlineMarkdown(value: string): string {
   return String(value ?? "")
@@ -182,32 +229,155 @@ function renderMarkdownHtml(text: string): string {
 const parsed = computed(() => parseMarkdownPlan(props.rawText));
 const bodyHtml = computed(() => renderMarkdownHtml(parsed.value.body));
 
-function onContentOpenUpdate(next: boolean) {
-  manualOpen.value = Boolean(next);
-}
-
 watch(
   () => props.forceCollapsed,
   (next, prev) => {
-    if (prev && !next) manualOpen.value = true;
+    if (prev && !next) isExpanded.value = false;
   }
 );
 
 watch(
   () => props.rawText,
   () => {
-    manualOpen.value = true;
+    isExpanded.value = false;
   }
 );
 </script>
 
 <style scoped>
-.markdown-plan-card-head:hover {
+.markdown-plan-card {
+  --markdown-plan-preview-height: 300px;
+}
+
+.markdown-plan-card-head {
+  align-items: start;
+}
+
+.markdown-plan-card-toggle {
+  cursor: pointer;
+}
+
+.markdown-plan-card-head:hover,
+.markdown-plan-card-head:focus-within {
   background: color-mix(in srgb, var(--ui-well-bg-strong) 68%, transparent);
+}
+
+.markdown-plan-card-toggle:focus-visible,
+.markdown-plan-card-chevron-button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent, var(--text)) 54%, transparent);
+  outline-offset: 2px;
+}
+
+.markdown-plan-card-head-actions {
+  display: flex;
+  min-width: 0;
+  max-width: min(540px, 52vw);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.markdown-plan-card-chevron-button {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  justify-self: end;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.markdown-plan-card-chevron-button:hover {
+  background: color-mix(in srgb, var(--text-muted) 12%, transparent);
+}
+
+.markdown-plan-card-chevron {
+  justify-self: end;
+}
+
+.markdown-plan-card-preview-shell {
+  position: relative;
+  display: grid;
+  grid-template-rows: 1fr;
+  max-height: var(--markdown-plan-preview-height);
+  overflow: hidden;
+  opacity: 1;
+  transition:
+    max-height 0.24s ease,
+    opacity 0.18s ease;
+}
+
+.markdown-plan-card-preview-shell.is-expanded {
+  max-height: none;
+  overflow: visible;
+}
+
+.markdown-plan-card-preview-shell.is-force-collapsed {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.markdown-plan-card-preview-shell::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 86px;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in srgb, var(--ui-well-bg) 72%, transparent) 54%,
+    var(--ui-well-bg) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.markdown-plan-card.is-preview .markdown-plan-card-preview-shell::after {
+  opacity: 1;
+}
+
+.markdown-plan-card.is-expanded .markdown-plan-card-head {
+  border-bottom-color: color-mix(in srgb, var(--ui-well-border) 86%, var(--text-muted) 14%);
+}
+
+.markdown-plan-card.is-preview .markdown-plan-card-actions {
+  display: none;
 }
 
 .markdown-plan-card.is-executing .markdown-plan-card-head {
   border-color: color-mix(in srgb, var(--border-warning) 58%, var(--ui-well-border) 42%);
   background: color-mix(in srgb, var(--bg-warning-soft) 36%, var(--ui-well-bg) 64%);
+}
+
+@media (max-width: 1180px) {
+  .markdown-plan-card-head {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .markdown-plan-card-head-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    max-width: 100%;
+  }
+
+  .markdown-plan-card-chevron-button {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .markdown-plan-card-preview-shell,
+  .markdown-plan-card-preview-shell::after {
+    transition: none;
+  }
 }
 </style>

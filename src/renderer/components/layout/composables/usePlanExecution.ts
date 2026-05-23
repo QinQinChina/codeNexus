@@ -62,7 +62,8 @@ export function usePlanExecution(contentEvents: () => TimelineEventItem[], isTur
     (running) => {
       if (running) return;
       for (const state of Object.values(planExecStateByEventId)) {
-        if (!state.executing) state.collapseWhileExecuting = false;
+        state.executing = false;
+        state.collapseWhileExecuting = false;
       }
     }
   );
@@ -100,6 +101,7 @@ export function usePlanExecution(contentEvents: () => TimelineEventItem[], isTur
       input: { ...item.input },
     }));
     const prevRewriteSavedMentions = runtimeStore.historyRewriteSavedMentions.map((item) => ({ ...item }));
+    let sendAccepted = false;
 
     try {
       runtimeStore.model = state.model;
@@ -109,7 +111,7 @@ export function usePlanExecution(contentEvents: () => TimelineEventItem[], isTur
       runtimeStore.composeAttachments = [];
       runtimeStore.composeFileMentions = [];
       runtimeStore.composeInput = translate("markdownPlan.executing");
-      await runtime.send();
+      sendAccepted = await runtime.send();
     } finally {
       runtimeStore.model = prevModel;
       runtimeStore.reasoningEffort = prevEffort;
@@ -128,8 +130,8 @@ export function usePlanExecution(contentEvents: () => TimelineEventItem[], isTur
         input: { ...item.input },
       }));
       runtimeStore.historyRewriteSavedMentions = prevRewriteSavedMentions.map((item) => ({ ...item }));
-      state.executing = false;
-      if (!isTurnRunning()) state.collapseWhileExecuting = false;
+      state.executing = sendAccepted && !isTurnRunning();
+      if (!sendAccepted && !isTurnRunning()) state.collapseWhileExecuting = false;
     }
   };
 

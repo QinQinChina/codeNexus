@@ -56,11 +56,17 @@ const props = defineProps<{
   sandboxModeOptions: readonly OptionInput[];
   disabled: boolean;
   embedded?: boolean;
+  compact?: boolean;
 }>();
 
 const { t } = useI18n();
 const rootClass = computed(() =>
-  props.embedded ? "mt-0 border-t-0 pt-0" : "mt-3 border-t border-[var(--border)] pt-2.5"
+  [
+    props.embedded ? "mt-0 border-t-0 pt-0" : "mt-3 border-t border-[var(--border)] pt-2.5",
+    props.compact ? "plan-delta-actions--compact" : "",
+  ]
+    .filter(Boolean)
+    .join(" ")
 );
 
 const optionValue = (option: OptionInput): string => (typeof option === "string" ? option : option.value);
@@ -85,3 +91,26 @@ defineEmits<{
   (e: "update:sandbox-mode", value: SandboxMode): void;
 }>();
 </script>
+
+<style scoped>
+.plan-delta-actions--compact {
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.plan-delta-actions--compact :deep(.composer-model-reasoning-trigger) {
+  width: clamp(138px, 18vw, 176px);
+  min-width: 138px;
+}
+
+.plan-delta-actions--compact :deep(.composer-sandbox-trigger) {
+  width: 76px;
+  min-width: 76px;
+}
+
+.plan-delta-actions--compact .plan-delta-execute-button {
+  min-width: 78px;
+  padding-inline: 9px !important;
+}
+</style>

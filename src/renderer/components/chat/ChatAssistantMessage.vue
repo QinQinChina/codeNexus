@@ -2,6 +2,21 @@
   <div :class="[CHAT_ROW_BASE_CLASS, 'chat-row--assistant']">
     <div class="chat-bubble chat-bubble-assistant w-full max-w-full min-w-0">
       <MarkdownPlanOutputCard v-if="isPlanDelta" :rawText="event.paramsText" :forceCollapsed="shouldCollapsePlan">
+        <template v-if="execState" #headerActions>
+          <ChatPlanDeltaActions
+            :execState="execState"
+            :modelOptions="modelOptions"
+            :reasoningEffortOptions="reasoningEffortOptions"
+            :sandboxModeOptions="sandboxModeOptions"
+            :disabled="planActionDisabled"
+            embedded
+            compact
+            @execute-plan="$emit('execute-plan', event)"
+            @update:model="(value) => $emit('update:model', value)"
+            @update:reasoning-effort="(value) => $emit('update:reasoning-effort', value)"
+            @update:sandbox-mode="(value) => $emit('update:sandbox-mode', value)"
+          />
+        </template>
         <template v-if="execState" #actions>
           <ChatPlanDeltaActions
             :execState="execState"
