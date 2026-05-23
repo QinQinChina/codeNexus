@@ -12,7 +12,6 @@
         :class="{
           'is-expanded': entry.isExpanded,
           'is-running': isRunning,
-          'is-completing': entry.isCompleting,
           'is-empty': !entry.file,
         }"
       >
@@ -39,7 +38,7 @@
           </div>
 
           <button
-            v-if="entry.hasDiff"
+            v-if="entry.canExpandDiff"
             type="button"
             class="file-change-expand-button"
             :aria-label="entry.isExpanded ? t('fileChange.collapseDiff') : t('fileChange.expandDiff')"
@@ -62,7 +61,7 @@
         >
           <section v-if="entry.shouldShowDiffBody" :key="`${entry.key}:diff`" class="file-change-diff-body">
             <UnifiedDiffViewer
-              v-if="entry.shouldShowDiffViewer && entry.file"
+              v-if="entry.file"
               :diffText="entry.file.diffText"
               :diffKey="entry.file.pathAbs || entry.key"
               :filePathHint="entry.file.pathRelTo || entry.file.pathRel || entry.file.pathAbsTo || entry.file.pathAbs"
@@ -72,9 +71,6 @@
               :animateUpdates="isRunning"
               ariaLabel="diff-view"
             />
-            <div v-else class="file-change-empty-diff mono">
-              <ExecutionWaveText class="mono" :text="t('fileChange.modifyingFile')" />
-            </div>
           </section>
         </Transition>
       </section>
@@ -83,12 +79,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { ChevronDown } from "lucide-vue-next";
 import UnifiedDiffViewer from "./UnifiedDiffViewer.vue";
 import AnimatedCount from "../../ui/AnimatedCount.vue";
-import ExecutionWaveText from "../../ui/ExecutionWaveText.vue";
 import { getDiffLineStats } from "../../../features/timeline/renderModel/diff";
 import type { FileChangeFile, FileChangeNode } from "../../../features/timeline/renderModel/buildTimelineNodes";
 import {
@@ -119,10 +114,7 @@ type LineStats = { kind: "lines"; add: number; del: number } | { kind: "text"; t
 type RenderableFile = FileChangeFile | null;
 
 const userExpandedByKey = ref<Record<string, boolean>>({});
-const completingByKey = ref<Record<string, boolean>>({});
-const completionTimersByKey = new Map<string, ReturnType<typeof setTimeout>>();
 const diffTransitionTimers = new WeakMap<Element, ReturnType<typeof setTimeout>>();
-const COMPLETE_SETTLE_MS = 850;
 const DIFF_COLLAPSE_MS = 220;
 const DIFF_COLLAPSE_EASING = "cubic-bezier(0.25, 1, 0.5, 1)";
 
@@ -170,7 +162,6 @@ const lineStatsForFile = (file: RenderableFile): LineStats => {
 
 const stateClass = computed(() => ({
   "is-streaming": isRunning.value,
-  "is-completing": Object.values(completingByKey.value).some(Boolean),
   "has-multiple-files": renderableFiles.value.length > 1,
 }));
 
@@ -178,9 +169,8 @@ const fileEntries = computed(() =>
   renderableFiles.value.map((file, index) => {
     const key = fileIdentity(file, index);
     const hasDiff = hasFileDiff(file);
-    const autoExpanded = isRunning.value && hasDiff;
-    const isCompleting = Boolean(completingByKey.value[key]);
-    const isExpanded = userExpandedByKey.value[key] ?? (autoExpanded || isCompleting);
+    const canExpandDiff = hasDiff && !isRunning.value;
+    const isExpanded = canExpandDiff && Boolean(userExpandedByKey.value[key]);
     const lineStats = lineStatsForFile(file);
     return {
       file,
@@ -193,19 +183,16 @@ const fileEntries = computed(() =>
           ? t("fileChange.lineStats", { add: lineStats.add, del: lineStats.del })
           : t("fileChange.diffScale", { text: lineStats.text }),
       hasDiff,
-      isCompleting,
+      canExpandDiff,
       isExpanded,
-      shouldShowDiffViewer: hasDiff && isExpanded,
-      shouldShowDiffBody: (hasDiff && isExpanded) || (!hasDiff && isRunning.value),
+      shouldShowDiffBody: canExpandDiff && isExpanded,
     };
   })
 );
 
 const toggleEntryExpanded = (key: string) => {
   const entry = fileEntries.value.find((candidate) => candidate.key === key);
-  if (!entry) return;
-  clearCompletionTimer(key);
-  setCompleting(key, false);
+  if (!entry?.canExpandDiff) return;
   userExpandedByKey.value = {
     ...userExpandedByKey.value,
     [key]: !entry.isExpanded,
@@ -296,75 +283,12 @@ const onDiffBodyAfterTransition = (element: Element) => {
   requestLayoutChange();
 };
 
-const clearCompletionTimer = (key: string) => {
-  const timer = completionTimersByKey.get(key);
-  if (timer == null) return;
-  clearTimeout(timer);
-  completionTimersByKey.delete(key);
-};
-
-const setCompleting = (key: string, value: boolean) => {
-  const current = completingByKey.value;
-  if (Boolean(current[key]) === value) return;
-  const next = { ...current };
-  if (value) next[key] = true;
-  else delete next[key];
-  completingByKey.value = next;
-};
-
-const clearAllCompletionTimers = () => {
-  for (const timer of completionTimersByKey.values()) clearTimeout(timer);
-  completionTimersByKey.clear();
-};
-
-const currentDiffKeys = () =>
-  renderableFiles.value
-    .map((file, index) => ({ file, key: fileIdentity(file, index) }))
-    .filter((entry) => hasFileDiff(entry.file))
-    .map((entry) => entry.key);
-
-const scheduleCompletionSettle = () => {
-  for (const key of currentDiffKeys()) {
-    if (userExpandedByKey.value[key] != null) continue;
-    clearCompletionTimer(key);
-    setCompleting(key, true);
-    completionTimersByKey.set(
-      key,
-      setTimeout(() => {
-        completionTimersByKey.delete(key);
-        setCompleting(key, false);
-        void nextTick(() => requestLayoutChange());
-      }, COMPLETE_SETTLE_MS)
-    );
-  }
-  void nextTick(() => requestLayoutChange());
-};
-
 watch(
   () => props.item.id,
   () => {
-    clearAllCompletionTimers();
     userExpandedByKey.value = {};
-    completingByKey.value = {};
   }
 );
-
-watch(
-  () => isRunning.value,
-  (running, wasRunning) => {
-    if (running) {
-      clearAllCompletionTimers();
-      completingByKey.value = {};
-      return;
-    }
-    if (wasRunning) scheduleCompletionSettle();
-  },
-  { flush: "post" }
-);
-
-onBeforeUnmount(() => {
-  clearAllCompletionTimers();
-});
 </script>
 
 <style scoped>
@@ -402,10 +326,6 @@ onBeforeUnmount(() => {
 
 .file-change-card.is-streaming {
   border-color: color-mix(in srgb, var(--accent) 34%, var(--ui-well-border));
-}
-
-.file-change-card.is-completing:not(.is-streaming) {
-  border-color: color-mix(in srgb, var(--success) 30%, var(--ui-well-border));
 }
 
 .file-change-card.is-streaming::before {
@@ -483,10 +403,6 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--file-change-card-bg) 86%, var(--ui-code-bg) 14%);
 }
 
-.file-change-file-item.is-completing {
-  background: color-mix(in srgb, var(--file-change-card-bg) 88%, var(--success) 5%);
-}
-
 .file-change-file-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -562,15 +478,6 @@ onBeforeUnmount(() => {
 .file-change-diff-body {
   padding: 0 10px 10px 12px;
   transform-origin: top;
-}
-
-.file-change-empty-diff {
-  border: 1px solid var(--ui-code-border);
-  border-radius: 5px;
-  background: var(--ui-code-bg);
-  padding: 7px 8px;
-  color: var(--ui-code-text-muted);
-  font-size: 11px;
 }
 
 @media (max-width: 640px) {
