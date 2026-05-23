@@ -12,6 +12,23 @@ type PromptNumberModalOptions = {
   max: number;
 };
 
+type PromptGoalModalOptions = {
+  title: string;
+  message: string;
+  objectiveLabel: string;
+  budgetLabel: string;
+  budgetHint?: string;
+  confirmText?: string;
+  cancelText?: string;
+  defaultObjective?: string;
+  defaultTokenBudget?: number | null;
+};
+
+export type PromptGoalModalResult = {
+  objective: string;
+  tokenBudget: number | null;
+};
+
 type ConfirmModalOptions = {
   title: string;
   message: string;
@@ -252,6 +269,228 @@ export async function promptNumberModal(options: PromptNumberModalOptions): Prom
     try {
       num.focus();
       num.select();
+    } catch {
+      try {
+        modal.focus();
+      } catch {}
+    }
+  });
+}
+
+export async function promptGoalModal(options: PromptGoalModalOptions): Promise<PromptGoalModalResult | null> {
+  if (activeModalCleanup) {
+    throw new Error("promptGoalModal: another modal is already open");
+  }
+
+  const title = String(options?.title ?? "").trim() || translate("common.input");
+  const message = String(options?.message ?? "").trim() || "";
+  const objectiveLabel = String(options?.objectiveLabel ?? "").trim() || translate("common.input");
+  const budgetLabel = String(options?.budgetLabel ?? "").trim() || "Token budget";
+  const budgetHint = String(options?.budgetHint ?? "").trim();
+  const confirmText = String(options?.confirmText ?? "").trim() || translate("common.confirm");
+  const cancelText = String(options?.cancelText ?? "").trim() || translate("common.cancel");
+  const previousFocus = document.activeElement as HTMLElement | null;
+
+  const overlay = document.createElement("div");
+  overlay.className = "codex-modal-overlay";
+  overlay.setAttribute("role", "presentation");
+
+  const modal = document.createElement("div");
+  modal.className = "codex-modal";
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  modal.setAttribute("aria-label", title);
+  modal.tabIndex = -1;
+
+  const header = document.createElement("div");
+  header.className = "codex-modal-header";
+  const h = document.createElement("div");
+  h.className = "codex-modal-title";
+  h.textContent = title;
+  header.appendChild(h);
+
+  const body = document.createElement("div");
+  body.className = "codex-modal-body";
+  if (message) {
+    const msg = document.createElement("div");
+    msg.className = "codex-modal-message";
+    msg.textContent = message;
+    body.appendChild(msg);
+  }
+
+  const objectiveWrap = document.createElement("label");
+  objectiveWrap.className = "codex-modal-field";
+  const objectiveCaption = document.createElement("span");
+  objectiveCaption.className = "codex-modal-field-label";
+  objectiveCaption.textContent = objectiveLabel;
+  const objectiveInput = document.createElement("textarea");
+  objectiveInput.className = "codex-modal-input codex-modal-textarea";
+  objectiveInput.rows = 4;
+  objectiveInput.value = String(options?.defaultObjective ?? "");
+  objectiveWrap.appendChild(objectiveCaption);
+  objectiveWrap.appendChild(objectiveInput);
+  body.appendChild(objectiveWrap);
+
+  const budgetWrap = document.createElement("label");
+  budgetWrap.className = "codex-modal-field";
+  const budgetCaption = document.createElement("span");
+  budgetCaption.className = "codex-modal-field-label";
+  budgetCaption.textContent = budgetLabel;
+  const budgetInput = document.createElement("input");
+  budgetInput.className = "codex-modal-input mono";
+  budgetInput.type = "number";
+  budgetInput.min = "1";
+  budgetInput.step = "1";
+  const defaultBudget = Number(options?.defaultTokenBudget);
+  budgetInput.value = Number.isFinite(defaultBudget) && defaultBudget > 0 ? String(Math.round(defaultBudget)) : "";
+  budgetWrap.appendChild(budgetCaption);
+  budgetWrap.appendChild(budgetInput);
+  if (budgetHint) {
+    const hint = document.createElement("span");
+    hint.className = "codex-modal-field-hint";
+    hint.textContent = budgetHint;
+    budgetWrap.appendChild(hint);
+  }
+  body.appendChild(budgetWrap);
+
+  const actions = document.createElement("div");
+  actions.className = "codex-modal-actions";
+
+  const btnCancel = document.createElement("button");
+  btnCancel.type = "button";
+  btnCancel.className = "codex-modal-btn";
+  btnCancel.textContent = cancelText;
+
+  const btnConfirm = document.createElement("button");
+  btnConfirm.type = "button";
+  btnConfirm.className = "codex-modal-btn";
+  btnConfirm.textContent = confirmText;
+
+  actions.appendChild(btnCancel);
+  actions.appendChild(btnConfirm);
+  modal.appendChild(header);
+  modal.appendChild(body);
+  modal.appendChild(actions);
+  overlay.appendChild(modal);
+
+  const root = document.documentElement;
+  const previousOverflow = root.style.overflow;
+
+  return await new Promise<PromptGoalModalResult | null>(async (resolve) => {
+    let resolved = false;
+
+    const readValue = (): PromptGoalModalResult | null => {
+      const objective = String(objectiveInput.value ?? "").trim();
+      if (!objective) return null;
+      const rawBudget = String(budgetInput.value ?? "").trim();
+      if (!rawBudget) return { objective, tokenBudget: null };
+      const parsed = Number(rawBudget);
+      if (!Number.isFinite(parsed) || parsed <= 0) return null;
+      return { objective, tokenBudget: Math.round(parsed) };
+    };
+
+    const syncValidity = () => {
+      btnConfirm.disabled = !readValue();
+    };
+
+    function resolveOnce(value: PromptGoalModalResult | null) {
+      if (resolved) return;
+      resolved = true;
+      cleanup();
+      resolve(value);
+    }
+
+    const onCancelClick = (evt: Event) => {
+      evt.preventDefault();
+      evt.stopPropagation();
+      resolveOnce(null);
+    };
+
+    const onConfirmClick = (evt: Event) => {
+      evt.preventDefault();
+      evt.stopPropagation();
+      const value = readValue();
+      if (value) resolveOnce(value);
+    };
+
+    const onOverlayClick = (evt: MouseEvent) => {
+      if (evt.target !== overlay) return;
+      resolveOnce(null);
+    };
+
+    const onKeydown = (evt: KeyboardEvent) => {
+      if (evt.key === "Escape") {
+        evt.preventDefault();
+        resolveOnce(null);
+        return;
+      }
+
+      if (evt.key === "Tab") {
+        const focusables = getFocusableElements(modal);
+        if (focusables.length === 0) return;
+        const current = document.activeElement as HTMLElement | null;
+        const idx = current ? focusables.indexOf(current) : -1;
+        const next = evt.shiftKey
+          ? idx <= 0
+            ? focusables.length - 1
+            : idx - 1
+          : idx >= focusables.length - 1
+            ? 0
+            : idx + 1;
+        evt.preventDefault();
+        focusables[next]?.focus();
+        return;
+      }
+
+      if ((evt.ctrlKey || evt.metaKey) && evt.key === "Enter") {
+        const value = readValue();
+        if (!value) return;
+        evt.preventDefault();
+        resolveOnce(value);
+      }
+    };
+
+    function cleanup() {
+      try {
+        window.removeEventListener("keydown", onKeydown, true);
+      } catch {}
+      try {
+        overlay.removeEventListener("click", onOverlayClick, true);
+      } catch {}
+      try {
+        objectiveInput.removeEventListener("input", syncValidity);
+        budgetInput.removeEventListener("input", syncValidity);
+        btnCancel.removeEventListener("click", onCancelClick, true);
+        btnConfirm.removeEventListener("click", onConfirmClick, true);
+      } catch {}
+      try {
+        if (overlay.parentElement) overlay.parentElement.removeChild(overlay);
+      } catch {}
+      try {
+        root.style.overflow = previousOverflow;
+      } catch {}
+      activeModalCleanup = null;
+      try {
+        if (previousFocus && previousFocus.isConnected) previousFocus.focus();
+      } catch {}
+    }
+
+    activeModalCleanup = cleanup;
+    overlay.addEventListener("click", onOverlayClick, true);
+    objectiveInput.addEventListener("input", syncValidity);
+    budgetInput.addEventListener("input", syncValidity);
+    btnCancel.addEventListener("click", onCancelClick, true);
+    btnConfirm.addEventListener("click", onConfirmClick, true);
+    window.addEventListener("keydown", onKeydown, true);
+
+    syncValidity();
+    document.body.appendChild(overlay);
+    root.style.overflow = "hidden";
+
+    await new Promise<void>((r) => setTimeout(r, 0));
+    try {
+      objectiveInput.focus();
+      objectiveInput.select();
     } catch {
       try {
         modal.focus();

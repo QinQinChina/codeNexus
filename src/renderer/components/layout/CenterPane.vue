@@ -476,6 +476,10 @@ const threadContentCommandDisabledHint = computed(() => {
   if (!hasCurrentThread.value) return t("composer.needThread");
   return "";
 });
+const goalCommandDisabledHint = computed(() => {
+  if (!hasCurrentThread.value) return t("composer.needThread");
+  return "";
+});
 const slashQuery = computed(() => {
   const text = stripComposeFileTokenChars(String(runtimeStore.composeInput ?? ""));
   const trimmedStart = text.trimStart();
@@ -505,6 +509,55 @@ const slashCommands = computed<SlashCommandDef[]>(() => [
     hint: t("composer.slashSkillsHint"),
     run: () => {
       skillsUiStore.openManager();
+    },
+  },
+  {
+    id: "goal-set",
+    code: "goal-set",
+    title: t("composer.slashGoalSetTitle"),
+    hint: t("composer.slashGoalSetHint"),
+    disabled: Boolean(goalCommandDisabledHint.value),
+    disabledHint: goalCommandDisabledHint.value || undefined,
+    run: async () => {
+      await runtime.promptAndSetCurrentThreadGoal();
+    },
+  },
+  {
+    id: "goal-complete",
+    code: "goal-complete",
+    title: t("composer.slashGoalCompleteTitle"),
+    hint: t("composer.slashGoalCompleteHint"),
+    disabled: Boolean(goalCommandDisabledHint.value),
+    disabledHint: goalCommandDisabledHint.value || undefined,
+    run: async () => {
+      await runtime.completeCurrentThreadGoal();
+    },
+  },
+  {
+    id: "goal-clear",
+    code: "goal-clear",
+    title: t("composer.slashGoalClearTitle"),
+    hint: t("composer.slashGoalClearHint"),
+    disabled: Boolean(goalCommandDisabledHint.value),
+    disabledHint: goalCommandDisabledHint.value || undefined,
+    run: async () => {
+      await runtime.clearCurrentThreadGoal();
+    },
+  },
+  {
+    id: "goal-get",
+    code: "goal-get",
+    title: t("composer.slashGoalGetTitle"),
+    hint: t("composer.slashGoalGetHint"),
+    disabled: Boolean(goalCommandDisabledHint.value),
+    disabledHint: goalCommandDisabledHint.value || undefined,
+    run: async () => {
+      const goal = await runtime.refreshThreadGoal();
+      showToast({
+        kind: "info",
+        title: goal ? t("composer.goalCurrentTitle") : t("composer.goalEmptyTitle"),
+        message: goal?.objective ?? t("composer.goalEmptyMessage"),
+      });
     },
   },
   {

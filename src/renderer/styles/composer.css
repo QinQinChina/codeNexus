@@ -763,6 +763,26 @@ textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-
   padding-top: 10px;
 }
 
+.codex-modal-field {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.codex-modal-field-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.codex-modal-field-hint {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .codex-modal-input {
   width: 100%;
   height: 36px;
@@ -781,6 +801,14 @@ textarea:not(#input):not(.instruction-file-editor):not(.instruction-file-editor-
   outline: none;
   border-color: var(--border-accent-hover, var(--button-border-hover, var(--border-accent, var(--border))));
   box-shadow: var(--floating-item-ring);
+}
+
+.codex-modal-textarea {
+  height: auto;
+  min-height: 92px;
+  padding: 10px 12px;
+  resize: vertical;
+  line-height: 1.45;
 }
 
 .codex-modal-actions {

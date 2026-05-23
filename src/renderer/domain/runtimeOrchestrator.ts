@@ -92,6 +92,7 @@ import type { ThreadListResponse } from "../../generated/codex-app-server/v2/Thr
 import type { ThreadReadParams } from "../../generated/codex-app-server/v2/ThreadReadParams";
 import type { ThreadResumeParams } from "../../generated/codex-app-server/v2/ThreadResumeParams";
 import type { ThreadStartParams } from "../../generated/codex-app-server/v2/ThreadStartParams";
+import type { ThreadGoalSetParams } from "../../generated/codex-app-server/v2/ThreadGoalSetParams";
 import type { ThreadMemoryMode } from "../../generated/codex-app-server/ThreadMemoryMode";
 import type { JsonValue } from "../../generated/codex-app-server/serde_json/JsonValue";
 import type {
@@ -102,6 +103,7 @@ import type {
   McpServerState,
   SkillState,
   LocalThreadItem,
+  ThreadGoalState,
   ThreadHistoryItem,
   TimelineEventItem,
   UserTurnInput,
@@ -195,6 +197,11 @@ async function promptNumberModalLazy(options: Parameters<(typeof import("../ui/m
   return promptNumberModal(options);
 }
 
+async function promptGoalModalLazy(options: Parameters<(typeof import("../ui/modal"))["promptGoalModal"]>[0]) {
+  const { promptGoalModal } = await import("../ui/modal");
+  return promptGoalModal(options);
+}
+
 async function parseSessionReplayEventsLazy(
   entries: Parameters<(typeof import("../features/history/replayParsers"))["parseSessionReplayEvents"]>[0],
   threadId: string
@@ -213,7 +220,7 @@ export type RuntimeOrchestrator = {
   switchThread: (threadId: string) => Promise<void>;
   loadOlderHistoryTurns: (threadId?: string) => Promise<boolean>;
   deleteHistoryThread: (threadId: string) => Promise<void>;
-  send: () => Promise<void>;
+  send: () => Promise<boolean>;
   sendHistoryRewriteDraft: (draft: {
     anchorTurnId: string;
     composeInput: string;
@@ -232,6 +239,11 @@ export type RuntimeOrchestrator = {
   compactThread: () => Promise<void>;
   resetCodexMemory: () => Promise<void>;
   setCurrentThreadMemoryMode: (mode: ThreadMemoryMode) => Promise<void>;
+  refreshThreadGoal: (threadId?: string) => Promise<ThreadGoalState | null>;
+  promptAndSetCurrentThreadGoal: () => Promise<ThreadGoalState | null>;
+  setCurrentThreadGoal: (args: { objective: string; tokenBudget?: number | null }) => Promise<ThreadGoalState | null>;
+  completeCurrentThreadGoal: () => Promise<ThreadGoalState | null>;
+  clearCurrentThreadGoal: () => Promise<boolean>;
   refreshGlobalConfig: () => Promise<void>;
   saveGlobalConfig: (options?: { source?: "manual" | "auto"; silentSuccessToast?: boolean }) => Promise<void>;
   resetGlobalConfig: () => void;
@@ -713,6 +725,186 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       params,
     });
     return res.result.thread;
+  };
+
+  const getCurrentThreadIdOrToast = () => {
+    const threadId = String(runtimeStore.currentThreadId ?? "").trim();
+    if (threadId) return threadId;
+    showToast({
+      kind: "warn",
+      title: translate("runtime.goalNoThreadTitle"),
+      message: translate("runtime.goalNoThreadMessage"),
+    });
+    return "";
+  };
+
+  const ensureServerForThread = async (threadIdValue: string) => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId) return "";
+    const workspace = getWorkspaceForThread(threadId);
+    const serverId = await ensureServerForWorkspace(workspace);
+    return serverId || "";
+  };
+
+  const normalizeGoalBudget = (value: unknown): number | null => {
+    if (value == null || value === "") return null;
+    const raw = typeof value === "number" ? value : Number(value);
+    if (!Number.isFinite(raw) || raw <= 0) return null;
+    return Math.round(raw);
+  };
+
+  const refreshThreadGoal = async (threadIdValue?: string): Promise<ThreadGoalState | null> => {
+    const threadId = String(threadIdValue ?? runtimeStore.currentThreadId ?? "").trim();
+    if (!threadId || threadId === APP_TIMELINE_ID) return null;
+    try {
+      const serverId = await ensureServerForThread(threadId);
+      if (!serverId) return null;
+      const { result } = await codexDesktop.codexServer.rpc({
+        serverId,
+        method: "thread/goal/get",
+        params: { threadId },
+      });
+      const goal = result.goal ?? null;
+      if (goal) threadStore.setThreadGoal(threadId, goal);
+      else threadStore.clearThreadGoal(threadId);
+      return threadStore.goalByThread.get(threadId) ?? null;
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      console.warn("[runtimeOrchestrator] thread goal refresh failed", { threadId, msg });
+      return threadStore.goalByThread.get(threadId) ?? null;
+    }
+  };
+
+  const setCurrentThreadGoal = async (args: {
+    objective: string;
+    tokenBudget?: number | null;
+  }): Promise<ThreadGoalState | null> => {
+    const threadId = getCurrentThreadIdOrToast();
+    if (!threadId) return null;
+    const objective = String(args.objective ?? "").trim();
+    if (!objective) {
+      showToast({
+        kind: "warn",
+        title: translate("runtime.goalObjectiveRequiredTitle"),
+        message: translate("runtime.goalObjectiveRequiredMessage"),
+      });
+      return null;
+    }
+    try {
+      const serverId = await ensureServerForThread(threadId);
+      if (!serverId) throw new Error(translate("runtime.currentThreadNoService"));
+      const params: ThreadGoalSetParams = {
+        threadId,
+        objective,
+        status: "active",
+        tokenBudget: normalizeGoalBudget(args.tokenBudget),
+      };
+      const { result } = await codexDesktop.codexServer.rpc({
+        serverId,
+        method: "thread/goal/set",
+        params,
+      });
+      threadStore.setThreadGoal(threadId, result.goal);
+      showToast({
+        kind: "success",
+        title: translate("runtime.goalSavedTitle"),
+        message: translate("runtime.goalSavedMessage"),
+      });
+      return threadStore.goalByThread.get(threadId) ?? null;
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      showToast({ kind: "error", title: translate("runtime.goalSaveFailedTitle"), message: msg });
+      return null;
+    }
+  };
+
+  const promptAndSetCurrentThreadGoal = async (): Promise<ThreadGoalState | null> => {
+    const threadId = getCurrentThreadIdOrToast();
+    if (!threadId) return null;
+    const existing = threadStore.goalByThread.get(threadId) ?? (await refreshThreadGoal(threadId));
+    let draft: { objective: string; tokenBudget: number | null } | null = null;
+    try {
+      draft = await promptGoalModalLazy({
+        title: translate(existing ? "runtime.goalUpdateTitle" : "runtime.goalCreateTitle"),
+        message: translate("runtime.goalModalMessage"),
+        objectiveLabel: translate("runtime.goalObjectiveLabel"),
+        budgetLabel: translate("runtime.goalBudgetLabel"),
+        budgetHint: translate("runtime.goalBudgetHint"),
+        confirmText: translate(existing ? "runtime.goalUpdateConfirm" : "runtime.goalCreateConfirm"),
+        defaultObjective: existing?.objective ?? "",
+        defaultTokenBudget: existing?.tokenBudget ?? null,
+      });
+    } catch (e: any) {
+      showToast({
+        kind: "error",
+        title: translate("runtime.goalModalOpenFailedTitle"),
+        message: e?.message ? String(e.message) : String(e),
+      });
+      return null;
+    }
+    if (!draft) return null;
+    return await setCurrentThreadGoal(draft);
+  };
+
+  const completeCurrentThreadGoal = async (): Promise<ThreadGoalState | null> => {
+    const threadId = getCurrentThreadIdOrToast();
+    if (!threadId) return null;
+    const existing = threadStore.goalByThread.get(threadId) ?? (await refreshThreadGoal(threadId));
+    if (!existing) {
+      showToast({
+        kind: "warn",
+        title: translate("runtime.goalMissingTitle"),
+        message: translate("runtime.goalMissingMessage"),
+      });
+      return null;
+    }
+    try {
+      const serverId = await ensureServerForThread(threadId);
+      if (!serverId) throw new Error(translate("runtime.currentThreadNoService"));
+      const { result } = await codexDesktop.codexServer.rpc({
+        serverId,
+        method: "thread/goal/set",
+        params: { threadId, status: "complete" },
+      });
+      threadStore.setThreadGoal(threadId, result.goal);
+      showToast({
+        kind: "success",
+        title: translate("runtime.goalCompletedTitle"),
+        message: translate("runtime.goalCompletedMessage"),
+      });
+      return threadStore.goalByThread.get(threadId) ?? null;
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      showToast({ kind: "error", title: translate("runtime.goalCompleteFailedTitle"), message: msg });
+      return null;
+    }
+  };
+
+  const clearCurrentThreadGoal = async (): Promise<boolean> => {
+    const threadId = getCurrentThreadIdOrToast();
+    if (!threadId) return false;
+    try {
+      const serverId = await ensureServerForThread(threadId);
+      if (!serverId) throw new Error(translate("runtime.currentThreadNoService"));
+      const { result } = await codexDesktop.codexServer.rpc({
+        serverId,
+        method: "thread/goal/clear",
+        params: { threadId },
+      });
+      threadStore.clearThreadGoal(threadId);
+      showToast({
+        kind: "success",
+        title: translate("runtime.goalClearedTitle"),
+        message: result.cleared
+          ? translate("runtime.goalClearedMessage")
+          : translate("runtime.goalAlreadyClearMessage"),
+      });
+      return Boolean(result.cleared);
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      showToast({ kind: "error", title: translate("runtime.goalClearFailedTitle"), message: msg });
+      return false;
+    }
   };
 
   const skillsRuntime = createSkillsRuntime({
@@ -3160,6 +3352,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
 
       // 恢复线程上下文不应阻塞“打开线程”；发送/回滚等入口会再次确保 resume。
       void ensureThreadResumed(id);
+      void refreshThreadGoal(id);
       void hydrateThreadHandoffDiagnostics(id, { force: true });
 
       // 刷新文件树可能较慢，尽量让时间线先渲染，再后台刷新，避免“点进去卡住”的观感。
@@ -3684,7 +3877,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   };
 
   const send = async () => {
-    await sendOrQueueDraft("auto", runtimeStoreSendDraft(), { clearRuntimeDraftOnAccept: true });
+    return await sendOrQueueDraft("auto", runtimeStoreSendDraft(), { clearRuntimeDraftOnAccept: true });
   };
 
   const sendHistoryRewriteDraft: RuntimeOrchestrator["sendHistoryRewriteDraft"] = async (draft) => {
@@ -4510,6 +4703,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     compactThread,
     resetCodexMemory,
     setCurrentThreadMemoryMode,
+    refreshThreadGoal,
+    promptAndSetCurrentThreadGoal,
+    setCurrentThreadGoal,
+    completeCurrentThreadGoal,
+    clearCurrentThreadGoal,
     refreshGlobalConfig,
     saveGlobalConfig,
     resetGlobalConfig,

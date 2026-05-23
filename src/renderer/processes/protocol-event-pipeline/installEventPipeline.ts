@@ -697,6 +697,45 @@ export function installEventPipeline(pinia: Pinia) {
       }
     }
 
+    if (n.method === "thread/goal/updated") {
+      const params = n.params;
+      const goalThreadId = resolveId(params.threadId, effectiveThreadId);
+      const goalTurnId = resolveId(params.turnId, rawTurnId);
+      if (goalThreadId && goalThreadId !== "__app__") {
+        threadStore.setThreadGoal(goalThreadId, params.goal);
+      }
+      if (runtimeStore.timelineDebugEnabled) {
+        debugTimelineStore.appendEvent({
+          threadId: goalThreadId || effectiveThreadId,
+          method: n.method,
+          paramsText,
+          params,
+          turnId: goalTurnId || undefined,
+          hidden: true,
+        });
+      }
+      return;
+    }
+
+    if (n.method === "thread/goal/cleared") {
+      const params = n.params;
+      const goalThreadId = resolveId(params.threadId, effectiveThreadId);
+      if (goalThreadId && goalThreadId !== "__app__") {
+        threadStore.clearThreadGoal(goalThreadId);
+      }
+      if (runtimeStore.timelineDebugEnabled) {
+        debugTimelineStore.appendEvent({
+          threadId: goalThreadId || effectiveThreadId,
+          method: n.method,
+          paramsText,
+          params,
+          turnId: rawTurnId || undefined,
+          hidden: true,
+        });
+      }
+      return;
+    }
+
     if (HIDDEN_OFFICIAL_NOTIFICATION_METHODS.has(n.method)) {
       if (runtimeStore.timelineDebugEnabled) {
         debugTimelineStore.appendEvent({
@@ -902,7 +941,11 @@ export function installEventPipeline(pinia: Pinia) {
     if (n.method === "item/agentMessage/delta") {
       const params = n.params;
       const deltaText = params.delta;
-      const timelineParams = withAgentMessagePhase(params as unknown as Record<string, unknown>, agentItemId, agentPhase);
+      const timelineParams = withAgentMessagePhase(
+        params as unknown as Record<string, unknown>,
+        agentItemId,
+        agentPhase
+      );
       if (deltaText) {
         timelineStore.appendToEvent({
           threadId: effectiveThreadId,

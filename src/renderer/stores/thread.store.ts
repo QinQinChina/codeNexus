@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import type {
   CompletedTurnState,
   ThreadHandoffDiagnosticsState,
+  ThreadGoalState,
   LocalThreadItem,
   PlanStepState,
   ThreadHistoryItem,
@@ -16,6 +17,7 @@ const completedBadgeTimersByThread = new Map<string, ReturnType<typeof setTimeou
 const TURN_STARTED_AT_CACHE_LIMIT = 120;
 const TURN_PLAN_CACHE_LIMIT = 120;
 const TURN_TOKEN_USAGE_CACHE_LIMIT = 120;
+const THREAD_GOAL_STATUSES = new Set(["active", "paused", "budgetLimited", "complete"]);
 
 function emptyTokenUsageBreakdown(): TokenUsageBreakdownState {
   return {
@@ -102,6 +104,29 @@ function normalizeThreadId(value: unknown): string {
   return String(value ?? "").trim();
 }
 
+function normalizeGoalStatus(value: unknown): ThreadGoalState["status"] {
+  const status = String(value ?? "").trim();
+  return THREAD_GOAL_STATUSES.has(status) ? (status as ThreadGoalState["status"]) : "active";
+}
+
+function normalizeThreadGoal(value: unknown, fallbackThreadId?: string): ThreadGoalState | null {
+  const anyValue = value && typeof value === "object" ? (value as any) : null;
+  if (!anyValue) return null;
+  const threadId = normalizeThreadId(anyValue.threadId ?? fallbackThreadId);
+  const objective = String(anyValue.objective ?? "").trim();
+  if (!threadId || !objective) return null;
+  return {
+    threadId,
+    objective,
+    status: normalizeGoalStatus(anyValue.status),
+    tokenBudget: toFiniteNonNegativeNumberOrNull(anyValue.tokenBudget),
+    tokensUsed: toFiniteNonNegativeNumberOrNull(anyValue.tokensUsed) ?? 0,
+    timeUsedSeconds: toFiniteNonNegativeNumberOrNull(anyValue.timeUsedSeconds) ?? 0,
+    createdAt: toFiniteNonNegativeNumberOrNull(anyValue.createdAt) ?? 0,
+    updatedAt: toFiniteNonNegativeNumberOrNull(anyValue.updatedAt) ?? Date.now(),
+  };
+}
+
 export const useThreadStore = defineStore("thread", {
   state: () => ({
     currentWorkspace: "" as string,
@@ -114,6 +139,7 @@ export const useThreadStore = defineStore("thread", {
     recentlyCompletedThreadIds: new Set<string>(),
     threadTitleOverridesByThreadId: new Map<string, string>(),
     tokenUsageByThread: new Map<string, TokenUsageState>(),
+    goalByThread: new Map<string, ThreadGoalState>(),
     turnTokenUsageByThread: new Map<string, Map<string, TokenUsageState>>(),
     activeTurnIdByThread: new Map<string, string>(),
     turnStartedAtByThread: new Map<string, Map<string, number>>(),
@@ -130,6 +156,11 @@ export const useThreadStore = defineStore("thread", {
       const key = state.currentThreadId;
       if (!key) return emptyTokenUsageState();
       return state.tokenUsageByThread.get(key) ?? emptyTokenUsageState();
+    },
+    currentGoal(state): ThreadGoalState | null {
+      const key = state.currentThreadId;
+      if (!key) return null;
+      return state.goalByThread.get(key) ?? null;
     },
     currentCompletedTurns(state): CompletedTurnState[] {
       const key = state.currentThreadId;
@@ -301,6 +332,7 @@ export const useThreadStore = defineStore("thread", {
       };
 
       moveMapEntry(this.tokenUsageByThread);
+      moveMapEntry(this.goalByThread);
       moveMapEntry(
         this.turnTokenUsageByThread,
         (fromValue, toValue) => new Map<string, TokenUsageState>([...toValue.entries(), ...fromValue.entries()])
@@ -412,6 +444,21 @@ export const useThreadStore = defineStore("thread", {
       if (!tid) return;
       const normalized = normalizeTokenUsage(usage);
       this.tokenUsageByThread.set(tid, normalized);
+    },
+    setThreadGoal(threadIdValue: string, goalValue: unknown) {
+      const tid = String(threadIdValue ?? "").trim();
+      if (!tid) return;
+      const normalized = normalizeThreadGoal(goalValue, tid);
+      if (!normalized) {
+        this.goalByThread.delete(tid);
+        return;
+      }
+      this.goalByThread.set(tid, normalized);
+    },
+    clearThreadGoal(threadIdValue: string) {
+      const tid = String(threadIdValue ?? "").trim();
+      if (!tid) return;
+      this.goalByThread.delete(tid);
     },
     setTurnTokenUsage(threadId: string, turnId: string, usage: unknown) {
       const tid = String(threadId ?? "").trim();
@@ -622,6 +669,7 @@ export const useThreadStore = defineStore("thread", {
       }
 
       this.tokenUsageByThread.delete(tid);
+      this.goalByThread.delete(tid);
       this.turnTokenUsageByThread.delete(tid);
       this.activeTurnIdByThread.delete(tid);
       this.turnStartedAtByThread.delete(tid);

@@ -18,12 +18,29 @@
   stroke-width: 2;
 }
 
-.topbar-plan-summary {
+.topbar-center-stack {
   grid-column: 2;
-  position: relative;
+  min-width: 0;
+  width: min(100%, 720px);
   justify-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.topbar-plan-summary {
+  position: relative;
+  flex: 1 1 420px;
   width: min(100%, 640px);
   min-width: 0;
+  -webkit-app-region: no-drag;
+}
+
+.topbar-goal-summary {
+  position: relative;
+  flex: 0 1 300px;
+  min-width: 180px;
   -webkit-app-region: no-drag;
 }
 
@@ -40,6 +57,77 @@
   border-radius: var(--tb-radius);
   background: color-mix(in srgb, var(--tb-control-bg) 88%, var(--surface-2) 12%);
   color: var(--topbar-text);
+}
+
+.topbar button.topbar-goal-trigger {
+  width: 100%;
+  height: 24px;
+  display: grid;
+  grid-template-columns: auto auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--tb-control-border) 72%);
+  border-radius: var(--tb-radius);
+  background: color-mix(in srgb, var(--tb-control-bg) 84%, var(--accent) 16%);
+  color: var(--topbar-text);
+}
+
+.topbar button.topbar-goal-trigger:hover:not(:disabled),
+.topbar-goal-summary.is-open button.topbar-goal-trigger {
+  border-color: color-mix(in srgb, var(--accent) 46%, var(--tb-control-border) 54%);
+  background: color-mix(in srgb, var(--topbar-active-bg, var(--accent)) 42%, var(--tb-control-bg) 58%);
+}
+
+.topbar-goal-icon {
+  width: 13px;
+  height: 13px;
+  color: var(--topbar-btn-active-text);
+  stroke-width: 2.2;
+}
+
+.topbar-goal-label {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.topbar-goal-progress {
+  color: var(--topbar-text-muted);
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.topbar-goal-current {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--topbar-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.topbar-goal-current-text {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-goal-caret {
+  width: 13px;
+  height: 13px;
+  color: var(--topbar-text-muted);
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 180ms ease;
+}
+
+.topbar-goal-caret.is-open {
+  color: var(--topbar-text);
+  transform: rotate(180deg);
 }
 
 .topbar button.topbar-plan-trigger:hover:not(:disabled),
@@ -117,6 +205,92 @@
   left: 0;
   right: 0;
   width: min(100%, 640px);
+}
+
+.topbar-menu-shell--goal {
+  left: 0;
+  width: min(420px, calc(100vw - 24px));
+}
+
+.topbar-goal-menu {
+  max-height: min(44vh, 420px);
+  gap: 10px;
+}
+
+.topbar-goal-menu-head,
+.topbar-goal-metrics {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.topbar-goal-status {
+  flex: 0 0 auto;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.topbar-goal-status.is-active {
+  color: var(--fg-accent);
+}
+
+.topbar-goal-status.is-complete {
+  color: var(--fg-success);
+}
+
+.topbar-goal-status.is-paused,
+.topbar-goal-status.is-budgetLimited {
+  color: var(--fg-warning);
+}
+
+.topbar-goal-objective {
+  color: var(--topbar-dropdown-text, var(--text));
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.topbar-goal-metrics {
+  align-items: stretch;
+}
+
+.topbar-goal-metric {
+  min-width: 0;
+  flex: 1 1 0;
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--topbar-dropdown-border, var(--floating-border)) 70%, transparent);
+  border-radius: var(--tb-radius-sm);
+  background: color-mix(in srgb, var(--floating-item-bg, var(--button-bg, var(--surface-1))) 78%, transparent);
+}
+
+.topbar-goal-metric-label {
+  color: var(--topbar-text-muted);
+  font-size: 10px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.topbar-goal-metric-value {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--topbar-dropdown-text, var(--text));
+  font-size: 12px;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-goal-actions .btn-mini {
+  gap: 7px;
+}
+
+.topbar-goal-actions .btn-mini svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2.2;
 }
 
 .topbar-plan-menu {
@@ -1159,6 +1333,7 @@
   .topbar-single-switch-thumb,
   .topbar-menu-item-chevron,
   .topbar-plan-caret,
+  .topbar-goal-caret,
   .topbar-plan-step-slide-enter-active,
   .topbar-plan-step-slide-leave-active,
   .topbar-update-slide-enter-active,

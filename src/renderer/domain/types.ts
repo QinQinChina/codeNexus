@@ -2,6 +2,7 @@
 import type { ApprovalsReviewer } from "../../generated/codex-app-server/v2/ApprovalsReviewer";
 import type { AskForApproval } from "../../generated/codex-app-server/v2/AskForApproval";
 import type { SandboxMode } from "../../generated/codex-app-server/v2/SandboxMode";
+import type { ThreadGoalStatus } from "../../generated/codex-app-server/v2/ThreadGoalStatus";
 import type { ThreadSourceKind } from "../../generated/codex-app-server/v2/ThreadSourceKind";
 import type { TextElement } from "../../generated/codex-app-server/v2/TextElement";
 import type { AppTextEncoding, AppTextLineEnding } from "../../shared/ipc/contracts";
@@ -65,6 +66,17 @@ export type ThreadHistoryItem = {
   agentRole?: string;
   agentPath?: string;
   gitInfoSummary?: string;
+};
+
+export type ThreadGoalState = {
+  threadId: string;
+  objective: string;
+  status: ThreadGoalStatus;
+  tokenBudget: number | null;
+  tokensUsed: number;
+  timeUsedSeconds: number;
+  createdAt: number;
+  updatedAt: number;
 };
 
 export type LocalThreadStatus = "creating" | "ready";

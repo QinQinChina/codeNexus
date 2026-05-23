@@ -45,7 +45,10 @@
         </div>
       </div>
 
-      <TopBarPlanSummary />
+      <div class="topbar-center-stack">
+        <TopBarGoalSummary />
+        <TopBarPlanSummary />
+      </div>
 
       <div ref="rightStackRef" class="topbar-right-stack">
         <div class="row topbar-controls topbar-controls--sleek">
@@ -117,6 +120,7 @@ import {
   Workflow,
 } from "lucide-vue-next";
 import TopBarWorkspaceButton from "./topbar/TopBarWorkspaceButton.vue";
+import TopBarGoalSummary from "./topbar/TopBarGoalSummary.vue";
 import TopBarPlanSummary from "./topbar/TopBarPlanSummary.vue";
 import TopBarThemeSwitch from "./topbar/TopBarThemeSwitch.vue";
 import TopBarUpdateNotice from "./topbar/TopBarUpdateNotice.vue";
