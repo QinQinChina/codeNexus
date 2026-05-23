@@ -1,6 +1,12 @@
 <template>
   <div :class="[CHAT_ROW_BASE_CLASS, 'chat-row--aux-activity']">
-    <section class="chat-aux-activity" :class="activityClass" :aria-busy="status === 'running'">
+    <section ref="activityRef" class="chat-aux-activity" :class="activityClass" :aria-busy="status === 'running'">
+      <span class="chat-aux-activity__meteor" :style="meteorMotionStyle" aria-hidden="true"></span>
+      <span
+        class="chat-aux-activity__meteor chat-aux-activity__meteor--opposite"
+        :style="meteorMotionStyle"
+        aria-hidden="true"
+      ></span>
       <button
         class="chat-aux-activity__summary"
         type="button"
@@ -14,7 +20,18 @@
           <span class="chat-aux-activity__title">{{ titleText }}</span>
           <span class="chat-aux-activity__counts">
             <span v-for="item in summaryItems" :key="item.key" class="chat-aux-activity__count">
-              {{ item.label }} {{ item.count }}
+              <span class="chat-aux-activity__count-label">{{ item.label }}</span>
+              <span class="chat-aux-activity__count-value">{{ item.valueText ?? item.count }}</span>
+              <template v-if="item.addText || item.delText">
+                <span v-if="item.addText" class="chat-aux-activity__count-delta chat-aux-activity__count-delta--add">
+                  <span class="chat-aux-activity__count-delta-sign">+</span>
+                  <span class="chat-aux-activity__count-delta-number">{{ unsignedDeltaText(item.addText) }}</span>
+                </span>
+                <span v-if="item.delText" class="chat-aux-activity__count-delta chat-aux-activity__count-delta--del">
+                  <span class="chat-aux-activity__count-delta-sign">-</span>
+                  <span class="chat-aux-activity__count-delta-number">{{ unsignedDeltaText(item.delText) }}</span>
+                </span>
+              </template>
             </span>
           </span>
         </span>
@@ -47,7 +64,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { Activity, ChevronDown } from "lucide-vue-next";
 import { useI18n } from "vue-i18n";
 import type { ChatAuxActivityStatus, ChatAuxActivitySummaryItem, ChatAuxiliaryRow } from "../layout/types/chat.types";
@@ -61,6 +78,9 @@ const props = defineProps<{
   summaryText: string;
   status: ChatAuxActivityStatus;
   defaultCollapsed: boolean;
+  startedAtMs: number | null;
+  answerStartedAtMs: number | null;
+  elapsedLive: boolean;
 }>();
 
 defineSlots<{
@@ -72,8 +92,13 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const activityRef = ref<HTMLElement | null>(null);
 const open = ref(!props.defaultCollapsed);
 const userTouched = ref(false);
+const nowMs = ref(Date.now());
+let elapsedTimer: ReturnType<typeof setInterval> | null = null;
+let activityResizeObserver: ResizeObserver | null = null;
+const meteorSize = ref({ width: 1, height: 1 });
 const {
   contentRef,
   scrollerRef,
@@ -86,12 +111,64 @@ const {
   onContentResize: () => emit("layout-change"),
 });
 
-const titleText = computed(() =>
-  props.status === "running" ? t("chat.activity.auxRunningTitle") : t("chat.activity.auxTitle")
-);
+const titleText = computed(() => t("chat.activity.auxTitle"));
+
+const meteorPath = computed(() => {
+  const width = Math.max(1, Math.round(meteorSize.value.width));
+  const height = Math.max(1, Math.round(meteorSize.value.height));
+  const inset = 3;
+  const right = Math.max(inset, width - inset);
+  const bottom = Math.max(inset, height - inset);
+  const radius = Math.min(8, Math.max(0, Math.floor((Math.min(width, height) - inset * 2) / 2)));
+  const leftCurve = inset + radius;
+  const rightCurve = Math.max(leftCurve, right - radius);
+  const topCurve = inset + radius;
+  const bottomCurve = Math.max(topCurve, bottom - radius);
+  return [
+    `M ${leftCurve} ${inset}`,
+    `H ${rightCurve}`,
+    `Q ${right} ${inset} ${right} ${topCurve}`,
+    `V ${bottomCurve}`,
+    `Q ${right} ${bottom} ${rightCurve} ${bottom}`,
+    `H ${leftCurve}`,
+    `Q ${inset} ${bottom} ${inset} ${bottomCurve}`,
+    `V ${topCurve}`,
+    `Q ${inset} ${inset} ${leftCurve} ${inset}`,
+    "Z",
+  ].join(" ");
+});
+const meteorMotionStyle = computed<Record<string, string>>(() => ({
+  "offset-path": `path("${meteorPath.value}")`,
+}));
+
+const elapsedMs = computed(() => {
+  const startedAt = Number(props.startedAtMs);
+  if (!Number.isFinite(startedAt) || startedAt <= 0) return null;
+  const completedAt = Number(props.answerStartedAtMs);
+  const endAt = Number.isFinite(completedAt) && completedAt > 0 ? completedAt : props.elapsedLive ? nowMs.value : null;
+  if (endAt == null) return null;
+  return Math.max(0, Math.round(endAt - startedAt));
+});
+
+const elapsedText = computed(() => {
+  const ms = elapsedMs.value;
+  if (ms == null) return "";
+  const totalSeconds = Math.max(1, Math.round(ms / 1000));
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+});
 
 const statusText = computed(() => {
-  if (props.status === "running") return t("chat.activity.running");
+  const elapsed = elapsedText.value;
+  if (props.elapsedLive && elapsed) return t("chat.activity.runningElapsed", { elapsed });
+  if (props.elapsedLive) return t("chat.activity.running");
+  if (elapsed) {
+    return open.value
+      ? t("chat.activity.expandedElapsed", { elapsed })
+      : t("chat.activity.collapsedElapsed", { elapsed });
+  }
   return open.value ? t("chat.activity.expanded") : t("chat.activity.collapsed");
 });
 
@@ -99,6 +176,10 @@ const activityClass = computed(() => ({
   "is-open": open.value,
   "is-running": props.status === "running",
 }));
+
+function unsignedDeltaText(value: string): string {
+  return String(value ?? "").replace(/^[+-]/, "");
+}
 
 function toggleOpen() {
   userTouched.value = true;
@@ -118,6 +199,43 @@ function onBodyTransitionEnd(event: TransitionEvent) {
   if (event.target !== event.currentTarget || event.propertyName !== "grid-template-rows") return;
   emit("layout-change");
 }
+
+function syncElapsedTimer() {
+  if (elapsedTimer) {
+    clearInterval(elapsedTimer);
+    elapsedTimer = null;
+  }
+  if (!props.elapsedLive || !props.startedAtMs) return;
+  nowMs.value = Date.now();
+  elapsedTimer = setInterval(() => {
+    nowMs.value = Date.now();
+  }, 1000);
+}
+
+watch(() => [props.elapsedLive, props.startedAtMs] as const, syncElapsedTimer, { immediate: true });
+
+function syncMeteorSize() {
+  const rect = activityRef.value?.getBoundingClientRect();
+  if (!rect) return;
+  meteorSize.value = {
+    width: Math.max(1, Math.round(rect.width)),
+    height: Math.max(1, Math.round(rect.height)),
+  };
+}
+
+onMounted(() => {
+  syncMeteorSize();
+  if (typeof ResizeObserver !== "undefined" && activityRef.value) {
+    activityResizeObserver = new ResizeObserver(syncMeteorSize);
+    activityResizeObserver.observe(activityRef.value);
+  }
+});
+
+onBeforeUnmount(() => {
+  if (elapsedTimer) clearInterval(elapsedTimer);
+  activityResizeObserver?.disconnect();
+  activityResizeObserver = null;
+});
 
 watch(
   () => props.id,

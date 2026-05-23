@@ -16,7 +16,7 @@
             <template v-for="part in displayParts" :key="part.key">
               <span v-if="part.type === 'text'" class="chat-pinned-prompt__text-part">{{ part.text }}</span>
               <button
-                v-else
+                v-else-if="part.type === 'file'"
                 class="chat-inline-file-token chat-pinned-prompt__file-token"
                 type="button"
                 v-tooltip="part.title"
@@ -99,6 +99,7 @@ const displayParts = computed<ChatUserMessagePart[]>(() => {
   const parts = Array.isArray(props.messageParts) ? props.messageParts : [];
   const normalized = parts
     .map((part) => {
+      if (part.type === "environmentContext") return null;
       if (part.type === "file") return part;
       const text = part.text.replace(/\s+/g, " ");
       return text ? { ...part, text } : null;

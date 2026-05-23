@@ -431,7 +431,11 @@ const pinnedUserMessage = computed(() => {
   const fileCount = parts.filter((part) => part.type === "file").length;
   const imageCount = userMessageImageCount(row.event);
   const titleParts = parts
-    .map((part) => (part.type === "file" ? part.label : part.text.replace(/\s+/g, " ").trim()))
+    .map((part) => {
+      if (part.type === "file") return part.label;
+      if (part.type === "text") return part.text.replace(/\s+/g, " ").trim();
+      return "";
+    })
     .filter(Boolean);
   const suffix = [
     fileCount > 0 ? t("chatPane.fileCount", { count: fileCount }) : "",

@@ -39,7 +39,12 @@ const TOOL_ROW_KINDS = new Set<ChatRenderedRow["kind"]>([
   "webSearch",
 ]);
 
-const ACTIVITY_ROW_KINDS = new Set<ChatRenderedRow["kind"]>(["activity", "auxActivityGroup", "reasoningBlock"]);
+const ACTIVITY_ROW_KINDS = new Set<ChatRenderedRow["kind"]>([
+  "activity",
+  "assistantCommentary",
+  "auxActivityGroup",
+  "reasoningBlock",
+]);
 
 function rowGroup(row: ChatRenderedRow): ChatTimelineRowGroup {
   if (COMMAND_ROW_KINDS.has(row.kind)) return "command";
@@ -58,7 +63,13 @@ function rowRole(row: ChatRenderedRow): ChatTimelineRowRole {
 }
 
 function rowDensity(row: ChatRenderedRow): ChatTimelineRowDensity {
-  if (COMMAND_ROW_KINDS.has(row.kind) || row.kind === "activity" || row.kind === "reasoningBlock") return "compact";
+  if (
+    COMMAND_ROW_KINDS.has(row.kind) ||
+    row.kind === "activity" ||
+    row.kind === "assistantCommentary" ||
+    row.kind === "reasoningBlock"
+  )
+    return "compact";
   if (row.kind === "assistant" || row.kind === "user" || row.kind === "fileChange") return "spacious";
   if (row.kind === "tokenUsageSummary") return "compact";
   return "standard";
@@ -110,6 +121,7 @@ function rowStatus(row: ChatRenderedRow): ChatTimelineRowStatus {
 function estimatedHeightPx(row: ChatRenderedRow): number {
   switch (row.kind) {
     case "activity":
+    case "assistantCommentary":
     case "commandAction":
     case "commandSession":
     case "commandList":

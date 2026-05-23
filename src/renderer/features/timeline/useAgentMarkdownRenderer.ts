@@ -1,6 +1,7 @@
 // Agent Markdown 渲染 Hook：把增量/流式 markdown 渲染为安全 HTML，并提供缓存清理。
 import { onBeforeUnmount, shallowRef, watch } from "vue";
 import type { TimelineEventItem } from "../../domain/types";
+import { stripInlineMemoryCitation } from "../../domain/taggedMessageBlocks";
 import { getMarkdownRendererVersion, renderMarkdownToSafeHtml, whenMarkdownRendererReady } from "./markdownRenderer";
 
 type AgentMarkdownRenderEntry = {
@@ -73,7 +74,7 @@ export function useAgentMarkdownRenderer(params: { key: () => string }) {
   const getMarkdownEventHtml = (event: TimelineEventItem) => {
     void agentMarkdownRenderTick.value;
     const eventId = String(event.id ?? "").trim();
-    const text = String(event.paramsText ?? "");
+    const text = stripInlineMemoryCitation(event.paramsText);
     if (!eventId) return renderWithCurrentMarkdownRenderer(text).renderedHtml;
     const currentRendererVersion = getMarkdownRendererVersion();
 

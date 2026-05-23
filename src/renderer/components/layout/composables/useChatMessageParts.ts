@@ -1,5 +1,6 @@
 import type { TimelineEventItem, TimelineUserMessageParams } from "../../../domain/types";
 import { buildStructuredTextSegments } from "../../../domain/composeFileMentions";
+import { splitEnvironmentContextSegments } from "../../../domain/taggedMessageBlocks";
 import { basenameFromPath } from "../../../domain/workspaceFiles";
 import { translate } from "../../../i18n/translate";
 import { useWorkspaceFilesStore } from "../../../stores/workspaceFiles.store";
@@ -57,8 +58,18 @@ export function useChatMessageParts(hiddenImageIds: () => Set<string>, onLayoutC
       inferAbsolutePaths: true,
     })) {
       if (segment.type === "text") {
-        if (segment.text) {
-          parts.push({ key: `${event.id}:text:${index}`, type: "text", text: segment.text });
+        for (const taggedSegment of splitEnvironmentContextSegments(segment.text)) {
+          if (taggedSegment.type === "text") {
+            if (taggedSegment.text) {
+              parts.push({ key: `${event.id}:text:${index}:${parts.length}`, type: "text", text: taggedSegment.text });
+            }
+          } else {
+            parts.push({
+              key: `${event.id}:environment:${index}:${parts.length}`,
+              type: "environmentContext",
+              context: taggedSegment.context,
+            });
+          }
         }
       } else {
         const label = String(segment.placeholder ?? "").trim() || basenameFromPath(segment.path) || segment.path;
@@ -75,7 +86,17 @@ export function useChatMessageParts(hiddenImageIds: () => Set<string>, onLayoutC
     }
     if (parts.length > 0) return parts;
     const fallbackText = String(event?.paramsText ?? "");
-    return fallbackText ? [{ key: `${event.id}:fallback`, type: "text", text: fallbackText }] : [];
+    return fallbackText
+      ? splitEnvironmentContextSegments(fallbackText).map((segment, segmentIndex) =>
+          segment.type === "text"
+            ? { key: `${event.id}:fallback:${segmentIndex}`, type: "text", text: segment.text }
+            : {
+                key: `${event.id}:fallback-environment:${segmentIndex}`,
+                type: "environmentContext",
+                context: segment.context,
+              }
+        )
+      : [];
   };
 
   const inferLazyImageSourceKind = (value: string): LazyImageSourceKind => {

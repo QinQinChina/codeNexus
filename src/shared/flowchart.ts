@@ -12,11 +12,13 @@ export type FlowchartViewport = {
 };
 
 export type FlowchartStyle = Record<string, string | number | boolean | null>;
+export type FlowchartEdgeType = "straight" | "smoothstep";
 
 export type FlowchartNode = {
   id: string;
   type: string;
   label: string;
+  parentId?: string | null;
   position: FlowchartPosition;
   style: FlowchartStyle;
 };
@@ -26,6 +28,8 @@ export type FlowchartEdge = {
   source: string;
   target: string;
   label: string;
+  type?: FlowchartEdgeType;
+  markerEnd?: boolean;
   style: FlowchartStyle;
 };
 
@@ -87,6 +91,10 @@ function toNumberInRange(value: unknown, fallback: number, min: number, max: num
   return Math.max(min, Math.min(max, n));
 }
 
+function hasOwn(record: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(record, key);
+}
+
 export function normalizeFlowchartTemplateType(value: unknown): FlowchartTemplateType {
   const raw = String(value ?? "")
     .trim()
@@ -94,6 +102,10 @@ export function normalizeFlowchartTemplateType(value: unknown): FlowchartTemplat
   return FLOWCHART_TEMPLATE_TYPES.includes(raw as FlowchartTemplateType)
     ? (raw as FlowchartTemplateType)
     : DEFAULT_FLOWCHART_TEMPLATE_TYPE;
+}
+
+export function normalizeFlowchartEdgeType(value: unknown): FlowchartEdgeType {
+  return toStringValue(value).toLowerCase() === "straight" ? "straight" : "smoothstep";
 }
 
 function normalizeStyle(value: unknown): FlowchartStyle {
@@ -150,13 +162,20 @@ function normalizeNode(value: unknown, index: number, seenIds: Set<string>, erro
   return {
     id,
     type: toNonEmptyString(record.type, "default"),
-    label: toNonEmptyString(record.label, id),
+    label: hasOwn(record, "label") ? toStringValue(record.label) : id,
+    parentId: toStringValue(record.parentId) || null,
     position: { x, y },
     style: normalizeStyle(record.style),
   };
 }
 
-function normalizeEdge(value: unknown, index: number, nodeIds: Set<string>, seenIds: Set<string>, errors: string[]) {
+function normalizeEdge(
+  value: unknown,
+  index: number,
+  nodeIds: Set<string>,
+  seenIds: Set<string>,
+  errors: string[]
+): FlowchartEdge | null {
   const record = toRecord(value);
   if (!record) {
     errors.push(`edges[${index}] is not an object`);
@@ -183,6 +202,8 @@ function normalizeEdge(value: unknown, index: number, nodeIds: Set<string>, seen
     source,
     target,
     label: toStringValue(record.label),
+    type: normalizeFlowchartEdgeType(record.type),
+    markerEnd: record.markerEnd === false ? false : true,
     style: normalizeStyle(record.style),
   };
 }
@@ -202,6 +223,13 @@ export function normalizeFlowchartDocument(
   const nodes = nodesSource
     .map((node, index) => normalizeNode(node, index, nodeIds, errors))
     .filter((node): node is FlowchartNode => Boolean(node));
+  for (const node of nodes) {
+    if (!node.parentId) continue;
+    if (node.parentId === node.id || !nodeIds.has(node.parentId)) {
+      errors.push(`node "${node.id}" references missing parent "${node.parentId}"`);
+      node.parentId = null;
+    }
+  }
 
   const edgeIds = new Set<string>();
   const edgesSource = Array.isArray(root?.edges) ? root.edges : (fallback?.edges ?? []);

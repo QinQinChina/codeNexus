@@ -34,9 +34,6 @@
         />
       </button>
     </div>
-    <div v-if="runningOutputPreview" class="chat-terminal-action-output mono">
-      {{ runningOutputPreview }}
-    </div>
     <div
       v-if="item.item.filesCount > 0 && isFilesOpen"
       class="chat-terminal-action-files mx-2.5 rounded-xl border border-[var(--ui-well-border)] bg-[var(--ui-well-bg-strong)] px-2.5 py-2"
@@ -90,19 +87,6 @@ const actionText = computed(() => {
   return detail ? `${main} · ${detail}` : main;
 });
 const isRunning = computed(() => props.item.item.status === "running");
-const latestOutputLine = (value: string) => {
-  return (
-    String(value ?? "")
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .pop() ?? ""
-  );
-};
-const runningOutputPreview = computed(() => {
-  if (!isRunning.value) return "";
-  return latestOutputLine(props.item.item.outputFull || props.item.item.outputPreview);
-});
 </script>
 
 <style scoped>
@@ -113,17 +97,6 @@ const runningOutputPreview = computed(() => {
 
 .chat-terminal-action-text {
   line-height: 20px;
-}
-
-.chat-terminal-action-output {
-  min-width: 0;
-  overflow: hidden;
-  padding-left: 25px;
-  color: var(--text-muted);
-  font-size: 11px;
-  line-height: 18px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 @keyframes command-action-running-pulse {

@@ -47,7 +47,7 @@
 
       <TopBarPlanSummary />
 
-      <div class="topbar-right-stack">
+      <div ref="rightStackRef" class="topbar-right-stack">
         <div class="row topbar-controls topbar-controls--sleek">
           <div class="control-group control-group-panes" :aria-label="t('topbar.panels')">
             <button
@@ -104,7 +104,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import {
   Image as ImageIcon,
@@ -131,6 +131,11 @@ const appShellStore = useAppShellStore();
 const { t } = useI18n();
 const runtimeStore = useRuntimeStore();
 const workspaceFilesStore = useWorkspaceFilesStore();
+const rightStackRef = ref<HTMLElement | null>(null);
+
+const reducedMotionQuery = typeof window !== "undefined" ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+let rightStackAnimationFrame = 0;
+let rightStackAnimationTimer = 0;
 
 const hasWorkspace = computed(() => Boolean(String(runtimeStore.workspacePath ?? "").trim()));
 const filesPaneVisible = computed(
@@ -156,6 +161,68 @@ const filesPaneTitle = computed(() => {
   if (appShellStore.mainView === "image") return t("topbar.filesPanelHiddenInImage");
   if (appShellStore.mainView === "flowchart") return t("topbar.filesPanelHiddenInFlowchart");
   return filesPaneVisible.value ? t("topbar.closeFilesPanel") : t("topbar.openFilesPanel");
+});
+
+function prefersReducedMotion() {
+  return Boolean(reducedMotionQuery?.matches);
+}
+
+function clearRightStackLayoutAnimation() {
+  if (rightStackAnimationFrame) {
+    window.cancelAnimationFrame(rightStackAnimationFrame);
+    rightStackAnimationFrame = 0;
+  }
+  if (rightStackAnimationTimer) {
+    window.clearTimeout(rightStackAnimationTimer);
+    rightStackAnimationTimer = 0;
+  }
+
+  const rightStack = rightStackRef.value;
+  if (!rightStack) return;
+  rightStack.classList.remove("is-layout-animating");
+  rightStack.style.transition = "";
+  rightStack.style.transform = "";
+}
+
+watch(
+  () => runtimeStore.workspacePath,
+  async () => {
+    const rightStack = rightStackRef.value;
+    if (!rightStack || prefersReducedMotion()) return;
+
+    const previousLeft = rightStack.getBoundingClientRect().left;
+    await nextTick();
+
+    const updatedRightStack = rightStackRef.value;
+    if (!updatedRightStack) return;
+
+    const nextLeft = updatedRightStack.getBoundingClientRect().left;
+    const deltaX = previousLeft - nextLeft;
+    if (Math.abs(deltaX) < 1) return;
+
+    clearRightStackLayoutAnimation();
+    updatedRightStack.style.transition = "none";
+    updatedRightStack.style.transform = `translateX(${deltaX}px)`;
+    void updatedRightStack.offsetWidth;
+
+    rightStackAnimationFrame = window.requestAnimationFrame(() => {
+      rightStackAnimationFrame = 0;
+      updatedRightStack.classList.add("is-layout-animating");
+      updatedRightStack.style.transition = "";
+      updatedRightStack.style.transform = "translateX(0)";
+      rightStackAnimationTimer = window.setTimeout(() => {
+        rightStackAnimationTimer = 0;
+        updatedRightStack.classList.remove("is-layout-animating");
+        updatedRightStack.style.transition = "";
+        updatedRightStack.style.transform = "";
+      }, 240);
+    });
+  },
+  { flush: "pre" }
+);
+
+onBeforeUnmount(() => {
+  clearRightStackLayoutAnimation();
 });
 
 function onSetMainView(next: MainView) {

@@ -23,6 +23,11 @@ function normalizeText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function normalizeAgentMessagePhase(value: unknown): "commentary" | "final_answer" | "" {
+  const phase = normalizeText(value);
+  return phase === "commentary" || phase === "final_answer" ? phase : "";
+}
+
 // 识别 AGENTS 指令注入文本，避免在聊天区重复占位展示。
 function isAgentsBootstrapText(text: string): boolean {
   const value = normalizeText(text);
@@ -413,7 +418,12 @@ export function parseSessionReplayEvents(entries: HistoryThreadEvent[], threadId
     });
   };
 
-  const pushAssistantMessage = (turnId: string, text: string, createdAt: number) => {
+  const pushAssistantMessage = (
+    turnId: string,
+    text: string,
+    createdAt: number,
+    phase: "commentary" | "final_answer" | "" = ""
+  ) => {
     const value = normalizeText(text);
     if (!value) return;
     const dedupeKey = `${turnId}:assistant:${value}`;
@@ -422,7 +432,15 @@ export function parseSessionReplayEvents(entries: HistoryThreadEvent[], threadId
     push({
       method: "item/agentMessage/delta",
       paramsText: value,
-      params: { item: { type: "agentMessage", text: value }, turnId, threadId },
+      params: {
+        item: {
+          type: "agentMessage",
+          text: value,
+          ...(phase ? { phase } : {}),
+        },
+        turnId,
+        threadId,
+      },
       turnId: turnId || undefined,
       createdAt,
     });
@@ -532,7 +550,7 @@ export function parseSessionReplayEvents(entries: HistoryThreadEvent[], threadId
         continue;
       }
       if (role === "assistant") {
-        pushAssistantMessage(activeTurnId, text, createdAt);
+        pushAssistantMessage(activeTurnId, text, createdAt, normalizeAgentMessagePhase(payload?.phase));
         continue;
       }
       if (role === "developer" || role === "system") {

@@ -5,6 +5,7 @@ import type {
   TimelineEventItem,
   TokenUsageState,
 } from "../../../domain/types";
+import type { EnvironmentContextBlock } from "../../../domain/taggedMessageBlocks";
 import type { IconifyIcon } from "@iconify/vue";
 import type { DynamicToolTimelineItem } from "../../../domain/dynamicTools";
 import type {
@@ -80,6 +81,9 @@ export type ChatAuxActivitySummaryItem = {
   key: string;
   label: string;
   count: number;
+  valueText?: string;
+  addText?: string;
+  delText?: string;
 };
 
 export type ChatTokenUsageSummaryItem = {
@@ -91,10 +95,12 @@ export type ChatTokenUsageSummaryItem = {
 
 export type ChatAuxiliaryRow =
   | (ChatRowBase & { kind: "activity"; text: string; createdAt: number; tone?: ActivityTone })
+  | (ChatRowBase & { kind: "assistantCommentary"; event: TimelineEventItem })
   | (ChatRowBase & { kind: "imageTool"; createdAt: number; item: ChatImageToolItem })
   | (ChatRowBase & { kind: "dynamicTool"; createdAt: number; item: DynamicToolTimelineItem })
   | (ChatRowBase & { kind: "webSearch"; createdAt: number; item: ChatWebSearchItem })
   | (ChatRowBase & { kind: "reasoningBlock"; item: ReasoningBlockNode })
+  | (ChatRowBase & { kind: "fileChange"; item: FileChangeNode })
   | (ChatRowBase & { kind: "commandAction"; item: CommandActionNode })
   | (ChatRowBase & { kind: "commandSession"; item: CommandSessionNode })
   | (ChatRowBase & { kind: "commandRead"; item: CommandReadNode })
@@ -107,7 +113,6 @@ export type ChatMainRow =
   | (ChatRowBase & { kind: "user"; event: TimelineEventItem })
   | (ChatRowBase & { kind: "assistant"; event: TimelineEventItem })
   | (ChatRowBase & { kind: "system"; text: string })
-  | (ChatRowBase & { kind: "fileChange"; item: FileChangeNode })
   | (ChatRowBase & { kind: "tokenUsageSummary"; item: ChatTokenUsageSummaryItem })
   | ChatAuxiliaryRow;
 
@@ -118,6 +123,9 @@ export type ChatAuxActivityGroupRow = ChatRowBase & {
   summaryText: string;
   status: ChatAuxActivityStatus;
   defaultCollapsed: boolean;
+  startedAtMs: number | null;
+  answerStartedAtMs: number | null;
+  elapsedLive: boolean;
 };
 
 export type ChatRow = ChatMainRow | ChatAuxActivityGroupRow;
@@ -154,7 +162,8 @@ export type ChatUserMessageSnapshot = {
 
 export type ChatUserMessagePart =
   | { key: string; type: "text"; text: string }
-  | { key: string; type: "file"; path: string; label: string; title: string; icon: IconifyIcon };
+  | { key: string; type: "file"; path: string; label: string; title: string; icon: IconifyIcon }
+  | { key: string; type: "environmentContext"; context: EnvironmentContextBlock };
 
 export type ImageToolImageEntry = {
   id: string;

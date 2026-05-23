@@ -37,6 +37,7 @@ type ThreadTokenUsagePayload = NotificationByMethod<"thread/tokenUsage/updated">
 // 上下文压缩线程项类型
 type ContextCompactionThreadItem = Extract<ThreadItem, { type: "contextCompaction" }>;
 type CommandExecutionThreadItem = Extract<ThreadItem, { type: "commandExecution" }>;
+type AgentMessagePhase = "commentary" | "final_answer";
 
 // 判断是否为 Item 生命周期通知
 function isItemLifecycleNotification(notification: NormalizedNotification): notification is ItemLifecycleNotification {
@@ -269,6 +270,7 @@ export function installEventPipeline(pinia: Pinia) {
     string,
     { threadId: string; turnId: string; itemId: string; item: CommandExecutionThreadItem }
   >();
+  const agentMessagePhaseByKey = new Map<string, AgentMessagePhase>();
 
   // 旁路日志：把关键协议事件落盘到 ~/.codex/logs，便于排查"历史回放缺少文件修改"等问题。
   // 注意：此日志不是 UI 的真数据源，只作为回放/诊断兜底。
@@ -290,6 +292,50 @@ export function installEventPipeline(pinia: Pinia) {
   // 生成推理摘要键
   const toReasoningSummaryKey = (threadId: string, turnId: string, itemId: string, summaryIndex: number) =>
     `${threadId}:${turnId}:${itemId}:${summaryIndex}`;
+  const toAgentMessageKey = (threadId: string, turnId: string, itemId: string) =>
+    `${threadId || "__app__"}:${turnId || "unknown"}:${itemId || "unknown"}`;
+
+  const normalizeAgentMessagePhase = (value: unknown): AgentMessagePhase | "" => {
+    const phase = String(value ?? "").trim();
+    return phase === "commentary" || phase === "final_answer" ? phase : "";
+  };
+
+  const rememberAgentMessagePhase = (params: { threadId: string; turnId: string; itemId: string; phase: unknown }) => {
+    const phase = normalizeAgentMessagePhase(params.phase);
+    const itemId = String(params.itemId ?? "").trim();
+    if (!phase || !itemId) return "";
+    agentMessagePhaseByKey.set(toAgentMessageKey(params.threadId, params.turnId, itemId), phase);
+    return phase;
+  };
+
+  const resolveAgentMessagePhase = (params: {
+    threadId: string;
+    turnId: string;
+    itemId: string;
+    phase?: unknown;
+  }): AgentMessagePhase | "" => {
+    const explicit = normalizeAgentMessagePhase(params.phase);
+    if (explicit) return explicit;
+    const itemId = String(params.itemId ?? "").trim();
+    if (!itemId) return "";
+    return agentMessagePhaseByKey.get(toAgentMessageKey(params.threadId, params.turnId, itemId)) ?? "";
+  };
+
+  const withAgentMessagePhase = <T extends Record<string, unknown>>(
+    params: T,
+    itemId: string,
+    phase: AgentMessagePhase | ""
+  ) => {
+    if (!phase) return params;
+    return {
+      ...params,
+      item: {
+        type: "agentMessage",
+        id: itemId,
+        phase,
+      },
+    };
+  };
 
   const rememberCommandExecutionProcess = (params: {
     threadId: string;
@@ -670,6 +716,20 @@ export function installEventPipeline(pinia: Pinia) {
     const agentItemId = resolveId(lifecycleItem?.id, n.itemId);
     const agentTurnId = resolveId(lifecycleTurnId, n.turnId, rawTurnId, activeTurnId);
     const agentStreamEventId = `notif:item/agentMessage/delta:${effectiveThreadId}:${agentTurnId || "unknown"}:${agentItemId || "unknown"}`;
+    const agentPhase =
+      lifecycleItem?.type === "agentMessage"
+        ? rememberAgentMessagePhase({
+            threadId: effectiveThreadId,
+            turnId: agentTurnId,
+            itemId: agentItemId,
+            phase: lifecycleItem.phase,
+          })
+        : resolveAgentMessagePhase({
+            threadId: effectiveThreadId,
+            turnId: agentTurnId,
+            itemId: agentItemId,
+            phase: paramsRecord.item && typeof paramsRecord.item === "object" ? (paramsRecord.item as any).phase : "",
+          });
     // 提取推理相关 ID
     const reasoningItemType = lifecycleItem?.type ?? "";
     const reasoningItemId = resolveId(lifecycleItem?.id, n.itemId);
@@ -842,26 +902,29 @@ export function installEventPipeline(pinia: Pinia) {
     if (n.method === "item/agentMessage/delta") {
       const params = n.params;
       const deltaText = params.delta;
+      const timelineParams = withAgentMessagePhase(params as unknown as Record<string, unknown>, agentItemId, agentPhase);
       if (deltaText) {
         timelineStore.appendToEvent({
           threadId: effectiveThreadId,
           id: agentStreamEventId,
           method: "item/agentMessage/delta",
           chunk: deltaText,
-          params,
+          params: timelineParams,
           turnId: agentTurnId || undefined,
-        });
-        if (agentTurnId) markThinkingOutputStreaming(effectiveThreadId, agentTurnId);
-      } else {
-        timelineStore.upsertEvent({
-          threadId: effectiveThreadId,
-          id: agentStreamEventId,
-          method: "item/agentMessage/delta",
-          paramsText,
-          params,
-          turnId: agentTurnId || undefined,
+          hidden: false,
         });
       }
+      if (runtimeStore.timelineDebugEnabled) {
+        debugTimelineStore.appendEvent({
+          threadId: effectiveThreadId,
+          method: n.method,
+          paramsText: deltaText || paramsText,
+          params: timelineParams,
+          turnId: agentTurnId || undefined,
+          hidden: true,
+        });
+      }
+      if (agentTurnId) markThinkingOutputStreaming(effectiveThreadId, agentTurnId);
       return;
     }
 
@@ -971,6 +1034,7 @@ export function installEventPipeline(pinia: Pinia) {
           paramsText: finalText,
           params,
           turnId: agentTurnId || undefined,
+          hidden: false,
         });
         if (agentTurnId) markThinkingOutputStreaming(effectiveThreadId, agentTurnId);
       }
@@ -1577,6 +1641,7 @@ export function installEventPipeline(pinia: Pinia) {
     reasoningItemIdByTurnKey.clear();
     reasoningSummaryEventIdByKey.clear();
     commandExecutionByProcessId.clear();
+    agentMessagePhaseByKey.clear();
     threadIdByTurnId.clear();
     routingWarned.clear();
     unsubscribe();

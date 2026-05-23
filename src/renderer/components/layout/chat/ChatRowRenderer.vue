@@ -48,6 +48,9 @@
     :summaryText="renderedRow.summaryText"
     :status="renderedRow.status"
     :defaultCollapsed="renderedRow.defaultCollapsed"
+    :startedAtMs="renderedRow.startedAtMs"
+    :answerStartedAtMs="renderedRow.answerStartedAtMs"
+    :elapsedLive="renderedRow.elapsedLive"
     @layout-change="handleLayoutChange?.()"
   >
     <template #default="{ item }">
@@ -101,6 +104,13 @@
     :text="renderedRow.text"
     :activityDotClass="activityDotClass(renderedRow.tone)"
   />
+
+  <div v-else-if="renderedRow.kind === 'assistantCommentary'" :class="CHAT_ROW_ACTIVITY_CLASS">
+    <AgentMarkdownContent
+      class="chat-assistant-commentary agent-markdown-body min-w-0"
+      :html="assistantMarkdownHtml(renderedRow.event)"
+    />
+  </div>
 
   <ChatTokenUsageSummary
     v-else-if="renderedRow.kind === 'tokenUsageSummary'"
@@ -236,6 +246,7 @@ import ChatSshToolActivity from "../../chat/ChatSshToolActivity.vue";
 import ChatTokenUsageSummary from "../../chat/ChatTokenUsageSummary.vue";
 import ChatCommandActionRow from "../../chat/ChatCommandActionRow.vue";
 import ChatCommandSessionCard from "../../chat/ChatCommandSessionCard.vue";
+import AgentMarkdownContent from "../../ui/AgentMarkdownContent.vue";
 import DynamicToolCallCardContent from "../../timeline/cards/DynamicToolCallCardContent.vue";
 import FileChangeCardContent from "../../timeline/cards/FileChangeCardContent.vue";
 import McpResourceReadCardContent from "../../timeline/cards/McpResourceReadCardContent.vue";
@@ -248,6 +259,7 @@ import { chatActivityToneClass } from "./chatStyle";
 
 import type { TimelineEventItem } from "../../../domain/types";
 import { tryParseStructuredFinalAnswerV1 } from "../../../domain/structuredFinalAnswer";
+import { stripInlineMemoryCitation } from "../../../domain/taggedMessageBlocks";
 import { renderMarkdownToSafeHtml } from "../../../features/timeline/markdownRenderer";
 import { useMarkdownRendererRefresh } from "../../../features/timeline/useMarkdownRendererRefresh";
 import type {
@@ -357,7 +369,7 @@ const toReasoningHtml = (text: string) => {
 const activityDotClass = chatActivityToneClass;
 const isStructuredFinalAnswerEvent = (event: TimelineEventItem): boolean => {
   if (event.method === "item/plan/delta") return false;
-  return Boolean(tryParseStructuredFinalAnswerV1(event.paramsText));
+  return Boolean(tryParseStructuredFinalAnswerV1(stripInlineMemoryCitation(event.paramsText)));
 };
 
 const assistantMarkdownHtml = (event: TimelineEventItem): string => {

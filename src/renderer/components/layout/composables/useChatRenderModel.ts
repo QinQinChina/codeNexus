@@ -5,6 +5,7 @@ import {
   type TimelineRenderNode,
   type ReasoningBlockNode,
 } from "../../../features/timeline/renderModel/buildTimelineNodes";
+import { getDiffLineStats } from "../../../features/timeline/renderModel/diff";
 import { isLocalUserEvent, isMarkdownEvent } from "../../../features/timeline/renderModel/formatters";
 import { useRuntimeStore } from "../../../stores/runtime.store";
 import { useThreadStore } from "../../../stores/thread.store";
@@ -19,6 +20,7 @@ import {
 import { translate } from "../../../i18n/translate";
 import type {
   ChatAuxActivityGroupRow,
+  ChatAuxActivitySummaryItem,
   ChatAuxActivityStatus,
   ChatAuxiliaryRow,
   ChatRow,
@@ -50,6 +52,21 @@ function toEventParamsObject(event: TimelineEventItem): Record<string, any> {
   return event.params && typeof event.params === "object" && !Array.isArray(event.params)
     ? (event.params as Record<string, any>)
     : {};
+}
+
+function isFinalAnswerAgentMessageEvent(event: TimelineEventItem): boolean {
+  if (event.method !== "item/agentMessage/delta") return false;
+  const params = toEventParamsObject(event);
+  const item = params.item && typeof params.item === "object" ? (params.item as Record<string, any>) : null;
+  return String(item?.phase ?? "").trim() === "final_answer";
+}
+
+function isIntermediateAgentMessageEvent(event: TimelineEventItem): boolean {
+  if (event.method !== "item/agentMessage/delta") return false;
+  const params = toEventParamsObject(event);
+  const item = params.item && typeof params.item === "object" ? (params.item as Record<string, any>) : null;
+  const phase = String(item?.phase ?? "").trim();
+  return phase === "commentary" || phase === "";
 }
 
 function paramsObjectSignature(value: unknown): string {
@@ -146,13 +163,21 @@ const AUX_ACTIVITY_KIND_LABELS: Record<(typeof AUX_ACTIVITY_KIND_ORDER)[number],
   activity: "timeline.auxActivity",
 };
 
+type AuxFileChangeStats = {
+  fileCount: number;
+  addedLines: number;
+  deletedLines: number;
+};
+
 function isAuxiliaryRow(row: ChatRow): row is ChatAuxiliaryRow {
   return (
     row.kind === "activity" ||
+    row.kind === "assistantCommentary" ||
     row.kind === "imageTool" ||
     row.kind === "dynamicTool" ||
     row.kind === "webSearch" ||
     row.kind === "reasoningBlock" ||
+    row.kind === "fileChange" ||
     row.kind === "commandAction" ||
     row.kind === "commandSession" ||
     row.kind === "commandRead" ||
@@ -191,6 +216,9 @@ function rowIsRunning(row: ChatAuxiliaryRow): boolean {
   if (row.kind === "dynamicTool") {
     return row.item.status === "running" || row.item.status === "awaitingApproval";
   }
+  if (row.kind === "fileChange") {
+    return row.item.status === "running";
+  }
   if (row.kind === "mcpToolGroup") {
     return row.group.stats.running > 0;
   }
@@ -216,22 +244,57 @@ function mergeAuxActivityStatus(items: ChatAuxiliaryRow[]): ChatAuxActivityStatu
   return "completed";
 }
 
+function buildAuxFileChangeStats(items: ChatAuxiliaryRow[]): AuxFileChangeStats | null {
+  const files = new Set<string>();
+  let addedLines = 0;
+  let deletedLines = 0;
+  for (const row of items) {
+    if (row.kind !== "fileChange") continue;
+    for (const file of row.item.files) {
+      const key = String(file.pathRelTo ?? file.pathAbsTo ?? file.pathRel ?? file.pathAbs ?? "").trim();
+      if (key) files.add(key);
+      const stats = getDiffLineStats(file.diffText, file.kind);
+      addedLines += stats.add;
+      deletedLines += stats.del;
+    }
+  }
+  if (files.size <= 0 && addedLines <= 0 && deletedLines <= 0) return null;
+  return { fileCount: files.size, addedLines, deletedLines };
+}
+
 function buildAuxActivityGroup(params: {
   items: ChatAuxiliaryRow[];
   groupIndex: number;
   defaultCollapsed: boolean;
+  startedAtMs: number | null;
+  answerStartedAtMs: number | null;
+  elapsedLive: boolean;
 }): ChatAuxActivityGroupRow {
   const counts = new Map<string, number>();
   for (const item of params.items) {
+    if (item.kind === "fileChange") continue;
     const kind = auxActivityKind(item);
     counts.set(kind, (counts.get(kind) ?? 0) + 1);
   }
-  const summaryItems = AUX_ACTIVITY_KIND_ORDER.flatMap((key) => {
+  const fileChangeStats = buildAuxFileChangeStats(params.items);
+  const summaryItems: ChatAuxActivitySummaryItem[] = AUX_ACTIVITY_KIND_ORDER.flatMap((key) => {
     const count = counts.get(key) ?? 0;
     const label = AUX_ACTIVITY_KIND_LABELS[key] === "MCP" ? "MCP" : translate(AUX_ACTIVITY_KIND_LABELS[key]);
     return count > 0 ? [{ key, label, count }] : [];
   });
-  const summaryText = summaryItems.map((item) => `${item.label} ${item.count}`).join(" · ");
+  if (fileChangeStats) {
+    summaryItems.push({
+      key: "files",
+      label: translate("timeline.auxFiles"),
+      count: fileChangeStats.fileCount,
+      valueText: String(fileChangeStats.fileCount),
+      addText: `+${fileChangeStats.addedLines}`,
+      delText: `-${fileChangeStats.deletedLines}`,
+    });
+  }
+  const summaryText = summaryItems
+    .map((item) => [item.label, item.valueText ?? item.count, item.addText, item.delText].filter(Boolean).join(" "))
+    .join(" · ");
   const first = params.items[0];
   const status = mergeAuxActivityStatus(params.items);
   return {
@@ -243,7 +306,25 @@ function buildAuxActivityGroup(params: {
     summaryText: summaryText || translate("timeline.activityCount", { count: params.items.length }),
     status,
     defaultCollapsed: params.defaultCollapsed,
+    startedAtMs: params.startedAtMs,
+    answerStartedAtMs: params.answerStartedAtMs,
+    elapsedLive: params.elapsedLive,
   };
+}
+
+function chatAuxRowCreatedAt(row: ChatAuxiliaryRow): number | null {
+  if (row.kind === "activity" || row.kind === "imageTool" || row.kind === "dynamicTool" || row.kind === "webSearch") {
+    return Number.isFinite(row.createdAt) ? Number(row.createdAt) : null;
+  }
+  if (row.kind === "assistantCommentary") {
+    return Number.isFinite(row.event.createdAt) ? Number(row.event.createdAt) : null;
+  }
+  if (row.kind === "mcpToolGroup") return Number.isFinite(row.group.createdAt) ? Number(row.group.createdAt) : null;
+  const item = row.item as { createdAt?: unknown; startedAt?: unknown };
+  const startedAt = Number(item.startedAt);
+  if (Number.isFinite(startedAt) && startedAt > 0) return Math.round(startedAt);
+  const createdAt = Number(item.createdAt);
+  return Number.isFinite(createdAt) && createdAt > 0 ? Math.round(createdAt) : null;
 }
 
 export function useChatRenderModel(
@@ -407,7 +488,17 @@ export function useChatRenderModel(
             continue;
           }
         }
-        if ((e.method === "item/agentMessage/delta" && isMarkdownEvent(e)) || e.method === "item/plan/delta") {
+        if (e.method === "item/agentMessage/delta" && isMarkdownEvent(e) && isIntermediateAgentMessageEvent(e)) {
+          const text = String(e.paramsText ?? "").trim();
+          if (text) {
+            pushRow({ id: `agent-commentary:${e.id}`, turnKey, kind: "assistantCommentary", event: e });
+          }
+          continue;
+        }
+        if (
+          (e.method === "item/agentMessage/delta" && isMarkdownEvent(e) && isFinalAnswerAgentMessageEvent(e)) ||
+          e.method === "item/plan/delta"
+        ) {
           pushRow({ id: `a:${e.id}`, turnKey, kind: "assistant", event: e });
           continue;
         }
@@ -533,6 +624,7 @@ export function useChatRenderModel(
       event.hidden ? "1" : "0",
       item ? String(item.type ?? "") : "",
       item ? String(item.id ?? "") : "",
+      item ? String(item.phase ?? "") : "",
       item ? String(item.status ?? "") : "",
     ];
     if (!isDirectStreamingMessageEvent(event)) {
@@ -627,6 +719,12 @@ export function useChatRenderModel(
         changed = true;
         return { ...row, event };
       }
+      if (row.kind === "assistantCommentary") {
+        const event = eventsById.get(row.event.id);
+        if (!event || event === row.event) return row;
+        changed = true;
+        return { ...row, event };
+      }
       return row;
     });
     return changed ? nextRows : rows;
@@ -691,17 +789,45 @@ export function useChatRenderModel(
       return Boolean(tid && threadStore.runningThreadIds.has(tid));
     })();
 
-    const flushPending = (interruptedByMainContent: boolean) => {
+    const resolvePendingStartedAt = () => {
+      const threadId = String(runtimeStore.timelineKey ?? runtimeStore.currentThreadId ?? "").trim();
+      const turnId = String(pending[0]?.turnKey ?? "").startsWith("turn:")
+        ? String(pending[0].turnKey).slice("turn:".length).trim()
+        : "";
+      const storedStartedAt = threadId && turnId ? threadStore.turnStartedAtByThread.get(threadId)?.get(turnId) : null;
+      if (Number.isFinite(storedStartedAt) && Number(storedStartedAt) > 0) return Math.round(Number(storedStartedAt));
+      const rowTimes = pending
+        .map(chatAuxRowCreatedAt)
+        .filter((value): value is number => Number.isFinite(value) && Number(value) > 0);
+      return rowTimes.length > 0 ? Math.min(...rowTimes) : null;
+    };
+
+    const isFinalAnswerRow = (row: ChatRow | null): boolean => {
+      return row?.kind === "assistant" && row.event.method === "item/agentMessage/delta";
+    };
+
+    const flushPending = (interruptedBy: ChatRow | null) => {
       if (pending.length === 0) return;
       const groupStatus = mergeAuxActivityStatus(pending);
       const matchesActiveTurn = Boolean(activeTurnKey && pending.some((row) => row.turnKey === activeTurnKey));
+      const finalAnswerStarted = isFinalAnswerRow(interruptedBy);
       const shouldStayOpen =
-        !interruptedByMainContent && (groupStatus === "running" || (currentThreadRunning && matchesActiveTurn));
+        !finalAnswerStarted && (groupStatus === "running" || (currentThreadRunning && matchesActiveTurn));
+      const startedAtMs = resolvePendingStartedAt();
+      const finalAnswerEvent = finalAnswerStarted && interruptedBy?.kind === "assistant" ? interruptedBy.event : null;
+      const answerStartedAtMs =
+        finalAnswerEvent && Number.isFinite(finalAnswerEvent.createdAt)
+          ? Math.max(startedAtMs ?? 0, Math.round(Number(finalAnswerEvent.createdAt)))
+          : null;
       grouped.push(
         buildAuxActivityGroup({
           items: pending,
           groupIndex,
           defaultCollapsed: !shouldStayOpen,
+          startedAtMs,
+          answerStartedAtMs,
+          elapsedLive:
+            !finalAnswerStarted && (groupStatus === "running" || (currentThreadRunning && matchesActiveTurn)),
         })
       );
       groupIndex += 1;
@@ -713,10 +839,10 @@ export function useChatRenderModel(
         pending.push(row);
         continue;
       }
-      flushPending(true);
+      flushPending(row);
       grouped.push(row);
     }
-    flushPending(false);
+    flushPending(null);
     return grouped;
   });
 

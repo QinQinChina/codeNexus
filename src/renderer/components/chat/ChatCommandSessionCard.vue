@@ -61,8 +61,6 @@
         </button>
       </div>
 
-      <div v-if="previewText && !open" class="command-session__preview mono">{{ previewText }}</div>
-
       <div v-if="open" class="command-session__details">
         <pre class="command-session__log app-scrollbar mono">{{ logText }}</pre>
       </div>
@@ -111,21 +109,6 @@ const urlLabel = computed(() => {
 
 const titleText = computed(() => {
   return props.item.commandShort || props.item.commandFull || t("chat.activity.backgroundCommand");
-});
-
-const latestOutputLine = (value: string) => {
-  return (
-    String(value ?? "")
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .pop() ?? ""
-  );
-};
-
-const previewText = computed(() => {
-  if (!isRunning.value) return "";
-  return props.item.recentOutputLines.at(-1) ?? latestOutputLine(props.item.outputFull || props.item.outputPreview);
 });
 
 const logText = computed(() => {
@@ -227,8 +210,7 @@ function toggleOpen() {
   line-height: 24px;
 }
 
-.command-session__title,
-.command-session__preview {
+.command-session__title {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -318,12 +300,6 @@ function toggleOpen() {
 
 .command-session__chevron.is-open {
   transform: rotate(180deg);
-}
-
-.command-session__preview {
-  padding-left: 25px;
-  font-size: 11px;
-  color: var(--text-muted);
 }
 
 .command-session__details {
