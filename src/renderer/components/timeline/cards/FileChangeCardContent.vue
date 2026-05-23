@@ -67,7 +67,7 @@
               :diffKey="entry.file.pathAbs || entry.key"
               :filePathHint="entry.file.pathRelTo || entry.file.pathRel || entry.file.pathAbsTo || entry.file.pathAbs"
               :fileKind="entry.file.kind"
-              maxHeightClass="max-h-[340px]"
+              maxHeightClass="max-h-[170px]"
               :wrapLines="wrapDiffLines"
               :animateUpdates="isRunning"
               ariaLabel="diff-view"

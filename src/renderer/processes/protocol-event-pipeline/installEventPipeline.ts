@@ -973,7 +973,6 @@ export function installEventPipeline(pinia: Pinia) {
           params: cmdParams,
           turnId: cmdTurnId || undefined,
         });
-        if (cmdTurnId) markThinkingOutputStreaming(effectiveThreadId, cmdTurnId);
       } else {
         timelineStore.upsertEvent({
           threadId: effectiveThreadId,
