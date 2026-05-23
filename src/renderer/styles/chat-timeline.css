@@ -656,16 +656,12 @@
     color-mix(in srgb, white 92%, var(--accent) 8%) 100%
   );
   filter: drop-shadow(0 0 5px color-mix(in srgb, var(--accent) 70%, transparent));
-  opacity: 0.76;
+  opacity: 0;
   offset-anchor: 100% 50%;
   offset-distance: 0%;
   offset-rotate: auto;
   pointer-events: none;
-  animation: chatAuxMeteorTravel var(--chat-aux-meteor-duration) linear infinite;
-}
-
-.timeline-pane--chat .chat-aux-activity__meteor--opposite {
-  animation-name: chatAuxMeteorTravelOpposite;
+  animation: none;
 }
 
 .timeline-pane--chat .chat-aux-activity > :not(.chat-aux-activity__meteor) {
@@ -673,19 +669,19 @@
   z-index: 2;
 }
 
-.timeline-pane--chat .chat-aux-activity:hover {
-  border-color: var(--chat-aux-border-hover);
-  background: var(--chat-aux-bg-hover);
-}
-
 .timeline-pane--chat .chat-aux-activity.is-running {
-  --chat-aux-meteor-duration: 1.8s;
+  --chat-aux-meteor-duration: 2.5s;
   border-color: var(--chat-aux-border-running);
   background: var(--chat-aux-bg-running);
 }
 
 .timeline-pane--chat .chat-aux-activity.is-running .chat-aux-activity__meteor {
   opacity: 0.95;
+  animation: chatAuxMeteorTravel var(--chat-aux-meteor-duration) linear infinite;
+}
+
+.timeline-pane--chat .chat-aux-activity.is-running .chat-aux-activity__meteor--opposite {
+  animation-name: chatAuxMeteorTravelOpposite;
 }
 
 @keyframes chatAuxMeteorTravel {
@@ -726,11 +722,6 @@
   text-align: left;
   cursor: pointer;
   border-radius: calc(var(--chat-radius-lg) - 1px);
-}
-
-.timeline-pane--chat .chat-aux-activity__summary:hover {
-  color: var(--chat-row-text);
-  background: color-mix(in srgb, var(--chat-aux-bg-hover) 76%, transparent);
 }
 
 .timeline-pane--chat .chat-aux-activity__summary:focus-visible {
