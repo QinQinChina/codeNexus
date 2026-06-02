@@ -60,6 +60,7 @@ import { createThreadRollbackRuntime } from "./runtime/threadRollbackRuntime";
 import { createHistoryRewriteRuntime } from "./runtime/historyRewriteRuntime";
 import { createThreadMetadataRuntime } from "./runtime/threadMetadataRuntime";
 import { createCodexProfileRuntime } from "./runtime/codexProfileRuntime";
+import { createCodexConfigSwitcherRuntime } from "./runtime/codexConfigSwitcherRuntime";
 import { invalidateThreadContentCache, type ThreadContentCacheEntry } from "./runtime/rendererCacheRuntime";
 import {
   buildConfigBatchChangesFromDraft,
@@ -111,14 +112,7 @@ import {
 } from "@codenexus/shared/codexInstructionProfiles";
 import { buildNewThreadComposeSeed } from "@codenexus/shared/newThreadComposeSeed";
 import { codexMcpServerSpecToConfigValue, parseCodexMcpJsonImport } from "@codenexus/shared/codexMcp";
-import {
-  getActiveCodexConfigSwitcherProfile,
-  normalizeCodexConfigSwitcherMcpServers,
-  normalizeCodexConfigSwitcherState,
-  type CodexConfigSwitcherProfile,
-  type CodexConfigSwitcherSkillEntry,
-  type CodexConfigSwitcherState,
-} from "@codenexus/shared/codexConfigSwitcher";
+import type { CodexConfigSwitcherProfile } from "@codenexus/shared/codexConfigSwitcher";
 import type {
   AppTextEncoding,
   AppTextLineEnding,
@@ -1043,149 +1037,29 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     }
   };
 
-  const readEffectiveMcpServersFromCodexConfig = async () => {
-    const configResult = await requestConfigRead();
-    return normalizeCodexConfigSwitcherMcpServers((configResult.config as Record<string, unknown> | null)?.mcp_servers);
-  };
-
-  const refreshCodexConfigSwitcher = async () => {
-    await codexConfigSwitcherStore.refresh();
-  };
-
-  const assertNoCcswitchManagedCodexConfig = () => {
-    if (!codexConfigSwitcherStore.ccswitch.detected) return;
-    const reason = codexConfigSwitcherStore.ccswitch.reasons.join(", ") || "detected";
-    throw new Error(translate("runtime.ccswitchDetected", { reason }));
-  };
-
-  const writeCodexConfigSwitcherState = async (state: CodexConfigSwitcherState) => {
-    assertNoCcswitchManagedCodexConfig();
-    await codexConfigSwitcherStore.saveState(normalizeCodexConfigSwitcherState(state));
-  };
-
-  const skillToSwitcherEntry = (skill: SkillState): CodexConfigSwitcherSkillEntry | null => {
-    const path = String(skill.path ?? "").trim();
-    if (!path) return null;
-    return {
-      id: path,
-      name: String(skill.displayName || skill.name || path).trim() || path,
-      path,
-      enabled: Boolean(skill.enabled),
-    };
-  };
-
-  const collectCurrentSwitcherSkills = async () => {
-    if (skillsStore.loadState !== "ready") await refreshSkills(true);
-    const skills = skillsStore.items
-      .map(skillToSwitcherEntry)
-      .filter((item): item is CodexConfigSwitcherSkillEntry => Boolean(item));
-    return {
-      skills,
-      enabledSkillIds: skills.filter((skill) => skill.enabled).map((skill) => skill.id),
-    };
-  };
-
-  const syncSwitcherSkillsToCodex = async (profile: CodexConfigSwitcherProfile) => {
-    const enabledIds = new Set(profile.skillIds);
-    for (const skill of codexConfigSwitcherStore.state.skills) {
-      const path = String(skill.path ?? "").trim();
-      if (!path) continue;
-      await writeSkillConfig(path, enabledIds.has(skill.id));
-    }
-  };
-
-  const syncSwitcherProfileToCodex = async (profile: CodexConfigSwitcherProfile) => {
-    assertNoCcswitchManagedCodexConfig();
-    const activation = await codexDesktop.app.activateCodexConfigSwitcherProfile({ profileId: profile.id });
-    codexConfigSwitcherStore.applySnapshot(activation);
-    try {
-      await requestConfigBatchWrite([{ keyPath: "mcp_servers", value: profile.mcpServers }]);
-      await syncSwitcherSkillsToCodex(profile);
-      await requestReloadMcpConfig();
-      invalidateMcpSnapshot(runtimeStore.workspacePath);
-      await refreshMcp();
-      showToast({ kind: "success", title: translate("runtime.codexConfigSwitchedTitle"), message: profile.name });
-    } catch (error) {
-      await codexDesktop.app
-        .restoreCodexConfigSwitcherBackup({ backupId: activation.backup.id })
-        .catch(() => undefined);
-      throw error;
-    }
-  };
-
-  const getRequiredActiveSwitcherProfile = (): CodexConfigSwitcherProfile => {
-    const profile = getActiveCodexConfigSwitcherProfile(codexConfigSwitcherStore.state);
-    if (!profile) throw new Error(translate("runtime.importCodexConfigFirst"));
-    return profile;
-  };
-
-  const importCurrentCodexConfigProfile = async () => {
-    try {
-      assertNoCcswitchManagedCodexConfig();
-      const mcpServers = await readEffectiveMcpServersFromCodexConfig();
-      const skills = await collectCurrentSwitcherSkills();
-      const snapshot = await codexDesktop.app.importCurrentCodexConfigSwitcher({
-        name: "Imported Codex",
-        mcpServers,
-        skills: skills.skills,
-        enabledSkillIds: skills.enabledSkillIds,
-      });
-      codexConfigSwitcherStore.applySnapshot(snapshot);
-      const profile = getRequiredActiveSwitcherProfile();
-      await syncSwitcherProfileToCodex(profile);
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : String(e);
-      showToast({ kind: "error", title: translate("runtime.codexConfigImportFailedTitle"), message: msg });
-      throw e;
-    }
-  };
-
-  const activateCodexConfigProfile = async (profileId: string) => {
-    assertNoCcswitchManagedCodexConfig();
-    const profile =
-      codexConfigSwitcherStore.state.profiles.find((item) => item.id === String(profileId ?? "").trim()) ?? null;
-    if (!profile) throw new Error(translate("runtime.configProfileNotFound"));
-    try {
-      await syncSwitcherProfileToCodex(profile);
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : String(e);
-      showToast({ kind: "error", title: translate("runtime.codexConfigSwitchFailedTitle"), message: msg });
-      throw e;
-    }
-  };
-
-  const upsertActiveSwitcherMcpServers = async (servers: Record<string, Record<string, unknown>>) => {
-    if (codexConfigSwitcherStore.loadState === "idle") await refreshCodexConfigSwitcher();
-    assertNoCcswitchManagedCodexConfig();
-    let profile = getActiveCodexConfigSwitcherProfile(codexConfigSwitcherStore.state);
-    if (!profile) {
-      const current = await readEffectiveMcpServersFromCodexConfig();
-      const snapshot = await codexDesktop.app.importCurrentCodexConfigSwitcher({
-        name: "Imported Codex",
-        mcpServers: current,
-      });
-      codexConfigSwitcherStore.applySnapshot(snapshot);
-      profile = getRequiredActiveSwitcherProfile();
-    }
-    const now = Date.now();
-    const nextProfile: CodexConfigSwitcherProfile = {
-      ...profile,
-      mcpServers: {
-        ...profile.mcpServers,
-        ...servers,
-      },
-      updatedAt: now,
-    };
-    const nextState: CodexConfigSwitcherState = {
-      ...codexConfigSwitcherStore.state,
-      activeProfileId: nextProfile.id,
-      profiles: codexConfigSwitcherStore.state.profiles.map((item) =>
-        item.id === nextProfile.id ? nextProfile : item
-      ),
-    };
-    await writeCodexConfigSwitcherState(nextState);
-    await syncSwitcherProfileToCodex(nextProfile);
-  };
+  const codexConfigSwitcherRuntime = createCodexConfigSwitcherRuntime({
+    codexConfigSwitcherStore,
+    skillsStore,
+    requestConfigRead,
+    requestConfigBatchWrite,
+    requestReloadMcpConfig,
+    writeSkillConfig,
+    refreshSkills,
+    refreshMcp: () => refreshMcp(),
+    invalidateMcpSnapshot,
+    getWorkspacePath: () => String(runtimeStore.workspacePath ?? "").trim(),
+    translate,
+    showToast,
+  });
+  const {
+    refreshCodexConfigSwitcher,
+    importCurrentCodexConfigProfile,
+    activateCodexConfigProfile,
+    getRequiredActiveSwitcherProfile,
+    writeCodexConfigSwitcherState,
+    syncSwitcherProfileToCodex,
+    upsertActiveSwitcherMcpServers,
+  } = codexConfigSwitcherRuntime;
 
   const refreshMcp = async () => {
     const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
