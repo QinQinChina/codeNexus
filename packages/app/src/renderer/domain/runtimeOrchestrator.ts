@@ -63,12 +63,10 @@ import { createCodexProfileRuntime } from "./runtime/codexProfileRuntime";
 import { createCodexConfigSwitcherRuntime } from "./runtime/codexConfigSwitcherRuntime";
 import { createMcpManagementRuntime } from "./runtime/mcpManagementRuntime";
 import { createSkillsManagementRuntime } from "./runtime/skillsManagementRuntime";
+import { createGlobalConfigManagementRuntime } from "./runtime/globalConfigManagementRuntime";
 import { invalidateThreadContentCache, type ThreadContentCacheEntry } from "./runtime/rendererCacheRuntime";
 import {
-  buildConfigBatchChangesFromDraft,
   createDefaultGlobalConfigDraft,
-  extractConfigRequirementsFromReadResult,
-  extractGlobalConfigFromReadResult,
   normalizeApprovalPolicy,
   normalizeApprovalsReviewer,
   normalizeEffort,
@@ -297,7 +295,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   let latestSwitchThreadSeq = 0;
   const skillsSnapshotByWorkspace = new Map<string, SkillsSnapshot>();
   const mcpSnapshotByWorkspace = new Map<string, McpSnapshot>();
-  let globalConfigAutoLoadAttempted = false;
   const disposers: Array<() => void> = [];
   const THREAD_PREPARING_EVENT_ID = "local:threadPreparing";
   const threadPreparingEnvironmentText = () => translate("runtime.threadPreparingEnvironment");
@@ -770,118 +767,21 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   });
   const { hydrateThreadMetadataForWorkspace, hydrateThreadHandoffDiagnostics } = threadMetadataRuntime;
 
-  const refreshGlobalConfig = async () => {
-    if (!getServerIdForWorkspace(runtimeStore.workspacePath)) {
-      configStore.resetState(translate("runtime.noService"));
-      configRequirementsStore.resetState(translate("runtime.noService"));
-      return;
-    }
-    configStore.setLoadState("loading", translate("runtime.readingConfig"));
-    configRequirementsStore.setLoadState("loading", translate("runtime.readingRequirements"));
-
-    const [configResult, requirementsResult] = await Promise.allSettled([
-      requestConfigRead(),
-      requestConfigRequirementsRead(),
-    ]);
-
-    if (configResult.status === "fulfilled") {
-      const draft = extractGlobalConfigFromReadResult(configResult.value);
-      configStore.applySnapshot(draft);
-      configStore.setLoadState("ready", translate("runtime.configReadSynced"));
-    } else {
-      const error = configResult.reason;
-      const msg = error?.message ? String(error.message) : String(error);
-      configStore.setLoadState("error", translate("runtime.readFailedWithMessage", { message: msg }));
-    }
-
-    if (requirementsResult.status === "fulfilled") {
-      const requirements = extractConfigRequirementsFromReadResult(requirementsResult.value);
-      configRequirementsStore.setRequirements(requirements);
-      configRequirementsStore.setLoadState(
-        "ready",
-        requirements ? translate("runtime.requirementsSynced") : translate("runtime.noRequirementsConfigured")
-      );
-      return;
-    }
-
-    const requirementsError = requirementsResult.reason;
-    const rpcErr = parseJsonRpcError(requirementsError);
-    const requirementsMsg = requirementsError?.message ? String(requirementsError.message) : String(requirementsError);
-    configRequirementsStore.setRequirements(null);
-    if (rpcErr?.code === -32601) {
-      configRequirementsStore.setLoadState("ready", translate("runtime.requirementsUnsupported"));
-      return;
-    }
-    configRequirementsStore.setLoadState(
-      "error",
-      translate("runtime.requirementsReadFailed", { message: requirementsMsg })
-    );
-  };
-
-  const ensureGlobalConfigLoadedOnce = async () => {
-    // “只在启动时加载一次”：首次在已连接服务的前提下触发，之后不再自动读取（手动刷新不受影响）。
-    if (globalConfigAutoLoadAttempted) return;
-    if (!getServerIdForWorkspace(runtimeStore.workspacePath)) return;
-    globalConfigAutoLoadAttempted = true;
-    await refreshGlobalConfig();
-  };
-
-  const saveGlobalConfig = async (options?: { source?: "manual" | "auto"; silentSuccessToast?: boolean }) => {
-    const source = options?.source ?? "manual";
-    const silentSuccessToast =
-      typeof options?.silentSuccessToast === "boolean" ? options.silentSuccessToast : source === "auto";
-    if (!getServerIdForWorkspace(runtimeStore.workspacePath) || configStore.saving) return;
-    const baseline = configStore.snapshot ?? createDefaultGlobalConfigDraft();
-    const draft = configStore.draft ?? createDefaultGlobalConfigDraft();
-    const changes = buildConfigBatchChangesFromDraft(draft, baseline);
-    if (changes.length === 0) {
-      configStore.setLoadState("ready", translate("runtime.configReadSynced"));
-      return;
-    }
-    configStore.setSaving(true);
-    configStore.setLoadState("ready", translate("runtime.saving"));
-    try {
-      await requestConfigBatchWrite(changes);
-      pushEvent("config", `saved ${changes.length} keys`, { threadId: APP_TIMELINE_ID });
-      await refreshGlobalConfig();
-      if (!silentSuccessToast) {
-        showToast({
-          kind: "success",
-          title:
-            source === "auto" ? translate("runtime.globalConfigAutoSaved") : translate("runtime.globalConfigSaved"),
-          message: translate("runtime.configItemsWritten", { count: changes.length }),
-        });
-      }
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : String(e);
-      configStore.setLoadState("error", translate("runtime.saveFailedWithMessage", { message: msg }));
-      pushEvent("config:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
-      showToast({
-        kind: "error",
-        title:
-          source === "auto"
-            ? translate("runtime.globalConfigAutoSaveFailed")
-            : translate("runtime.globalConfigSaveFailed"),
-        message: msg,
-      });
-    } finally {
-      configStore.setSaving(false);
-      if (configStore.loadState !== "error") {
-        configStore.setLoadState(
-          "ready",
-          configStore.isDirty ? translate("runtime.unsavedChanges") : translate("runtime.configReadSynced")
-        );
-      }
-    }
-  };
-
-  const resetGlobalConfig = () => {
-    configStore.resetToSnapshot();
-    configStore.setLoadState(
-      "ready",
-      configStore.isDirty ? translate("runtime.unsavedChanges") : translate("runtime.configReadSynced")
-    );
-  };
+  const globalConfigManagementRuntime = createGlobalConfigManagementRuntime({
+    appTimelineId: APP_TIMELINE_ID,
+    configStore,
+    configRequirementsStore,
+    getWorkspacePath: () => String(runtimeStore.workspacePath ?? "").trim(),
+    getServerIdForWorkspace,
+    requestConfigRead,
+    requestConfigRequirementsRead,
+    requestConfigBatchWrite,
+    pushEvent,
+    translate,
+    showToast,
+  });
+  const { refreshGlobalConfig, ensureGlobalConfigLoadedOnce, saveGlobalConfig, resetGlobalConfig } =
+    globalConfigManagementRuntime;
 
   const codexProfileRuntime = createCodexProfileRuntime({
     appTimelineId: APP_TIMELINE_ID,
