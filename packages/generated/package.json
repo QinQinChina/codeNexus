@@ -1,0 +1,14 @@
+{
+  "name": "@codenexus/generated",
+  "version": "1.0.1",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./codex-app-server": "./src/codex-app-server/index.ts",
+    "./codex-app-server/*": "./src/codex-app-server/*.ts",
+    "./codex-app-server/v2": "./src/codex-app-server/v2/index.ts",
+    "./codex-app-server/v2/*": "./src/codex-app-server/v2/*.ts",
+    "./codex-app-server/serde_json/*": "./src/codex-app-server/serde_json/*.ts"
+  }
+}

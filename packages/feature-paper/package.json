@@ -1,0 +1,18 @@
+{
+  "name": "@codenexus/feature-paper",
+  "version": "1.0.1",
+  "private": true,
+  "type": "module",
+  "sideEffects": ["**/*.vue"],
+  "exports": {
+    ".": "./src/index.ts",
+    "./store": "./src/store.ts",
+    "./components/*": "./src/components/*.vue"
+  },
+  "peerDependencies": {
+    "lucide-vue-next": "^0.574.0",
+    "pinia": "^3.0.4",
+    "vue": "^3.5.28",
+    "vue-i18n": "^11.4.4"
+  }
+}

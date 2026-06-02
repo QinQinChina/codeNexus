@@ -41,6 +41,8 @@ __pycache__/
 tmp-centerpane-setup-snippet.js
 tmp/
 flutter-app/
+.codegraph/
+.cursor/
 
 # Workspace-local prompts / configs
 .codenexus/

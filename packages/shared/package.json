@@ -1,0 +1,21 @@
+{
+  "name": "@codenexus/shared",
+  "version": "1.0.1",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./agent-protocol": "./src/agent-protocol/index.ts",
+    "./agent-protocol/*": "./src/agent-protocol/*.ts",
+    "./codex-protocol": "./src/codex-protocol/index.ts",
+    "./codex-protocol/*": "./src/codex-protocol/*.ts",
+    "./ipc": "./src/ipc/index.ts",
+    "./ipc/*": "./src/ipc/*.ts",
+    "./ipc/channels/*": "./src/ipc/channels/*.ts",
+    "./*": "./src/*.ts"
+  },
+  "dependencies": {
+    "@codenexus/generated": "workspace:*"
+  }
+}

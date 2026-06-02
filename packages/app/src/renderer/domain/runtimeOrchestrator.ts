@@ -1,0 +1,4803 @@
+import { nextTick } from "vue";
+import type { Pinia } from "pinia";
+import { codexDesktop } from "../api/codexDesktopClient";
+import type { ReplayTimelineEvent } from "../features/history/replayParsers";
+import {
+  ALL_THREAD_SOURCE_KINDS,
+  buildHistoryThreadMetadataPatchFromServerThread,
+  normalizeOptionalText,
+  resolveThreadParentIdForGraph,
+} from "../features/history/threadMetadata";
+import { toThreadHistoryItem as toThreadHistoryItemFromHistory } from "../features/history/threadHistoryItem";
+import {
+  fallbackThreadTitle,
+  isBootstrapThreadTitleSource,
+  titleFromFirstUserMessage,
+} from "../features/history/threadTitle";
+import { showToast } from "../ui/toast";
+import { translate } from "../i18n/translate";
+import { appendDebugLog } from "../shared/debugLog";
+import { isIpcHandlerMissingError } from "../shared/ipcErrors";
+import { sandboxKebabFromUi } from "../shared/sandboxPolicy";
+import { safeJsonStringify } from "../utils/safeJson";
+import {
+  beginThreadCreateAttempt,
+  bindThreadCreateAttemptToThread,
+  createPendingThreadId,
+  isPendingThreadId,
+} from "../shared/threadCreateDebug";
+import { useRuntimeStore } from "../stores/runtime.store";
+import { useTimelineStore } from "../stores/timeline.store";
+import { useThreadStore } from "../stores/thread.store";
+import { useGoalShutdownStore } from "../stores/goalShutdown.store";
+import { useAppShellStore } from "../stores/appShell.store";
+import { useConfigStore } from "../stores/config.store";
+import { useConfigRequirementsStore } from "../stores/configRequirements.store";
+import { useSkillsStore } from "../stores/skills.store";
+import { useMcpStore } from "../stores/mcp.store";
+import { useMcpResourceStore } from "../stores/mcpResource.store";
+import { useUserInputStore } from "../stores/userInput.store";
+import { useMessageQueueStore } from "../stores/messageQueue.store";
+import { useCodexProfilesStore } from "../stores/codexProfiles.store";
+import { useCodexSkillRootsStore } from "../stores/codexSkillRoots.store";
+import { useCodexConfigSwitcherStore } from "../stores/codexConfigSwitcher.store";
+import { usePaperStore } from "@codenexus/feature-paper";
+import { resolveHistoryRewriteRollback } from "./historyRewriteRollback";
+import { useApprovalStore } from "../stores/approval.store";
+import { useWorkspaceFilesStore } from "../stores/workspaceFiles.store";
+import { installEventPipeline } from "../processes/protocol-event-pipeline/installEventPipeline";
+import { installRequestResponder } from "../processes/protocol-request-responder/installRequestResponder";
+import { notifyTurnCompleted } from "../features/systemNotification/systemNotification";
+import {
+  buildCompletedTurnsFromReplay,
+  countReplayTurns,
+  dedupeReplayEvents,
+  extractProposedPlanBody,
+  hasOlderReplayHistory,
+  isReplayCarryoverEvent,
+  normalizePlanText,
+  sortReplayEvents,
+  splitReplayEventsByRecentTurns,
+  stripProposedPlanTags,
+  toPlanSignatureText,
+  toPlanTurnKey,
+  type ThreadReplayCache,
+} from "./runtime/historyReplayRuntime";
+import { createHistoryThreadRuntime } from "./runtime/historyThreadRuntime";
+import { createConfigRuntime } from "./runtime/configRuntime";
+import { createMcpRuntime } from "./runtime/mcpRuntime";
+import { createMcpResourceReadRuntime } from "./runtime/mcpResourceRuntime";
+import { createSkillsRuntime } from "./runtime/skillsRuntime";
+import { createTurnInputRuntime } from "./runtime/turnInputRuntime";
+import { createTurnStartRuntime } from "./runtime/turnStartRuntime";
+import { createWorkspaceFileRuntime } from "./runtime/workspaceFileRuntime";
+import { invalidateThreadContentCache, type ThreadContentCacheEntry } from "./runtime/rendererCacheRuntime";
+import {
+  buildConfigBatchChangesFromDraft,
+  createDefaultGlobalConfigDraft,
+  extractConfigRequirementsFromReadResult,
+  extractGlobalConfigFromReadResult,
+  normalizeApprovalPolicy,
+  normalizeApprovalsReviewer,
+  normalizeEffort,
+  normalizeMcpServersFromConfig,
+  normalizeModelName,
+  normalizeReasoningSummary,
+  normalizeSandboxMode,
+} from "./serverInterop";
+import { isWithinWorkspaceFsPath, resolveWorkspaceFsPath } from "./workspacePath";
+import { buildComposeDraftFromUserTurnInputs, hasMeaningfulComposeText } from "./composeFileMentions";
+import type { HistoryThread } from "@codenexus/shared/ipc";
+import type { Thread as ServerThread } from "@codenexus/generated/codex-app-server/v2/Thread";
+import type { ThreadListParams } from "@codenexus/generated/codex-app-server/v2/ThreadListParams";
+import type { ThreadListResponse } from "@codenexus/generated/codex-app-server/v2/ThreadListResponse";
+import type { ThreadReadParams } from "@codenexus/generated/codex-app-server/v2/ThreadReadParams";
+import type { ThreadResumeParams } from "@codenexus/generated/codex-app-server/v2/ThreadResumeParams";
+import type { ThreadStartParams } from "@codenexus/generated/codex-app-server/v2/ThreadStartParams";
+import type { ThreadGoalSetParams } from "@codenexus/generated/codex-app-server/v2/ThreadGoalSetParams";
+import type { ThreadMemoryMode } from "@codenexus/generated/codex-app-server/ThreadMemoryMode";
+import type { JsonValue } from "@codenexus/generated/codex-app-server/serde_json/JsonValue";
+import type {
+  ComposeImageAttachment,
+  ComposeWorkspaceFileMention,
+  McpResourceContentState,
+  McpResourceParameterEntry,
+  McpServerState,
+  SkillState,
+  LocalThreadItem,
+  ThreadGoalState,
+  ThreadHistoryItem,
+  TimelineEventItem,
+  UserTurnInput,
+  WorkspaceDirectoryReadResult,
+  WorkspaceFileMetadataState,
+  WorkspaceTextFileReadResult,
+  WorkspaceTextFileWriteResult,
+} from "./types";
+import { IPC_HISTORY_CHANNELS } from "@codenexus/shared/ipc";
+import {
+  buildThreadStartConfigOverridesForModel,
+  hasThreadStartConfigOverridesForModel,
+  type ThreadStartConfigOverrides,
+} from "@codenexus/shared/modelToolFeatureOverrides";
+import { buildBuiltinDynamicToolSpecs } from "@codenexus/shared/dynamicTools";
+import {
+  buildDeveloperInstructionsForProfile,
+  buildDynamicToolNamesForInstructionProfile,
+  codexInstructionProfileForMainView,
+  type CodexInstructionProfile,
+} from "@codenexus/shared/codexInstructionProfiles";
+import { buildNewThreadComposeSeed } from "@codenexus/shared/newThreadComposeSeed";
+import { codexMcpServerSpecToConfigValue, parseCodexMcpJsonImport } from "@codenexus/shared/codexMcp";
+import {
+  getActiveCodexConfigSwitcherProfile,
+  normalizeCodexConfigSwitcherMcpServers,
+  normalizeCodexConfigSwitcherState,
+  type CodexConfigSwitcherProfile,
+  type CodexConfigSwitcherSkillEntry,
+  type CodexConfigSwitcherState,
+} from "@codenexus/shared/codexConfigSwitcher";
+import type { CodexProviderProfile } from "@codenexus/shared/codexProfiles";
+import type {
+  AppTextEncoding,
+  AppTextLineEnding,
+  CacheClearArgs,
+  CacheClearResult,
+  CacheListResult,
+  HistoryThreadContentResult,
+  HistoryThreadTaskCreateArgs,
+  HistoryThreadTaskCreateResult,
+  HistoryThreadTaskUpdateArgs,
+  HistoryThreadTaskUpdateResult,
+} from "@codenexus/shared/ipc/contracts";
+import { isCodexLocalEventMessage, isCodexServerNotificationMessage } from "@codenexus/shared/codex-protocol";
+
+const APP_TIMELINE_ID = "__app__";
+// 历史回放仍按事件页读取，但聊天首屏只保留最近几个 turn，旧历史按需继续补。
+const HISTORY_REPLAY_BATCH = 1000;
+const HISTORY_REPLAY_TURN_SEGMENTS = 4;
+// UI：最多显示最近 N 轮对话（不做虚拟列表/窗口化渲染）。
+const TIMELINE_MAX_VISIBLE_TURNS = 16;
+const THREAD_METADATA_PAGE_SIZE = 200;
+const THREAD_CONTENT_CACHE_TTL_MS = 2000;
+const MCP_STATUS_REFRESH_DEBOUNCE_MS = 250;
+const SKILLS_REFRESH_DEBOUNCE_MS = 250;
+
+type ReplayBatchResult = {
+  loaded: number;
+  hasMore: boolean;
+  events: ReplayTimelineEvent[];
+};
+
+type ThreadReplayWindowState = {
+  nextBefore: number;
+  hasMorePages: boolean;
+  bufferedOlderEvents: ThreadReplayCache;
+};
+
+type SkillsSnapshot = {
+  items: SkillState[];
+  parseErrors: string[];
+  summary: string;
+};
+
+type McpSnapshot = {
+  servers: McpServerState[];
+  statusText: string;
+};
+
+type JsonRpcErrorLike = {
+  code: number;
+  message: string;
+};
+
+async function confirmModalLazy(options: Parameters<(typeof import("../ui/modal"))["confirmModal"]>[0]) {
+  const { confirmModal } = await import("../ui/modal");
+  return confirmModal(options);
+}
+
+async function promptNumberModalLazy(options: Parameters<(typeof import("../ui/modal"))["promptNumberModal"]>[0]) {
+  const { promptNumberModal } = await import("../ui/modal");
+  return promptNumberModal(options);
+}
+
+async function promptGoalModalLazy(options: Parameters<(typeof import("../ui/modal"))["promptGoalModal"]>[0]) {
+  const { promptGoalModal } = await import("../ui/modal");
+  return promptGoalModal(options);
+}
+
+async function parseSessionReplayEventsLazy(
+  entries: Parameters<(typeof import("../features/history/replayParsers"))["parseSessionReplayEvents"]>[0],
+  threadId: string
+): Promise<ReplayTimelineEvent[]> {
+  const { parseSessionReplayEvents } = await import("../features/history/replayParsers");
+  return parseSessionReplayEvents(entries, threadId);
+}
+
+export type RuntimeOrchestrator = {
+  dispose: () => void;
+  checkEnvironment: () => Promise<void>;
+  selectWorkspace: () => Promise<void>;
+  switchWorkspace: (workspacePath: string) => Promise<boolean>;
+  refreshHistory: (force?: boolean) => Promise<void>;
+  createThread: () => Promise<void>;
+  switchThread: (threadId: string) => Promise<void>;
+  loadOlderHistoryTurns: (threadId?: string) => Promise<boolean>;
+  deleteHistoryThread: (threadId: string) => Promise<void>;
+  send: () => Promise<boolean>;
+  sendHistoryRewriteDraft: (draft: {
+    anchorTurnId: string;
+    composeInput: string;
+    composeAttachments: ComposeImageAttachment[];
+    composeFileMentions: ComposeWorkspaceFileMention[];
+    model: string;
+    reasoningEffort: string;
+    sandboxMode: string;
+    composeMode: "default" | "plan";
+  }) => Promise<boolean>;
+  steerNow: () => Promise<void>;
+  sendQueuedMessageNow: (messageId: string) => Promise<void>;
+  editQueuedMessage: (messageId: string) => Promise<void>;
+  removeQueuedMessage: (messageId: string) => Promise<void>;
+  interruptTurn: () => Promise<void>;
+  compactThread: () => Promise<void>;
+  resetCodexMemory: () => Promise<void>;
+  setCurrentThreadMemoryMode: (mode: ThreadMemoryMode) => Promise<void>;
+  refreshThreadGoal: (threadId?: string) => Promise<ThreadGoalState | null>;
+  promptAndSetCurrentThreadGoal: () => Promise<ThreadGoalState | null>;
+  setCurrentThreadGoal: (args: {
+    objective: string;
+    tokenBudget?: number | null;
+    shutdownOnComplete?: boolean;
+  }) => Promise<ThreadGoalState | null>;
+  completeCurrentThreadGoal: () => Promise<ThreadGoalState | null>;
+  clearCurrentThreadGoal: () => Promise<boolean>;
+  refreshGlobalConfig: () => Promise<void>;
+  saveGlobalConfig: (options?: { source?: "manual" | "auto"; silentSuccessToast?: boolean }) => Promise<void>;
+  resetGlobalConfig: () => void;
+  applyCodexProfile: (profileId: string) => Promise<void>;
+  openExternalUrl: (url: string) => Promise<void>;
+  readTextFile: (path: string) => Promise<string>;
+  writeTextFile: (path: string, content: string) => Promise<void>;
+  readWorkspaceDirectory: (path?: string) => Promise<WorkspaceDirectoryReadResult>;
+  getWorkspaceMetadata: (path: string) => Promise<WorkspaceFileMetadataState>;
+  readWorkspaceTextFile: (path: string) => Promise<WorkspaceTextFileReadResult>;
+  deleteWorkspaceFile: (path: string) => Promise<void>;
+  writeWorkspaceTextFile: (
+    path: string,
+    content: string,
+    options?: { encoding?: AppTextEncoding; lineEnding?: AppTextLineEnding }
+  ) => Promise<WorkspaceTextFileWriteResult>;
+  refreshSkills: (forceReload?: boolean) => Promise<void>;
+  toggleSkill: (skillPath: string, enabled: boolean) => Promise<void>;
+  addSkillRoot: (root: string) => Promise<void>;
+  removeSkillRoot: (root: string) => Promise<void>;
+  refreshCodexConfigSwitcher: () => Promise<void>;
+  importCurrentCodexConfigProfile: () => Promise<void>;
+  activateCodexConfigProfile: (profileId: string) => Promise<void>;
+  refreshMcp: () => Promise<void>;
+  reloadMcpConfig: () => Promise<void>;
+  toggleMcpEnabled: (serverKey: string, enabled: boolean) => Promise<void>;
+  deleteMcpServer: (serverId: string) => Promise<void>;
+  importMcpServersFromJson: (text: string) => Promise<{ imported: number; errors: string[] }>;
+  startMcpOAuthLogin: (serverKey: string) => Promise<void>;
+  readThreadContent: (params?: {
+    threadId?: string;
+    messageLimit?: number;
+    eventLimit?: number;
+    eventBefore?: number;
+    includeAux?: boolean;
+  }) => Promise<HistoryThreadContentResult>;
+  createThreadTask: (args: HistoryThreadTaskCreateArgs) => Promise<HistoryThreadTaskCreateResult>;
+  updateThreadTask: (args: HistoryThreadTaskUpdateArgs) => Promise<HistoryThreadTaskUpdateResult>;
+  listRendererCaches: () => Promise<CacheListResult>;
+  clearRendererCaches: (args?: CacheClearArgs) => Promise<CacheClearResult>;
+  readMcpResource: (params: {
+    threadId: string;
+    serverKey: string;
+    uri: string;
+    sourceTab?: "resources" | "templates";
+    templateKey?: string;
+  }) => Promise<{
+    contents: McpResourceContentState[];
+    resourceLabel: string;
+    toolNames: string[];
+    parameterEntries: McpResourceParameterEntry[];
+  }>;
+  rollbackTurns: () => Promise<void>;
+  submitUserInputPromptForThread: (threadId: string) => Promise<void>;
+  cancelUserInputPromptForThread: (threadId: string) => Promise<void>;
+  submitActiveUserInputPrompt: () => Promise<void>;
+  cancelActiveUserInputPrompt: () => Promise<void>;
+  submitActiveApprovalPrompt: (decision: unknown) => Promise<void>;
+  dismissActiveApprovalPrompt: () => void;
+};
+
+let runtimeOrchestrator: RuntimeOrchestrator | null = null;
+
+export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
+  if (runtimeOrchestrator) return runtimeOrchestrator;
+
+  const runtimeStore = useRuntimeStore(pinia);
+  const threadStore = useThreadStore(pinia);
+  const goalShutdownStore = useGoalShutdownStore(pinia);
+  const timelineStore = useTimelineStore(pinia);
+  const appShellStore = useAppShellStore(pinia);
+  const configStore = useConfigStore(pinia);
+  const configRequirementsStore = useConfigRequirementsStore(pinia);
+  const skillsStore = useSkillsStore(pinia);
+  const mcpStore = useMcpStore(pinia);
+  const mcpResourceStore = useMcpResourceStore(pinia);
+  const userInputStore = useUserInputStore(pinia);
+  const approvalStore = useApprovalStore(pinia);
+  const messageQueueStore = useMessageQueueStore(pinia);
+  const workspaceFilesStore = useWorkspaceFilesStore(pinia);
+  const codexProfilesStore = useCodexProfilesStore(pinia);
+  const codexSkillRootsStore = useCodexSkillRootsStore(pinia);
+  const codexConfigSwitcherStore = useCodexConfigSwitcherStore(pinia);
+  const paperStore = usePaperStore(pinia);
+
+  // 运行期缓存：会话恢复、历史分页、工作区<->服务映射、右侧面板快照。
+  const resumedThreadIds = new Set<string>();
+  const resumePromisesByThread = new Map<string, Promise<boolean>>();
+  const replayCacheByThread = new Map<string, ThreadReplayCache>();
+  const replayWindowStateByThread = new Map<string, ThreadReplayWindowState>();
+  const replayRequestSeqByThread = new Map<string, number>();
+  const olderHistoryLoadPromiseByThread = new Map<string, Promise<boolean>>();
+  const LOCAL_THREAD_TTL_MS = 10 * 60_000;
+  const threadStartConfigOverridesByThreadId = new Map<string, ThreadStartConfigOverrides>();
+  const threadContentCacheByKey = new Map<string, ThreadContentCacheEntry>();
+
+  const resolveCurrentInstructionProfile = (): CodexInstructionProfile => {
+    return codexInstructionProfileForMainView(appShellStore.mainView, paperStore.mode);
+  };
+  const serverIdByWorkspace = new Map<string, string>();
+  const workspaceByServerId = new Map<string, string>();
+  const workspaceByThreadId = new Map<string, string>();
+  const threadMetadataHydrationPromiseByWorkspace = new Map<string, Promise<void>>();
+  const handoffDiagnosticsPromiseByThread = new Map<string, Promise<void>>();
+  let warnedExperimentalApiUnavailable = false;
+  let latestSwitchThreadSeq = 0;
+  const skillsSnapshotByWorkspace = new Map<string, SkillsSnapshot>();
+  const mcpSnapshotByWorkspace = new Map<string, McpSnapshot>();
+  const skillsRefreshTimersByWorkspace = new Map<string, ReturnType<typeof setTimeout>>();
+  const mcpStatusRefreshTimersByWorkspace = new Map<string, ReturnType<typeof setTimeout>>();
+  const mcpStartupFailureToastKeys = new Set<string>();
+  let globalConfigAutoLoadAttempted = false;
+  const disposers: Array<() => void> = [];
+  const THREAD_PREPARING_EVENT_ID = "local:threadPreparing";
+  const threadPreparingEnvironmentText = () => translate("runtime.threadPreparingEnvironment");
+
+  // 统一写入时间线事件，默认写到应用级线程。
+  const pushEvent = (
+    method: string,
+    paramsText: string,
+    opts?: { threadId?: string; turnId?: string; level?: "info" | "warn" | "error" }
+  ) => {
+    timelineStore.appendEvent({
+      threadId: opts?.threadId || APP_TIMELINE_ID,
+      method,
+      paramsText,
+      turnId: opts?.turnId,
+      level: opts?.level ?? "info",
+    });
+  };
+
+  const upsertThreadPreparingEvent = (threadIdValue: string) => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId || threadId === APP_TIMELINE_ID) return;
+    timelineStore.upsertEvent({
+      threadId,
+      id: THREAD_PREPARING_EVENT_ID,
+      method: "local/thinking",
+      paramsText: threadPreparingEnvironmentText(),
+      params: { phase: "preparingEnvironment" },
+      level: "info",
+      localKind: "thinking",
+      thinkingPhase: "preparing",
+    });
+  };
+
+  const clearThreadPreparingEvent = (threadIdValue: string) => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId || threadId === APP_TIMELINE_ID) return;
+    timelineStore.removeEvent({ threadId, id: THREAD_PREPARING_EVENT_ID });
+  };
+
+  const perfNow = () => {
+    if (typeof performance !== "undefined" && typeof performance.now === "function") return performance.now();
+    return Date.now();
+  };
+
+  const elapsedMs = (startedAt: number) => Number((perfNow() - startedAt).toFixed(1));
+
+  const normalizeWorkspacePath = (value: string) => String(value ?? "").trim();
+
+  const rememberThreadStartConfigOverrides = (
+    threadIdValue: string,
+    overrides: ThreadStartConfigOverrides | null | undefined
+  ) => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId) return;
+    if (overrides) threadStartConfigOverridesByThreadId.set(threadId, { ...overrides });
+    else threadStartConfigOverridesByThreadId.delete(threadId);
+  };
+
+  const buildThreadStartParamsForModel = (args: {
+    model: string;
+    workspace: string;
+    sandboxMode: string;
+  }): { params: ThreadStartParams; configOverrides: ThreadStartConfigOverrides | null } => {
+    const model = normalizeModelName(args.model);
+    const workspace = normalizeWorkspacePath(args.workspace);
+    const configOverrides = buildThreadStartConfigOverridesForModel(model);
+    const approvalPolicy = normalizeApprovalPolicy(configStore.draft.approvalPolicy);
+    const approvalsReviewer = normalizeApprovalsReviewer(configStore.draft.approvalsReviewer);
+    const instructionProfile = resolveCurrentInstructionProfile();
+    const dynamicTools = buildBuiltinDynamicToolSpecs(
+      buildDynamicToolNamesForInstructionProfile(instructionProfile)
+    ) as ThreadStartParams["dynamicTools"];
+    const developerInstructions = buildDeveloperInstructionsForProfile(instructionProfile);
+    return {
+      configOverrides,
+      params: {
+        model,
+        cwd: workspace,
+        approvalPolicy: approvalPolicy as ThreadStartParams["approvalPolicy"],
+        approvalsReviewer: approvalsReviewer as ThreadStartParams["approvalsReviewer"],
+        sandbox: sandboxKebabFromUi(normalizeSandboxMode(args.sandboxMode)),
+        ...(configOverrides ? { config: configOverrides } : {}),
+        ...(dynamicTools && dynamicTools.length > 0 ? { dynamicTools } : {}),
+        ...(developerInstructions ? { developerInstructions } : {}),
+        experimentalRawEvents: false,
+        persistExtendedHistory: true,
+      },
+    };
+  };
+
+  const cloneSkillItems = (items: SkillState[]): SkillState[] => {
+    return items.map((item) => ({ ...item }));
+  };
+
+  const cloneMcpServers = (servers: McpServerState[]): McpServerState[] => {
+    return servers.map((server) => ({
+      ...server,
+      ...(Array.isArray(server.args) ? { args: [...server.args] } : {}),
+      ...(server.env ? { env: { ...server.env } } : {}),
+      ...(server.headers ? { headers: { ...server.headers } } : {}),
+      tools: Array.isArray(server.tools) ? server.tools.map((tool) => ({ ...tool })) : [],
+      resources: Array.isArray(server.resources) ? [...server.resources] : [],
+      resourceTemplates: Array.isArray(server.resourceTemplates) ? [...server.resourceTemplates] : [],
+    }));
+  };
+
+  const readErrorMessage = (error: unknown): string => {
+    if (error instanceof Error) return error.message || error.name;
+    return String(error ?? "unknown error");
+  };
+
+  const toPlainObjectRecord = (value: unknown): Record<string, unknown> | null => {
+    return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  };
+
+  const isEmptyMcpElicitationSchema = (value: unknown): boolean => {
+    const schema = toPlainObjectRecord(value);
+    if (!schema || schema.type !== "object") return false;
+    const properties = toPlainObjectRecord(schema.properties);
+    if (!properties || Object.keys(properties).length > 0) return false;
+    const hasRequired = Array.isArray(schema.required)
+      ? schema.required.some((item) => String(item ?? "").trim())
+      : false;
+    return !hasRequired;
+  };
+
+  const createRendererCacheContext = () => ({
+    threadContentCacheByKey,
+    replayCacheByThread,
+    replayWindowStateByThread,
+    replayRequestSeqByThread,
+    olderHistoryLoadPromiseByThread,
+    skillsSnapshotByWorkspace,
+    mcpSnapshotByWorkspace,
+    mcpResourceStore,
+    workspaceFilesStore,
+  });
+
+  const listRendererCaches = async (): Promise<CacheListResult> => {
+    const { listRendererCachesForRuntime } = await import("./runtime/rendererCacheRegistry");
+    return listRendererCachesForRuntime(createRendererCacheContext());
+  };
+
+  const clearRendererCaches = async (args?: CacheClearArgs): Promise<CacheClearResult> => {
+    const { clearRendererCachesForRuntime } = await import("./runtime/rendererCacheRegistry");
+    return clearRendererCachesForRuntime(createRendererCacheContext(), args);
+  };
+
+  const parseJsonRpcError = (error: unknown): JsonRpcErrorLike | null => {
+    const raw = readErrorMessage(error).trim();
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const code = typeof parsed.code === "number" ? parsed.code : null;
+      const message = typeof parsed.message === "string" ? parsed.message : "";
+      if (code == null) return null;
+      return { code, message };
+    } catch {
+      return null;
+    }
+  };
+
+  const _isRpcMethodUnavailable = (error: unknown, method: string): boolean => {
+    const rpcErr = parseJsonRpcError(error);
+    if (!rpcErr) return false;
+    if (rpcErr.code === -32601) return true;
+    if (rpcErr.code !== -32600) return false;
+    const message = String(rpcErr.message ?? "");
+    return message.includes(`unknown variant \`${method}\``) || message.includes(`unknown variant '${method}'`);
+  };
+
+  const resolveWorkspacePathForFileAccess = (inputPath: string) => {
+    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    if (!workspace) throw new Error(translate("runtime.workspaceRequired"));
+    const path = resolveWorkspaceFsPath(workspace, inputPath);
+    if (!path) throw new Error(translate("runtime.invalidFilePath"));
+    if (!isWithinWorkspaceFsPath(workspace, path)) {
+      throw new Error(translate("runtime.fileOutsideWorkspace"));
+    }
+    return { workspace, path };
+  };
+
+  // 右侧面板缓存命中时直接回填，减少切换工作区时的重复请求。
+  const applySkillsSnapshot = (workspacePathValue: string): boolean => {
+    const workspace = normalizeWorkspacePath(workspacePathValue);
+    if (!workspace) return false;
+    const snapshot = skillsSnapshotByWorkspace.get(workspace);
+    if (!snapshot) return false;
+    skillsStore.setItems(cloneSkillItems(snapshot.items));
+    skillsStore.setParseErrors([...snapshot.parseErrors]);
+    skillsStore.setSummary(snapshot.summary);
+    skillsStore.setLoadState("ready");
+    return true;
+  };
+
+  const saveSkillsSnapshot = (workspacePathValue: string, snapshot: SkillsSnapshot) => {
+    const workspace = normalizeWorkspacePath(workspacePathValue);
+    if (!workspace) return;
+    skillsSnapshotByWorkspace.set(workspace, {
+      items: cloneSkillItems(snapshot.items),
+      parseErrors: [...snapshot.parseErrors],
+      summary: snapshot.summary,
+    });
+  };
+
+  const invalidateSkillsSnapshot = (workspacePathValue?: string) => {
+    const workspace = normalizeWorkspacePath(workspacePathValue ?? "");
+    if (!workspace) return;
+    skillsSnapshotByWorkspace.delete(workspace);
+  };
+
+  const hasSkillsSnapshot = (workspacePathValue: string): boolean => {
+    const workspace = normalizeWorkspacePath(workspacePathValue);
+    if (!workspace) return false;
+    return skillsSnapshotByWorkspace.has(workspace);
+  };
+
+  const applyMcpSnapshot = (workspacePathValue: string): boolean => {
+    const workspace = normalizeWorkspacePath(workspacePathValue);
+    if (!workspace) return false;
+    const snapshot = mcpSnapshotByWorkspace.get(workspace);
+    if (!snapshot) return false;
+    mcpStore.setServers(cloneMcpServers(snapshot.servers));
+    mcpStore.setStatusText(snapshot.statusText);
+    mcpStore.setLoadState("ready");
+    return true;
+  };
+
+  const saveMcpSnapshot = (workspacePathValue: string, snapshot: McpSnapshot) => {
+    const workspace = normalizeWorkspacePath(workspacePathValue);
+    if (!workspace) return;
+    mcpSnapshotByWorkspace.set(workspace, {
+      servers: cloneMcpServers(snapshot.servers),
+      statusText: snapshot.statusText,
+    });
+  };
+
+  const invalidateMcpSnapshot = (workspacePathValue?: string) => {
+    const workspace = normalizeWorkspacePath(workspacePathValue ?? "");
+    if (!workspace) return;
+    mcpSnapshotByWorkspace.delete(workspace);
+  };
+
+  const hasMcpSnapshot = (workspacePathValue: string): boolean => {
+    const workspace = normalizeWorkspacePath(workspacePathValue);
+    if (!workspace) return false;
+    return mcpSnapshotByWorkspace.has(workspace);
+  };
+
+  const applyCachedRightPanels = (workspacePathValue: string) => {
+    const workspace = normalizeWorkspacePath(workspacePathValue);
+    if (!workspace) return;
+    applySkillsSnapshot(workspace);
+    applyMcpSnapshot(workspace);
+  };
+
+  // 统一重置右侧面板 store，避免状态残留。
+  const resetSidePanelStores = (statusText = translate("runtime.noService")) => {
+    configStore.resetState(statusText);
+    configRequirementsStore.resetState(statusText);
+    skillsStore.resetState(statusText);
+    mcpStore.resetState(statusText);
+    mcpResourceStore.resetState();
+    userInputStore.resetAll();
+  };
+
+  const setThreadWorkspace = (threadIdValue: string, workspacePathValue: string | undefined) => {
+    const threadId = String(threadIdValue ?? "").trim();
+    const workspace = normalizeWorkspacePath(String(workspacePathValue ?? ""));
+    if (!threadId) return;
+    if (!workspace) {
+      workspaceByThreadId.delete(threadId);
+      return;
+    }
+    workspaceByThreadId.set(threadId, workspace);
+  };
+
+  const clearThreadWorkspace = (threadIdValue: string) => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId) return;
+    workspaceByThreadId.delete(threadId);
+  };
+
+  const findThreadListItem = (threadIdValue: string): ThreadHistoryItem | LocalThreadItem | undefined => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId) return undefined;
+    return (
+      threadStore.threadHistory.find((item) => item.id === threadId) ??
+      threadStore.localThreads.find((item) => item.id === threadId)
+    );
+  };
+
+  // 线程对应工作区的解析优先级：内存映射 > 历史记录 > 当前工作区。
+  const getWorkspaceForThread = (threadIdValue: string): string => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId) return "";
+    const mapped = normalizeWorkspacePath(workspaceByThreadId.get(threadId) ?? "");
+    if (mapped) return mapped;
+    const fromHistory = normalizeWorkspacePath(String(findThreadListItem(threadId)?.cwd ?? ""));
+    if (fromHistory) {
+      workspaceByThreadId.set(threadId, fromHistory);
+      return fromHistory;
+    }
+    return normalizeWorkspacePath(runtimeStore.workspacePath);
+  };
+
+  const getServerIdForWorkspace = (workspacePathValue: string): string => {
+    const workspace = normalizeWorkspacePath(workspacePathValue);
+    if (!workspace) return "";
+    return normalizeWorkspacePath(serverIdByWorkspace.get(workspace) ?? "");
+  };
+
+  const getServerIdForThread = (threadIdValue: string): string => {
+    const workspace = getWorkspaceForThread(threadIdValue);
+    if (!workspace) return "";
+    return getServerIdForWorkspace(workspace);
+  };
+
+  const requireActiveWorkspaceServerId = (): string => {
+    const serverId = getServerIdForWorkspace(runtimeStore.workspacePath);
+    if (!serverId) throw new Error("server not running");
+    return serverId;
+  };
+
+  const syncActiveServerByWorkspace = (workspacePathValue: string) => {
+    const workspace = normalizeWorkspacePath(workspacePathValue);
+    const serverId = getServerIdForWorkspace(workspace);
+    if (!serverId) {
+      runtimeStore.clearServer();
+      appShellStore.setServerConnState("disconnected");
+      resetSidePanelStores(translate("runtime.noService"));
+      return "";
+    }
+    runtimeStore.setServer(serverId);
+    appShellStore.setServerConnState("connected");
+    return serverId;
+  };
+
+  const warnExperimentalApiUnavailableOnce = (detail: string) => {
+    if (warnedExperimentalApiUnavailable) return;
+    warnedExperimentalApiUnavailable = true;
+    pushEvent("experimentalApi", detail || translate("runtime.experimentalApiUnavailableDetail"), {
+      threadId: APP_TIMELINE_ID,
+      level: "warn",
+    });
+    showToast({
+      kind: "warn",
+      title: translate("runtime.experimentalApiDisabledTitle"),
+      message: detail || translate("runtime.experimentalApiUnavailableMessage"),
+    });
+  };
+
+  // 启动成功后登记工作区与服务实例的双向映射。
+  const registerServerForWorkspace = (workspacePathValue: string, serverIdValue: string) => {
+    const workspace = normalizeWorkspacePath(workspacePathValue);
+    const serverId = normalizeWorkspacePath(serverIdValue);
+    if (!workspace || !serverId) return;
+    serverIdByWorkspace.set(workspace, serverId);
+    workspaceByServerId.set(serverId, workspace);
+  };
+
+  // 通过 serverId 回收映射并返回对应工作区。
+  const clearServerById = (serverIdValue: string) => {
+    const serverId = normalizeWorkspacePath(serverIdValue);
+    if (!serverId) return "";
+    const workspace = normalizeWorkspacePath(workspaceByServerId.get(serverId) ?? "");
+    workspaceByServerId.delete(serverId);
+    if (workspace) {
+      const mapped = normalizeWorkspacePath(serverIdByWorkspace.get(workspace) ?? "");
+      if (mapped === serverId) serverIdByWorkspace.delete(workspace);
+    }
+    return workspace;
+  };
+
+  const configRuntime = createConfigRuntime({
+    requireActiveWorkspaceServerId,
+    getWorkspacePath: () => String(runtimeStore.workspacePath ?? "").trim(),
+  });
+  const { requestConfigRead, requestConfigRequirementsRead, requestConfigBatchWrite } = configRuntime;
+
+  const requestThreadRead = async (threadIdValue: string): Promise<ServerThread> => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId) throw new Error("missing thread id");
+    const workspace = getWorkspaceForThread(threadId);
+    const serverId = await ensureServerForWorkspace(workspace);
+    if (!serverId) throw new Error("server not running");
+    const params: ThreadReadParams = { threadId, includeTurns: true };
+    const res = await codexDesktop.codexServer.rpc({
+      serverId,
+      method: "thread/read",
+      params,
+    });
+    return res.result.thread;
+  };
+
+  const getCurrentThreadIdOrToast = () => {
+    const threadId = String(runtimeStore.currentThreadId ?? "").trim();
+    if (threadId) return threadId;
+    showToast({
+      kind: "warn",
+      title: translate("runtime.goalNoThreadTitle"),
+      message: translate("runtime.goalNoThreadMessage"),
+    });
+    return "";
+  };
+
+  const ensureServerForThread = async (threadIdValue: string) => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId) return "";
+    const workspace = getWorkspaceForThread(threadId);
+    const serverId = await ensureServerForWorkspace(workspace);
+    return serverId || "";
+  };
+
+  const normalizeGoalBudget = (value: unknown): number | null => {
+    if (value == null || value === "") return null;
+    const raw = typeof value === "number" ? value : Number(value);
+    if (!Number.isFinite(raw) || raw <= 0) return null;
+    return Math.round(raw);
+  };
+
+  const refreshThreadGoal = async (threadIdValue?: string): Promise<ThreadGoalState | null> => {
+    const threadId = String(threadIdValue ?? runtimeStore.currentThreadId ?? "").trim();
+    if (!threadId || threadId === APP_TIMELINE_ID) return null;
+    try {
+      const serverId = await ensureServerForThread(threadId);
+      if (!serverId) return null;
+      const { result } = await codexDesktop.codexServer.rpc({
+        serverId,
+        method: "thread/goal/get",
+        params: { threadId },
+      });
+      const goal = result.goal ?? null;
+      if (goal) threadStore.setThreadGoal(threadId, goal);
+      else threadStore.clearThreadGoal(threadId);
+      return threadStore.goalByThread.get(threadId) ?? null;
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      console.warn("[runtimeOrchestrator] thread goal refresh failed", { threadId, msg });
+      return threadStore.goalByThread.get(threadId) ?? null;
+    }
+  };
+
+  const setCurrentThreadGoal = async (args: {
+    objective: string;
+    tokenBudget?: number | null;
+    shutdownOnComplete?: boolean;
+  }): Promise<ThreadGoalState | null> => {
+    const threadId = getCurrentThreadIdOrToast();
+    if (!threadId) return null;
+    const objective = String(args.objective ?? "").trim();
+    if (!objective) {
+      showToast({
+        kind: "warn",
+        title: translate("runtime.goalObjectiveRequiredTitle"),
+        message: translate("runtime.goalObjectiveRequiredMessage"),
+      });
+      return null;
+    }
+    try {
+      const serverId = await ensureServerForThread(threadId);
+      if (!serverId) throw new Error(translate("runtime.currentThreadNoService"));
+      const params: ThreadGoalSetParams = {
+        threadId,
+        objective,
+        status: "active",
+        tokenBudget: normalizeGoalBudget(args.tokenBudget),
+      };
+      const { result } = await codexDesktop.codexServer.rpc({
+        serverId,
+        method: "thread/goal/set",
+        params,
+      });
+      const previous = threadStore.goalByThread.get(threadId) ?? null;
+      threadStore.setThreadGoal(threadId, result.goal);
+      const savedGoal = threadStore.goalByThread.get(threadId) ?? null;
+      if (savedGoal) {
+        await goalShutdownStore.configureGoal(savedGoal, Boolean(args.shutdownOnComplete));
+        goalShutdownStore.observeGoalTransition(previous, savedGoal);
+      }
+      showToast({
+        kind: "success",
+        title: translate("runtime.goalSavedTitle"),
+        message: translate("runtime.goalSavedMessage"),
+      });
+      return threadStore.goalByThread.get(threadId) ?? null;
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      showToast({ kind: "error", title: translate("runtime.goalSaveFailedTitle"), message: msg });
+      return null;
+    }
+  };
+
+  const promptAndSetCurrentThreadGoal = async (): Promise<ThreadGoalState | null> => {
+    const threadId = getCurrentThreadIdOrToast();
+    if (!threadId) return null;
+    const existing = threadStore.goalByThread.get(threadId) ?? (await refreshThreadGoal(threadId));
+    let draft: { objective: string; tokenBudget: number | null } | null = null;
+    try {
+      draft = await promptGoalModalLazy({
+        title: translate(existing ? "runtime.goalUpdateTitle" : "runtime.goalCreateTitle"),
+        message: translate("runtime.goalModalMessage"),
+        objectiveLabel: translate("runtime.goalObjectiveLabel"),
+        budgetLabel: translate("runtime.goalBudgetLabel"),
+        budgetHint: translate("runtime.goalBudgetHint"),
+        confirmText: translate(existing ? "runtime.goalUpdateConfirm" : "runtime.goalCreateConfirm"),
+        defaultObjective: existing?.objective ?? "",
+        defaultTokenBudget: existing?.tokenBudget ?? null,
+        shutdownOnCompleteLabel: translate("runtime.goalShutdownOnCompleteLabel"),
+        shutdownOnCompleteHint: translate("runtime.goalShutdownOnCompleteHint"),
+        defaultShutdownOnComplete: goalShutdownStore.isEnabledForGoal(existing),
+      });
+    } catch (e: any) {
+      showToast({
+        kind: "error",
+        title: translate("runtime.goalModalOpenFailedTitle"),
+        message: e?.message ? String(e.message) : String(e),
+      });
+      return null;
+    }
+    if (!draft) return null;
+    return await setCurrentThreadGoal(draft);
+  };
+
+  const completeCurrentThreadGoal = async (): Promise<ThreadGoalState | null> => {
+    const threadId = getCurrentThreadIdOrToast();
+    if (!threadId) return null;
+    const existing = threadStore.goalByThread.get(threadId) ?? (await refreshThreadGoal(threadId));
+    if (!existing) {
+      showToast({
+        kind: "warn",
+        title: translate("runtime.goalMissingTitle"),
+        message: translate("runtime.goalMissingMessage"),
+      });
+      return null;
+    }
+    try {
+      const serverId = await ensureServerForThread(threadId);
+      if (!serverId) throw new Error(translate("runtime.currentThreadNoService"));
+      const { result } = await codexDesktop.codexServer.rpc({
+        serverId,
+        method: "thread/goal/set",
+        params: { threadId, status: "complete" },
+      });
+      const previous = threadStore.goalByThread.get(threadId) ?? null;
+      threadStore.setThreadGoal(threadId, result.goal);
+      goalShutdownStore.observeGoalTransition(previous, threadStore.goalByThread.get(threadId) ?? null);
+      showToast({
+        kind: "success",
+        title: translate("runtime.goalCompletedTitle"),
+        message: translate("runtime.goalCompletedMessage"),
+      });
+      return threadStore.goalByThread.get(threadId) ?? null;
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      showToast({ kind: "error", title: translate("runtime.goalCompleteFailedTitle"), message: msg });
+      return null;
+    }
+  };
+
+  const clearCurrentThreadGoal = async (): Promise<boolean> => {
+    const threadId = getCurrentThreadIdOrToast();
+    if (!threadId) return false;
+    try {
+      const serverId = await ensureServerForThread(threadId);
+      if (!serverId) throw new Error(translate("runtime.currentThreadNoService"));
+      const { result } = await codexDesktop.codexServer.rpc({
+        serverId,
+        method: "thread/goal/clear",
+        params: { threadId },
+      });
+      threadStore.clearThreadGoal(threadId);
+      showToast({
+        kind: "success",
+        title: translate("runtime.goalClearedTitle"),
+        message: result.cleared
+          ? translate("runtime.goalClearedMessage")
+          : translate("runtime.goalAlreadyClearMessage"),
+      });
+      return Boolean(result.cleared);
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      showToast({ kind: "error", title: translate("runtime.goalClearFailedTitle"), message: msg });
+      return false;
+    }
+  };
+
+  const skillsRuntime = createSkillsRuntime({
+    requireActiveWorkspaceServerId,
+    getServerIdForWorkspace,
+    getWorkspacePath: () => String(runtimeStore.workspacePath ?? "").trim(),
+    getExtraSkillRootsForWorkspace: (workspacePath) => codexSkillRootsStore.rootsForWorkspace(workspacePath),
+  });
+  const { requestSkillsList, writeSkillConfig } = skillsRuntime;
+
+  const mcpRuntime = createMcpRuntime({
+    requireActiveWorkspaceServerId,
+    getWorkspacePath: () => String(runtimeStore.workspacePath ?? "").trim(),
+    getWorkspaceForThread,
+    ensureServerForWorkspace: (workspace) => ensureServerForWorkspace(workspace),
+  });
+  const { requestMcpStatusList, requestReloadMcpConfig, requestStartMcpOAuthLogin, requestMcpResourceRead } =
+    mcpRuntime;
+
+  const requestThreadRollback = async (threadIdValue: string, turns: number): Promise<boolean> => {
+    const tid = String(threadIdValue ?? "").trim();
+    if (!tid) return false;
+    const serverId = getServerIdForThread(tid);
+    if (!serverId) return false;
+    const n = Number.isFinite(turns) ? Math.max(1, Math.round(turns)) : 1;
+    try {
+      await codexDesktop.codexServer.rpc({
+        serverId,
+        method: "thread/rollback",
+        params: { threadId: tid, numTurns: n },
+      });
+      return true;
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent("rollback:error", msg || "thread/rollback failed", { threadId: tid, level: "error" });
+      showToast({ kind: "error", title: translate("runtime.rollbackFailedTitle"), message: "thread/rollback failed" });
+      return false;
+    }
+  };
+
+  const requestTurnInterrupt = async (
+    threadIdValue: string,
+    turnIdValue: string,
+    opts?: { silentSuccess?: boolean }
+  ): Promise<boolean> => {
+    const threadId = String(threadIdValue ?? "").trim();
+    const turnId = String(turnIdValue ?? "").trim();
+    if (!threadId || !turnId) return false;
+    const serverId = getServerIdForThread(threadId);
+    if (!serverId) return false;
+    try {
+      await codexDesktop.codexServer.rpc({ serverId, method: "turn/interrupt", params: { threadId, turnId } });
+      if (!opts?.silentSuccess) pushEvent("interrupt", translate("runtime.interruptRequested"), { threadId });
+      return true;
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent("interrupt:error", msg || "turn/interrupt failed", { threadId, level: "error" });
+      return false;
+    }
+  };
+
+  const resolveHistoryRewriteAnchorTurnId = (threadIdValue: string): string => {
+    const directTurnId = String(runtimeStore.historyRewriteAnchorTurnId ?? "").trim();
+    if (directTurnId) return directTurnId;
+
+    const anchorEventId = String(runtimeStore.historyRewriteAnchorEventId ?? "").trim();
+    if (!anchorEventId) return "";
+    const anchorEvent = timelineStore
+      .eventsForThread(threadIdValue)
+      .find((event) => String(event?.id ?? "").trim() === anchorEventId);
+    return String(anchorEvent?.turnId ?? "").trim();
+  };
+
+  const isHistoryRewriteAnchorUserEvent = (event: TimelineEventItem, anchorTurnId: string): boolean => {
+    if (String(event?.turnId ?? "").trim() !== anchorTurnId) return false;
+    return event.localKind === "user" || event.method === "user";
+  };
+
+  const isOutputAfterHistoryRewriteAnchor = (event: TimelineEventItem): boolean => {
+    if (event.hidden) return false;
+    if (event.localKind === "thinking" || event.method === "local/thinking") return false;
+    if (
+      event.method === "turn/started" ||
+      event.method === "turn/completed" ||
+      event.method === "turn/diff/updated" ||
+      event.method === "thread/tokenUsage/updated" ||
+      event.method === "local/contextCompaction"
+    ) {
+      return false;
+    }
+    return true;
+  };
+
+  const hasOutputBelowHistoryRewriteAnchor = (threadIdValue: string, anchorTurnIdValue: string): boolean | null => {
+    const anchorTurnId = String(anchorTurnIdValue ?? "").trim();
+    if (!anchorTurnId) return null;
+    const events = timelineStore.eventsForThread(threadIdValue);
+    const anchorIndex = events.findIndex((event) => isHistoryRewriteAnchorUserEvent(event, anchorTurnId));
+    if (anchorIndex < 0) return null;
+    return events.slice(anchorIndex + 1).some(isOutputAfterHistoryRewriteAnchor);
+  };
+
+  type HistoryRewriteRunningStopState = "stopped" | "output" | "timeout";
+
+  const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+  const waitForHistoryRewriteRunningTurnToStop = async (
+    threadIdValue: string,
+    anchorTurnIdValue: string
+  ): Promise<HistoryRewriteRunningStopState> => {
+    const threadId = String(threadIdValue ?? "").trim();
+    const anchorTurnId = String(anchorTurnIdValue ?? "").trim();
+    const deadline = Date.now() + 12_000;
+    while (Date.now() < deadline) {
+      if (hasOutputBelowHistoryRewriteAnchor(threadId, anchorTurnId) === true) return "output";
+      if (!threadStore.runningThreadIds.has(threadId)) return "stopped";
+      const activeTurnId = String(threadStore.activeTurnIdByThread.get(threadId) ?? "").trim();
+      if (activeTurnId && activeTurnId !== anchorTurnId) return "stopped";
+      await sleep(100);
+    }
+    return threadStore.runningThreadIds.has(threadId) ? "timeout" : "stopped";
+  };
+
+  const rollbackHistoryRewriteBeforeSend = async (
+    threadIdValue: string,
+    opts?: { anchorTurnId?: string; force?: boolean }
+  ): Promise<boolean> => {
+    const forcedAnchorTurnId = String(opts?.anchorTurnId ?? "").trim();
+    const forceRewrite = Boolean(opts?.force || forcedAnchorTurnId);
+    if (!forceRewrite && (!runtimeStore.historyRewriteActive || runtimeStore.historyRewriteSource !== "history")) {
+      return true;
+    }
+
+    const tid = String(threadIdValue ?? "").trim();
+    if (!tid) {
+      showToast({
+        kind: "info",
+        title: translate("runtime.rewriteUnavailableTitle"),
+        message: translate("runtime.noThreadSelected"),
+      });
+      return false;
+    }
+
+    const workspace = normalizeWorkspacePath(getWorkspaceForThread(tid) || runtimeStore.workspacePath);
+    const serverId = getServerIdForThread(tid);
+    if (!workspace) {
+      showToast({
+        kind: "error",
+        title: translate("runtime.rewriteUnavailableTitle"),
+        message: translate("runtime.workspaceUnavailable"),
+      });
+      return false;
+    }
+    if (!serverId) {
+      showToast({
+        kind: "error",
+        title: translate("runtime.rewriteUnavailableTitle"),
+        message: translate("runtime.serviceUnavailable"),
+      });
+      return false;
+    }
+
+    const anchorTurnId = forcedAnchorTurnId || resolveHistoryRewriteAnchorTurnId(tid);
+    let noVisibleOutputBelowAnchor = hasOutputBelowHistoryRewriteAnchor(tid, anchorTurnId) === false;
+    if (threadStore.runningThreadIds.has(tid)) {
+      const activeTurnId = String(threadStore.activeTurnIdByThread.get(tid) ?? "").trim();
+      if (!noVisibleOutputBelowAnchor || !activeTurnId || activeTurnId !== anchorTurnId) {
+        showToast({
+          kind: "warn",
+          title: translate("runtime.threadRunningTitle"),
+          message: translate("runtime.waitBeforeSendingEditedMessage"),
+        });
+        return false;
+      }
+      const interrupted = await requestTurnInterrupt(tid, anchorTurnId, { silentSuccess: true });
+      if (!interrupted) {
+        showToast({
+          kind: "error",
+          title: translate("runtime.rewriteFailedTitle"),
+          message: translate("runtime.stopTurnFailed"),
+        });
+        return false;
+      }
+      const stopped = await waitForHistoryRewriteRunningTurnToStop(tid, anchorTurnId);
+      if (stopped === "timeout") {
+        showToast({
+          kind: "warn",
+          title: translate("runtime.rewriteWaitTimeoutTitle"),
+          message: translate("runtime.turnStillRunningRetry"),
+        });
+        return false;
+      }
+      if (threadStore.runningThreadIds.has(tid)) {
+        showToast({
+          kind: "warn",
+          title: translate("runtime.threadRunningTitle"),
+          message: translate("runtime.turnStillRunningRetry"),
+        });
+        return false;
+      }
+      noVisibleOutputBelowAnchor = hasOutputBelowHistoryRewriteAnchor(tid, anchorTurnId) === false;
+    }
+
+    const rollback = resolveHistoryRewriteRollback(threadStore.completedTurnsByThread.get(tid) ?? [], anchorTurnId);
+    if (!rollback) {
+      if (noVisibleOutputBelowAnchor) {
+        timelineStore.removeTurnEvents(tid, [anchorTurnId]);
+        return true;
+      }
+      showToast({
+        kind: "error",
+        title: translate("runtime.rewriteUnavailableTitle"),
+        message: translate("runtime.rewriteRollbackNotFound"),
+      });
+      return false;
+    }
+
+    if (!noVisibleOutputBelowAnchor) {
+      let confirmed = false;
+      try {
+        confirmed = await confirmModalLazy({
+          title: translate("runtime.sendEditedHistoryTitle"),
+          message: translate("runtime.sendEditedHistoryMessage", { count: rollback.count }),
+          detail: translate("runtime.rollbackDetail"),
+          confirmText: translate("runtime.rollbackAndSend"),
+          cancelText: translate("common.cancel"),
+          danger: true,
+        });
+      } catch (e: any) {
+        const msg = e?.message ? String(e.message) : String(e);
+        const isBusy = msg.includes("another modal is already open");
+        showToast({
+          kind: isBusy ? "warn" : "error",
+          title: translate("runtime.confirmModalOpenFailedTitle"),
+          message: isBusy ? translate("runtime.modalAlreadyOpen") : translate("runtime.modalOpenFailed"),
+        });
+        return false;
+      }
+      if (!confirmed) return false;
+    }
+
+    if (rollback.combinedDiff.trim()) {
+      const dry = await codexDesktop.workspace.dryRunApplyReverseDiff({
+        cwd: workspace,
+        diffText: rollback.combinedDiff,
+      });
+      if (!dry.ok) {
+        pushEvent("rollback:error", translate("runtime.rollbackFilesFailed", { error: dry.error }), {
+          threadId: tid,
+          level: "error",
+        });
+        showToast({
+          kind: "error",
+          title: translate("runtime.rewriteFailedTitle"),
+          message: translate("runtime.fileRollbackPrecheckFailed"),
+        });
+        return false;
+      }
+    }
+
+    const resumed = await ensureThreadResumed(tid);
+    if (!resumed) return false;
+    const ok = await requestThreadRollback(tid, rollback.count);
+    if (!ok) return false;
+
+    if (rollback.combinedDiff.trim()) {
+      const applied = await codexDesktop.workspace.applyReverseDiff({
+        cwd: workspace,
+        diffText: rollback.combinedDiff,
+      });
+      if (!applied.ok) {
+        timelineStore.removeTurnEvents(tid, rollback.turnIds);
+        threadStore.removeTurnsFromState(tid, rollback.turnIds);
+        runtimeStore.endHistoryRewrite();
+        pushEvent("rollback:error", translate("runtime.contextRolledBackFilesFailed", { error: applied.error }), {
+          threadId: tid,
+          level: "error",
+        });
+        showToast({
+          kind: "error",
+          title: translate("runtime.partialFailureTitle"),
+          message: translate("runtime.contextRolledBackFilesFailedCheckWorkspace"),
+        });
+        return false;
+      }
+      if (!noVisibleOutputBelowAnchor) {
+        pushEvent("rollback", `history rewrite files reverted: ${(applied.files ?? []).join(", ")}`, { threadId: tid });
+      }
+    } else {
+      if (!noVisibleOutputBelowAnchor) {
+        pushEvent("rollback", "history rewrite has no file diff; context only", { threadId: tid });
+      }
+    }
+
+    timelineStore.removeTurnEvents(tid, rollback.turnIds);
+    threadStore.removeTurnsFromState(tid, rollback.turnIds);
+    if (!noVisibleOutputBelowAnchor) {
+      showToast({
+        kind: "success",
+        title: translate("runtime.historyRolledBackTitle"),
+        message: translate("runtime.historyRolledBackMessage", { count: rollback.count }),
+      });
+    }
+    return true;
+  };
+
+  const preserveNonHistoryTimelineEvents = (
+    threadIdValue: string,
+    historyEventIds: Set<string>,
+    latestReplayCreatedAt: number
+  ): TimelineEventItem[] => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId) return [];
+    const existing = timelineStore.eventsForThread(threadId);
+    if (existing.length === 0) return [];
+    return existing
+      .filter((event) => {
+        const id = String(event.id ?? "").trim();
+        if (!id) return false;
+        if (isReplayCarryoverEvent(event)) return true;
+        if (historyEventIds.has(id)) return false;
+        const createdAt = Number.isFinite(event.createdAt) ? Number(event.createdAt) : 0;
+        return createdAt > latestReplayCreatedAt;
+      })
+      .map((event) => ({ ...event }));
+  };
+
+  const rebuildRollbackStateFromReplay = (
+    threadIdValue: string,
+    events: Array<{ method: string; turnId?: string; params?: unknown; paramsText: string; createdAt?: number }>
+  ) => {
+    threadStore.replaceRollbackState(threadIdValue, buildCompletedTurnsFromReplay(events));
+  };
+
+  const rebuildTokenUsageFromReplay = (
+    threadIdValue: string,
+    events: Array<{ method: string; turnId?: string; params?: unknown; createdAt?: number }>
+  ) => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId) return;
+    for (const event of events) {
+      if (event.method !== "thread/tokenUsage/updated") continue;
+      const params = event.params && typeof event.params === "object" ? (event.params as any) : null;
+      const tokenUsage = params?.tokenUsage;
+      if (!tokenUsage || typeof tokenUsage !== "object") continue;
+      const turnId = String(event.turnId ?? params?.turnId ?? "").trim();
+      const usage = {
+        ...(tokenUsage as Record<string, unknown>),
+        updatedAt: Number.isFinite(event.createdAt) ? Number(event.createdAt) : Date.now(),
+      };
+      threadStore.setTokenUsage(threadId, usage);
+      if (turnId) threadStore.setTurnTokenUsage(threadId, turnId, usage);
+    }
+  };
+
+  const renderReplayEvents = (threadIdValue: string, replayEvents: ThreadReplayCache) => {
+    const historyEventIds = new Set<string>();
+    for (const event of replayEvents) {
+      const id = String(event.id ?? "").trim();
+      if (!id) continue;
+      historyEventIds.add(id);
+    }
+    const latestReplayCreatedAt = replayEvents.reduce((max, event) => {
+      const createdAt = Number.isFinite(event.createdAt) ? Number(event.createdAt) : 0;
+      return Math.max(max, createdAt);
+    }, 0);
+    const preservedTimelineEvents = preserveNonHistoryTimelineEvents(
+      threadIdValue,
+      historyEventIds,
+      latestReplayCreatedAt
+    );
+    const combined = [
+      ...sortReplayEvents(replayEvents).map((event) => ({
+        id: event.id,
+        method: event.method,
+        paramsText: event.paramsText,
+        params: event.params,
+        turnId: event.turnId,
+        level: event.level,
+        localKind: event.localKind,
+        localState: event.localState,
+        thinkingPhase: event.thinkingPhase,
+        localMessageId: undefined as string | undefined,
+        hidden: event.hidden,
+        createdAt: event.createdAt,
+      })),
+      ...preservedTimelineEvents.map((prompt) => ({
+        id: prompt.id,
+        method: prompt.method,
+        paramsText: prompt.paramsText,
+        params: prompt.params,
+        turnId: prompt.turnId,
+        level: prompt.level,
+        localKind: prompt.localKind,
+        localState: prompt.localState,
+        thinkingPhase: prompt.thinkingPhase,
+        localMessageId: prompt.localMessageId,
+        hidden: prompt.hidden,
+        createdAt: prompt.createdAt,
+      })),
+    ].sort((a, b) => {
+      const ta = Number.isFinite(a.createdAt) ? Number(a.createdAt) : 0;
+      const tb = Number.isFinite(b.createdAt) ? Number(b.createdAt) : 0;
+      if (ta !== tb) return ta - tb;
+      return String(a.id ?? "").localeCompare(String(b.id ?? ""));
+    });
+
+    const seenIds = new Set<string>();
+    const unique: typeof combined = [];
+    for (const item of combined) {
+      const id = String(item.id ?? "").trim();
+      if (!id || seenIds.has(id)) continue;
+      seenIds.add(id);
+      unique.push(item);
+    }
+
+    const planKeyById = new Map<string, string>();
+    const bestTextByPlanKey = new Map<string, string>();
+    const selectedIdByPlanKey = new Map<string, { id: string; preferNotif: boolean; textLen: number }>();
+
+    const preferNotifPlanId = (id: string) => id.startsWith("notif:item/plan/delta:");
+
+    const considerPlanCandidate = (planKey: string, item: (typeof unique)[number]) => {
+      if (!planKey) return;
+      const id = String(item.id ?? "").trim();
+      if (!id) return;
+
+      const text = normalizePlanText(item.paramsText);
+      const textLen = text.length;
+      const existingBest = bestTextByPlanKey.get(planKey);
+      if (!existingBest || textLen > existingBest.length) bestTextByPlanKey.set(planKey, text);
+
+      const candidatePreferNotif = preferNotifPlanId(id);
+      const existing = selectedIdByPlanKey.get(planKey);
+      if (!existing) {
+        selectedIdByPlanKey.set(planKey, { id, preferNotif: candidatePreferNotif, textLen });
+        return;
+      }
+      if (candidatePreferNotif && !existing.preferNotif) {
+        selectedIdByPlanKey.set(planKey, { id, preferNotif: candidatePreferNotif, textLen });
+        return;
+      }
+      if (candidatePreferNotif === existing.preferNotif && textLen > existing.textLen) {
+        selectedIdByPlanKey.set(planKey, { id, preferNotif: candidatePreferNotif, textLen });
+      }
+    };
+
+    const transformed = unique.map((raw) => {
+      const id = String(raw.id ?? "").trim();
+      const turnKey = toPlanTurnKey(raw.turnId, raw.createdAt);
+
+      if (raw.method === "item/plan/delta") {
+        const sig = toPlanSignatureText(raw.paramsText);
+        if (sig) {
+          const planKey = `${turnKey}|${sig}`;
+          planKeyById.set(id, planKey);
+          considerPlanCandidate(planKey, raw);
+        }
+        return raw;
+      }
+
+      if (raw.method === "item/agentMessage/delta") {
+        const proposedBody = extractProposedPlanBody(raw.paramsText);
+        const proposedSig = toPlanSignatureText(proposedBody);
+        if (proposedBody && proposedSig) {
+          const planKey = `${turnKey}|${proposedSig}`;
+          const cleanedText = stripProposedPlanTags(raw.paramsText);
+          const next = {
+            ...raw,
+            method: "item/plan/delta",
+            paramsText: cleanedText,
+          };
+          planKeyById.set(id, planKey);
+          considerPlanCandidate(planKey, next);
+          return next;
+        }
+        return raw;
+      }
+
+      return raw;
+    });
+
+    rebuildRollbackStateFromReplay(threadIdValue, transformed);
+    rebuildTokenUsageFromReplay(threadIdValue, transformed);
+    const nextTimelineEvents: TimelineEventItem[] = [];
+
+    for (const item of transformed) {
+      const id = String(item.id ?? "").trim();
+      if (!id) continue;
+
+      // turn diff/token usage 仅用于重建派生状态，不写入时间线 UI。
+      if (item.method === "turn/diff/updated" || item.method === "thread/tokenUsage/updated") continue;
+
+      const planKey = planKeyById.get(id) ?? "";
+      if (planKey) {
+        const selected = selectedIdByPlanKey.get(planKey);
+        if (!selected || selected.id !== id) continue;
+        const bestText = bestTextByPlanKey.get(planKey);
+        const paramsText = typeof bestText === "string" && bestText ? bestText : item.paramsText;
+        nextTimelineEvents.push({
+          id,
+          method: "item/plan/delta",
+          paramsText,
+          params: item.params,
+          turnId: item.turnId,
+          level: item.level ?? "info",
+          localKind: item.localKind,
+          localState: item.localState,
+          thinkingPhase: item.thinkingPhase,
+          localMessageId: item.localMessageId,
+          hidden: item.hidden,
+          createdAt: Number.isFinite(item.createdAt) ? Number(item.createdAt) : Date.now(),
+        });
+        continue;
+      }
+
+      nextTimelineEvents.push({
+        id,
+        method: item.method,
+        paramsText: item.paramsText,
+        params: item.params,
+        turnId: item.turnId,
+        level: item.level ?? "info",
+        localKind: item.localKind,
+        localState: item.localState,
+        thinkingPhase: item.thinkingPhase,
+        localMessageId: item.localMessageId,
+        hidden: item.hidden,
+        createdAt: Number.isFinite(item.createdAt) ? Number(item.createdAt) : Date.now(),
+      });
+    }
+
+    timelineStore.replaceThreadEvents(threadIdValue, nextTimelineEvents);
+  };
+
+  const hydrateReplayFromCacheIfNeeded = (threadIdValue: string): boolean => {
+    const cache = replayCacheByThread.get(threadIdValue);
+    if (!cache) return false;
+    const existingTimelineEventCount = timelineStore.eventsForThread(threadIdValue).length;
+    if (existingTimelineEventCount === 0) {
+      renderReplayEvents(threadIdValue, cache);
+    }
+    return true;
+  };
+
+  const nextReplayRequestSeq = (threadIdValue: string): number => {
+    const next = (replayRequestSeqByThread.get(threadIdValue) ?? 0) + 1;
+    replayRequestSeqByThread.set(threadIdValue, next);
+    return next;
+  };
+
+  const isReplayRequestSeqCurrent = (threadIdValue: string, requestSeq: number): boolean => {
+    return (replayRequestSeqByThread.get(threadIdValue) ?? 0) === requestSeq;
+  };
+
+  const markReplayIncompatible = (threadIdValue: string, detail: string) => {
+    replayCacheByThread.delete(threadIdValue);
+    replayWindowStateByThread.delete(threadIdValue);
+    olderHistoryLoadPromiseByThread.delete(threadIdValue);
+    timelineStore.clearThread(threadIdValue);
+    threadStore.replaceRollbackState(threadIdValue, []);
+    timelineStore.appendEvent({
+      threadId: threadIdValue,
+      method: "history/replay_incompatible",
+      paramsText: detail,
+      level: "error",
+    });
+  };
+
+  const loadReplayBatchFromSessions = async (threadIdValue: string, before = 0): Promise<ReplayBatchResult> => {
+    const page = await codexDesktop.history.getThreadEvents({
+      threadId: threadIdValue,
+      limit: HISTORY_REPLAY_BATCH,
+      before,
+    });
+    const entries = Array.isArray(page?.entries) ? page.entries : [];
+    const events = entries.length > 0 ? await parseSessionReplayEventsLazy(entries, threadIdValue) : [];
+    return {
+      loaded: Number.isFinite(page?.loaded) ? Math.max(0, Math.round(Number(page.loaded))) : 0,
+      hasMore: Boolean(page?.hasMore),
+      events,
+    };
+  };
+
+  const collectReplayEventsForTurnCount = async (
+    threadIdValue: string,
+    requestSeq: number,
+    opts?: {
+      turnLimit?: number;
+      before?: number;
+      seedEvents?: ReplayTimelineEvent[];
+      hasMorePages?: boolean;
+    }
+  ): Promise<{
+    events: ThreadReplayCache;
+    nextBefore: number;
+    hasMorePages: boolean;
+  } | null> => {
+    const turnLimit = Number.isFinite(opts?.turnLimit)
+      ? Math.max(1, Math.round(Number(opts?.turnLimit)))
+      : HISTORY_REPLAY_TURN_SEGMENTS;
+    let before = Number.isFinite(opts?.before) ? Math.max(0, Math.round(Number(opts?.before))) : 0;
+    let hasMorePages = opts?.hasMorePages ?? true;
+    let collected = dedupeReplayEvents(opts?.seedEvents ?? []);
+
+    while (countReplayTurns(collected) < turnLimit && hasMorePages) {
+      const { loaded, hasMore, events } = await loadReplayBatchFromSessions(threadIdValue, before);
+      if (!isReplayRequestSeqCurrent(threadIdValue, requestSeq)) return null;
+      collected = dedupeReplayEvents([...events, ...collected]);
+
+      if (hasMore && loaded <= before) {
+        throw new Error(`history pagination stalled at loaded=${loaded}, before=${before}`);
+      }
+      before = loaded;
+      hasMorePages = hasMore;
+    }
+
+    return {
+      events: collected,
+      nextBefore: before,
+      hasMorePages,
+    };
+  };
+
+  const countTimelineTurnsForThread = (threadIdValue: string): number => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId) return 0;
+    timelineStore.flushPendingAppends();
+    const events = timelineStore.eventsForThread(threadId);
+    const turnIds = new Set<string>();
+    for (const event of events) {
+      const turnId = String(event?.turnId ?? "").trim();
+      if (turnId) turnIds.add(turnId);
+    }
+    return turnIds.size;
+  };
+
+  const loadHistoryMessages = async (threadIdValue: string): Promise<boolean> => {
+    if (!threadIdValue) return false;
+
+    const requestSeq = nextReplayRequestSeq(threadIdValue);
+    replayCacheByThread.delete(threadIdValue);
+    replayWindowStateByThread.delete(threadIdValue);
+
+    try {
+      const collected = await collectReplayEventsForTurnCount(threadIdValue, requestSeq, {
+        turnLimit: HISTORY_REPLAY_TURN_SEGMENTS,
+      });
+      if (!collected) return false;
+      if (!isReplayRequestSeqCurrent(threadIdValue, requestSeq)) return false;
+      const { olderEvents, visibleEvents } = splitReplayEventsByRecentTurns(
+        collected.events,
+        HISTORY_REPLAY_TURN_SEGMENTS
+      );
+      replayWindowStateByThread.set(threadIdValue, {
+        nextBefore: collected.nextBefore,
+        hasMorePages: collected.hasMorePages,
+        bufferedOlderEvents: olderEvents,
+      });
+      replayCacheByThread.set(threadIdValue, visibleEvents);
+      renderReplayEvents(threadIdValue, visibleEvents);
+      return true;
+    } catch (sessionsErr: any) {
+      if (!isReplayRequestSeqCurrent(threadIdValue, requestSeq)) return false;
+      const sessionsMsg = sessionsErr?.message ? String(sessionsErr.message) : String(sessionsErr);
+      markReplayIncompatible(threadIdValue, translate("runtime.historyReplayFailed", { message: sessionsMsg }));
+      return false;
+    }
+  };
+
+  const loadOlderHistoryTurns = async (threadIdValue?: string): Promise<boolean> => {
+    const threadId = String(threadIdValue ?? runtimeStore.timelineKey ?? "").trim();
+    if (!threadId) return false;
+
+    const pending = olderHistoryLoadPromiseByThread.get(threadId);
+    if (pending) return pending;
+
+    // turn window：达到上限后不再继续向上补历史。
+    if (countTimelineTurnsForThread(threadId) >= TIMELINE_MAX_VISIBLE_TURNS) return false;
+    const requestSeq = nextReplayRequestSeq(threadId);
+
+    const task = (async () => {
+      const currentState = replayWindowStateByThread.get(threadId);
+      if (!hasOlderReplayHistory(currentState)) return false;
+
+      const collected = await collectReplayEventsForTurnCount(threadId, requestSeq, {
+        turnLimit: HISTORY_REPLAY_TURN_SEGMENTS,
+        before: currentState?.nextBefore ?? 0,
+        seedEvents: currentState?.bufferedOlderEvents ?? [],
+        hasMorePages: currentState?.hasMorePages ?? false,
+      });
+      if (!collected) return false;
+      if (!isReplayRequestSeqCurrent(threadId, requestSeq)) return false;
+
+      const { olderEvents, visibleEvents } = splitReplayEventsByRecentTurns(
+        collected.events,
+        HISTORY_REPLAY_TURN_SEGMENTS
+      );
+      replayWindowStateByThread.set(threadId, {
+        nextBefore: collected.nextBefore,
+        hasMorePages: collected.hasMorePages,
+        bufferedOlderEvents: olderEvents,
+      });
+      if (visibleEvents.length === 0) return false;
+
+      const previousCache = replayCacheByThread.get(threadId) ?? [];
+      const nextCache = dedupeReplayEvents([...visibleEvents, ...previousCache]);
+      if (nextCache.length === previousCache.length) return false;
+
+      replayCacheByThread.set(threadId, nextCache);
+      renderReplayEvents(threadId, nextCache);
+      return true;
+    })()
+      .catch((sessionsErr: any) => {
+        if (!isReplayRequestSeqCurrent(threadId, requestSeq)) return false;
+        const sessionsMsg = sessionsErr?.message ? String(sessionsErr.message) : String(sessionsErr);
+        markReplayIncompatible(threadId, translate("runtime.historyReplayFailed", { message: sessionsMsg }));
+        return false;
+      })
+      .finally(() => {
+        olderHistoryLoadPromiseByThread.delete(threadId);
+      });
+
+    olderHistoryLoadPromiseByThread.set(threadId, task);
+    return task;
+  };
+
+  const requestThreadListPage = async (
+    workspacePathValue: string,
+    archived: boolean,
+    cursor?: string | null
+  ): Promise<ThreadListResponse> => {
+    const workspace = normalizeWorkspacePath(workspacePathValue);
+    const serverId = getServerIdForWorkspace(workspace);
+    if (!workspace || !serverId) {
+      return { data: [], nextCursor: null, backwardsCursor: null };
+    }
+    const params: ThreadListParams = {
+      cwd: workspace,
+      archived,
+      cursor: cursor ?? null,
+      limit: THREAD_METADATA_PAGE_SIZE,
+      sortKey: "updated_at",
+      sourceKinds: ALL_THREAD_SOURCE_KINDS,
+    };
+    const { result } = await codexDesktop.codexServer.rpc({
+      serverId,
+      method: "thread/list",
+      params,
+    });
+    return result;
+  };
+
+  const requestAllThreadsForWorkspace = async (workspacePathValue: string): Promise<ServerThread[]> => {
+    const workspace = normalizeWorkspacePath(workspacePathValue);
+    if (!workspace) return [];
+    const deduped = new Map<string, ServerThread>();
+
+    for (const archived of [false, true]) {
+      let cursor: string | null = null;
+      while (true) {
+        const page = await requestThreadListPage(workspace, archived, cursor);
+        const threads = Array.isArray(page?.data) ? page.data : [];
+        for (const thread of threads) {
+          const threadId = normalizeOptionalText(thread?.id);
+          if (!threadId) continue;
+          deduped.set(threadId, thread);
+        }
+        const nextCursor = normalizeOptionalText(page?.nextCursor);
+        if (!nextCursor) break;
+        cursor = nextCursor;
+      }
+    }
+
+    return [...deduped.values()];
+  };
+
+  const hydrateThreadMetadataForWorkspace = async (workspacePathValue: string): Promise<void> => {
+    const workspace = normalizeWorkspacePath(workspacePathValue);
+    const serverId = getServerIdForWorkspace(workspace);
+    if (!workspace || !serverId) return;
+
+    const existing = threadMetadataHydrationPromiseByWorkspace.get(workspace);
+    if (existing) return existing;
+
+    const task = (async () => {
+      try {
+        const threads = await requestAllThreadsForWorkspace(workspace);
+        const patches = threads.flatMap((thread) => {
+          const patch = buildHistoryThreadMetadataPatchFromServerThread(thread);
+          return patch ? [patch] : [];
+        });
+        if (patches.length === 0) return;
+        await codexDesktop.history.mergeThreadMetadata({ threads: patches });
+      } catch (e: any) {
+        const rpcErr = parseJsonRpcError(e);
+        if (rpcErr?.code === -32601) return;
+        const msg = e?.message ? String(e.message) : String(e);
+        if (isIpcHandlerMissingError(msg, IPC_HISTORY_CHANNELS.historyMergeThreadMetadata)) return;
+        console.warn("[runtimeOrchestrator] thread metadata hydration failed", { workspace, msg });
+      } finally {
+        threadMetadataHydrationPromiseByWorkspace.delete(workspace);
+      }
+    })();
+
+    threadMetadataHydrationPromiseByWorkspace.set(workspace, task);
+    return task;
+  };
+
+  const hydrateThreadHandoffDiagnostics = async (
+    threadIdValue: string,
+    options?: { force?: boolean }
+  ): Promise<void> => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId || threadId === APP_TIMELINE_ID) return;
+
+    const historyItem = findThreadListItem(threadId);
+    const parentThreadId = historyItem ? resolveThreadParentIdForGraph(historyItem) : "";
+    if (!parentThreadId) {
+      threadStore.clearThreadHandoffDiagnostics(threadId);
+      return;
+    }
+
+    if (!options?.force && threadStore.handoffDiagnosticsByThread.has(threadId)) return;
+    const existing = handoffDiagnosticsPromiseByThread.get(threadId);
+    if (existing) return existing;
+
+    const task = (async () => {
+      threadStore.setThreadHandoffDiagnosticsLoading(threadId, true);
+      try {
+        const [currentResult, parentResult] = await Promise.allSettled([
+          requestThreadRead(threadId),
+          requestThreadRead(parentThreadId),
+        ]);
+        if (currentResult.status !== "fulfilled") throw currentResult.reason;
+
+        const { buildThreadHandoffDiagnostics } = await import("../features/history/threadHandoffDiagnostics");
+        const diagnostics = buildThreadHandoffDiagnostics({
+          threadId,
+          parentThreadId,
+          currentThread: currentResult.value,
+          parentThread: parentResult.status === "fulfilled" ? parentResult.value : null,
+        });
+        threadStore.setThreadHandoffDiagnostics(threadId, diagnostics);
+
+        if (parentResult.status !== "fulfilled") {
+          const parentError = parentResult.reason;
+          const parentMsg = parentError?.message ? String(parentError.message) : String(parentError);
+          console.warn("[runtimeOrchestrator] parent thread handoff diagnostics degraded", {
+            threadId,
+            parentThreadId,
+            msg: parentMsg,
+          });
+        }
+      } catch (e: any) {
+        const msg = e?.message ? String(e.message) : String(e);
+        console.warn("[runtimeOrchestrator] thread handoff diagnostics failed", { threadId, parentThreadId, msg });
+        threadStore.clearThreadHandoffDiagnostics(threadId);
+      } finally {
+        threadStore.setThreadHandoffDiagnosticsLoading(threadId, false);
+        handoffDiagnosticsPromiseByThread.delete(threadId);
+      }
+    })();
+
+    handoffDiagnosticsPromiseByThread.set(threadId, task);
+    return task;
+  };
+
+  const refreshGlobalConfig = async () => {
+    if (!getServerIdForWorkspace(runtimeStore.workspacePath)) {
+      configStore.resetState(translate("runtime.noService"));
+      configRequirementsStore.resetState(translate("runtime.noService"));
+      return;
+    }
+    configStore.setLoadState("loading", translate("runtime.readingConfig"));
+    configRequirementsStore.setLoadState("loading", translate("runtime.readingRequirements"));
+
+    const [configResult, requirementsResult] = await Promise.allSettled([
+      requestConfigRead(),
+      requestConfigRequirementsRead(),
+    ]);
+
+    if (configResult.status === "fulfilled") {
+      const draft = extractGlobalConfigFromReadResult(configResult.value);
+      configStore.applySnapshot(draft);
+      configStore.setLoadState("ready", translate("runtime.configReadSynced"));
+    } else {
+      const error = configResult.reason;
+      const msg = error?.message ? String(error.message) : String(error);
+      configStore.setLoadState("error", translate("runtime.readFailedWithMessage", { message: msg }));
+    }
+
+    if (requirementsResult.status === "fulfilled") {
+      const requirements = extractConfigRequirementsFromReadResult(requirementsResult.value);
+      configRequirementsStore.setRequirements(requirements);
+      configRequirementsStore.setLoadState(
+        "ready",
+        requirements ? translate("runtime.requirementsSynced") : translate("runtime.noRequirementsConfigured")
+      );
+      return;
+    }
+
+    const requirementsError = requirementsResult.reason;
+    const rpcErr = parseJsonRpcError(requirementsError);
+    const requirementsMsg = requirementsError?.message ? String(requirementsError.message) : String(requirementsError);
+    configRequirementsStore.setRequirements(null);
+    if (rpcErr?.code === -32601) {
+      configRequirementsStore.setLoadState("ready", translate("runtime.requirementsUnsupported"));
+      return;
+    }
+    configRequirementsStore.setLoadState(
+      "error",
+      translate("runtime.requirementsReadFailed", { message: requirementsMsg })
+    );
+  };
+
+  const ensureGlobalConfigLoadedOnce = async () => {
+    // “只在启动时加载一次”：首次在已连接服务的前提下触发，之后不再自动读取（手动刷新不受影响）。
+    if (globalConfigAutoLoadAttempted) return;
+    if (!getServerIdForWorkspace(runtimeStore.workspacePath)) return;
+    globalConfigAutoLoadAttempted = true;
+    await refreshGlobalConfig();
+  };
+
+  const saveGlobalConfig = async (options?: { source?: "manual" | "auto"; silentSuccessToast?: boolean }) => {
+    const source = options?.source ?? "manual";
+    const silentSuccessToast =
+      typeof options?.silentSuccessToast === "boolean" ? options.silentSuccessToast : source === "auto";
+    if (!getServerIdForWorkspace(runtimeStore.workspacePath) || configStore.saving) return;
+    const baseline = configStore.snapshot ?? createDefaultGlobalConfigDraft();
+    const draft = configStore.draft ?? createDefaultGlobalConfigDraft();
+    const changes = buildConfigBatchChangesFromDraft(draft, baseline);
+    if (changes.length === 0) {
+      configStore.setLoadState("ready", translate("runtime.configReadSynced"));
+      return;
+    }
+    configStore.setSaving(true);
+    configStore.setLoadState("ready", translate("runtime.saving"));
+    try {
+      await requestConfigBatchWrite(changes);
+      pushEvent("config", `saved ${changes.length} keys`, { threadId: APP_TIMELINE_ID });
+      await refreshGlobalConfig();
+      if (!silentSuccessToast) {
+        showToast({
+          kind: "success",
+          title:
+            source === "auto" ? translate("runtime.globalConfigAutoSaved") : translate("runtime.globalConfigSaved"),
+          message: translate("runtime.configItemsWritten", { count: changes.length }),
+        });
+      }
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      configStore.setLoadState("error", translate("runtime.saveFailedWithMessage", { message: msg }));
+      pushEvent("config:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
+      showToast({
+        kind: "error",
+        title:
+          source === "auto"
+            ? translate("runtime.globalConfigAutoSaveFailed")
+            : translate("runtime.globalConfigSaveFailed"),
+        message: msg,
+      });
+    } finally {
+      configStore.setSaving(false);
+      if (configStore.loadState !== "error") {
+        configStore.setLoadState(
+          "ready",
+          configStore.isDirty ? translate("runtime.unsavedChanges") : translate("runtime.configReadSynced")
+        );
+      }
+    }
+  };
+
+  const resetGlobalConfig = () => {
+    configStore.resetToSnapshot();
+    configStore.setLoadState(
+      "ready",
+      configStore.isDirty ? translate("runtime.unsavedChanges") : translate("runtime.configReadSynced")
+    );
+  };
+
+  const buildCodexProfileConfigChanges = (profile: CodexProviderProfile) => {
+    const providerId = String(profile.modelProviderId ?? "").trim();
+    if (!providerId) throw new Error(translate("runtime.providerIdRequired"));
+    const model = String(profile.model ?? "").trim();
+    if (!model) throw new Error(translate("runtime.modelIdRequired"));
+    const baseUrl = String(profile.baseUrl ?? "").trim();
+    if (!baseUrl) throw new Error(translate("runtime.baseUrlRequired"));
+    return [
+      { keyPath: "model_provider", value: providerId },
+      { keyPath: "model", value: model },
+      {
+        keyPath: `model_providers.${providerId}`,
+        value: {
+          name: String(profile.name ?? "").trim() || providerId,
+          base_url: baseUrl,
+          wire_api: "responses",
+          requires_openai_auth: true,
+        },
+      },
+    ];
+  };
+
+  const buildCodexProfileAuthJsonContent = (profile: CodexProviderProfile) =>
+    `${JSON.stringify({ OPENAI_API_KEY: String(profile.apiKey ?? "").trim() }, null, 2)}\n`;
+
+  const applyCodexProfile = async (profileId: string) => {
+    const id = String(profileId ?? "").trim();
+    if (!id) throw new Error(translate("runtime.profileIdRequired"));
+    if (codexProfilesStore.loadState === "idle") {
+      await codexProfilesStore.refresh();
+    }
+    const profile = codexProfilesStore.profiles.find((item) => item.id === id);
+    if (!profile) throw new Error(translate("runtime.profileNotFound"));
+    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    if (!getServerIdForWorkspace(workspace)) throw new Error(translate("runtime.noServiceCannotApplyCodexConfig"));
+
+    codexProfilesStore.applyingProfileId = id;
+    try {
+      const authFileContent = String(profile.authFileContent ?? "").trim()
+        ? String(profile.authFileContent ?? "")
+        : buildCodexProfileAuthJsonContent(profile);
+      const configFileContent = String(profile.configFileContent ?? "").trim() ? String(profile.configFileContent) : "";
+      if (String(profile.authFilePath ?? "").trim()) {
+        await codexDesktop.app.writeTextFile({ path: profile.authFilePath, content: authFileContent });
+      } else {
+        await codexDesktop.app.writeCodexAuthApiKey({ apiKey: profile.apiKey });
+      }
+      if (String(profile.configFilePath ?? "").trim() && configFileContent) {
+        await codexDesktop.app.writeTextFile({ path: profile.configFilePath, content: configFileContent });
+      } else {
+        await requestConfigBatchWrite(buildCodexProfileConfigChanges(profile), profile.configFilePath);
+      }
+      await codexProfilesStore.setActiveProfile(id);
+      await refreshGlobalConfig();
+      pushEvent(
+        "codex:profile",
+        `applied ${profile.name}\nprovider=${profile.modelProviderId}\nmodel=${profile.model}`,
+        {
+          threadId: APP_TIMELINE_ID,
+        }
+      );
+      showToast({
+        kind: "success",
+        title: translate("runtime.profileSwitchedTitle"),
+        message: `${profile.name} · ${profile.model}`,
+      });
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent("codex:profile:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
+      showToast({ kind: "error", title: translate("runtime.profileSwitchFailedTitle"), message: msg });
+      throw e;
+    } finally {
+      codexProfilesStore.applyingProfileId = "";
+    }
+  };
+
+  const ALLOWED_EXTERNAL_PROTOCOLS = new Set(["http:", "https:", "mailto:"]);
+  const normalizeExternalUrlForOpen = (url: string): string => {
+    const raw = String(url ?? "").trim();
+    if (!raw) return "";
+    try {
+      const parsed = new URL(raw);
+      const protocol = String(parsed.protocol ?? "").toLowerCase();
+      if (!ALLOWED_EXTERNAL_PROTOCOLS.has(protocol)) return "";
+      if ((protocol === "http:" || protocol === "https:") && !parsed.hostname) return "";
+      return parsed.toString();
+    } catch {
+      return "";
+    }
+  };
+
+  // 统一外链打开入口。
+  const openExternalUrl = async (url: string) => {
+    const value = normalizeExternalUrlForOpen(url);
+    if (!value) throw new Error(translate("runtime.externalUrlUnsupported"));
+    await codexDesktop.app.openExternal({ url: value });
+  };
+
+  const workspaceFileRuntime = createWorkspaceFileRuntime(resolveWorkspacePathForFileAccess);
+  const {
+    readTextFile,
+    writeTextFile,
+    readWorkspaceDirectory,
+    getWorkspaceMetadata,
+    readWorkspaceTextFile,
+    deleteWorkspaceFile,
+    writeWorkspaceTextFile,
+  } = workspaceFileRuntime;
+
+  const refreshSkills = async (forceReload = false) => {
+    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    if (!getServerIdForWorkspace(workspace)) {
+      skillsStore.resetState(translate("runtime.noService"));
+      return;
+    }
+    if (!workspace) {
+      skillsStore.resetState(translate("runtime.noWorkspaceSelected"));
+      return;
+    }
+    const hasVisibleData = skillsStore.loadState === "ready" && skillsStore.items.length > 0;
+    if (forceReload || !hasVisibleData) {
+      skillsStore.setLoadState("loading");
+    }
+    try {
+      const res = await requestSkillsList(forceReload);
+      skillsStore.setItems(res.entries);
+      skillsStore.setParseErrors(res.errors);
+      skillsStore.setSummary(res.summary);
+      skillsStore.setLoadState("ready");
+      saveSkillsSnapshot(workspace, {
+        items: res.entries,
+        parseErrors: res.errors,
+        summary: res.summary,
+      });
+      if (res.entries.length === 0) {
+        pushEvent("skills:empty", res.summary, { threadId: APP_TIMELINE_ID });
+      }
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      if (hasVisibleData) {
+        skillsStore.setLoadState("ready");
+      } else {
+        skillsStore.setLoadState("error", msg);
+      }
+    }
+  };
+
+  const scheduleSkillsRefresh = (workspacePathValue: string) => {
+    const workspace = normalizeWorkspacePath(workspacePathValue);
+    if (!workspace) return;
+    const existing = skillsRefreshTimersByWorkspace.get(workspace);
+    if (existing) clearTimeout(existing);
+    const timer = setTimeout(() => {
+      skillsRefreshTimersByWorkspace.delete(workspace);
+      if (normalizeWorkspacePath(runtimeStore.workspacePath) !== workspace) return;
+      if (!getServerIdForWorkspace(workspace)) return;
+      void refreshSkills(true);
+    }, SKILLS_REFRESH_DEBOUNCE_MS);
+    skillsRefreshTimersByWorkspace.set(workspace, timer);
+  };
+
+  const toggleSkill = async (skillPath: string, enabled: boolean) => {
+    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    if (!getServerIdForWorkspace(workspace)) return;
+    try {
+      await writeSkillConfig(skillPath, enabled);
+      invalidateSkillsSnapshot(workspace);
+      pushEvent("skills", `${enabled ? "enabled" : "disabled"}\n${skillPath}`, { threadId: APP_TIMELINE_ID });
+      await refreshSkills(true);
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent("skills:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
+      showToast({ kind: "error", title: translate("runtime.skillConfigFailedTitle"), message: msg });
+      throw e;
+    }
+  };
+
+  const addSkillRoot = async (root: string) => {
+    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    if (!workspace) throw new Error(translate("runtime.workspaceRequired"));
+    const normalizedRoot = String(root ?? "").trim();
+    if (!normalizedRoot) throw new Error(translate("runtime.skillRootRequired"));
+    try {
+      await codexSkillRootsStore.addRootForWorkspace(workspace, normalizedRoot);
+      invalidateSkillsSnapshot(workspace);
+      pushEvent("skills:roots", `added\n${normalizedRoot}`, { threadId: APP_TIMELINE_ID });
+      await refreshSkills(true);
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent("skills:roots:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
+      showToast({ kind: "error", title: translate("runtime.skillRootAddFailedTitle"), message: msg });
+      throw e;
+    }
+  };
+
+  const removeSkillRoot = async (root: string) => {
+    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    if (!workspace) throw new Error(translate("runtime.workspaceRequired"));
+    const normalizedRoot = String(root ?? "").trim();
+    if (!normalizedRoot) return;
+    try {
+      await codexSkillRootsStore.removeRootForWorkspace(workspace, normalizedRoot);
+      invalidateSkillsSnapshot(workspace);
+      pushEvent("skills:roots", `removed\n${normalizedRoot}`, { threadId: APP_TIMELINE_ID });
+      await refreshSkills(true);
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent("skills:roots:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
+      showToast({ kind: "error", title: translate("runtime.skillRootRemoveFailedTitle"), message: msg });
+      throw e;
+    }
+  };
+
+  const readEffectiveMcpServersFromCodexConfig = async () => {
+    const configResult = await requestConfigRead();
+    return normalizeCodexConfigSwitcherMcpServers((configResult.config as Record<string, unknown> | null)?.mcp_servers);
+  };
+
+  const refreshCodexConfigSwitcher = async () => {
+    await codexConfigSwitcherStore.refresh();
+  };
+
+  const assertNoCcswitchManagedCodexConfig = () => {
+    if (!codexConfigSwitcherStore.ccswitch.detected) return;
+    const reason = codexConfigSwitcherStore.ccswitch.reasons.join(", ") || "detected";
+    throw new Error(translate("runtime.ccswitchDetected", { reason }));
+  };
+
+  const writeCodexConfigSwitcherState = async (state: CodexConfigSwitcherState) => {
+    assertNoCcswitchManagedCodexConfig();
+    await codexConfigSwitcherStore.saveState(normalizeCodexConfigSwitcherState(state));
+  };
+
+  const skillToSwitcherEntry = (skill: SkillState): CodexConfigSwitcherSkillEntry | null => {
+    const path = String(skill.path ?? "").trim();
+    if (!path) return null;
+    return {
+      id: path,
+      name: String(skill.displayName || skill.name || path).trim() || path,
+      path,
+      enabled: Boolean(skill.enabled),
+    };
+  };
+
+  const collectCurrentSwitcherSkills = async () => {
+    if (skillsStore.loadState !== "ready") await refreshSkills(true);
+    const skills = skillsStore.items
+      .map(skillToSwitcherEntry)
+      .filter((item): item is CodexConfigSwitcherSkillEntry => Boolean(item));
+    return {
+      skills,
+      enabledSkillIds: skills.filter((skill) => skill.enabled).map((skill) => skill.id),
+    };
+  };
+
+  const syncSwitcherSkillsToCodex = async (profile: CodexConfigSwitcherProfile) => {
+    const enabledIds = new Set(profile.skillIds);
+    for (const skill of codexConfigSwitcherStore.state.skills) {
+      const path = String(skill.path ?? "").trim();
+      if (!path) continue;
+      await writeSkillConfig(path, enabledIds.has(skill.id));
+    }
+  };
+
+  const syncSwitcherProfileToCodex = async (profile: CodexConfigSwitcherProfile) => {
+    assertNoCcswitchManagedCodexConfig();
+    const activation = await codexDesktop.app.activateCodexConfigSwitcherProfile({ profileId: profile.id });
+    codexConfigSwitcherStore.applySnapshot(activation);
+    try {
+      await requestConfigBatchWrite([{ keyPath: "mcp_servers", value: profile.mcpServers }]);
+      await syncSwitcherSkillsToCodex(profile);
+      await requestReloadMcpConfig();
+      invalidateMcpSnapshot(runtimeStore.workspacePath);
+      await refreshMcp();
+      showToast({ kind: "success", title: translate("runtime.codexConfigSwitchedTitle"), message: profile.name });
+    } catch (error) {
+      await codexDesktop.app
+        .restoreCodexConfigSwitcherBackup({ backupId: activation.backup.id })
+        .catch(() => undefined);
+      throw error;
+    }
+  };
+
+  const getRequiredActiveSwitcherProfile = (): CodexConfigSwitcherProfile => {
+    const profile = getActiveCodexConfigSwitcherProfile(codexConfigSwitcherStore.state);
+    if (!profile) throw new Error(translate("runtime.importCodexConfigFirst"));
+    return profile;
+  };
+
+  const importCurrentCodexConfigProfile = async () => {
+    try {
+      assertNoCcswitchManagedCodexConfig();
+      const mcpServers = await readEffectiveMcpServersFromCodexConfig();
+      const skills = await collectCurrentSwitcherSkills();
+      const snapshot = await codexDesktop.app.importCurrentCodexConfigSwitcher({
+        name: "Imported Codex",
+        mcpServers,
+        skills: skills.skills,
+        enabledSkillIds: skills.enabledSkillIds,
+      });
+      codexConfigSwitcherStore.applySnapshot(snapshot);
+      const profile = getRequiredActiveSwitcherProfile();
+      await syncSwitcherProfileToCodex(profile);
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      showToast({ kind: "error", title: translate("runtime.codexConfigImportFailedTitle"), message: msg });
+      throw e;
+    }
+  };
+
+  const activateCodexConfigProfile = async (profileId: string) => {
+    assertNoCcswitchManagedCodexConfig();
+    const profile =
+      codexConfigSwitcherStore.state.profiles.find((item) => item.id === String(profileId ?? "").trim()) ?? null;
+    if (!profile) throw new Error(translate("runtime.configProfileNotFound"));
+    try {
+      await syncSwitcherProfileToCodex(profile);
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      showToast({ kind: "error", title: translate("runtime.codexConfigSwitchFailedTitle"), message: msg });
+      throw e;
+    }
+  };
+
+  const upsertActiveSwitcherMcpServers = async (servers: Record<string, Record<string, unknown>>) => {
+    if (codexConfigSwitcherStore.loadState === "idle") await refreshCodexConfigSwitcher();
+    assertNoCcswitchManagedCodexConfig();
+    let profile = getActiveCodexConfigSwitcherProfile(codexConfigSwitcherStore.state);
+    if (!profile) {
+      const current = await readEffectiveMcpServersFromCodexConfig();
+      const snapshot = await codexDesktop.app.importCurrentCodexConfigSwitcher({
+        name: "Imported Codex",
+        mcpServers: current,
+      });
+      codexConfigSwitcherStore.applySnapshot(snapshot);
+      profile = getRequiredActiveSwitcherProfile();
+    }
+    const now = Date.now();
+    const nextProfile: CodexConfigSwitcherProfile = {
+      ...profile,
+      mcpServers: {
+        ...profile.mcpServers,
+        ...servers,
+      },
+      updatedAt: now,
+    };
+    const nextState: CodexConfigSwitcherState = {
+      ...codexConfigSwitcherStore.state,
+      activeProfileId: nextProfile.id,
+      profiles: codexConfigSwitcherStore.state.profiles.map((item) =>
+        item.id === nextProfile.id ? nextProfile : item
+      ),
+    };
+    await writeCodexConfigSwitcherState(nextState);
+    await syncSwitcherProfileToCodex(nextProfile);
+  };
+
+  const refreshMcp = async () => {
+    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    if (!getServerIdForWorkspace(workspace)) {
+      mcpStore.resetState(translate("runtime.noService"));
+      return;
+    }
+    const hasVisibleData = mcpStore.loadState === "ready" && mcpStore.servers.length > 0;
+    if (!hasVisibleData) {
+      mcpStore.setLoadState("loading");
+      mcpStore.setStatusText(translate("runtime.loading"));
+    }
+    try {
+      // 合并配置层与状态层两路数据，得到完整 MCP 展示模型。
+      const configResult = await requestConfigRead();
+      const configServers = normalizeMcpServersFromConfig(configResult);
+      const statuses = await requestMcpStatusList();
+      const statusById = new Map(statuses.map((status) => [status.id, status]));
+      const merged: McpServerState[] = [];
+      for (const server of configServers) {
+        const status = statusById.get(server.id);
+        merged.push({
+          id: server.id,
+          enabled: server.enabled,
+          state: !server.enabled ? "disabled" : (status?.state ?? "unknown"),
+          type: server.type,
+          url: server.url,
+          command: server.command,
+          args: server.args,
+          env: server.env,
+          cwd: server.cwd,
+          headers: server.headers,
+          authenticated: status?.authenticated,
+          authStatus: status?.authStatus,
+          message: status?.message,
+          tools: status?.tools ?? [],
+          resources: status?.resources ?? [],
+          resourceTemplates: status?.resourceTemplates ?? [],
+        });
+      }
+      for (const status of statuses) {
+        if (merged.some((server) => server.id === status.id)) continue;
+        merged.push({
+          id: status.id,
+          enabled: true,
+          state: status.state,
+          authenticated: status.authenticated,
+          authStatus: status.authStatus,
+          message: status.message,
+          tools: status.tools ?? [],
+          resources: status.resources ?? [],
+          resourceTemplates: status.resourceTemplates ?? [],
+        });
+      }
+      merged.sort((a, b) => a.id.localeCompare(b.id));
+      mcpStore.setServers(merged);
+      mcpStore.setLoadState("ready");
+      const statusText =
+        merged.length === 0
+          ? translate("integrations.noMcpConfig")
+          : translate("runtime.mcpServerCount", { count: merged.length });
+      mcpStore.setStatusText(statusText);
+      saveMcpSnapshot(workspace, {
+        servers: merged,
+        statusText,
+      });
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      if (hasVisibleData) {
+        mcpStore.setLoadState("ready");
+      } else {
+        mcpStore.setLoadState("error", msg);
+        mcpStore.setStatusText(translate("runtime.loadFailed"));
+      }
+    }
+  };
+
+  const scheduleMcpStatusRefresh = (workspacePathValue: string) => {
+    const workspace = normalizeWorkspacePath(workspacePathValue);
+    if (!workspace) return;
+    const existing = mcpStatusRefreshTimersByWorkspace.get(workspace);
+    if (existing) clearTimeout(existing);
+    const timer = setTimeout(() => {
+      mcpStatusRefreshTimersByWorkspace.delete(workspace);
+      if (normalizeWorkspacePath(runtimeStore.workspacePath) !== workspace) return;
+      if (!getServerIdForWorkspace(workspace)) return;
+      void refreshMcp();
+    }, MCP_STATUS_REFRESH_DEBOUNCE_MS);
+    mcpStatusRefreshTimersByWorkspace.set(workspace, timer);
+  };
+
+  const applyMcpStartupStatusNotification = (args: {
+    workspace: string;
+    name: string;
+    status: string;
+    error: string;
+  }) => {
+    const workspace = normalizeWorkspacePath(args.workspace);
+    const name = String(args.name ?? "").trim();
+    const status = String(args.status ?? "").trim();
+    const error = String(args.error ?? "").trim();
+    if (!workspace || !name || normalizeWorkspacePath(runtimeStore.workspacePath) !== workspace) return;
+
+    const current = mcpStore.servers;
+    const next = current.map((server) => {
+      if (server.id !== name) return server;
+      if (status === "starting")
+        return { ...server, state: "connecting" as const, message: translate("runtime.starting") };
+      if (status === "ready") return { ...server, state: "connected" as const, message: undefined };
+      if (status === "failed") return { ...server, state: "error" as const, message: error || "failed" };
+      if (status === "cancelled") return { ...server, state: "error" as const, message: error || "cancelled" };
+      return server;
+    });
+
+    if (!next.some((server) => server.id === name)) {
+      next.push({
+        id: name,
+        enabled: true,
+        state:
+          status === "starting"
+            ? "connecting"
+            : status === "ready"
+              ? "connected"
+              : status === "failed" || status === "cancelled"
+                ? "error"
+                : "unknown",
+        message:
+          status === "starting"
+            ? translate("runtime.starting")
+            : status === "failed"
+              ? error || "failed"
+              : status === "cancelled"
+                ? error || "cancelled"
+                : undefined,
+        tools: [],
+        resources: [],
+        resourceTemplates: [],
+      });
+      next.sort((a, b) => a.id.localeCompare(b.id));
+    }
+
+    mcpStore.setServers(next);
+    mcpStore.setLoadState("ready");
+    mcpStore.setStatusText(
+      next.length === 0
+        ? translate("integrations.noMcpConfig")
+        : translate("runtime.mcpServerCount", { count: next.length })
+    );
+
+    if (status === "failed" || status === "cancelled") {
+      const toastKey = `${workspace}:${name}:${status}:${error}`;
+      if (!mcpStartupFailureToastKeys.has(toastKey)) {
+        mcpStartupFailureToastKeys.add(toastKey);
+        showToast({
+          kind: "error",
+          title:
+            status === "failed"
+              ? translate("runtime.mcpStartupFailedTitle")
+              : translate("runtime.mcpStartupCanceledTitle"),
+          message: error ? `${name}：${error}` : name,
+        });
+      }
+    }
+  };
+
+  const reloadMcpConfig = async () => {
+    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    if (!getServerIdForWorkspace(workspace)) return;
+    try {
+      await requestReloadMcpConfig();
+      invalidateMcpSnapshot(workspace);
+      pushEvent("mcp", translate("runtime.configReloaded"), { threadId: APP_TIMELINE_ID });
+      await refreshMcp();
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent("mcp:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
+      showToast({ kind: "error", title: translate("runtime.mcpReloadFailedTitle"), message: msg });
+      throw e;
+    }
+  };
+
+  const toggleMcpEnabled = async (serverKey: string, enabled: boolean) => {
+    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    if (!getServerIdForWorkspace(workspace)) return;
+    try {
+      const id = String(serverKey ?? "").trim();
+      const profile = getRequiredActiveSwitcherProfile();
+      const current = profile.mcpServers[id];
+      if (!current) throw new Error(translate("runtime.managedMcpNotFound", { id }));
+      const nextProfile: CodexConfigSwitcherProfile = {
+        ...profile,
+        mcpServers: {
+          ...profile.mcpServers,
+          [id]: { ...current, enabled },
+        },
+        updatedAt: Date.now(),
+      };
+      await writeCodexConfigSwitcherState({
+        ...codexConfigSwitcherStore.state,
+        profiles: codexConfigSwitcherStore.state.profiles.map((item) =>
+          item.id === nextProfile.id ? nextProfile : item
+        ),
+      });
+      await syncSwitcherProfileToCodex(nextProfile);
+      invalidateMcpSnapshot(workspace);
+      pushEvent("mcp", `enabled=${enabled ? "true" : "false"}\n${serverKey}`, { threadId: APP_TIMELINE_ID });
+      await refreshMcp();
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent("mcp:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
+      showToast({ kind: "error", title: translate("runtime.mcpConfigFailedTitle"), message: msg });
+      throw e;
+    }
+  };
+
+  const deleteMcpServer = async (serverId: string) => {
+    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    if (!getServerIdForWorkspace(workspace)) throw new Error(translate("runtime.noServiceCannotWriteMcpConfig"));
+    const id = String(serverId ?? "").trim();
+    if (!id) throw new Error(translate("runtime.mcpIdRequired"));
+    try {
+      const profile = getRequiredActiveSwitcherProfile();
+      const nextMcpServers = { ...profile.mcpServers };
+      delete nextMcpServers[id];
+      const nextProfile: CodexConfigSwitcherProfile = {
+        ...profile,
+        mcpServers: nextMcpServers,
+        updatedAt: Date.now(),
+      };
+      await writeCodexConfigSwitcherState({
+        ...codexConfigSwitcherStore.state,
+        profiles: codexConfigSwitcherStore.state.profiles.map((item) =>
+          item.id === nextProfile.id ? nextProfile : item
+        ),
+      });
+      await syncSwitcherProfileToCodex(nextProfile);
+      invalidateMcpSnapshot(workspace);
+      pushEvent("mcp", `deleted\n${id}`, { threadId: APP_TIMELINE_ID });
+      await refreshMcp();
+      showToast({ kind: "success", title: translate("runtime.mcpDeletedTitle"), message: id });
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent("mcp:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
+      showToast({ kind: "error", title: translate("runtime.mcpDeleteFailedTitle"), message: msg });
+      throw e;
+    }
+  };
+
+  const importMcpServersFromJson = async (text: string): Promise<{ imported: number; errors: string[] }> => {
+    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    if (!getServerIdForWorkspace(workspace)) throw new Error(translate("runtime.noServiceCannotWriteMcpConfig"));
+    const parsed = parseCodexMcpJsonImport(text);
+    if (parsed.servers.length === 0) return { imported: 0, errors: parsed.errors };
+    try {
+      await upsertActiveSwitcherMcpServers(
+        Object.fromEntries(parsed.servers.map((server) => [server.id, codexMcpServerSpecToConfigValue(server)]))
+      );
+      invalidateMcpSnapshot(workspace);
+      pushEvent("mcp", `imported ${parsed.servers.length} servers`, { threadId: APP_TIMELINE_ID });
+      await refreshMcp();
+      showToast({
+        kind: "success",
+        title: translate("runtime.mcpJsonImportedTitle"),
+        message: translate("runtime.mcpServersImported", { count: parsed.servers.length }),
+      });
+      return { imported: parsed.servers.length, errors: parsed.errors };
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent("mcp:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
+      showToast({ kind: "error", title: translate("runtime.mcpJsonImportFailedTitle"), message: msg });
+      throw e;
+    }
+  };
+
+  const startMcpOAuthLogin = async (serverKey: string) => {
+    if (!getServerIdForWorkspace(runtimeStore.workspacePath)) return;
+    try {
+      const url = await requestStartMcpOAuthLogin(serverKey);
+      await openExternalUrl(url);
+      pushEvent("mcp", `oauth login started\nid=${serverKey}\nurl=${url}`, { threadId: APP_TIMELINE_ID });
+      showToast({
+        kind: "success",
+        title: translate("runtime.browserOpenedTitle"),
+        message: translate("runtime.mcpOauthStarted", { server: serverKey }),
+      });
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent("mcp:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
+      showToast({ kind: "error", title: translate("runtime.mcpOauthFailedTitle"), message: msg });
+      throw e;
+    }
+  };
+
+  const historyThreadRuntime = createHistoryThreadRuntime({
+    getCurrentThreadId: () => String(runtimeStore.currentThreadId ?? "").trim(),
+    threadContentCacheByKey,
+    threadContentCacheTtlMs: THREAD_CONTENT_CACHE_TTL_MS,
+  });
+  const { readThreadContent, createThreadTask, updateThreadTask } = historyThreadRuntime;
+
+  const mcpResourceReadRuntime = createMcpResourceReadRuntime({
+    getServers: () => mcpStore.servers,
+    getTemplateDraft: (templateKey) => mcpResourceStore.getTemplateDraft(templateKey),
+    requestMcpResourceRead,
+    upsertTimelineEvent: (params) => timelineStore.upsertEvent(params),
+  });
+  const { readMcpResource } = mcpResourceReadRuntime;
+
+  const refreshRightPanels = async (opts?: { forceSkills?: boolean; forceMcp?: boolean }) => {
+    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    if (!workspace || !getServerIdForWorkspace(workspace)) return;
+    const shouldRefreshSkills = Boolean(opts?.forceSkills) || !hasSkillsSnapshot(workspace);
+    const shouldRefreshMcp = Boolean(opts?.forceMcp) || !hasMcpSnapshot(workspace);
+    const tasks: Promise<unknown>[] = [ensureGlobalConfigLoadedOnce()];
+    if (shouldRefreshSkills) tasks.push(refreshSkills(false));
+    if (shouldRefreshMcp) tasks.push(refreshMcp());
+    await Promise.allSettled(tasks);
+  };
+
+  const clearThreadRuntimeState = (threadIdValue: string) => {
+    const id = String(threadIdValue ?? "").trim();
+    if (!id) return;
+    threadStore.threadHistory = threadStore.threadHistory.filter((item) => item.id !== id);
+    threadStore.clearThreadState(id);
+    timelineStore.clearThread(id);
+    // 删除线程时同步清理“排队消息”的线程级持久化，避免幽灵队列残留。
+    messageQueueStore.clearThreadQueue(id);
+    runtimeStore.clearThreadComposeState(id);
+    replayCacheByThread.delete(id);
+    replayWindowStateByThread.delete(id);
+    replayRequestSeqByThread.delete(id);
+    olderHistoryLoadPromiseByThread.delete(id);
+    resumedThreadIds.delete(id);
+    resumePromisesByThread.delete(id);
+    threadStartConfigOverridesByThreadId.delete(id);
+    workspaceByThreadId.delete(id);
+    if (runtimeStore.currentThreadId === id) {
+      runtimeStore.setCurrentThread("", { savePrev: false });
+      threadStore.setCurrentThread("");
+    }
+  };
+
+  const ensureServerForWorkspace = async (workspacePathValue: string): Promise<string> => {
+    const workspace = normalizeWorkspacePath(workspacePathValue);
+    if (!workspace) return "";
+    const existingServerId = getServerIdForWorkspace(workspace);
+    if (existingServerId) {
+      if (normalizeWorkspacePath(runtimeStore.workspacePath) === workspace) {
+        syncActiveServerByWorkspace(workspace);
+      }
+      void hydrateThreadMetadataForWorkspace(workspace);
+      return existingServerId;
+    }
+    try {
+      if (normalizeWorkspacePath(runtimeStore.workspacePath) === workspace) {
+        appShellStore.setServerConnState("connecting");
+      }
+      const requestedExperimentalApi = true;
+      const res = await codexDesktop.codexServer.start({ cwd: workspace, experimentalApi: requestedExperimentalApi });
+      const serverId = normalizeWorkspacePath(String(res.serverId ?? ""));
+      if (!serverId) throw new Error("serverStart did not return serverId");
+      const experimentalApi = Boolean(res.capabilities?.experimentalApi);
+      registerServerForWorkspace(workspace, serverId);
+      if (normalizeWorkspacePath(runtimeStore.workspacePath) === workspace) {
+        runtimeStore.setServer(serverId);
+        appShellStore.setServerConnState("connected");
+      }
+      if (requestedExperimentalApi && !experimentalApi) {
+        warnExperimentalApiUnavailableOnce(translate("runtime.experimentalApiUnavailableDetail"));
+      }
+      pushEvent(
+        "server",
+        `started id=${serverId}\nworkspace=${workspace}\nexperimentalApi.requested=${requestedExperimentalApi}\nexperimentalApi.enabled=${experimentalApi}`,
+        { threadId: APP_TIMELINE_ID }
+      );
+
+      void Promise.allSettled([
+        refreshHistory(false),
+        hydrateThreadMetadataForWorkspace(workspace),
+        normalizeWorkspacePath(runtimeStore.workspacePath) === workspace
+          ? refreshRightPanels({ forceSkills: true, forceMcp: true })
+          : Promise.resolve(),
+      ]);
+      return serverId;
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      if (normalizeWorkspacePath(runtimeStore.workspacePath) === workspace) {
+        appShellStore.setServerConnState("failed", msg);
+      }
+      pushEvent("server:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
+      showToast({ kind: "error", title: translate("runtime.serverStartFailedTitle"), message: msg });
+      return "";
+    }
+  };
+
+  const startServer = async () => {
+    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    if (!workspace) {
+      showToast({
+        kind: "warn",
+        title: translate("runtime.noWorkspaceSelected"),
+        message: translate("runtime.selectWorkspaceBeforeStartingServer"),
+      });
+      return false;
+    }
+    const serverId = await ensureServerForWorkspace(workspace);
+    return Boolean(serverId);
+  };
+
+  const applyWorkspaceSelection = async (selectedValue: string) => {
+    const selected = normalizeWorkspacePath(selectedValue);
+    if (!selected) return false;
+    if (selected !== normalizeWorkspacePath(runtimeStore.workspacePath)) {
+      const confirmed = await workspaceFilesStore.confirmResetDirtyTabsForWorkspaceChange(selected);
+      if (!confirmed) return false;
+    }
+    runtimeStore.setWorkspace(selected);
+    threadStore.setWorkspace(selected);
+    pushEvent("workspace", selected, { threadId: APP_TIMELINE_ID });
+    void workspaceFilesStore.ensureReady(true);
+    const activeServerId = syncActiveServerByWorkspace(selected);
+    if (activeServerId) {
+      applyCachedRightPanels(selected);
+      void refreshRightPanels();
+    }
+    return true;
+  };
+
+  const ensureWorkspaceForSend = async (): Promise<boolean> => {
+    const cwd = String(runtimeStore.workspacePath ?? "").trim();
+    if (cwd) return true;
+    const selected = await codexDesktop.workspace.select();
+    if (!selected) {
+      showToast({
+        kind: "info",
+        title: translate("runtime.sendCanceledTitle"),
+        message: translate("runtime.workspaceSelectionCanceledMessage"),
+      });
+      return false;
+    }
+    return await applyWorkspaceSelection(selected);
+  };
+
+  const ensureThreadResumed = async (threadId: string): Promise<boolean> => {
+    const tid = String(threadId ?? "").trim();
+    if (!tid) return false;
+    if (resumedThreadIds.has(tid)) {
+      return true;
+    }
+    const existing = resumePromisesByThread.get(tid);
+    if (existing) {
+      return existing;
+    }
+    const task = (async (): Promise<boolean> => {
+      try {
+        const workspace = getWorkspaceForThread(tid);
+        const serverId = await ensureServerForWorkspace(workspace);
+        if (!serverId) return false;
+        const resumeParams: ThreadResumeParams = { threadId: tid, persistExtendedHistory: true };
+        await codexDesktop.codexServer.rpc({ serverId, method: "thread/resume", params: resumeParams });
+        resumedThreadIds.add(tid);
+        return true;
+      } catch (e: any) {
+        const msg = e?.message ? String(e.message) : String(e);
+        pushEvent("thread:resume:error", msg, { threadId, level: "error" });
+        return false;
+      } finally {
+        resumePromisesByThread.delete(tid);
+      }
+    })();
+    resumePromisesByThread.set(tid, task);
+    return task;
+  };
+
+  const hasThreadModelToolConfigForModel = (threadIdValue: string, modelValue: string): boolean => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId) return false;
+    return hasThreadStartConfigOverridesForModel(threadStartConfigOverridesByThreadId.get(threadId), modelValue);
+  };
+
+  const hasStartedConversationActivity = (threadIdValue: string): boolean => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId) return false;
+    return timelineStore.eventsForThread(threadId).some((event) => {
+      const method = String(event.method ?? "").trim();
+      return (
+        event.localKind === "user" ||
+        method === "user" ||
+        method.startsWith("turn/") ||
+        method.startsWith("item/") ||
+        method.startsWith("local/")
+      );
+    });
+  };
+
+  const canRecreateEmptyUnpersistedThreadForModelConfig = (threadIdValue: string): boolean => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId) return false;
+    if (!threadStore.hasLocalThread(threadId)) return false;
+    if (threadStore.runningThreadIds.has(threadId)) return false;
+    return !hasStartedConversationActivity(threadId);
+  };
+
+  const recreateEmptyUnpersistedThreadForModelConfig = async (args: {
+    threadId: string;
+    threadWorkspace: string;
+    threadServerId: string;
+    model: string;
+  }): Promise<string> => {
+    const oldThreadId = String(args.threadId ?? "").trim();
+    const workspace = normalizeWorkspacePath(args.threadWorkspace);
+    const serverId = String(args.threadServerId ?? "").trim();
+    const model = normalizeModelName(args.model);
+    if (!oldThreadId || !workspace || !serverId) throw new Error("invalid thread recreation params");
+
+    const existing = threadStore.threadHistory.find((item) => item.id === oldThreadId);
+    const oldLocalThread = threadStore.localThreads.find((item) => item.id === oldThreadId);
+    const { params: threadStartParams, configOverrides } = buildThreadStartParamsForModel({
+      model,
+      workspace,
+      sandboxMode: runtimeStore.sandboxMode,
+    });
+    const startedAt = perfNow();
+    appendDebugLog("thread.create", "recreate empty thread for model config begin", {
+      oldThreadId,
+      workspace,
+      model,
+      config: threadStartParams.config ?? null,
+    });
+
+    const res = await codexDesktop.codexServer.rpc({
+      serverId,
+      method: "thread/start",
+      params: threadStartParams,
+    });
+    const newThreadId = String(res.result?.thread?.id ?? "").trim();
+    if (!newThreadId) throw new Error("thread/start did not return thread id");
+
+    const oldTitle = String(existing?.title ?? oldLocalThread?.title ?? "").trim();
+    const oldFallback = fallbackThreadTitle(oldThreadId);
+    const nextTitle = oldTitle && oldTitle !== oldFallback ? oldTitle : fallbackThreadTitle(newThreadId);
+    const now = Date.now();
+    const nextLocalThread: LocalThreadItem = {
+      ...(oldLocalThread ?? {}),
+      id: newThreadId,
+      title: nextTitle,
+      meta: String(existing?.meta ?? oldLocalThread?.meta ?? workspace).trim() || translate("runtime.noWorkspace"),
+      cwd: workspace || undefined,
+      createdAt: oldLocalThread?.createdAt ?? now,
+      updatedAt: now,
+      running: false,
+      status: "ready",
+    };
+
+    runtimeStore.moveThreadComposeState(oldThreadId, newThreadId);
+    runtimeStore.movePendingThreadInitSendCount(oldThreadId, newThreadId);
+    timelineStore.moveThread(oldThreadId, newThreadId);
+    threadStore.replaceThreadId(oldThreadId, newThreadId);
+    threadStore.replaceLocalThreadId(oldThreadId, newThreadId, nextLocalThread);
+    messageQueueStore.moveThreadQueue(oldThreadId, newThreadId);
+    resumedThreadIds.delete(oldThreadId);
+    resumedThreadIds.add(newThreadId);
+    resumePromisesByThread.delete(oldThreadId);
+    threadStartConfigOverridesByThreadId.delete(oldThreadId);
+    rememberThreadStartConfigOverrides(newThreadId, configOverrides);
+    replayCacheByThread.delete(oldThreadId);
+    replayWindowStateByThread.delete(oldThreadId);
+    replayRequestSeqByThread.delete(oldThreadId);
+    olderHistoryLoadPromiseByThread.delete(oldThreadId);
+    setThreadWorkspace(newThreadId, workspace);
+    clearThreadWorkspace(oldThreadId);
+    runtimeStore.setCurrentThread(newThreadId, { savePrev: false });
+    threadStore.setCurrentThread(newThreadId);
+
+    appendDebugLog("thread.create", "recreate empty thread for model config resolved", {
+      oldThreadId,
+      threadId: newThreadId,
+      model,
+      elapsedMs: elapsedMs(startedAt),
+    });
+    return newThreadId;
+  };
+
+  const resumeThreadWithModelToolConfig = async (args: {
+    threadId: string;
+    threadWorkspace: string;
+    threadServerId: string;
+    model: string;
+    configOverrides: ThreadStartConfigOverrides;
+  }): Promise<boolean> => {
+    const threadId = String(args.threadId ?? "").trim();
+    const workspace = normalizeWorkspacePath(args.threadWorkspace);
+    const serverId = String(args.threadServerId ?? "").trim();
+    const model = normalizeModelName(args.model);
+    if (!threadId || !workspace || !serverId) return false;
+    try {
+      const resumeParams: ThreadResumeParams = {
+        threadId,
+        model,
+        cwd: workspace,
+        config: { ...args.configOverrides },
+        persistExtendedHistory: true,
+      };
+      const res = await codexDesktop.codexServer.rpc({ serverId, method: "thread/resume", params: resumeParams });
+      const appliedModel = normalizeModelName((res.result as any)?.model ?? model);
+      if (appliedModel !== model) return false;
+      resumedThreadIds.add(threadId);
+      rememberThreadStartConfigOverrides(threadId, args.configOverrides);
+      return true;
+    } catch (error) {
+      pushEvent("thread:resume:error", readErrorMessage(error), { threadId, level: "error" });
+      return false;
+    }
+  };
+
+  const ensureThreadModelToolCompatibility = async (args: {
+    threadId: string;
+    threadWorkspace: string;
+    threadServerId: string;
+    model: string;
+  }): Promise<{ ok: true; threadId: string } | { ok: false; error: string }> => {
+    const threadId = String(args.threadId ?? "").trim();
+    const model = normalizeModelName(args.model);
+    const configOverrides = buildThreadStartConfigOverridesForModel(model);
+    if (!configOverrides) return { ok: true, threadId };
+    if (hasThreadModelToolConfigForModel(threadId, model)) return { ok: true, threadId };
+
+    if (canRecreateEmptyUnpersistedThreadForModelConfig(threadId)) {
+      try {
+        const nextThreadId = await recreateEmptyUnpersistedThreadForModelConfig({
+          threadId,
+          threadWorkspace: args.threadWorkspace,
+          threadServerId: args.threadServerId,
+          model,
+        });
+        return { ok: true, threadId: nextThreadId };
+      } catch (error) {
+        return {
+          ok: false,
+          error: readErrorMessage(error) || translate("runtime.createImageGenerationDisabledThreadFailed"),
+        };
+      }
+    }
+
+    const resumed = await resumeThreadWithModelToolConfig({
+      threadId,
+      threadWorkspace: args.threadWorkspace,
+      threadServerId: args.threadServerId,
+      model,
+      configOverrides,
+    });
+    if (resumed && hasThreadModelToolConfigForModel(threadId, model)) return { ok: true, threadId };
+
+    return {
+      ok: false,
+      error: translate("runtime.cannotDisableOfficialImageGenerationForThread"),
+    };
+  };
+
+  const applyHistoryItems = (items: HistoryThread[]) => {
+    invalidateThreadContentCache(threadContentCacheByKey);
+    const now = Date.now();
+    const incomingThreadIds = new Set<string>();
+    for (const item of items) {
+      const threadId = String(item?.id ?? "").trim();
+      if (threadId) incomingThreadIds.add(threadId);
+    }
+    const previousTitleById = new Map(
+      [...threadStore.threadHistory, ...threadStore.localThreads].map((item) => [
+        String(item.id ?? "").trim(),
+        String(item.title ?? "").trim(),
+      ])
+    );
+    threadStore.localThreads = threadStore.localThreads.filter((item) => {
+      const threadId = String(item.id ?? "").trim();
+      if (!threadId || incomingThreadIds.has(threadId)) return false;
+      const createdAt = Number(item.createdAt ?? item.updatedAt ?? now);
+      return now - createdAt <= LOCAL_THREAD_TTL_MS;
+    });
+    const historyItems = items
+      .map((item) => {
+        const historyItem = toThreadHistoryItemFromHistory(item);
+        const threadId = String(historyItem.id ?? "").trim();
+        const placeholder = fallbackThreadTitle(threadId);
+        const nextTitle = String(historyItem.title ?? "").trim();
+        const previousTitle = String(previousTitleById.get(threadId) ?? "").trim();
+        if ((!nextTitle || nextTitle === placeholder) && previousTitle && previousTitle !== placeholder) {
+          historyItem.title = previousTitle;
+        }
+        return historyItem;
+      })
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+
+    threadStore.threadHistory = historyItems;
+    for (const item of items) {
+      const threadId = String(item.id ?? "").trim();
+      if (!threadId) continue;
+      const running = Boolean(item.running);
+      const activeTurnId = running ? String(item.activeTurnId ?? "").trim() : "";
+      threadStore.setThreadRunning(threadId, running);
+      threadStore.setActiveTurn(threadId, activeTurnId);
+    }
+    for (const item of [...historyItems, ...threadStore.localThreads]) {
+      setThreadWorkspace(item.id, item.cwd);
+    }
+  };
+
+  const refreshHistory = async (force = false) => {
+    const startedAt = perfNow();
+    appendDebugLog("history.refresh", "started", { force });
+    try {
+      const result = force ? await codexDesktop.history.refresh() : await codexDesktop.history.list();
+      const items = Array.isArray(result?.items) ? result.items : [];
+      applyHistoryItems(items);
+      void hydrateThreadMetadataForWorkspace(runtimeStore.workspacePath);
+      appendDebugLog("history.refresh", "completed", {
+        force,
+        count: items.length,
+        elapsedMs: elapsedMs(startedAt),
+      });
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      appendDebugLog("history.refresh", "failed", {
+        force,
+        elapsedMs: elapsedMs(startedAt),
+        message: msg,
+      });
+      console.warn("[runtimeOrchestrator] refreshHistory failed", msg);
+    }
+  };
+
+  const checkEnvironment = async () => {
+    showToast({
+      kind: "info",
+      title: translate("runtime.checkEnvironmentTitle"),
+      message: translate("runtime.checkingCodexNodeNpm"),
+    });
+
+    try {
+      const res = await codexDesktop.codexServer.getDiagnostics();
+      const ready = Boolean(res.codex.ok) && Boolean(res.node.ok) && Boolean(res.npm.ok);
+      const details = [
+        translate("runtime.diagnosticLine", {
+          name: "codex",
+          status: res.codex.ok ? translate("runtime.diagnosticOk") : translate("runtime.diagnosticMissing"),
+        }),
+        String(res.codex.details ?? "").trim(),
+        translate("runtime.diagnosticLine", {
+          name: "node",
+          status: res.node.ok ? translate("runtime.diagnosticOk") : translate("runtime.diagnosticMissing"),
+        }),
+        String(res.node.details ?? "").trim(),
+        translate("runtime.diagnosticLine", {
+          name: "npm",
+          status: res.npm.ok ? translate("runtime.diagnosticOk") : translate("runtime.diagnosticMissing"),
+        }),
+        String(res.npm.details ?? "").trim(),
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      pushEvent("env", details, {
+        threadId: APP_TIMELINE_ID,
+        level: ready ? "info" : "error",
+      });
+
+      if (ready) {
+        showToast({
+          kind: "success",
+          title: translate("runtime.environmentReadyTitle"),
+          message: translate("runtime.codexNodeNpmReady"),
+        });
+        return;
+      }
+
+      appShellStore.openSettings("env");
+      showToast({
+        kind: "warn",
+        title: translate("runtime.environmentNotReadyTitle"),
+        message: translate("runtime.environmentInstallHint"),
+      });
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      showToast({ kind: "error", title: translate("runtime.checkFailedTitle"), message: msg });
+      pushEvent("env:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
+    }
+  };
+
+  const selectWorkspace = async () => {
+    const selected = await codexDesktop.workspace.select();
+    if (!selected) return;
+    const applied = await applyWorkspaceSelection(selected);
+    if (!applied) return;
+    await startServer();
+  };
+
+  const switchWorkspace = async (workspacePathValue: string): Promise<boolean> => {
+    const workspace = normalizeWorkspacePath(workspacePathValue);
+    if (!workspace) return false;
+    const applied = await applyWorkspaceSelection(workspace);
+    if (!applied) return false;
+    await startServer();
+    return true;
+  };
+
+  const createThread = async () => {
+    const attemptId = beginThreadCreateAttempt();
+    const createStartedAt = perfNow();
+    const workspaceBeforeStart = normalizeWorkspacePath(runtimeStore.workspacePath);
+    const serverIdBeforeStart = getServerIdForWorkspace(workspaceBeforeStart);
+    const previousThreadId = String(runtimeStore.currentThreadId ?? "").trim();
+    const globalDraft = configStore.draft ?? createDefaultGlobalConfigDraft();
+    const newThreadComposeSeed = buildNewThreadComposeSeed({
+      previousThreadId,
+      runtime: {
+        composeMode: runtimeStore.composeMode,
+        model: normalizeModelName(runtimeStore.model),
+        reasoningEffort: normalizeEffort(runtimeStore.reasoningEffort),
+        reasoningSummary: normalizeReasoningSummary(runtimeStore.reasoningSummary),
+        sandboxMode: normalizeSandboxMode(runtimeStore.sandboxMode),
+      },
+      global: {
+        model: normalizeModelName(globalDraft.model),
+        reasoningEffort: normalizeEffort(globalDraft.modelReasoningEffort),
+        reasoningSummary: normalizeReasoningSummary(globalDraft.modelReasoningSummary),
+        sandboxMode: normalizeSandboxMode(globalDraft.sandboxMode),
+      },
+    });
+    const optimisticThreadId = createPendingThreadId();
+    appendDebugLog("thread.create", "clicked", {
+      attemptId,
+      workspace: workspaceBeforeStart || null,
+      currentThreadId: String(runtimeStore.currentThreadId ?? "").trim() || null,
+      serverReady: Boolean(serverIdBeforeStart),
+      serverId: serverIdBeforeStart || null,
+    });
+    runtimeStore.seedThreadComposeStateFromSeed(optimisticThreadId, newThreadComposeSeed);
+    setThreadWorkspace(optimisticThreadId, workspaceBeforeStart);
+    runtimeStore.clearPendingThreadInitSendCount(optimisticThreadId);
+    const optimisticCreatedAt = Date.now();
+    const optimisticLocalThread: LocalThreadItem = {
+      id: optimisticThreadId,
+      title: translate("runtime.creating"),
+      meta: workspaceBeforeStart || translate("runtime.noWorkspace"),
+      cwd: workspaceBeforeStart || undefined,
+      createdAt: optimisticCreatedAt,
+      updatedAt: optimisticCreatedAt,
+      running: false,
+      status: "creating",
+    };
+    threadStore.upsertLocalThread(optimisticLocalThread);
+    runtimeStore.setCurrentThread(optimisticThreadId);
+    threadStore.setCurrentThread(optimisticThreadId);
+    appendDebugLog("thread.create", "optimistic thread shown", {
+      attemptId,
+      optimisticThreadId,
+      elapsedMs: elapsedMs(createStartedAt),
+    });
+    const startServerStartedAt = perfNow();
+    const ok = await startServer();
+    appendDebugLog("thread.create", "startServer completed", {
+      attemptId,
+      ok,
+      workspace: normalizeWorkspacePath(runtimeStore.workspacePath) || null,
+      elapsedMs: elapsedMs(startServerStartedAt),
+      totalElapsedMs: elapsedMs(createStartedAt),
+    });
+    if (!ok) {
+      const queued = messageQueueStore.queueByThread.get(optimisticThreadId) ?? [];
+      const candidate = queued.length > 0 ? queued[queued.length - 1] : null;
+      clearThreadRuntimeState(optimisticThreadId);
+      if (previousThreadId) {
+        runtimeStore.setCurrentThread(previousThreadId, { savePrev: false });
+        threadStore.setCurrentThread(previousThreadId);
+        if (candidate) {
+          try {
+            const queueInputs = cloneUserTurnInputs(Array.isArray(candidate.inputs) ? candidate.inputs : []);
+            const { attachments } = await buildComposeAttachmentsFromUserTurnInputs(queueInputs);
+            const draft = buildComposeDraftFromUserTurnInputs(queueInputs);
+            runtimeStore.composeInput = draft.composeInput || String(candidate.text ?? "");
+            runtimeStore.composeAttachments = attachments;
+            runtimeStore.composeFileMentions = draft.composeFileMentions;
+            runtimeStore.saveThreadComposeAttachments(runtimeStore.currentThreadId);
+            runtimeStore.saveThreadComposeFileMentions(runtimeStore.currentThreadId);
+            showToast({
+              kind: "warn",
+              title: translate("runtime.threadCreateFailedTitle"),
+              message: translate("runtime.pendingContentRestored"),
+            });
+          } catch {}
+        }
+      }
+      appendDebugLog("thread.create", "optimistic thread rolled back", {
+        attemptId,
+        optimisticThreadId,
+        reason: "startServer failed",
+        totalElapsedMs: elapsedMs(createStartedAt),
+      });
+      return;
+    }
+    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    const serverId = getServerIdForWorkspace(workspace);
+    if (!serverId) {
+      const queued = messageQueueStore.queueByThread.get(optimisticThreadId) ?? [];
+      const candidate = queued.length > 0 ? queued[queued.length - 1] : null;
+      clearThreadRuntimeState(optimisticThreadId);
+      if (previousThreadId) {
+        runtimeStore.setCurrentThread(previousThreadId, { savePrev: false });
+        threadStore.setCurrentThread(previousThreadId);
+        if (candidate) {
+          try {
+            const queueInputs = cloneUserTurnInputs(Array.isArray(candidate.inputs) ? candidate.inputs : []);
+            const { attachments } = await buildComposeAttachmentsFromUserTurnInputs(queueInputs);
+            const draft = buildComposeDraftFromUserTurnInputs(queueInputs);
+            runtimeStore.composeInput = draft.composeInput || String(candidate.text ?? "");
+            runtimeStore.composeAttachments = attachments;
+            runtimeStore.composeFileMentions = draft.composeFileMentions;
+            runtimeStore.saveThreadComposeAttachments(runtimeStore.currentThreadId);
+            runtimeStore.saveThreadComposeFileMentions(runtimeStore.currentThreadId);
+            showToast({
+              kind: "warn",
+              title: translate("runtime.threadCreateFailedTitle"),
+              message: translate("runtime.pendingContentRestored"),
+            });
+          } catch {}
+        }
+      }
+      appendDebugLog("thread.create", "aborted: missing serverId after startServer", {
+        attemptId,
+        workspace: workspace || null,
+        totalElapsedMs: elapsedMs(createStartedAt),
+      });
+      return;
+    }
+    try {
+      // 重要：`thread/start` 的 `sandbox` 使用 kebab-case（见 schema 的 v2/ThreadStartParams.json）。
+      const { params: threadStartParams, configOverrides: modelConfigOverrides } = buildThreadStartParamsForModel({
+        model: newThreadComposeSeed.model,
+        workspace,
+        sandboxMode: newThreadComposeSeed.sandboxMode,
+      });
+      const rpcStartedAt = perfNow();
+      appendDebugLog("thread.create", "thread/start rpc begin", {
+        attemptId,
+        serverId,
+        workspace: workspace || null,
+        model: threadStartParams.model,
+        sandbox: threadStartParams.sandbox,
+        approvalPolicy: threadStartParams.approvalPolicy,
+      });
+      const res = await codexDesktop.codexServer.rpc({
+        serverId,
+        method: "thread/start",
+        params: threadStartParams,
+      });
+      const result = res.result;
+      if (!result) throw new Error("thread/start failed");
+      const id = String(result.thread?.id ?? "").trim();
+      if (!id) throw new Error("thread/start did not return thread id");
+      rememberThreadStartConfigOverrides(id, modelConfigOverrides);
+      bindThreadCreateAttemptToThread(attemptId, id);
+      appendDebugLog("thread.create", "thread/start rpc resolved", {
+        attemptId,
+        threadId: id,
+        elapsedMs: elapsedMs(rpcStartedAt),
+        totalElapsedMs: elapsedMs(createStartedAt),
+      });
+      const applyStateStartedAt = perfNow();
+      runtimeStore.moveThreadComposeState(optimisticThreadId, id);
+      runtimeStore.clearPendingThreadInitSendCount(optimisticThreadId);
+      timelineStore.moveThread(optimisticThreadId, id);
+      const finalizedLocalThread: LocalThreadItem = {
+        id,
+        title: `Thread ${id.slice(-8)}`,
+        meta: workspace || translate("runtime.noWorkspace"),
+        cwd: workspace || undefined,
+        createdAt: optimisticCreatedAt,
+        updatedAt: Date.now(),
+        running: false,
+        status: "ready",
+      };
+      threadStore.replaceThreadId(optimisticThreadId, id);
+      threadStore.replaceLocalThreadId(optimisticThreadId, id, finalizedLocalThread);
+      messageQueueStore.moveThreadQueue(optimisticThreadId, id);
+      resumedThreadIds.add(id);
+      setThreadWorkspace(id, workspace);
+      clearThreadWorkspace(optimisticThreadId);
+      pushEvent("thread", translate("runtime.threadCreated"), { threadId: id });
+      appendDebugLog("thread.create", "local state applied", {
+        attemptId,
+        threadId: id,
+        threadHistorySize: threadStore.threadHistory.length,
+        localThreadSize: threadStore.localThreads.length,
+        elapsedMs: elapsedMs(applyStateStartedAt),
+        totalElapsedMs: elapsedMs(createStartedAt),
+      });
+      const nextTickStartedAt = perfNow();
+      await nextTick();
+      appendDebugLog("thread.create", "nextTick flushed", {
+        attemptId,
+        threadId: id,
+        elapsedMs: elapsedMs(nextTickStartedAt),
+        totalElapsedMs: elapsedMs(createStartedAt),
+      });
+      if (!threadStore.runningThreadIds.has(id)) void flushQueueForThread(id);
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      const queued = messageQueueStore.queueByThread.get(optimisticThreadId) ?? [];
+      const candidate = queued.length > 0 ? queued[queued.length - 1] : null;
+      clearThreadRuntimeState(optimisticThreadId);
+      if (previousThreadId) {
+        runtimeStore.setCurrentThread(previousThreadId, { savePrev: false });
+        threadStore.setCurrentThread(previousThreadId);
+        if (candidate) {
+          try {
+            const queueInputs = cloneUserTurnInputs(Array.isArray(candidate.inputs) ? candidate.inputs : []);
+            const { attachments } = await buildComposeAttachmentsFromUserTurnInputs(queueInputs);
+            const draft = buildComposeDraftFromUserTurnInputs(queueInputs);
+            runtimeStore.composeInput = draft.composeInput || String(candidate.text ?? "");
+            runtimeStore.composeAttachments = attachments;
+            runtimeStore.composeFileMentions = draft.composeFileMentions;
+            runtimeStore.saveThreadComposeAttachments(runtimeStore.currentThreadId);
+            runtimeStore.saveThreadComposeFileMentions(runtimeStore.currentThreadId);
+            showToast({
+              kind: "warn",
+              title: translate("runtime.threadCreateFailedTitle"),
+              message: translate("runtime.pendingContentRestored"),
+            });
+          } catch {}
+        }
+      }
+      appendDebugLog("thread.create", "failed", {
+        attemptId,
+        workspace: workspace || null,
+        serverId,
+        elapsedMs: elapsedMs(createStartedAt),
+        message: msg,
+      });
+      pushEvent("thread:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
+    }
+  };
+
+  const switchThread = async (threadId: string) => {
+    const id = String(threadId ?? "").trim();
+    if (!id) return;
+    const switchStartedAt = perfNow();
+    const target = findThreadListItem(id);
+    const targetRunning = threadStore.runningThreadIds.has(id);
+    const existingTimelineEvents = timelineStore.eventsForThread(id);
+    const canFastActivateRunningThread = targetRunning && existingTimelineEvents.length > 0;
+    const prevWorkspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    const nextCwd = normalizeWorkspacePath(String(target?.cwd ?? getWorkspaceForThread(id)));
+    const didWorkspaceChange = Boolean(nextCwd && nextCwd !== prevWorkspace);
+    if (didWorkspaceChange) {
+      const confirmed = await workspaceFilesStore.confirmResetDirtyTabsForWorkspaceChange(nextCwd);
+      if (!confirmed) return;
+    }
+    const switchSeq = ++latestSwitchThreadSeq;
+    const isActiveSwitch = () => switchSeq === latestSwitchThreadSeq;
+    appendDebugLog("thread.switch", "begin", {
+      threadId: id,
+      running: targetRunning,
+      existingTimelineEventCount: existingTimelineEvents.length,
+      hasReplayCache: replayCacheByThread.has(id),
+      fastActivate: canFastActivateRunningThread,
+    });
+    threadStore.setLoadingThread(id);
+    runtimeStore.setCurrentThread(id);
+    threadStore.setCurrentThread(id);
+    const reusedReplayCache = hydrateReplayFromCacheIfNeeded(id);
+    const shouldLoadHistory = !canFastActivateRunningThread && !reusedReplayCache;
+    if (canFastActivateRunningThread) {
+      appendDebugLog("thread.switch", "fast activate live timeline", {
+        threadId: id,
+        existingTimelineEventCount: existingTimelineEvents.length,
+      });
+    }
+    const historyLoadPromise = shouldLoadHistory ? loadHistoryMessages(id) : Promise.resolve(true);
+    if (shouldLoadHistory) {
+      void historyLoadPromise.finally(() => {
+        if (isActiveSwitch()) threadStore.clearLoadingThread(id);
+      });
+    } else {
+      threadStore.clearLoadingThread(id);
+    }
+    try {
+      if (didWorkspaceChange) {
+        runtimeStore.setWorkspace(nextCwd);
+        threadStore.setWorkspace(nextCwd);
+        pushEvent("workspace:history", nextCwd, { threadId: APP_TIMELINE_ID });
+        syncActiveServerByWorkspace(nextCwd);
+      }
+      const workspace = nextCwd || prevWorkspace;
+      if (!workspace) {
+        await historyLoadPromise;
+        return;
+      }
+      const serverId = await ensureServerForWorkspace(workspace);
+      if (!isActiveSwitch()) return;
+      if (!serverId) {
+        return;
+      }
+      setThreadWorkspace(id, workspace);
+      applyCachedRightPanels(workspace);
+      await historyLoadPromise;
+      if (!isActiveSwitch()) return;
+      appendDebugLog("thread.switch", "history loaded", { threadId: id, elapsedMs: elapsedMs(switchStartedAt) });
+
+      // 恢复线程上下文不应阻塞“打开线程”；发送/回滚等入口会再次确保 resume。
+      void ensureThreadResumed(id);
+      void refreshThreadGoal(id);
+      void hydrateThreadHandoffDiagnostics(id, { force: true });
+
+      // 刷新文件树可能较慢，尽量让时间线先渲染，再后台刷新，避免“点进去卡住”的观感。
+      const mode = didWorkspaceChange ? "full" : "light";
+      void nextTick().then(() => {
+        if (!isActiveSwitch()) {
+          return;
+        }
+        void workspaceFilesStore.reloadTreeForThreadSwitch({ mode });
+      });
+
+      void refreshRightPanels();
+    } finally {
+      threadStore.clearLoadingThread(id);
+    }
+  };
+
+  const deleteHistoryThread = async (threadId: string) => {
+    const id = String(threadId ?? "").trim();
+    if (!id) return;
+    const hasHistoryThread = threadStore.threadHistory.some((item) => item.id === id);
+    if (!hasHistoryThread && threadStore.hasLocalThread(id)) {
+      invalidateThreadContentCache(threadContentCacheByKey, id);
+      clearThreadRuntimeState(id);
+      pushEvent("history", translate("runtime.localSessionRemoved"), { threadId: APP_TIMELINE_ID });
+      return;
+    }
+    try {
+      await codexDesktop.history.deleteThread({ threadId: id });
+      invalidateThreadContentCache(threadContentCacheByKey, id);
+      clearThreadRuntimeState(id);
+      pushEvent("history", translate("runtime.sessionDeleted"), { threadId: APP_TIMELINE_ID });
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      showToast({ kind: "error", title: translate("runtime.deleteFailedTitle"), message: msg });
+      pushEvent("history:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
+    }
+  };
+
+  const turnInputRuntime = createTurnInputRuntime();
+  const {
+    cloneUserTurnInputs,
+    toCodexUserInputs,
+    fileNameFromPathLike,
+    buildComposeAttachmentsFromUserTurnInputs,
+    buildTimelineUserMessagePayload,
+    buildUserTurnInput,
+    summarizeLocalUserMessage,
+  } = turnInputRuntime;
+
+  const requestTurnSteer = async (threadId: string, input: UserTurnInput[], turnIdValue: string) => {
+    const serverId = getServerIdForThread(threadId);
+    if (!serverId) return false;
+    if (!turnIdValue) {
+      pushEvent("steer:error", translate("runtime.missingActiveTurnForSteer"), { threadId, level: "error" });
+      return false;
+    }
+    const params = {
+      threadId,
+      expectedTurnId: turnIdValue,
+      input: toCodexUserInputs(input),
+    };
+    try {
+      await codexDesktop.codexServer.rpc({ serverId, method: "turn/steer", params });
+      return true;
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent("steer:error", msg || "turn/steer failed", { threadId, level: "error" });
+      return false;
+    }
+  };
+
+  const turnStartRuntime = createTurnStartRuntime({
+    getComposeMode: () => runtimeStore.composeMode,
+    getModel: () => runtimeStore.model,
+    getReasoningEffort: () => runtimeStore.reasoningEffort,
+    getReasoningSummary: () => runtimeStore.reasoningSummary,
+    getSandboxMode: () => runtimeStore.sandboxMode,
+    getApprovalPolicy: () => configStore.draft.approvalPolicy,
+    getApprovalsReviewer: () => configStore.draft.approvalsReviewer,
+    getInstructionProfile: resolveCurrentInstructionProfile,
+    toCodexUserInputs,
+  });
+  const { startTurnWithInput } = turnStartRuntime;
+
+  type SendDraft = {
+    anchorTurnId?: string;
+    composeInput: string;
+    composeAttachments: ComposeImageAttachment[];
+    composeFileMentions: ComposeWorkspaceFileMention[];
+    model?: string;
+    reasoningEffort?: string;
+    sandboxMode?: string;
+    composeMode?: "default" | "plan";
+  };
+
+  function cloneComposeAttachmentsForSend(items: ComposeImageAttachment[]): ComposeImageAttachment[] {
+    return items.map((item: ComposeImageAttachment) => ({
+      ...item,
+      input: { ...item.input },
+    }));
+  }
+
+  function cloneComposeMentionsForSend(items: ComposeWorkspaceFileMention[]): ComposeWorkspaceFileMention[] {
+    return items.map((item: ComposeWorkspaceFileMention) => ({ ...item }));
+  }
+
+  function runtimeStoreSendDraft(): SendDraft {
+    return {
+      composeInput: String(runtimeStore.composeInput ?? ""),
+      composeAttachments: runtimeStore.composeAttachments,
+      composeFileMentions: runtimeStore.composeFileMentions,
+      model: runtimeStore.model,
+      reasoningEffort: runtimeStore.reasoningEffort,
+      sandboxMode: runtimeStore.sandboxMode,
+      composeMode: runtimeStore.composeMode,
+    };
+  }
+
+  function clearRuntimeStoreDraftAfterSend() {
+    runtimeStore.composeInput = "";
+    runtimeStore.clearComposeAttachments();
+    runtimeStore.clearComposeFileMentions();
+    runtimeStore.endHistoryRewrite();
+  }
+
+  const sendOrQueueDraft = async (
+    mode: "auto" | "steer",
+    draft: SendDraft,
+    opts?: { clearRuntimeDraftOnAccept?: boolean }
+  ): Promise<boolean> => {
+    const clearRuntimeDraftOnAccept = opts?.clearRuntimeDraftOnAccept ?? false;
+    const composeInput = String(draft.composeInput ?? "");
+    const composeAttachments = cloneComposeAttachmentsForSend(draft.composeAttachments);
+    const composeFileMentions = cloneComposeMentionsForSend(draft.composeFileMentions);
+    const requestedModel = String(draft.model ?? runtimeStore.model ?? "").trim();
+    const requestedReasoningEffort = String(draft.reasoningEffort ?? runtimeStore.reasoningEffort ?? "").trim();
+    const requestedSandboxMode = String(draft.sandboxMode ?? runtimeStore.sandboxMode ?? "").trim();
+    const requestedComposeMode = draft.composeMode ?? runtimeStore.composeMode;
+    const input = buildUserTurnInput(composeInput, composeAttachments, composeFileMentions);
+    if (input.length === 0) return false;
+    const localUserMessage = summarizeLocalUserMessage(input);
+    const visibleText = String(localUserMessage.payload.text ?? "").trim();
+    const queueText = String(localUserMessage.payload.text ?? "");
+
+    const workspaceReady = await ensureWorkspaceForSend();
+    if (!workspaceReady) {
+      showToast({
+        kind: "error",
+        title: translate("runtime.cannotSendTitle"),
+        message: translate("runtime.workspaceUnavailable"),
+      });
+      return false;
+    }
+    const activeWorkspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+    const activeServerId = await ensureServerForWorkspace(activeWorkspace);
+    if (!activeServerId) {
+      showToast({
+        kind: "error",
+        title: translate("runtime.cannotSendTitle"),
+        message: translate("runtime.serviceUnavailable"),
+      });
+      return false;
+    }
+    if (!runtimeStore.currentThreadId) {
+      void createThread();
+    }
+    let threadId = String(runtimeStore.currentThreadId ?? "").trim();
+    if (!threadId) {
+      showToast({
+        kind: "error",
+        title: translate("runtime.cannotSendTitle"),
+        message: translate("runtime.threadNotReadyRetry"),
+      });
+      return false;
+    }
+    if (isPendingThreadId(threadId)) {
+      const prevCount = runtimeStore.pendingThreadInitSendCountByThread.get(threadId) ?? 0;
+      const nextCount = Number.isFinite(prevCount) ? Math.max(0, Math.round(prevCount)) + 1 : 1;
+      runtimeStore.setPendingThreadInitSendCount(threadId, nextCount);
+
+      if (clearRuntimeDraftOnAccept) clearRuntimeStoreDraftAfterSend();
+
+      const localUserEventId = `local:user:${Date.now()}:${Math.random().toString(16).slice(2)}`;
+      const localUserMessageId = `local-user-msg:${Date.now()}:${Math.random().toString(16).slice(2)}`;
+      timelineStore.appendEvent({
+        threadId,
+        id: localUserEventId,
+        method: "user",
+        paramsText: localUserMessage.displayText,
+        params: localUserMessage.payload,
+        level: "warn",
+        localKind: "user",
+        localState: "queued",
+        localMessageId: localUserMessageId,
+      });
+      upsertThreadPreparingEvent(threadId);
+      runtimeStore.requestScrollTimelineToBottom();
+      messageQueueStore.enqueue({
+        threadId,
+        text: queueText,
+        inputs: input,
+        localEventId: localUserEventId,
+        displayText: localUserMessage.displayText,
+      });
+
+      appendDebugLog("thread.create", "pending send queued", {
+        threadId,
+        queuedCount: nextCount,
+      });
+      return true;
+    }
+    let threadWorkspace = normalizeWorkspacePath(getWorkspaceForThread(threadId) || runtimeStore.workspacePath);
+    let threadServerId = await ensureServerForWorkspace(threadWorkspace);
+    if (!threadServerId) {
+      showToast({
+        kind: "error",
+        title: translate("runtime.cannotSendTitle"),
+        message: translate("runtime.threadServiceUnavailable"),
+      });
+      return false;
+    }
+    setThreadWorkspace(threadId, threadWorkspace);
+
+    const compatibility = await ensureThreadModelToolCompatibility({
+      threadId,
+      threadWorkspace,
+      threadServerId,
+      model: requestedModel,
+    });
+    if (!compatibility.ok) {
+      showToast({ kind: "warn", title: translate("runtime.threadMustBeRecreatedTitle"), message: compatibility.error });
+      pushEvent("turn:error", compatibility.error, { threadId, level: "error" });
+      return false;
+    }
+    if (compatibility.threadId !== threadId) {
+      threadId = compatibility.threadId;
+      threadWorkspace = normalizeWorkspacePath(getWorkspaceForThread(threadId) || threadWorkspace);
+      threadServerId = await ensureServerForWorkspace(threadWorkspace);
+      if (!threadServerId) {
+        showToast({
+          kind: "error",
+          title: translate("runtime.cannotSendTitle"),
+          message: translate("runtime.threadServiceUnavailable"),
+        });
+        return false;
+      }
+      setThreadWorkspace(threadId, threadWorkspace);
+    }
+
+    {
+      const existing = findThreadListItem(threadId);
+      const currentTitle = String(existing?.title ?? "").trim();
+      const placeholder = fallbackThreadTitle(threadId);
+      const titleSeedText =
+        visibleText ||
+        (composeFileMentions.length > 0
+          ? translate("runtime.fileCount", { count: composeFileMentions.length })
+          : translate("runtime.imageCount", { count: composeAttachments.length }));
+      if (!currentTitle || currentTitle === placeholder) {
+        if (!isBootstrapThreadTitleSource(titleSeedText)) {
+          const nextTitle = titleFromFirstUserMessage(titleSeedText) || placeholder;
+          const titlePatch = {
+            id: threadId,
+            title: nextTitle,
+            meta: String(existing?.meta ?? threadWorkspace ?? "").trim() || translate("runtime.noWorkspace"),
+            cwd: String(existing?.cwd ?? threadWorkspace ?? "").trim() || undefined,
+            modelProvider: String(existing?.modelProvider ?? "").trim() || undefined,
+            updatedAt: Date.now(),
+            running: threadStore.runningThreadIds.has(threadId),
+          };
+          if (threadStore.hasLocalThread(threadId)) {
+            threadStore.patchLocalThread(threadId, titlePatch);
+          } else {
+            threadStore.upsertThreadHistory(titlePatch);
+          }
+        }
+      }
+    }
+
+    const overrideAnchorTurnId = String(draft.anchorTurnId ?? "").trim();
+    const rewroteHistoryBeforeSend =
+      Boolean(overrideAnchorTurnId) ||
+      (runtimeStore.historyRewriteActive && runtimeStore.historyRewriteSource === "history");
+    const historyRewriteReady = await rollbackHistoryRewriteBeforeSend(threadId, {
+      anchorTurnId: overrideAnchorTurnId,
+      force: Boolean(overrideAnchorTurnId),
+    });
+    if (!historyRewriteReady) return false;
+    if (!rewroteHistoryBeforeSend) {
+      const resumed = await ensureThreadResumed(threadId);
+      if (!resumed) {
+        showToast({
+          kind: "error",
+          title: translate("runtime.cannotSendTitle"),
+          message: translate("runtime.threadResumeFailed"),
+        });
+        return false;
+      }
+    }
+
+    for (const event of timelineStore.eventsForThread(threadId)) {
+      if (event.method !== "local/contextCompaction") continue;
+      timelineStore.removeEvent({ threadId, id: event.id });
+    }
+
+    if (clearRuntimeDraftOnAccept) clearRuntimeStoreDraftAfterSend();
+
+    const running = threadStore.runningThreadIds.has(threadId);
+    if (running && mode === "auto") {
+      messageQueueStore.enqueue({
+        threadId,
+        text: queueText,
+        inputs: input,
+        displayText: localUserMessage.displayText,
+      });
+      return true;
+    }
+
+    const localUserEventId = `local:user:${Date.now()}:${Math.random().toString(16).slice(2)}`;
+    const localUserMessageId = `local-user-msg:${Date.now()}:${Math.random().toString(16).slice(2)}`;
+
+    timelineStore.appendEvent({
+      threadId,
+      id: localUserEventId,
+      method: "user",
+      paramsText: localUserMessage.displayText,
+      params: localUserMessage.payload,
+      level: "info",
+      localKind: "user",
+      localState: "pending",
+      localMessageId: localUserMessageId,
+    });
+    runtimeStore.requestScrollTimelineToBottom();
+
+    const setLocalUserEventState = (
+      state: "pending" | "queued" | "sending" | "sent" | "failed",
+      level?: "info" | "warn" | "error",
+      turnIdValue?: string
+    ) => {
+      timelineStore.patchEvent({
+        threadId,
+        id: localUserEventId,
+        patch: {
+          localState: state,
+          ...(level ? { level } : {}),
+          ...(turnIdValue ? { turnId: turnIdValue } : {}),
+        },
+      });
+    };
+
+    if (running && mode === "steer") {
+      const turnIdValue = String(threadStore.activeTurnIdByThread.get(threadId) ?? "").trim();
+      const steerOk = await requestTurnSteer(threadId, input, turnIdValue);
+      if (!steerOk) {
+        setLocalUserEventState("failed", "error", turnIdValue || undefined);
+        return false;
+      }
+      setLocalUserEventState("sent", "info", turnIdValue || undefined);
+      return true;
+    }
+
+    setLocalUserEventState("sending", "info");
+    if (threadStore.hasLocalThread(threadId)) {
+      upsertThreadPreparingEvent(threadId);
+    }
+    const started = await startTurnWithInput({
+      threadId,
+      threadWorkspace,
+      threadServerId,
+      input,
+      model: requestedModel,
+      effort: requestedReasoningEffort,
+      sandboxMode: requestedSandboxMode,
+      composeModeOverride: requestedComposeMode,
+    });
+    if (started.ok) {
+      setLocalUserEventState("sent", "info");
+      return true;
+    }
+    clearThreadPreparingEvent(threadId);
+    pushEvent("turn:error", started.error, { threadId, level: "error" });
+    threadStore.setThreadRunning(threadId, false);
+    setLocalUserEventState("failed", "error");
+    return false;
+  };
+
+  const summarizeQueuedMessagePreview = (message: {
+    text?: string;
+    inputs?: UserTurnInput[];
+    displayText?: string;
+  }): string => {
+    const displayText = String(message.displayText ?? "").trim();
+    if (displayText) return displayText;
+    const payload = buildTimelineUserMessagePayload(Array.isArray(message.inputs) ? message.inputs : []);
+    if (payload.displayText) return payload.displayText;
+    const text = String(message.text ?? "").trim();
+    if (text) return text;
+    const inputs = Array.isArray(message.inputs) ? message.inputs : [];
+    const imageCount = inputs.filter((item) => item?.type === "image" || item?.type === "localImage").length;
+    if (imageCount > 0) return translate("runtime.imageCount", { count: imageCount });
+    return translate("runtime.emptyMessage");
+  };
+
+  const flushQueueForThread = async (threadIdValue: string) => {
+    let threadId = String(threadIdValue ?? "").trim();
+    if (!threadId) return;
+    if (threadStore.runningThreadIds.has(threadId)) return;
+    const next = messageQueueStore.peekNextQueued(threadId);
+    if (!next) return;
+
+    const previewText = summarizeQueuedMessagePreview(next);
+    const previewPayload = buildTimelineUserMessagePayload(Array.isArray(next.inputs) ? next.inputs : []);
+
+    const localEventId =
+      String((next as any)?.localEventId ?? "").trim() ||
+      `local:user:${Date.now()}:${Math.random().toString(16).slice(2)}`;
+    const localMessageId = `local-user-msg:${Date.now()}:${Math.random().toString(16).slice(2)}`;
+    messageQueueStore.setLocalEventId(threadId, next.id, localEventId);
+    const ensureLocalEvent = () => {
+      if (String((next as any)?.localEventId ?? "").trim()) return;
+      timelineStore.appendEvent({
+        threadId,
+        id: localEventId,
+        method: "user",
+        paramsText: previewText,
+        params: previewPayload.payload,
+        level: "info",
+        localKind: "user",
+        localState: "pending",
+        localMessageId: localMessageId,
+      });
+      runtimeStore.requestScrollTimelineToBottom();
+    };
+    const patchLocalEvent = (patch: Partial<TimelineEventItem>) => {
+      timelineStore.patchEvent({ threadId, id: localEventId, patch });
+    };
+
+    ensureLocalEvent();
+
+    let threadWorkspace = normalizeWorkspacePath(getWorkspaceForThread(threadId) || runtimeStore.workspacePath);
+    let threadServerId = await ensureServerForWorkspace(threadWorkspace);
+    if (!threadServerId) {
+      messageQueueStore.markStatus(threadId, next.id, "failed");
+      patchLocalEvent({ localState: "failed", level: "error" });
+      clearThreadPreparingEvent(threadId);
+      return;
+    }
+    const compatibility = await ensureThreadModelToolCompatibility({
+      threadId,
+      threadWorkspace,
+      threadServerId,
+      model: runtimeStore.model,
+    });
+    if (!compatibility.ok) {
+      messageQueueStore.markStatus(threadId, next.id, "failed");
+      patchLocalEvent({ localState: "failed", level: "error" });
+      clearThreadPreparingEvent(threadId);
+      pushEvent("turn:error", compatibility.error, { threadId, level: "error" });
+      return;
+    }
+    if (compatibility.threadId !== threadId) {
+      threadId = compatibility.threadId;
+      threadWorkspace = normalizeWorkspacePath(getWorkspaceForThread(threadId) || threadWorkspace);
+      threadServerId = await ensureServerForWorkspace(threadWorkspace);
+      if (!threadServerId) {
+        messageQueueStore.markStatus(threadId, next.id, "failed");
+        patchLocalEvent({ localState: "failed", level: "error" });
+        clearThreadPreparingEvent(threadId);
+        return;
+      }
+    }
+    const resumed = await ensureThreadResumed(threadId);
+    if (!resumed) {
+      messageQueueStore.markStatus(threadId, next.id, "failed");
+      patchLocalEvent({ localState: "failed", level: "error" });
+      clearThreadPreparingEvent(threadId);
+      return;
+    }
+
+    messageQueueStore.markStatus(threadId, next.id, "sending");
+    patchLocalEvent({ localState: "sending", level: "info" });
+
+    const fallbackInput = next.text.trim() ? [{ type: "text", text: next.text.trim() } as UserTurnInput] : [];
+    const queueInput = Array.isArray(next.inputs) && next.inputs.length > 0 ? next.inputs : fallbackInput;
+    if (queueInput.length === 0) {
+      messageQueueStore.markStatus(threadId, next.id, "failed");
+      patchLocalEvent({ localState: "failed", level: "error" });
+      clearThreadPreparingEvent(threadId);
+      return;
+    }
+    if (threadStore.hasLocalThread(threadId)) {
+      upsertThreadPreparingEvent(threadId);
+    }
+    const started = await startTurnWithInput({ threadId, threadWorkspace, threadServerId, input: queueInput });
+    if (started.ok) {
+      messageQueueStore.remove(threadId, next.id);
+      patchLocalEvent({ localState: "sent", level: "info" });
+      return;
+    }
+    messageQueueStore.markStatus(threadId, next.id, "failed");
+    patchLocalEvent({ localState: "failed", level: "error" });
+    clearThreadPreparingEvent(threadId);
+  };
+
+  const notifyCompletedTurnIfBackground = async (threadIdValue: string) => {
+    const threadId = String(threadIdValue ?? "").trim();
+    if (!threadId) return;
+    const historyItem = findThreadListItem(threadId);
+    const threadTitle = threadStore.displayThreadTitle(threadId, historyItem?.title ?? threadId);
+    try {
+      const windowState = await codexDesktop.window.getState();
+      await notifyTurnCompleted({
+        app: codexDesktop.app,
+        focused: typeof document !== "undefined" ? document.hasFocus() : false,
+        hidden: typeof document !== "undefined" ? document.hidden : true,
+        minimized: Boolean(windowState?.isMinimized),
+        threadTitle,
+      });
+    } catch (error) {
+      console.warn("[systemNotification] turn completed notification failed", error);
+    }
+  };
+
+  const send = async () => {
+    return await sendOrQueueDraft("auto", runtimeStoreSendDraft(), { clearRuntimeDraftOnAccept: true });
+  };
+
+  const sendHistoryRewriteDraft: RuntimeOrchestrator["sendHistoryRewriteDraft"] = async (draft) => {
+    const anchorTurnId = String(draft?.anchorTurnId ?? "").trim();
+    if (!anchorTurnId) {
+      showToast({
+        kind: "error",
+        title: translate("runtime.rewriteUnavailableTitle"),
+        message: translate("runtime.rewriteTurnNotFound"),
+      });
+      return false;
+    }
+    return await sendOrQueueDraft("auto", {
+      anchorTurnId,
+      composeInput: String(draft?.composeInput ?? ""),
+      composeAttachments: Array.isArray(draft?.composeAttachments) ? draft.composeAttachments : [],
+      composeFileMentions: Array.isArray(draft?.composeFileMentions) ? draft.composeFileMentions : [],
+      model: String(draft?.model ?? ""),
+      reasoningEffort: String(draft?.reasoningEffort ?? ""),
+      sandboxMode: String(draft?.sandboxMode ?? ""),
+      composeMode: draft?.composeMode === "plan" ? "plan" : "default",
+    });
+  };
+
+  const steerNow = async () => {
+    await sendOrQueueDraft("steer", runtimeStoreSendDraft(), { clearRuntimeDraftOnAccept: true });
+  };
+
+  const editQueuedMessage = async (messageIdValue: string) => {
+    const threadId = String(runtimeStore.currentThreadId ?? "").trim();
+    if (!threadId) return;
+    const messageId = String(messageIdValue ?? "").trim();
+    if (!messageId) return;
+
+    const list = messageQueueStore.queueByThread.get(threadId) ?? [];
+    const queuedMessage =
+      list.find((item) => item.id === messageId && (item.status === "queued" || item.status === "failed")) ?? null;
+    if (!queuedMessage) return;
+
+    const queueInputs = cloneUserTurnInputs(Array.isArray(queuedMessage.inputs) ? queuedMessage.inputs : []);
+    const textValue = String(queuedMessage.text ?? "");
+    const { attachments, failedLocalPaths } = await buildComposeAttachmentsFromUserTurnInputs(queueInputs);
+    const draft = buildComposeDraftFromUserTurnInputs(queueInputs);
+    const prefillText = draft.composeInput || textValue;
+    const mentions = draft.composeFileMentions;
+    if (!hasMeaningfulComposeText(prefillText) && attachments.length === 0 && mentions.length === 0) {
+      showToast({
+        kind: "warn",
+        title: translate("runtime.cannotEditQueuedMessageTitle"),
+        message: translate("runtime.queuedMessageNoEditableContent"),
+      });
+      return;
+    }
+
+    const taken = messageQueueStore.takeEditable(threadId, messageId);
+    if (!taken) return;
+
+    runtimeStore.startQueueRewrite({
+      prefillText,
+      prefillAttachments: attachments,
+      prefillMentions: mentions,
+    });
+
+    if (failedLocalPaths.length > 0) {
+      const names = failedLocalPaths
+        .slice(0, 2)
+        .map((item) => fileNameFromPathLike(item, translate("runtime.imageFallbackName")));
+      const summary = names.join(translate("runtime.listSeparator"));
+      const suffix =
+        failedLocalPaths.length > 2 ? translate("runtime.moreImagesSuffix", { count: failedLocalPaths.length }) : "";
+      showToast({
+        kind: "warn",
+        title: translate("runtime.someImagesNotRestoredTitle"),
+        message: summary
+          ? translate("runtime.namedImagesNotRestored", { summary: `${summary}${suffix}` })
+          : translate("runtime.someImagesNotRestoredMessage"),
+      });
+    }
+  };
+
+  const removeQueuedMessage = async (messageIdValue: string) => {
+    const threadId = String(runtimeStore.currentThreadId ?? "").trim();
+    if (!threadId) return;
+    const messageId = String(messageIdValue ?? "").trim();
+    if (!messageId) return;
+
+    const list = messageQueueStore.queueByThread.get(threadId) ?? [];
+    const msg = list.find((item) => item.id === messageId) ?? null;
+    if (!msg) return;
+    if (msg.status === "sending") return;
+
+    const localEventId = String(msg.localEventId ?? "").trim();
+    messageQueueStore.remove(threadId, messageId);
+    if (localEventId) {
+      timelineStore.removeEvent({ threadId, id: localEventId });
+    }
+  };
+
+  const sendQueuedMessageNow = async (messageIdValue: string) => {
+    const threadId = String(runtimeStore.currentThreadId ?? "").trim();
+    if (!threadId) return;
+    const messageId = String(messageIdValue ?? "").trim();
+    if (!messageId) return;
+
+    const list = messageQueueStore.queueByThread.get(threadId) ?? [];
+    const msg = list.find((m) => m.id === messageId) ?? null;
+    if (!msg || (msg.status !== "queued" && msg.status !== "failed")) return;
+
+    const previewText = summarizeQueuedMessagePreview(msg);
+    const previewPayload = buildTimelineUserMessagePayload(Array.isArray(msg.inputs) ? msg.inputs : []);
+
+    const localEventId =
+      String((msg as any)?.localEventId ?? "").trim() ||
+      `local:user:${Date.now()}:${Math.random().toString(16).slice(2)}`;
+    const localMessageId = `local-user-msg:${Date.now()}:${Math.random().toString(16).slice(2)}`;
+    messageQueueStore.setLocalEventId(threadId, msg.id, localEventId);
+    const ensureLocalEvent = () => {
+      if (String((msg as any)?.localEventId ?? "").trim()) return;
+      timelineStore.appendEvent({
+        threadId,
+        id: localEventId,
+        method: "user",
+        paramsText: previewText,
+        params: previewPayload.payload,
+        level: "info",
+        localKind: "user",
+        localState: "pending",
+        localMessageId: localMessageId,
+      });
+      runtimeStore.requestScrollTimelineToBottom();
+    };
+    const patchLocalEvent = (patch: Partial<TimelineEventItem>) => {
+      timelineStore.patchEvent({ threadId, id: localEventId, patch });
+    };
+
+    ensureLocalEvent();
+
+    const threadWorkspace = normalizeWorkspacePath(getWorkspaceForThread(threadId) || runtimeStore.workspacePath);
+    const threadServerId = await ensureServerForWorkspace(threadWorkspace);
+    if (!threadServerId) {
+      messageQueueStore.markStatus(threadId, msg.id, "failed");
+      patchLocalEvent({ localState: "failed", level: "error" });
+      clearThreadPreparingEvent(threadId);
+      return;
+    }
+
+    const resumed = await ensureThreadResumed(threadId);
+    if (!resumed) {
+      messageQueueStore.markStatus(threadId, msg.id, "failed");
+      patchLocalEvent({ localState: "failed", level: "error" });
+      clearThreadPreparingEvent(threadId);
+      return;
+    }
+
+    const fallbackInput = msg.text.trim() ? [{ type: "text", text: msg.text.trim() } as UserTurnInput] : [];
+    const queueInput = Array.isArray(msg.inputs) && msg.inputs.length > 0 ? msg.inputs : fallbackInput;
+    if (queueInput.length === 0) {
+      messageQueueStore.markStatus(threadId, msg.id, "failed");
+      patchLocalEvent({ localState: "failed", level: "error" });
+      clearThreadPreparingEvent(threadId);
+      return;
+    }
+
+    messageQueueStore.markStatus(threadId, msg.id, "sending");
+    patchLocalEvent({ localState: "sending", level: "info" });
+
+    const running = threadStore.runningThreadIds.has(threadId);
+    if (running) {
+      const turnIdValue = String(threadStore.activeTurnIdByThread.get(threadId) ?? "").trim();
+      if (!turnIdValue) {
+        messageQueueStore.markStatus(threadId, msg.id, "queued");
+        patchLocalEvent({ localState: "queued", level: "warn" });
+        pushEvent("steer:error", translate("runtime.missingActiveTurnForQueuedSteer"), { threadId, level: "error" });
+        return;
+      }
+      const ok = await requestTurnSteer(threadId, queueInput, turnIdValue);
+      if (ok) {
+        messageQueueStore.remove(threadId, msg.id);
+        patchLocalEvent({ localState: "sent", level: "info", turnId: turnIdValue });
+        return;
+      }
+      messageQueueStore.markStatus(threadId, msg.id, "failed");
+      patchLocalEvent({ localState: "failed", level: "error", turnId: turnIdValue });
+      return;
+    }
+
+    if (threadStore.hasLocalThread(threadId)) {
+      upsertThreadPreparingEvent(threadId);
+    }
+    const started = await startTurnWithInput({ threadId, threadWorkspace, threadServerId, input: queueInput });
+    if (started.ok) {
+      messageQueueStore.remove(threadId, msg.id);
+      patchLocalEvent({ localState: "sent", level: "info" });
+      return;
+    }
+    messageQueueStore.markStatus(threadId, msg.id, "failed");
+    patchLocalEvent({ localState: "failed", level: "error" });
+    clearThreadPreparingEvent(threadId);
+  };
+
+  const interruptTurn = async () => {
+    const threadId = runtimeStore.currentThreadId;
+    if (!threadId) return;
+    const turnIdValue = String(threadStore.activeTurnIdByThread.get(threadId) ?? "").trim();
+    if (!turnIdValue) {
+      pushEvent("interrupt:error", translate("runtime.missingActiveTurnForInterrupt"), { threadId, level: "error" });
+      return;
+    }
+    await requestTurnInterrupt(threadId, turnIdValue);
+  };
+
+  const compactThread = async () => {
+    if (!runtimeStore.currentThreadId) return;
+    const serverId = getServerIdForThread(runtimeStore.currentThreadId);
+    if (!serverId) return;
+    try {
+      await codexDesktop.codexServer.rpc({
+        serverId,
+        method: "thread/compact/start",
+        params: { threadId: runtimeStore.currentThreadId },
+      });
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent("compact:error", msg, { threadId: runtimeStore.currentThreadId, level: "error" });
+    }
+  };
+
+  const resetCodexMemory = async () => {
+    const serverId = getServerIdForWorkspace(runtimeStore.workspacePath);
+    if (!serverId) {
+      showToast({
+        kind: "warn",
+        title: translate("runtime.cannotResetMemoryTitle"),
+        message: translate("runtime.currentlyNoCodexService"),
+      });
+      return;
+    }
+    try {
+      await codexDesktop.codexServer.rpc({ serverId, method: "memory/reset" });
+      showToast({
+        kind: "success",
+        title: translate("runtime.memoryResetTitle"),
+        message: translate("runtime.memoryResetMessage"),
+      });
+      pushEvent("memory/reset", "Codex memory reset", { threadId: runtimeStore.currentThreadId || APP_TIMELINE_ID });
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      showToast({
+        kind: "error",
+        title: translate("runtime.memoryResetFailedTitle"),
+        message: msg || "memory/reset failed",
+      });
+      pushEvent("memory/reset:error", msg || "memory/reset failed", {
+        threadId: runtimeStore.currentThreadId || APP_TIMELINE_ID,
+        level: "error",
+      });
+    }
+  };
+
+  const setCurrentThreadMemoryMode = async (mode: ThreadMemoryMode) => {
+    const threadId = String(runtimeStore.currentThreadId ?? "").trim();
+    if (!threadId) {
+      showToast({
+        kind: "warn",
+        title: translate("runtime.cannotSetMemoryTitle"),
+        message: translate("runtime.selectThreadFirst"),
+      });
+      return;
+    }
+    const serverId = getServerIdForThread(threadId);
+    if (!serverId) {
+      showToast({
+        kind: "warn",
+        title: translate("runtime.cannotSetMemoryTitle"),
+        message: translate("runtime.currentThreadNoService"),
+      });
+      return;
+    }
+    try {
+      await codexDesktop.codexServer.rpc({ serverId, method: "thread/memoryMode/set", params: { threadId, mode } });
+      const enabled = mode === "enabled";
+      showToast({
+        kind: "success",
+        title: enabled ? translate("runtime.threadMemoryEnabledTitle") : translate("runtime.threadMemoryDisabledTitle"),
+        message: enabled
+          ? translate("runtime.threadMemoryEnabledMessage")
+          : translate("runtime.threadMemoryDisabledMessage"),
+      });
+      pushEvent("memory/mode", `thread memory mode: ${mode}`, { threadId });
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      showToast({
+        kind: "error",
+        title: translate("runtime.memoryModeSetFailedTitle"),
+        message: msg || "thread/memoryMode/set failed",
+      });
+      pushEvent("memory/mode:error", msg || "thread/memoryMode/set failed", { threadId, level: "error" });
+    }
+  };
+
+  const rollbackTurns = async () => {
+    if (!runtimeStore.currentThreadId) {
+      showToast({
+        kind: "info",
+        title: translate("runtime.rollbackUnavailableTitle"),
+        message: translate("runtime.noThreadSelected"),
+      });
+      return;
+    }
+    const tid = String(runtimeStore.currentThreadId ?? "").trim();
+    if (!tid) {
+      showToast({
+        kind: "info",
+        title: translate("runtime.rollbackUnavailableTitle"),
+        message: translate("runtime.noThreadSelected"),
+      });
+      return;
+    }
+    const workspace = normalizeWorkspacePath(getWorkspaceForThread(tid) || runtimeStore.workspacePath);
+    const serverId = getServerIdForThread(tid);
+    if (!workspace) {
+      showToast({
+        kind: "error",
+        title: translate("runtime.rollbackUnavailableTitle"),
+        message: translate("runtime.workspaceUnavailable"),
+      });
+      return;
+    }
+    if (!serverId) {
+      showToast({
+        kind: "error",
+        title: translate("runtime.rollbackUnavailableTitle"),
+        message: translate("runtime.serviceUnavailable"),
+      });
+      return;
+    }
+    if (threadStore.runningThreadIds.has(tid)) {
+      showToast({
+        kind: "warn",
+        title: translate("runtime.threadRunningTitle"),
+        message: translate("runtime.waitBeforeRollback"),
+      });
+      return;
+    }
+    const stack = threadStore.completedTurnsByThread.get(tid) ?? [];
+    if (stack.length === 0) {
+      showToast({
+        kind: "info",
+        title: translate("runtime.noRollbackTurnsTitle"),
+        message: translate("runtime.noCompletedTurns"),
+      });
+      return;
+    }
+    let n: number | null = null;
+    try {
+      n = await promptNumberModalLazy({
+        title: translate("topbarExtra.rollbackRecent"),
+        message: translate("runtime.rollbackDetail"),
+        detail: translate("runtime.rollbackRange", { count: stack.length }),
+        confirmText: translate("runtime.rollback"),
+        cancelText: translate("common.cancel"),
+        danger: true,
+        defaultValue: 1,
+        min: 1,
+        max: stack.length,
+      });
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      const isBusy = msg.includes("another modal is already open");
+      showToast({
+        kind: isBusy ? "warn" : "error",
+        title: translate("runtime.rollbackModalOpenFailedTitle"),
+        message: isBusy ? translate("runtime.modalAlreadyOpen") : translate("runtime.modalOpenFailed"),
+      });
+      return;
+    }
+    if (n == null) return;
+
+    const selected = stack.slice(-n);
+    const selectedTurnIds = selected.map((entry) => entry.turnId);
+    const diffParts = [...selected]
+      .reverse()
+      .map((entry) => entry.diffText)
+      .filter((text) => String(text ?? "").trim().length > 0);
+    const combinedDiff = diffParts.join("\n\n");
+
+    if (combinedDiff.trim()) {
+      const dry = await codexDesktop.workspace.dryRunApplyReverseDiff({ cwd: workspace, diffText: combinedDiff });
+      if (!dry.ok) {
+        pushEvent("rollback:error", translate("runtime.rollbackFilesFailed", { error: dry.error }), {
+          threadId: tid,
+          level: "error",
+        });
+        showToast({
+          kind: "error",
+          title: translate("runtime.rollbackFailedTitle"),
+          message: translate("runtime.fileRollbackPrecheckFailed"),
+        });
+        return;
+      }
+    }
+
+    const resumed = await ensureThreadResumed(tid);
+    if (!resumed) return;
+    const ok = await requestThreadRollback(tid, n);
+    if (!ok) return;
+
+    if (combinedDiff.trim()) {
+      const applied = await codexDesktop.workspace.applyReverseDiff({ cwd: workspace, diffText: combinedDiff });
+      if (!applied.ok) {
+        timelineStore.removeTurnEvents(tid, selectedTurnIds);
+        threadStore.removeTurnsFromState(tid, selectedTurnIds);
+        pushEvent("rollback:error", translate("runtime.contextRolledBackFilesFailed", { error: applied.error }), {
+          threadId: tid,
+          level: "error",
+        });
+        showToast({
+          kind: "error",
+          title: translate("runtime.partialFailureTitle"),
+          message: translate("runtime.contextRolledBackFilesFailedCheckWorkspace"),
+        });
+        return;
+      }
+      pushEvent("rollback", `files reverted: ${(applied.files ?? []).join(", ")}`, { threadId: tid });
+    } else {
+      pushEvent("rollback", "no file diff in selected turns; context only", { threadId: tid });
+    }
+
+    timelineStore.removeTurnEvents(tid, selectedTurnIds);
+    threadStore.removeTurnsFromState(tid, selectedTurnIds);
+    showToast({
+      kind: "success",
+      title: translate("runtime.rollbackCompletedTitle"),
+      message: translate("runtime.rollbackCompletedMessage", { count: n }),
+    });
+  };
+
+  const submitUserInputPromptForThread = async (threadIdValue: unknown) => {
+    const tid = String(threadIdValue ?? "").trim();
+    if (!tid) return;
+    const prompt = userInputStore.activePromptForThread(tid);
+    if (!prompt) return;
+    const promptThreadId = String(prompt.threadId || tid).trim();
+    if (!promptThreadId) return;
+    try {
+      if (prompt.kind === "questions") {
+        const answers: Record<string, { answers: string[] }> = {};
+        for (const question of prompt.questions) {
+          const draft = userInputStore.getDraft(promptThreadId, prompt.requestId, question.id);
+          const normalized = draft.map((answer) => answer.trim()).filter(Boolean);
+          if (normalized.length === 0) {
+            const detail = translate("runtime.questionUnanswered", { header: question.header });
+            pushEvent("plan:input:error", detail, { threadId: promptThreadId || APP_TIMELINE_ID, level: "error" });
+            showToast({ kind: "warn", title: translate("runtime.qaIncompleteTitle"), message: detail });
+            return;
+          }
+          // 按 app-server 协议：每题必须回传 answers 数组（即使只有一项）。
+          answers[question.id] = { answers: normalized };
+        }
+
+        await codexDesktop.codexServer.respond({
+          serverId: prompt.serverId,
+          id: prompt.requestId,
+          result: { answers },
+        });
+        pushEvent("plan:input", translate("runtime.qaSubmitted", { count: prompt.questions.length }), {
+          threadId: promptThreadId || APP_TIMELINE_ID,
+        });
+      } else if (prompt.kind === "elicitationForm") {
+        const question = prompt.questions[0];
+        if (!question) return;
+        const draft = userInputStore.getDraft(promptThreadId, prompt.requestId, question.id);
+        const raw = String(draft[0] ?? "").trim();
+        const isEmptySchema = isEmptyMcpElicitationSchema(prompt.requestedSchema);
+        if (!raw && !isEmptySchema) {
+          const detail = translate("runtime.mcpInputIncomplete", { server: prompt.serverName });
+          pushEvent("mcp:elicitation:error", detail, { threadId: promptThreadId || APP_TIMELINE_ID, level: "error" });
+          showToast({ kind: "warn", title: translate("runtime.inputIncompleteTitle"), message: detail });
+          return;
+        }
+
+        let content: JsonValue = {};
+        try {
+          if (raw) content = JSON.parse(raw) as JsonValue;
+        } catch {
+          const detail = translate("runtime.mcpInputInvalidJson");
+          pushEvent("mcp:elicitation:error", detail, { threadId: promptThreadId || APP_TIMELINE_ID, level: "error" });
+          showToast({ kind: "warn", title: translate("runtime.invalidJsonTitle"), message: detail });
+          return;
+        }
+
+        await codexDesktop.codexServer.respond({
+          serverId: prompt.serverId,
+          id: prompt.requestId,
+          result: { action: "accept", content, _meta: null },
+        });
+        pushEvent("mcp:elicitation", translate("runtime.mcpInputSubmitted", { server: prompt.serverName }), {
+          threadId: promptThreadId || APP_TIMELINE_ID,
+        });
+      } else {
+        await codexDesktop.codexServer.respond({
+          serverId: prompt.serverId,
+          id: prompt.requestId,
+          result: { action: "accept", content: null, _meta: null },
+        });
+        pushEvent("mcp:elicitation", translate("runtime.mcpLinkConfirmed", { server: prompt.serverName }), {
+          threadId: promptThreadId || APP_TIMELINE_ID,
+        });
+      }
+
+      userInputStore.completeActivePrompt(promptThreadId);
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      const eventMethod =
+        prompt.method === "mcpServer/elicitation/request" ? "mcp:elicitation:error" : "plan:input:error";
+      const title =
+        prompt.method === "mcpServer/elicitation/request"
+          ? translate("runtime.mcpInputSubmitFailedTitle")
+          : translate("runtime.qaSubmitFailedTitle");
+      pushEvent(eventMethod, msg, { threadId: promptThreadId || APP_TIMELINE_ID, level: "error" });
+      showToast({ kind: "error", title, message: msg });
+    }
+  };
+
+  const cancelUserInputPromptForThread = async (threadIdValue: unknown) => {
+    const tid = String(threadIdValue ?? "").trim();
+    if (!tid) return;
+    const prompt = userInputStore.activePromptForThread(tid);
+    if (!prompt) return;
+    const promptThreadId = String(prompt.threadId || tid).trim();
+    if (!promptThreadId) return;
+    try {
+      if (prompt.method === "mcpServer/elicitation/request") {
+        await codexDesktop.codexServer.respond({
+          serverId: prompt.serverId,
+          id: prompt.requestId,
+          result: { action: "cancel", content: null, _meta: null },
+        });
+        pushEvent("mcp:elicitation:cancel", `${prompt.method} (id=${prompt.requestId})`, {
+          threadId: promptThreadId || APP_TIMELINE_ID,
+          level: "warn",
+        });
+      } else {
+        await codexDesktop.codexServer.respond({
+          serverId: prompt.serverId,
+          id: prompt.requestId,
+          error: { code: 4001, message: "request_user_input cancelled by user" },
+        });
+        pushEvent("plan:input:cancel", `${prompt.method} (id=${prompt.requestId})`, {
+          threadId: promptThreadId || APP_TIMELINE_ID,
+          level: "warn",
+        });
+      }
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent(prompt.method === "mcpServer/elicitation/request" ? "mcp:elicitation:error" : "plan:input:error", msg, {
+        threadId: promptThreadId || APP_TIMELINE_ID,
+        level: "error",
+      });
+      showToast({
+        kind: "error",
+        title:
+          prompt.method === "mcpServer/elicitation/request"
+            ? translate("runtime.cancelMcpInputFailedTitle")
+            : translate("runtime.cancelQaFailedTitle"),
+        message: msg,
+      });
+    } finally {
+      userInputStore.completeActivePrompt(promptThreadId);
+    }
+  };
+
+  const submitActiveUserInputPrompt = async () => {
+    const tid = String(runtimeStore.currentThreadId ?? "").trim();
+    if (!tid) return;
+    await submitUserInputPromptForThread(tid);
+  };
+
+  const cancelActiveUserInputPrompt = async () => {
+    const tid = String(runtimeStore.currentThreadId ?? "").trim();
+    if (!tid) return;
+    await cancelUserInputPromptForThread(tid);
+  };
+
+  const dismissActiveApprovalPrompt = () => {
+    const prompt = approvalStore.activePrompt;
+    if (!prompt) return;
+    approvalStore.remove(prompt.serverId, prompt.requestId);
+  };
+
+  const submitActiveApprovalPrompt = async (decisionRaw: unknown) => {
+    const prompt = approvalStore.activePrompt;
+    if (!prompt) return;
+    const decision = decisionRaw as any;
+    if (typeof decision === "string" && !decision.trim()) return;
+    if (decision == null) return;
+
+    const threadId = prompt.threadId || runtimeStore.currentThreadId || APP_TIMELINE_ID;
+
+    try {
+      if (prompt.method === "item/fileChange/requestApproval") {
+        // decision: accept | acceptForSession | decline | cancel
+        await codexDesktop.codexServer.respond({
+          serverId: prompt.serverId,
+          id: prompt.requestId,
+          result: { decision },
+        });
+        const decisionText = typeof decision === "string" ? decision : safeJsonStringify(decision, { space: 0 });
+        const level = typeof decisionText === "string" && decisionText.startsWith("accept") ? "info" : "warn";
+        pushEvent("approval:fileChange", `decision=${decisionText}`, { threadId, level });
+      } else if (prompt.method === "item/commandExecution/requestApproval") {
+        // decision: accept | acceptForSession | decline | cancel | { acceptWithExecpolicyAmendment } | { applyNetworkPolicyAmendment }
+        await codexDesktop.codexServer.respond({
+          serverId: prompt.serverId,
+          id: prompt.requestId,
+          result: { decision },
+        });
+        const decisionText = typeof decision === "string" ? decision : safeJsonStringify(decision, { space: 0 });
+        const normalized = typeof decisionText === "string" ? decisionText : "";
+        const level = normalized.includes("decline") || normalized.includes("cancel") ? "warn" : "info";
+        pushEvent("approval:commandExecution", `decision=${decisionText}`, { threadId, level });
+      } else if (prompt.method === "item/permissions/requestApproval") {
+        const normalizedDecision = typeof decision === "string" ? decision.trim().toLowerCase() : "";
+        if (normalizedDecision === "turn" || normalizedDecision === "session") {
+          await codexDesktop.codexServer.respond({
+            serverId: prompt.serverId,
+            id: prompt.requestId,
+            result: {
+              permissions: prompt.params.permissions,
+              scope: normalizedDecision,
+            },
+          });
+          pushEvent("approval:permissions", `scope=${normalizedDecision}`, { threadId, level: "info" });
+        } else {
+          const message =
+            normalizedDecision === "cancel"
+              ? "permissions request cancelled by user"
+              : "permissions request declined by user";
+          await codexDesktop.codexServer.respond({
+            serverId: prompt.serverId,
+            id: prompt.requestId,
+            error: { code: 4001, message },
+          });
+          pushEvent("approval:permissions", `decision=${normalizedDecision || "decline"}`, { threadId, level: "warn" });
+        }
+      }
+
+      approvalStore.remove(prompt.serverId, prompt.requestId);
+      const decisionText = typeof decision === "string" ? decision : safeJsonStringify(decision, { space: 0 });
+      showToast({
+        kind: "success",
+        title: translate("runtime.approvalSubmittedTitle"),
+        message: `decision=${decisionText}`,
+      });
+    } catch (e: any) {
+      const msg = e?.message ? String(e.message) : String(e);
+      pushEvent("approval:error", msg, { threadId, level: "error" });
+      showToast({ kind: "error", title: translate("runtime.approvalSubmitFailedTitle"), message: msg });
+    }
+  };
+
+  disposers.push(
+    codexDesktop.history.onUpdated((payload) => {
+      const items = Array.isArray(payload?.items) ? payload.items : [];
+      applyHistoryItems(items);
+    })
+  );
+  disposers.push(
+    codexDesktop.codexServer.onEvent((payload) => {
+      const msg = payload?.msg;
+      if (isCodexServerNotificationMessage(msg)) {
+        if (msg.method === "serverRequest/resolved") {
+          const resolvedThreadId = String(msg.params?.threadId ?? "").trim();
+          const requestId = msg.params?.requestId;
+          if (resolvedThreadId && (typeof requestId === "string" || typeof requestId === "number")) {
+            approvalStore.removeResolved(resolvedThreadId, requestId);
+            userInputStore.removePrompt(resolvedThreadId, requestId);
+          }
+        }
+
+        if (msg.method === "turn/completed") {
+          const threadId = String(msg.params?.threadId ?? "").trim();
+          if (threadId) {
+            void hydrateThreadHandoffDiagnostics(threadId, { force: true });
+            void notifyCompletedTurnIfBackground(threadId);
+            workspaceFilesStore.scheduleGitStatusRefresh(500);
+            setTimeout(() => {
+              if (!threadStore.runningThreadIds.has(threadId)) void flushQueueForThread(threadId);
+            }, 120);
+          }
+          return;
+        }
+
+        if (msg.method === "turn/started") {
+          return;
+        }
+
+        if (msg.method === "skills/changed") {
+          const eventServerId = normalizeWorkspacePath(payload?.serverId ?? "");
+          const workspace = normalizeWorkspacePath(
+            workspaceByServerId.get(eventServerId) ??
+              (eventServerId && eventServerId === runtimeStore.serverId ? runtimeStore.workspacePath : "")
+          );
+          if (workspace) invalidateSkillsSnapshot(workspace);
+          if (workspace && normalizeWorkspacePath(runtimeStore.workspacePath) === workspace)
+            scheduleSkillsRefresh(workspace);
+          return;
+        }
+
+        if (msg.method === "mcpServer/startupStatus/updated") {
+          const eventServerId = normalizeWorkspacePath(payload?.serverId ?? "");
+          const workspace = normalizeWorkspacePath(
+            workspaceByServerId.get(eventServerId) ??
+              (eventServerId && eventServerId === runtimeStore.serverId ? runtimeStore.workspacePath : "")
+          );
+          const params = (msg.params ?? {}) as Record<string, unknown>;
+          const name = String(params.name ?? "").trim();
+          const status = String(params.status ?? "").trim();
+          const error = String(params.error ?? "").trim();
+          if (workspace) {
+            invalidateMcpSnapshot(workspace);
+            applyMcpStartupStatusNotification({ workspace, name, status, error });
+            if (status === "ready" || status === "failed" || status === "cancelled") {
+              scheduleMcpStatusRefresh(workspace);
+            }
+          }
+          return;
+        }
+
+        if (msg.method === "mcpServer/oauthLogin/completed") {
+          const eventServerId = normalizeWorkspacePath(payload?.serverId ?? "");
+          const workspace = normalizeWorkspacePath(workspaceByServerId.get(eventServerId) ?? "");
+          if (workspace) invalidateMcpSnapshot(workspace);
+          if (!eventServerId || eventServerId === runtimeStore.serverId) void refreshMcp();
+          return;
+        }
+
+        return;
+      }
+
+      if (!isCodexLocalEventMessage(msg)) return;
+
+      if (msg.method === "codex/exit") {
+        const serverId = normalizeWorkspacePath(payload?.serverId ?? "");
+        const expected = Boolean(msg?.params?.expected);
+        const stoppedWorkspace = clearServerById(serverId);
+        if (stoppedWorkspace) {
+          for (const [threadId, workspace] of workspaceByThreadId.entries()) {
+            if (workspace !== stoppedWorkspace) continue;
+            threadStore.setThreadRunning(threadId, false);
+            threadStore.setActiveTurn(threadId, "");
+            resumedThreadIds.delete(threadId);
+            replayCacheByThread.delete(threadId);
+            replayWindowStateByThread.delete(threadId);
+            replayRequestSeqByThread.delete(threadId);
+            olderHistoryLoadPromiseByThread.delete(threadId);
+          }
+        }
+        const activeWorkspace = normalizeWorkspacePath(runtimeStore.workspacePath);
+        if (stoppedWorkspace && activeWorkspace === stoppedWorkspace) {
+          const activeServerId = syncActiveServerByWorkspace(activeWorkspace);
+          if (!activeServerId && !expected) {
+            appShellStore.setServerConnState("failed", "codex app-server exited");
+          }
+        } else if (runtimeStore.serverId === serverId) {
+          runtimeStore.clearServer();
+          if (!expected) appShellStore.setServerConnState("failed", "codex app-server exited");
+          else appShellStore.setServerConnState("disconnected");
+          resetSidePanelStores(translate("runtime.noService"));
+        }
+        return;
+      }
+      if (msg.method === "codex/protocolError") {
+        console.warn("[runtimeOrchestrator] protocol error", msg?.params ?? msg);
+        return;
+      }
+    })
+  );
+  disposers.push(installEventPipeline(pinia));
+  disposers.push(installRequestResponder(pinia));
+  void codexDesktop.history
+    .getThreadTitleOverrides()
+    .then((res) => {
+      threadStore.applyThreadTitleOverrides(res?.overrides ?? {});
+    })
+    .catch(() => {
+      threadStore.applyThreadTitleOverrides({});
+    });
+  void refreshHistory(false);
+  resetSidePanelStores(translate("runtime.noService"));
+
+  runtimeOrchestrator = {
+    dispose() {
+      // 窗口卸载/热重载时强制落盘输入草稿与线程级参数，避免防抖计时器未触发导致丢失。
+      try {
+        runtimeStore.flushPendingComposeStateSaves();
+      } catch {}
+      for (const timer of skillsRefreshTimersByWorkspace.values()) clearTimeout(timer);
+      skillsRefreshTimersByWorkspace.clear();
+      for (const timer of mcpStatusRefreshTimersByWorkspace.values()) clearTimeout(timer);
+      mcpStatusRefreshTimersByWorkspace.clear();
+      for (const dispose of disposers) {
+        try {
+          dispose();
+        } catch {}
+      }
+      runtimeOrchestrator = null;
+    },
+    checkEnvironment,
+    selectWorkspace,
+    switchWorkspace,
+    refreshHistory,
+    createThread,
+    switchThread,
+    loadOlderHistoryTurns,
+    deleteHistoryThread,
+    send,
+    sendHistoryRewriteDraft,
+    steerNow,
+    sendQueuedMessageNow,
+    editQueuedMessage,
+    removeQueuedMessage,
+    interruptTurn,
+    compactThread,
+    resetCodexMemory,
+    setCurrentThreadMemoryMode,
+    refreshThreadGoal,
+    promptAndSetCurrentThreadGoal,
+    setCurrentThreadGoal,
+    completeCurrentThreadGoal,
+    clearCurrentThreadGoal,
+    refreshGlobalConfig,
+    saveGlobalConfig,
+    resetGlobalConfig,
+    applyCodexProfile,
+    openExternalUrl,
+    readTextFile,
+    writeTextFile,
+    readWorkspaceDirectory,
+    getWorkspaceMetadata,
+    readWorkspaceTextFile,
+    deleteWorkspaceFile,
+    writeWorkspaceTextFile,
+    refreshSkills,
+    toggleSkill,
+    addSkillRoot,
+    removeSkillRoot,
+    refreshCodexConfigSwitcher,
+    importCurrentCodexConfigProfile,
+    activateCodexConfigProfile,
+    refreshMcp,
+    reloadMcpConfig,
+    toggleMcpEnabled,
+    deleteMcpServer,
+    importMcpServersFromJson,
+    startMcpOAuthLogin,
+    readThreadContent,
+    createThreadTask,
+    updateThreadTask,
+    listRendererCaches,
+    clearRendererCaches,
+    readMcpResource,
+    rollbackTurns,
+    submitUserInputPromptForThread,
+    cancelUserInputPromptForThread,
+    submitActiveUserInputPrompt,
+    cancelActiveUserInputPrompt,
+    submitActiveApprovalPrompt,
+    dismissActiveApprovalPrompt,
+  };
+  return runtimeOrchestrator;
+}
+
+export function getRuntimeOrchestrator(): RuntimeOrchestrator {
+  if (!runtimeOrchestrator) throw new Error("runtime orchestrator not initialized");
+  return runtimeOrchestrator;
+}

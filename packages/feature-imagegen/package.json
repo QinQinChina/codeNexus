@@ -1,0 +1,29 @@
+{
+  "name": "@codenexus/feature-imagegen",
+  "version": "1.0.1",
+  "private": true,
+  "type": "module",
+  "sideEffects": [
+    "**/*.vue"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts",
+    "./main/ImageGenerationHistoryService": "./src/main/ImageGenerationHistoryService.ts",
+    "./main/ImageGenerationTaskService": "./src/main/ImageGenerationTaskService.ts",
+    "./renderer/store": "./src/renderer/store.ts",
+    "./renderer/runtimeBridge": "./src/renderer/runtimeBridge.ts",
+    "./renderer/components/ImageWorkbench": "./src/renderer/components/ImageWorkbench.vue",
+    "./renderer/components/ImageWorkspaceSidebar": "./src/renderer/components/ImageWorkspaceSidebar.vue",
+    "./renderer/components/ImageSettingsSidebar": "./src/renderer/components/ImageSettingsSidebar.vue"
+  },
+  "dependencies": {
+    "@codenexus/shared": "workspace:*"
+  },
+  "peerDependencies": {
+    "lucide-vue-next": "^0.574.0",
+    "pinia": "^3.0.4",
+    "vue": "^3.5.28",
+    "vue-i18n": "^11.4.4"
+  }
+}
