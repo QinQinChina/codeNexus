@@ -49,6 +49,7 @@ import { createThreadCreationRuntime } from "./runtime/threadCreationRuntime";
 import { createThreadModelCompatibilityRuntime } from "./runtime/threadModelCompatibilityRuntime";
 import { createTurnStartRuntime } from "./runtime/turnStartRuntime";
 import { createWorkspaceFileRuntime } from "./runtime/workspaceFileRuntime";
+import { createWorkspaceSessionRuntime } from "./runtime/workspaceSessionRuntime";
 import { createPromptResponseRuntime } from "./runtime/promptResponseRuntime";
 import { createMessageQueueRuntime } from "./runtime/messageQueueRuntime";
 import { createThreadGoalRuntime } from "./runtime/threadGoalRuntime";
@@ -262,7 +263,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const codexConfigSwitcherStore = useCodexConfigSwitcherStore(pinia);
   const paperStore = usePaperStore(pinia);
 
-  // 运行期缓存：会话恢复、历史分页、工作区<->服务映射、右侧面板快照。
+  // 运行期缓存：会话恢复、历史分页、右侧面板快照。
   const resumedThreadIds = new Set<string>();
   const resumePromisesByThread = new Map<string, Promise<boolean>>();
   const replayCacheByThread = new Map<string, ThreadReplayCache>();
@@ -274,12 +275,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const resolveCurrentInstructionProfile = (): CodexInstructionProfile => {
     return resolveCodexInstructionProfileForMainView(appShellStore.mainView, { paperMode: paperStore.mode });
   };
-  const serverIdByWorkspace = new Map<string, string>();
-  const workspaceByServerId = new Map<string, string>();
-  const workspaceByThreadId = new Map<string, string>();
   const threadMetadataHydrationPromiseByWorkspace = new Map<string, Promise<void>>();
   const handoffDiagnosticsPromiseByThread = new Map<string, Promise<void>>();
-  let warnedExperimentalApiUnavailable = false;
   let latestSwitchThreadSeq = 0;
   const skillsSnapshotByWorkspace = new Map<string, SkillsSnapshot>();
   const mcpSnapshotByWorkspace = new Map<string, McpSnapshot>();
@@ -525,23 +522,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     userInputStore.resetAll();
   };
 
-  const setThreadWorkspace = (threadIdValue: string, workspacePathValue: string | undefined) => {
-    const threadId = String(threadIdValue ?? "").trim();
-    const workspace = normalizeWorkspacePath(String(workspacePathValue ?? ""));
-    if (!threadId) return;
-    if (!workspace) {
-      workspaceByThreadId.delete(threadId);
-      return;
-    }
-    workspaceByThreadId.set(threadId, workspace);
-  };
-
-  const clearThreadWorkspace = (threadIdValue: string) => {
-    const threadId = String(threadIdValue ?? "").trim();
-    if (!threadId) return;
-    workspaceByThreadId.delete(threadId);
-  };
-
   const findThreadListItem = (threadIdValue: string): ThreadHistoryItem | LocalThreadItem | undefined => {
     const threadId = String(threadIdValue ?? "").trim();
     if (!threadId) return undefined;
@@ -551,31 +531,40 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     );
   };
 
-  // 线程对应工作区的解析优先级：内存映射 > 历史记录 > 当前工作区。
-  const getWorkspaceForThread = (threadIdValue: string): string => {
-    const threadId = String(threadIdValue ?? "").trim();
-    if (!threadId) return "";
-    const mapped = normalizeWorkspacePath(workspaceByThreadId.get(threadId) ?? "");
-    if (mapped) return mapped;
-    const fromHistory = normalizeWorkspacePath(String(findThreadListItem(threadId)?.cwd ?? ""));
-    if (fromHistory) {
-      workspaceByThreadId.set(threadId, fromHistory);
-      return fromHistory;
-    }
-    return normalizeWorkspacePath(runtimeStore.workspacePath);
-  };
-
-  const getServerIdForWorkspace = (workspacePathValue: string): string => {
-    const workspace = normalizeWorkspacePath(workspacePathValue);
-    if (!workspace) return "";
-    return normalizeWorkspacePath(serverIdByWorkspace.get(workspace) ?? "");
-  };
-
-  const getServerIdForThread = (threadIdValue: string): string => {
-    const workspace = getWorkspaceForThread(threadIdValue);
-    if (!workspace) return "";
-    return getServerIdForWorkspace(workspace);
-  };
+  const workspaceSessionRuntime = createWorkspaceSessionRuntime({
+    appTimelineId: APP_TIMELINE_ID,
+    runtimeStore,
+    threadStore,
+    appShellStore,
+    workspaceFilesStore,
+    normalizeWorkspacePath,
+    findThreadListItem,
+    resetSidePanelStores,
+    applyCachedRightPanels,
+    refreshRightPanels: (opts) => refreshRightPanels(opts),
+    refreshHistory: (force) => refreshHistory(force),
+    hydrateThreadMetadataForWorkspace: (workspace) => hydrateThreadMetadataForWorkspace(workspace),
+    pushEvent,
+    translate,
+    showToast,
+  });
+  const {
+    setThreadWorkspace,
+    clearThreadWorkspace,
+    getWorkspaceForThread,
+    getWorkspaceForServerId,
+    getThreadWorkspaceEntries,
+    getServerIdForWorkspace,
+    getServerIdForThread,
+    requireActiveWorkspaceServerId,
+    syncActiveServerByWorkspace,
+    clearServerById,
+    ensureServerForWorkspace,
+    startServer,
+    ensureWorkspaceForSend,
+    selectWorkspace,
+    switchWorkspace,
+  } = workspaceSessionRuntime;
 
   const threadModelCompatibilityRuntime = createThreadModelCompatibilityRuntime({
     runtimeStore,
@@ -603,62 +592,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     clearThreadStartConfigOverrides,
     ensureThreadModelToolCompatibility,
   } = threadModelCompatibilityRuntime;
-
-  const requireActiveWorkspaceServerId = (): string => {
-    const serverId = getServerIdForWorkspace(runtimeStore.workspacePath);
-    if (!serverId) throw new Error("server not running");
-    return serverId;
-  };
-
-  const syncActiveServerByWorkspace = (workspacePathValue: string) => {
-    const workspace = normalizeWorkspacePath(workspacePathValue);
-    const serverId = getServerIdForWorkspace(workspace);
-    if (!serverId) {
-      runtimeStore.clearServer();
-      appShellStore.setServerConnState("disconnected");
-      resetSidePanelStores(translate("runtime.noService"));
-      return "";
-    }
-    runtimeStore.setServer(serverId);
-    appShellStore.setServerConnState("connected");
-    return serverId;
-  };
-
-  const warnExperimentalApiUnavailableOnce = (detail: string) => {
-    if (warnedExperimentalApiUnavailable) return;
-    warnedExperimentalApiUnavailable = true;
-    pushEvent("experimentalApi", detail || translate("runtime.experimentalApiUnavailableDetail"), {
-      threadId: APP_TIMELINE_ID,
-      level: "warn",
-    });
-    showToast({
-      kind: "warn",
-      title: translate("runtime.experimentalApiDisabledTitle"),
-      message: detail || translate("runtime.experimentalApiUnavailableMessage"),
-    });
-  };
-
-  // 启动成功后登记工作区与服务实例的双向映射。
-  const registerServerForWorkspace = (workspacePathValue: string, serverIdValue: string) => {
-    const workspace = normalizeWorkspacePath(workspacePathValue);
-    const serverId = normalizeWorkspacePath(serverIdValue);
-    if (!workspace || !serverId) return;
-    serverIdByWorkspace.set(workspace, serverId);
-    workspaceByServerId.set(serverId, workspace);
-  };
-
-  // 通过 serverId 回收映射并返回对应工作区。
-  const clearServerById = (serverIdValue: string) => {
-    const serverId = normalizeWorkspacePath(serverIdValue);
-    if (!serverId) return "";
-    const workspace = normalizeWorkspacePath(workspaceByServerId.get(serverId) ?? "");
-    workspaceByServerId.delete(serverId);
-    if (workspace) {
-      const mapped = normalizeWorkspacePath(serverIdByWorkspace.get(workspace) ?? "");
-      if (mapped === serverId) serverIdByWorkspace.delete(workspace);
-    }
-    return workspace;
-  };
 
   const configRuntime = createConfigRuntime({
     requireActiveWorkspaceServerId,
@@ -959,112 +892,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     resumedThreadIds.delete(id);
     resumePromisesByThread.delete(id);
     clearThreadStartConfigOverrides(id);
-    workspaceByThreadId.delete(id);
+    clearThreadWorkspace(id);
     if (runtimeStore.currentThreadId === id) {
       runtimeStore.setCurrentThread("", { savePrev: false });
       threadStore.setCurrentThread("");
     }
-  };
-
-  const ensureServerForWorkspace = async (workspacePathValue: string): Promise<string> => {
-    const workspace = normalizeWorkspacePath(workspacePathValue);
-    if (!workspace) return "";
-    const existingServerId = getServerIdForWorkspace(workspace);
-    if (existingServerId) {
-      if (normalizeWorkspacePath(runtimeStore.workspacePath) === workspace) {
-        syncActiveServerByWorkspace(workspace);
-      }
-      void hydrateThreadMetadataForWorkspace(workspace);
-      return existingServerId;
-    }
-    try {
-      if (normalizeWorkspacePath(runtimeStore.workspacePath) === workspace) {
-        appShellStore.setServerConnState("connecting");
-      }
-      const requestedExperimentalApi = true;
-      const res = await codexDesktop.codexServer.start({ cwd: workspace, experimentalApi: requestedExperimentalApi });
-      const serverId = normalizeWorkspacePath(String(res.serverId ?? ""));
-      if (!serverId) throw new Error("serverStart did not return serverId");
-      const experimentalApi = Boolean(res.capabilities?.experimentalApi);
-      registerServerForWorkspace(workspace, serverId);
-      if (normalizeWorkspacePath(runtimeStore.workspacePath) === workspace) {
-        runtimeStore.setServer(serverId);
-        appShellStore.setServerConnState("connected");
-      }
-      if (requestedExperimentalApi && !experimentalApi) {
-        warnExperimentalApiUnavailableOnce(translate("runtime.experimentalApiUnavailableDetail"));
-      }
-      pushEvent(
-        "server",
-        `started id=${serverId}\nworkspace=${workspace}\nexperimentalApi.requested=${requestedExperimentalApi}\nexperimentalApi.enabled=${experimentalApi}`,
-        { threadId: APP_TIMELINE_ID }
-      );
-
-      void Promise.allSettled([
-        refreshHistory(false),
-        hydrateThreadMetadataForWorkspace(workspace),
-        normalizeWorkspacePath(runtimeStore.workspacePath) === workspace
-          ? refreshRightPanels({ forceSkills: true, forceMcp: true })
-          : Promise.resolve(),
-      ]);
-      return serverId;
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : String(e);
-      if (normalizeWorkspacePath(runtimeStore.workspacePath) === workspace) {
-        appShellStore.setServerConnState("failed", msg);
-      }
-      pushEvent("server:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
-      showToast({ kind: "error", title: translate("runtime.serverStartFailedTitle"), message: msg });
-      return "";
-    }
-  };
-
-  const startServer = async () => {
-    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
-    if (!workspace) {
-      showToast({
-        kind: "warn",
-        title: translate("runtime.noWorkspaceSelected"),
-        message: translate("runtime.selectWorkspaceBeforeStartingServer"),
-      });
-      return false;
-    }
-    const serverId = await ensureServerForWorkspace(workspace);
-    return Boolean(serverId);
-  };
-
-  const applyWorkspaceSelection = async (selectedValue: string) => {
-    const selected = normalizeWorkspacePath(selectedValue);
-    if (!selected) return false;
-    if (selected !== normalizeWorkspacePath(runtimeStore.workspacePath)) {
-      const confirmed = await workspaceFilesStore.confirmResetDirtyTabsForWorkspaceChange(selected);
-      if (!confirmed) return false;
-    }
-    runtimeStore.setWorkspace(selected);
-    threadStore.setWorkspace(selected);
-    pushEvent("workspace", selected, { threadId: APP_TIMELINE_ID });
-    void workspaceFilesStore.ensureReady(true);
-    const activeServerId = syncActiveServerByWorkspace(selected);
-    if (activeServerId) {
-      applyCachedRightPanels(selected);
-      void refreshRightPanels();
-    }
-    return true;
-  };
-
-  const ensureWorkspaceForSend = async (): Promise<boolean> => {
-    const cwd = String(runtimeStore.workspacePath ?? "").trim();
-    if (cwd) return true;
-    const selected = await codexDesktop.workspace.select();
-    if (!selected) {
-      showToast({
-        kind: "info",
-        title: translate("runtime.sendCanceledTitle"),
-        message: translate("runtime.workspaceSelectionCanceledMessage"),
-      });
-      return false;
-    }
-    return await applyWorkspaceSelection(selected);
   };
 
   const ensureThreadResumed = async (threadId: string): Promise<boolean> => {
@@ -1183,23 +1015,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       showToast({ kind: "error", title: translate("runtime.checkFailedTitle"), message: msg });
       pushEvent("env:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
     }
-  };
-
-  const selectWorkspace = async () => {
-    const selected = await codexDesktop.workspace.select();
-    if (!selected) return;
-    const applied = await applyWorkspaceSelection(selected);
-    if (!applied) return;
-    await startServer();
-  };
-
-  const switchWorkspace = async (workspacePathValue: string): Promise<boolean> => {
-    const workspace = normalizeWorkspacePath(workspacePathValue);
-    if (!workspace) return false;
-    const applied = await applyWorkspaceSelection(workspace);
-    if (!applied) return false;
-    await startServer();
-    return true;
   };
 
   const switchThread = async (threadId: string) => {
@@ -1852,7 +1667,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         if (msg.method === "skills/changed") {
           const eventServerId = normalizeWorkspacePath(payload?.serverId ?? "");
           const workspace = normalizeWorkspacePath(
-            workspaceByServerId.get(eventServerId) ??
+            getWorkspaceForServerId(eventServerId) ||
               (eventServerId && eventServerId === runtimeStore.serverId ? runtimeStore.workspacePath : "")
           );
           if (workspace) invalidateSkillsSnapshot(workspace);
@@ -1864,7 +1679,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         if (msg.method === "mcpServer/startupStatus/updated") {
           const eventServerId = normalizeWorkspacePath(payload?.serverId ?? "");
           const workspace = normalizeWorkspacePath(
-            workspaceByServerId.get(eventServerId) ??
+            getWorkspaceForServerId(eventServerId) ||
               (eventServerId && eventServerId === runtimeStore.serverId ? runtimeStore.workspacePath : "")
           );
           const params = (msg.params ?? {}) as Record<string, unknown>;
@@ -1883,7 +1698,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
 
         if (msg.method === "mcpServer/oauthLogin/completed") {
           const eventServerId = normalizeWorkspacePath(payload?.serverId ?? "");
-          const workspace = normalizeWorkspacePath(workspaceByServerId.get(eventServerId) ?? "");
+          const workspace = normalizeWorkspacePath(getWorkspaceForServerId(eventServerId));
           if (workspace) invalidateMcpSnapshot(workspace);
           if (!eventServerId || eventServerId === runtimeStore.serverId) void refreshMcp();
           return;
@@ -1899,7 +1714,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         const expected = Boolean(msg?.params?.expected);
         const stoppedWorkspace = clearServerById(serverId);
         if (stoppedWorkspace) {
-          for (const [threadId, workspace] of workspaceByThreadId.entries()) {
+          for (const [threadId, workspace] of getThreadWorkspaceEntries()) {
             if (workspace !== stoppedWorkspace) continue;
             threadStore.setThreadRunning(threadId, false);
             threadStore.setActiveTurn(threadId, "");
