@@ -62,6 +62,7 @@ import { createThreadMetadataRuntime } from "./runtime/threadMetadataRuntime";
 import { createCodexProfileRuntime } from "./runtime/codexProfileRuntime";
 import { createCodexConfigSwitcherRuntime } from "./runtime/codexConfigSwitcherRuntime";
 import { createMcpManagementRuntime } from "./runtime/mcpManagementRuntime";
+import { createSkillsManagementRuntime } from "./runtime/skillsManagementRuntime";
 import { invalidateThreadContentCache, type ThreadContentCacheEntry } from "./runtime/rendererCacheRuntime";
 import {
   buildConfigBatchChangesFromDraft,
@@ -296,7 +297,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   let latestSwitchThreadSeq = 0;
   const skillsSnapshotByWorkspace = new Map<string, SkillsSnapshot>();
   const mcpSnapshotByWorkspace = new Map<string, McpSnapshot>();
-  const skillsRefreshTimersByWorkspace = new Map<string, ReturnType<typeof setTimeout>>();
   let globalConfigAutoLoadAttempted = false;
   const disposers: Array<() => void> = [];
   const THREAD_PREPARING_EVENT_ID = "local:threadPreparing";
@@ -929,109 +929,22 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     writeWorkspaceTextFile,
   } = workspaceFileRuntime;
 
-  const refreshSkills = async (forceReload = false) => {
-    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
-    if (!getServerIdForWorkspace(workspace)) {
-      skillsStore.resetState(translate("runtime.noService"));
-      return;
-    }
-    if (!workspace) {
-      skillsStore.resetState(translate("runtime.noWorkspaceSelected"));
-      return;
-    }
-    const hasVisibleData = skillsStore.loadState === "ready" && skillsStore.items.length > 0;
-    if (forceReload || !hasVisibleData) {
-      skillsStore.setLoadState("loading");
-    }
-    try {
-      const res = await requestSkillsList(forceReload);
-      skillsStore.setItems(res.entries);
-      skillsStore.setParseErrors(res.errors);
-      skillsStore.setSummary(res.summary);
-      skillsStore.setLoadState("ready");
-      saveSkillsSnapshot(workspace, {
-        items: res.entries,
-        parseErrors: res.errors,
-        summary: res.summary,
-      });
-      if (res.entries.length === 0) {
-        pushEvent("skills:empty", res.summary, { threadId: APP_TIMELINE_ID });
-      }
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : String(e);
-      if (hasVisibleData) {
-        skillsStore.setLoadState("ready");
-      } else {
-        skillsStore.setLoadState("error", msg);
-      }
-    }
-  };
-
-  const scheduleSkillsRefresh = (workspacePathValue: string) => {
-    const workspace = normalizeWorkspacePath(workspacePathValue);
-    if (!workspace) return;
-    const existing = skillsRefreshTimersByWorkspace.get(workspace);
-    if (existing) clearTimeout(existing);
-    const timer = setTimeout(() => {
-      skillsRefreshTimersByWorkspace.delete(workspace);
-      if (normalizeWorkspacePath(runtimeStore.workspacePath) !== workspace) return;
-      if (!getServerIdForWorkspace(workspace)) return;
-      void refreshSkills(true);
-    }, SKILLS_REFRESH_DEBOUNCE_MS);
-    skillsRefreshTimersByWorkspace.set(workspace, timer);
-  };
-
-  const toggleSkill = async (skillPath: string, enabled: boolean) => {
-    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
-    if (!getServerIdForWorkspace(workspace)) return;
-    try {
-      await writeSkillConfig(skillPath, enabled);
-      invalidateSkillsSnapshot(workspace);
-      pushEvent("skills", `${enabled ? "enabled" : "disabled"}\n${skillPath}`, { threadId: APP_TIMELINE_ID });
-      await refreshSkills(true);
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : String(e);
-      pushEvent("skills:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
-      showToast({ kind: "error", title: translate("runtime.skillConfigFailedTitle"), message: msg });
-      throw e;
-    }
-  };
-
-  const addSkillRoot = async (root: string) => {
-    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
-    if (!workspace) throw new Error(translate("runtime.workspaceRequired"));
-    const normalizedRoot = String(root ?? "").trim();
-    if (!normalizedRoot) throw new Error(translate("runtime.skillRootRequired"));
-    try {
-      await codexSkillRootsStore.addRootForWorkspace(workspace, normalizedRoot);
-      invalidateSkillsSnapshot(workspace);
-      pushEvent("skills:roots", `added\n${normalizedRoot}`, { threadId: APP_TIMELINE_ID });
-      await refreshSkills(true);
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : String(e);
-      pushEvent("skills:roots:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
-      showToast({ kind: "error", title: translate("runtime.skillRootAddFailedTitle"), message: msg });
-      throw e;
-    }
-  };
-
-  const removeSkillRoot = async (root: string) => {
-    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
-    if (!workspace) throw new Error(translate("runtime.workspaceRequired"));
-    const normalizedRoot = String(root ?? "").trim();
-    if (!normalizedRoot) return;
-    try {
-      await codexSkillRootsStore.removeRootForWorkspace(workspace, normalizedRoot);
-      invalidateSkillsSnapshot(workspace);
-      pushEvent("skills:roots", `removed\n${normalizedRoot}`, { threadId: APP_TIMELINE_ID });
-      await refreshSkills(true);
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : String(e);
-      pushEvent("skills:roots:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
-      showToast({ kind: "error", title: translate("runtime.skillRootRemoveFailedTitle"), message: msg });
-      throw e;
-    }
-  };
+  const skillsManagementRuntime = createSkillsManagementRuntime({
+    appTimelineId: APP_TIMELINE_ID,
+    skillsStore,
+    codexSkillRootsStore,
+    skillsRefreshDebounceMs: SKILLS_REFRESH_DEBOUNCE_MS,
+    getWorkspacePath: () => String(runtimeStore.workspacePath ?? "").trim(),
+    getServerIdForWorkspace,
+    requestSkillsList,
+    writeSkillConfig,
+    saveSkillsSnapshot,
+    invalidateSkillsSnapshot,
+    pushEvent,
+    translate,
+    showToast,
+  });
+  const { refreshSkills, scheduleSkillsRefresh, toggleSkill, addSkillRoot, removeSkillRoot } = skillsManagementRuntime;
 
   const codexConfigSwitcherRuntime = createCodexConfigSwitcherRuntime({
     codexConfigSwitcherStore,
@@ -2591,8 +2504,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       try {
         runtimeStore.flushPendingComposeStateSaves();
       } catch {}
-      for (const timer of skillsRefreshTimersByWorkspace.values()) clearTimeout(timer);
-      skillsRefreshTimersByWorkspace.clear();
+      skillsManagementRuntime.dispose();
       mcpManagementRuntime.dispose();
       for (const dispose of disposers) {
         try {
