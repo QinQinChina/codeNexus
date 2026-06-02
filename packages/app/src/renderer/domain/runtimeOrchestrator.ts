@@ -46,6 +46,7 @@ import { createMcpResourceReadRuntime } from "./runtime/mcpResourceRuntime";
 import { createSkillsRuntime } from "./runtime/skillsRuntime";
 import { createTurnInputRuntime } from "./runtime/turnInputRuntime";
 import { createThreadCreationRuntime } from "./runtime/threadCreationRuntime";
+import { createThreadModelCompatibilityRuntime } from "./runtime/threadModelCompatibilityRuntime";
 import { createTurnStartRuntime } from "./runtime/turnStartRuntime";
 import { createWorkspaceFileRuntime } from "./runtime/workspaceFileRuntime";
 import { createPromptResponseRuntime } from "./runtime/promptResponseRuntime";
@@ -91,7 +92,6 @@ import type {
 } from "./types";
 import {
   buildThreadStartConfigOverridesForModel,
-  hasThreadStartConfigOverridesForModel,
   type ThreadStartConfigOverrides,
 } from "@codenexus/shared/modelToolFeatureOverrides";
 import { buildBuiltinDynamicToolSpecs } from "@codenexus/shared/dynamicTools";
@@ -269,7 +269,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const replayWindowStateByThread = new Map<string, ThreadReplayWindowState>();
   const replayRequestSeqByThread = new Map<string, number>();
   const olderHistoryLoadPromiseByThread = new Map<string, Promise<boolean>>();
-  const threadStartConfigOverridesByThreadId = new Map<string, ThreadStartConfigOverrides>();
   const threadContentCacheByKey = new Map<string, ThreadContentCacheEntry>();
 
   const resolveCurrentInstructionProfile = (): CodexInstructionProfile => {
@@ -332,16 +331,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const elapsedMs = (startedAt: number) => Number((perfNow() - startedAt).toFixed(1));
 
   const normalizeWorkspacePath = (value: string) => String(value ?? "").trim();
-
-  const rememberThreadStartConfigOverrides = (
-    threadIdValue: string,
-    overrides: ThreadStartConfigOverrides | null | undefined
-  ) => {
-    const threadId = String(threadIdValue ?? "").trim();
-    if (!threadId) return;
-    if (overrides) threadStartConfigOverridesByThreadId.set(threadId, { ...overrides });
-    else threadStartConfigOverridesByThreadId.delete(threadId);
-  };
 
   const buildThreadStartParamsForModel = (args: {
     model: string;
@@ -587,6 +576,33 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     if (!workspace) return "";
     return getServerIdForWorkspace(workspace);
   };
+
+  const threadModelCompatibilityRuntime = createThreadModelCompatibilityRuntime({
+    runtimeStore,
+    threadStore,
+    timelineStore,
+    messageQueueStore,
+    resumedThreadIds,
+    resumePromisesByThread,
+    threadScopedCaches: [
+      replayCacheByThread,
+      replayWindowStateByThread,
+      replayRequestSeqByThread,
+      olderHistoryLoadPromiseByThread,
+    ],
+    normalizeWorkspacePath,
+    buildThreadStartParamsForModel,
+    findThreadListItem,
+    setThreadWorkspace,
+    clearThreadWorkspace,
+    pushEvent,
+    translate,
+  });
+  const {
+    rememberThreadStartConfigOverrides,
+    clearThreadStartConfigOverrides,
+    ensureThreadModelToolCompatibility,
+  } = threadModelCompatibilityRuntime;
 
   const requireActiveWorkspaceServerId = (): string => {
     const serverId = getServerIdForWorkspace(runtimeStore.workspacePath);
@@ -942,7 +958,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     olderHistoryLoadPromiseByThread.delete(id);
     resumedThreadIds.delete(id);
     resumePromisesByThread.delete(id);
-    threadStartConfigOverridesByThreadId.delete(id);
+    clearThreadStartConfigOverrides(id);
     workspaceByThreadId.delete(id);
     if (runtimeStore.currentThreadId === id) {
       runtimeStore.setCurrentThread("", { savePrev: false });
@@ -1111,191 +1127,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     showToast,
   });
   const { rollbackHistoryRewriteBeforeSend } = historyRewriteRuntime;
-
-  const hasThreadModelToolConfigForModel = (threadIdValue: string, modelValue: string): boolean => {
-    const threadId = String(threadIdValue ?? "").trim();
-    if (!threadId) return false;
-    return hasThreadStartConfigOverridesForModel(threadStartConfigOverridesByThreadId.get(threadId), modelValue);
-  };
-
-  const hasStartedConversationActivity = (threadIdValue: string): boolean => {
-    const threadId = String(threadIdValue ?? "").trim();
-    if (!threadId) return false;
-    return timelineStore.eventsForThread(threadId).some((event) => {
-      const method = String(event.method ?? "").trim();
-      return (
-        event.localKind === "user" ||
-        method === "user" ||
-        method.startsWith("turn/") ||
-        method.startsWith("item/") ||
-        method.startsWith("local/")
-      );
-    });
-  };
-
-  const canRecreateEmptyUnpersistedThreadForModelConfig = (threadIdValue: string): boolean => {
-    const threadId = String(threadIdValue ?? "").trim();
-    if (!threadId) return false;
-    if (!threadStore.hasLocalThread(threadId)) return false;
-    if (threadStore.runningThreadIds.has(threadId)) return false;
-    return !hasStartedConversationActivity(threadId);
-  };
-
-  const recreateEmptyUnpersistedThreadForModelConfig = async (args: {
-    threadId: string;
-    threadWorkspace: string;
-    threadServerId: string;
-    model: string;
-  }): Promise<string> => {
-    const oldThreadId = String(args.threadId ?? "").trim();
-    const workspace = normalizeWorkspacePath(args.threadWorkspace);
-    const serverId = String(args.threadServerId ?? "").trim();
-    const model = normalizeModelName(args.model);
-    if (!oldThreadId || !workspace || !serverId) throw new Error("invalid thread recreation params");
-
-    const existing = threadStore.threadHistory.find((item) => item.id === oldThreadId);
-    const oldLocalThread = threadStore.localThreads.find((item) => item.id === oldThreadId);
-    const { params: threadStartParams, configOverrides } = buildThreadStartParamsForModel({
-      model,
-      workspace,
-      sandboxMode: runtimeStore.sandboxMode,
-    });
-    const startedAt = perfNow();
-    appendDebugLog("thread.create", "recreate empty thread for model config begin", {
-      oldThreadId,
-      workspace,
-      model,
-      config: threadStartParams.config ?? null,
-    });
-
-    const res = await codexDesktop.codexServer.rpc({
-      serverId,
-      method: "thread/start",
-      params: threadStartParams,
-    });
-    const newThreadId = String(res.result?.thread?.id ?? "").trim();
-    if (!newThreadId) throw new Error("thread/start did not return thread id");
-
-    const oldTitle = String(existing?.title ?? oldLocalThread?.title ?? "").trim();
-    const oldFallback = fallbackThreadTitle(oldThreadId);
-    const nextTitle = oldTitle && oldTitle !== oldFallback ? oldTitle : fallbackThreadTitle(newThreadId);
-    const now = Date.now();
-    const nextLocalThread: LocalThreadItem = {
-      ...(oldLocalThread ?? {}),
-      id: newThreadId,
-      title: nextTitle,
-      meta: String(existing?.meta ?? oldLocalThread?.meta ?? workspace).trim() || translate("runtime.noWorkspace"),
-      cwd: workspace || undefined,
-      createdAt: oldLocalThread?.createdAt ?? now,
-      updatedAt: now,
-      running: false,
-      status: "ready",
-    };
-
-    runtimeStore.moveThreadComposeState(oldThreadId, newThreadId);
-    runtimeStore.movePendingThreadInitSendCount(oldThreadId, newThreadId);
-    timelineStore.moveThread(oldThreadId, newThreadId);
-    threadStore.replaceThreadId(oldThreadId, newThreadId);
-    threadStore.replaceLocalThreadId(oldThreadId, newThreadId, nextLocalThread);
-    messageQueueStore.moveThreadQueue(oldThreadId, newThreadId);
-    resumedThreadIds.delete(oldThreadId);
-    resumedThreadIds.add(newThreadId);
-    resumePromisesByThread.delete(oldThreadId);
-    threadStartConfigOverridesByThreadId.delete(oldThreadId);
-    rememberThreadStartConfigOverrides(newThreadId, configOverrides);
-    replayCacheByThread.delete(oldThreadId);
-    replayWindowStateByThread.delete(oldThreadId);
-    replayRequestSeqByThread.delete(oldThreadId);
-    olderHistoryLoadPromiseByThread.delete(oldThreadId);
-    setThreadWorkspace(newThreadId, workspace);
-    clearThreadWorkspace(oldThreadId);
-    runtimeStore.setCurrentThread(newThreadId, { savePrev: false });
-    threadStore.setCurrentThread(newThreadId);
-
-    appendDebugLog("thread.create", "recreate empty thread for model config resolved", {
-      oldThreadId,
-      threadId: newThreadId,
-      model,
-      elapsedMs: elapsedMs(startedAt),
-    });
-    return newThreadId;
-  };
-
-  const resumeThreadWithModelToolConfig = async (args: {
-    threadId: string;
-    threadWorkspace: string;
-    threadServerId: string;
-    model: string;
-    configOverrides: ThreadStartConfigOverrides;
-  }): Promise<boolean> => {
-    const threadId = String(args.threadId ?? "").trim();
-    const workspace = normalizeWorkspacePath(args.threadWorkspace);
-    const serverId = String(args.threadServerId ?? "").trim();
-    const model = normalizeModelName(args.model);
-    if (!threadId || !workspace || !serverId) return false;
-    try {
-      const resumeParams: ThreadResumeParams = {
-        threadId,
-        model,
-        cwd: workspace,
-        config: { ...args.configOverrides },
-        persistExtendedHistory: true,
-      };
-      const res = await codexDesktop.codexServer.rpc({ serverId, method: "thread/resume", params: resumeParams });
-      const appliedModel = normalizeModelName((res.result as any)?.model ?? model);
-      if (appliedModel !== model) return false;
-      resumedThreadIds.add(threadId);
-      rememberThreadStartConfigOverrides(threadId, args.configOverrides);
-      return true;
-    } catch (error) {
-      pushEvent("thread:resume:error", readErrorMessage(error), { threadId, level: "error" });
-      return false;
-    }
-  };
-
-  const ensureThreadModelToolCompatibility = async (args: {
-    threadId: string;
-    threadWorkspace: string;
-    threadServerId: string;
-    model: string;
-  }): Promise<{ ok: true; threadId: string } | { ok: false; error: string }> => {
-    const threadId = String(args.threadId ?? "").trim();
-    const model = normalizeModelName(args.model);
-    const configOverrides = buildThreadStartConfigOverridesForModel(model);
-    if (!configOverrides) return { ok: true, threadId };
-    if (hasThreadModelToolConfigForModel(threadId, model)) return { ok: true, threadId };
-
-    if (canRecreateEmptyUnpersistedThreadForModelConfig(threadId)) {
-      try {
-        const nextThreadId = await recreateEmptyUnpersistedThreadForModelConfig({
-          threadId,
-          threadWorkspace: args.threadWorkspace,
-          threadServerId: args.threadServerId,
-          model,
-        });
-        return { ok: true, threadId: nextThreadId };
-      } catch (error) {
-        return {
-          ok: false,
-          error: readErrorMessage(error) || translate("runtime.createImageGenerationDisabledThreadFailed"),
-        };
-      }
-    }
-
-    const resumed = await resumeThreadWithModelToolConfig({
-      threadId,
-      threadWorkspace: args.threadWorkspace,
-      threadServerId: args.threadServerId,
-      model,
-      configOverrides,
-    });
-    if (resumed && hasThreadModelToolConfigForModel(threadId, model)) return { ok: true, threadId };
-
-    return {
-      ok: false,
-      error: translate("runtime.cannotDisableOfficialImageGenerationForThread"),
-    };
-  };
 
   const checkEnvironment = async () => {
     showToast({
