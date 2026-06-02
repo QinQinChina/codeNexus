@@ -42,7 +42,6 @@ import { useCodexSkillRootsStore } from "../stores/codexSkillRoots.store";
 import { useCodexConfigSwitcherStore } from "../stores/codexConfigSwitcher.store";
 import { usePaperStore } from "@codenexus/feature-paper";
 import { resolveCodexInstructionProfileForMainView } from "../features/registry";
-import { resolveHistoryRewriteRollback } from "./historyRewriteRollback";
 import { useApprovalStore } from "../stores/approval.store";
 import { useWorkspaceFilesStore } from "../stores/workspaceFiles.store";
 import { installEventPipeline } from "../processes/protocol-event-pipeline/installEventPipeline";
@@ -75,6 +74,8 @@ import { createPromptResponseRuntime } from "./runtime/promptResponseRuntime";
 import { createMessageQueueRuntime } from "./runtime/messageQueueRuntime";
 import { createThreadGoalRuntime } from "./runtime/threadGoalRuntime";
 import { createThreadMemoryRuntime } from "./runtime/threadMemoryRuntime";
+import { createThreadRollbackRuntime } from "./runtime/threadRollbackRuntime";
+import { createHistoryRewriteRuntime } from "./runtime/historyRewriteRuntime";
 import { invalidateThreadContentCache, type ThreadContentCacheEntry } from "./runtime/rendererCacheRuntime";
 import {
   buildConfigBatchChangesFromDraft,
@@ -191,16 +192,6 @@ type JsonRpcErrorLike = {
   code: number;
   message: string;
 };
-
-async function confirmModalLazy(options: Parameters<(typeof import("../ui/modal"))["confirmModal"]>[0]) {
-  const { confirmModal } = await import("../ui/modal");
-  return confirmModal(options);
-}
-
-async function promptNumberModalLazy(options: Parameters<(typeof import("../ui/modal"))["promptNumberModal"]>[0]) {
-  const { promptNumberModal } = await import("../ui/modal");
-  return promptNumberModal(options);
-}
 
 async function parseSessionReplayEventsLazy(
   entries: Parameters<(typeof import("../features/history/replayParsers"))["parseSessionReplayEvents"]>[0],
@@ -783,27 +774,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const { requestMcpStatusList, requestReloadMcpConfig, requestStartMcpOAuthLogin, requestMcpResourceRead } =
     mcpRuntime;
 
-  const requestThreadRollback = async (threadIdValue: string, turns: number): Promise<boolean> => {
-    const tid = String(threadIdValue ?? "").trim();
-    if (!tid) return false;
-    const serverId = getServerIdForThread(tid);
-    if (!serverId) return false;
-    const n = Number.isFinite(turns) ? Math.max(1, Math.round(turns)) : 1;
-    try {
-      await codexDesktop.codexServer.rpc({
-        serverId,
-        method: "thread/rollback",
-        params: { threadId: tid, numTurns: n },
-      });
-      return true;
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : String(e);
-      pushEvent("rollback:error", msg || "thread/rollback failed", { threadId: tid, level: "error" });
-      showToast({ kind: "error", title: translate("runtime.rollbackFailedTitle"), message: "thread/rollback failed" });
-      return false;
-    }
-  };
-
   const requestTurnInterrupt = async (
     threadIdValue: string,
     turnIdValue: string,
@@ -823,251 +793,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       pushEvent("interrupt:error", msg || "turn/interrupt failed", { threadId, level: "error" });
       return false;
     }
-  };
-
-  const resolveHistoryRewriteAnchorTurnId = (threadIdValue: string): string => {
-    const directTurnId = String(runtimeStore.historyRewriteAnchorTurnId ?? "").trim();
-    if (directTurnId) return directTurnId;
-
-    const anchorEventId = String(runtimeStore.historyRewriteAnchorEventId ?? "").trim();
-    if (!anchorEventId) return "";
-    const anchorEvent = timelineStore
-      .eventsForThread(threadIdValue)
-      .find((event) => String(event?.id ?? "").trim() === anchorEventId);
-    return String(anchorEvent?.turnId ?? "").trim();
-  };
-
-  const isHistoryRewriteAnchorUserEvent = (event: TimelineEventItem, anchorTurnId: string): boolean => {
-    if (String(event?.turnId ?? "").trim() !== anchorTurnId) return false;
-    return event.localKind === "user" || event.method === "user";
-  };
-
-  const isOutputAfterHistoryRewriteAnchor = (event: TimelineEventItem): boolean => {
-    if (event.hidden) return false;
-    if (event.localKind === "thinking" || event.method === "local/thinking") return false;
-    if (
-      event.method === "turn/started" ||
-      event.method === "turn/completed" ||
-      event.method === "turn/diff/updated" ||
-      event.method === "thread/tokenUsage/updated" ||
-      event.method === "local/contextCompaction"
-    ) {
-      return false;
-    }
-    return true;
-  };
-
-  const hasOutputBelowHistoryRewriteAnchor = (threadIdValue: string, anchorTurnIdValue: string): boolean | null => {
-    const anchorTurnId = String(anchorTurnIdValue ?? "").trim();
-    if (!anchorTurnId) return null;
-    const events = timelineStore.eventsForThread(threadIdValue);
-    const anchorIndex = events.findIndex((event) => isHistoryRewriteAnchorUserEvent(event, anchorTurnId));
-    if (anchorIndex < 0) return null;
-    return events.slice(anchorIndex + 1).some(isOutputAfterHistoryRewriteAnchor);
-  };
-
-  type HistoryRewriteRunningStopState = "stopped" | "output" | "timeout";
-
-  const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-
-  const waitForHistoryRewriteRunningTurnToStop = async (
-    threadIdValue: string,
-    anchorTurnIdValue: string
-  ): Promise<HistoryRewriteRunningStopState> => {
-    const threadId = String(threadIdValue ?? "").trim();
-    const anchorTurnId = String(anchorTurnIdValue ?? "").trim();
-    const deadline = Date.now() + 12_000;
-    while (Date.now() < deadline) {
-      if (hasOutputBelowHistoryRewriteAnchor(threadId, anchorTurnId) === true) return "output";
-      if (!threadStore.runningThreadIds.has(threadId)) return "stopped";
-      const activeTurnId = String(threadStore.activeTurnIdByThread.get(threadId) ?? "").trim();
-      if (activeTurnId && activeTurnId !== anchorTurnId) return "stopped";
-      await sleep(100);
-    }
-    return threadStore.runningThreadIds.has(threadId) ? "timeout" : "stopped";
-  };
-
-  const rollbackHistoryRewriteBeforeSend = async (
-    threadIdValue: string,
-    opts?: { anchorTurnId?: string; force?: boolean }
-  ): Promise<boolean> => {
-    const forcedAnchorTurnId = String(opts?.anchorTurnId ?? "").trim();
-    const forceRewrite = Boolean(opts?.force || forcedAnchorTurnId);
-    if (!forceRewrite && (!runtimeStore.historyRewriteActive || runtimeStore.historyRewriteSource !== "history")) {
-      return true;
-    }
-
-    const tid = String(threadIdValue ?? "").trim();
-    if (!tid) {
-      showToast({
-        kind: "info",
-        title: translate("runtime.rewriteUnavailableTitle"),
-        message: translate("runtime.noThreadSelected"),
-      });
-      return false;
-    }
-
-    const workspace = normalizeWorkspacePath(getWorkspaceForThread(tid) || runtimeStore.workspacePath);
-    const serverId = getServerIdForThread(tid);
-    if (!workspace) {
-      showToast({
-        kind: "error",
-        title: translate("runtime.rewriteUnavailableTitle"),
-        message: translate("runtime.workspaceUnavailable"),
-      });
-      return false;
-    }
-    if (!serverId) {
-      showToast({
-        kind: "error",
-        title: translate("runtime.rewriteUnavailableTitle"),
-        message: translate("runtime.serviceUnavailable"),
-      });
-      return false;
-    }
-
-    const anchorTurnId = forcedAnchorTurnId || resolveHistoryRewriteAnchorTurnId(tid);
-    let noVisibleOutputBelowAnchor = hasOutputBelowHistoryRewriteAnchor(tid, anchorTurnId) === false;
-    if (threadStore.runningThreadIds.has(tid)) {
-      const activeTurnId = String(threadStore.activeTurnIdByThread.get(tid) ?? "").trim();
-      if (!noVisibleOutputBelowAnchor || !activeTurnId || activeTurnId !== anchorTurnId) {
-        showToast({
-          kind: "warn",
-          title: translate("runtime.threadRunningTitle"),
-          message: translate("runtime.waitBeforeSendingEditedMessage"),
-        });
-        return false;
-      }
-      const interrupted = await requestTurnInterrupt(tid, anchorTurnId, { silentSuccess: true });
-      if (!interrupted) {
-        showToast({
-          kind: "error",
-          title: translate("runtime.rewriteFailedTitle"),
-          message: translate("runtime.stopTurnFailed"),
-        });
-        return false;
-      }
-      const stopped = await waitForHistoryRewriteRunningTurnToStop(tid, anchorTurnId);
-      if (stopped === "timeout") {
-        showToast({
-          kind: "warn",
-          title: translate("runtime.rewriteWaitTimeoutTitle"),
-          message: translate("runtime.turnStillRunningRetry"),
-        });
-        return false;
-      }
-      if (threadStore.runningThreadIds.has(tid)) {
-        showToast({
-          kind: "warn",
-          title: translate("runtime.threadRunningTitle"),
-          message: translate("runtime.turnStillRunningRetry"),
-        });
-        return false;
-      }
-      noVisibleOutputBelowAnchor = hasOutputBelowHistoryRewriteAnchor(tid, anchorTurnId) === false;
-    }
-
-    const rollback = resolveHistoryRewriteRollback(threadStore.completedTurnsByThread.get(tid) ?? [], anchorTurnId);
-    if (!rollback) {
-      if (noVisibleOutputBelowAnchor) {
-        timelineStore.removeTurnEvents(tid, [anchorTurnId]);
-        return true;
-      }
-      showToast({
-        kind: "error",
-        title: translate("runtime.rewriteUnavailableTitle"),
-        message: translate("runtime.rewriteRollbackNotFound"),
-      });
-      return false;
-    }
-
-    if (!noVisibleOutputBelowAnchor) {
-      let confirmed = false;
-      try {
-        confirmed = await confirmModalLazy({
-          title: translate("runtime.sendEditedHistoryTitle"),
-          message: translate("runtime.sendEditedHistoryMessage", { count: rollback.count }),
-          detail: translate("runtime.rollbackDetail"),
-          confirmText: translate("runtime.rollbackAndSend"),
-          cancelText: translate("common.cancel"),
-          danger: true,
-        });
-      } catch (e: any) {
-        const msg = e?.message ? String(e.message) : String(e);
-        const isBusy = msg.includes("another modal is already open");
-        showToast({
-          kind: isBusy ? "warn" : "error",
-          title: translate("runtime.confirmModalOpenFailedTitle"),
-          message: isBusy ? translate("runtime.modalAlreadyOpen") : translate("runtime.modalOpenFailed"),
-        });
-        return false;
-      }
-      if (!confirmed) return false;
-    }
-
-    if (rollback.combinedDiff.trim()) {
-      const dry = await codexDesktop.workspace.dryRunApplyReverseDiff({
-        cwd: workspace,
-        diffText: rollback.combinedDiff,
-      });
-      if (!dry.ok) {
-        pushEvent("rollback:error", translate("runtime.rollbackFilesFailed", { error: dry.error }), {
-          threadId: tid,
-          level: "error",
-        });
-        showToast({
-          kind: "error",
-          title: translate("runtime.rewriteFailedTitle"),
-          message: translate("runtime.fileRollbackPrecheckFailed"),
-        });
-        return false;
-      }
-    }
-
-    const resumed = await ensureThreadResumed(tid);
-    if (!resumed) return false;
-    const ok = await requestThreadRollback(tid, rollback.count);
-    if (!ok) return false;
-
-    if (rollback.combinedDiff.trim()) {
-      const applied = await codexDesktop.workspace.applyReverseDiff({
-        cwd: workspace,
-        diffText: rollback.combinedDiff,
-      });
-      if (!applied.ok) {
-        timelineStore.removeTurnEvents(tid, rollback.turnIds);
-        threadStore.removeTurnsFromState(tid, rollback.turnIds);
-        runtimeStore.endHistoryRewrite();
-        pushEvent("rollback:error", translate("runtime.contextRolledBackFilesFailed", { error: applied.error }), {
-          threadId: tid,
-          level: "error",
-        });
-        showToast({
-          kind: "error",
-          title: translate("runtime.partialFailureTitle"),
-          message: translate("runtime.contextRolledBackFilesFailedCheckWorkspace"),
-        });
-        return false;
-      }
-      if (!noVisibleOutputBelowAnchor) {
-        pushEvent("rollback", `history rewrite files reverted: ${(applied.files ?? []).join(", ")}`, { threadId: tid });
-      }
-    } else {
-      if (!noVisibleOutputBelowAnchor) {
-        pushEvent("rollback", "history rewrite has no file diff; context only", { threadId: tid });
-      }
-    }
-
-    timelineStore.removeTurnEvents(tid, rollback.turnIds);
-    threadStore.removeTurnsFromState(tid, rollback.turnIds);
-    if (!noVisibleOutputBelowAnchor) {
-      showToast({
-        kind: "success",
-        title: translate("runtime.historyRolledBackTitle"),
-        message: translate("runtime.historyRolledBackMessage", { count: rollback.count }),
-      });
-    }
-    return true;
   };
 
   const preserveNonHistoryTimelineEvents = (
@@ -2575,6 +2300,36 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     return task;
   };
 
+  const threadRollbackRuntime = createThreadRollbackRuntime({
+    runtimeStore,
+    threadStore,
+    timelineStore,
+    normalizeWorkspacePath,
+    getWorkspaceForThread,
+    getServerIdForThread,
+    ensureThreadResumed,
+    pushEvent,
+    translate,
+    showToast,
+  });
+  const { requestThreadRollback, rollbackTurns } = threadRollbackRuntime;
+
+  const historyRewriteRuntime = createHistoryRewriteRuntime({
+    runtimeStore,
+    threadStore,
+    timelineStore,
+    normalizeWorkspacePath,
+    getWorkspaceForThread,
+    getServerIdForThread,
+    ensureThreadResumed,
+    requestThreadRollback,
+    requestTurnInterrupt,
+    pushEvent,
+    translate,
+    showToast,
+  });
+  const { rollbackHistoryRewriteBeforeSend } = historyRewriteRuntime;
+
   const hasThreadModelToolConfigForModel = (threadIdValue: string, modelValue: string): boolean => {
     const threadId = String(threadIdValue ?? "").trim();
     if (!threadId) return false;
@@ -3709,143 +3464,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     showToast,
   });
   const { resetCodexMemory, setCurrentThreadMemoryMode } = threadMemoryRuntime;
-
-  const rollbackTurns = async () => {
-    if (!runtimeStore.currentThreadId) {
-      showToast({
-        kind: "info",
-        title: translate("runtime.rollbackUnavailableTitle"),
-        message: translate("runtime.noThreadSelected"),
-      });
-      return;
-    }
-    const tid = String(runtimeStore.currentThreadId ?? "").trim();
-    if (!tid) {
-      showToast({
-        kind: "info",
-        title: translate("runtime.rollbackUnavailableTitle"),
-        message: translate("runtime.noThreadSelected"),
-      });
-      return;
-    }
-    const workspace = normalizeWorkspacePath(getWorkspaceForThread(tid) || runtimeStore.workspacePath);
-    const serverId = getServerIdForThread(tid);
-    if (!workspace) {
-      showToast({
-        kind: "error",
-        title: translate("runtime.rollbackUnavailableTitle"),
-        message: translate("runtime.workspaceUnavailable"),
-      });
-      return;
-    }
-    if (!serverId) {
-      showToast({
-        kind: "error",
-        title: translate("runtime.rollbackUnavailableTitle"),
-        message: translate("runtime.serviceUnavailable"),
-      });
-      return;
-    }
-    if (threadStore.runningThreadIds.has(tid)) {
-      showToast({
-        kind: "warn",
-        title: translate("runtime.threadRunningTitle"),
-        message: translate("runtime.waitBeforeRollback"),
-      });
-      return;
-    }
-    const stack = threadStore.completedTurnsByThread.get(tid) ?? [];
-    if (stack.length === 0) {
-      showToast({
-        kind: "info",
-        title: translate("runtime.noRollbackTurnsTitle"),
-        message: translate("runtime.noCompletedTurns"),
-      });
-      return;
-    }
-    let n: number | null = null;
-    try {
-      n = await promptNumberModalLazy({
-        title: translate("topbarExtra.rollbackRecent"),
-        message: translate("runtime.rollbackDetail"),
-        detail: translate("runtime.rollbackRange", { count: stack.length }),
-        confirmText: translate("runtime.rollback"),
-        cancelText: translate("common.cancel"),
-        danger: true,
-        defaultValue: 1,
-        min: 1,
-        max: stack.length,
-      });
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : String(e);
-      const isBusy = msg.includes("another modal is already open");
-      showToast({
-        kind: isBusy ? "warn" : "error",
-        title: translate("runtime.rollbackModalOpenFailedTitle"),
-        message: isBusy ? translate("runtime.modalAlreadyOpen") : translate("runtime.modalOpenFailed"),
-      });
-      return;
-    }
-    if (n == null) return;
-
-    const selected = stack.slice(-n);
-    const selectedTurnIds = selected.map((entry) => entry.turnId);
-    const diffParts = [...selected]
-      .reverse()
-      .map((entry) => entry.diffText)
-      .filter((text) => String(text ?? "").trim().length > 0);
-    const combinedDiff = diffParts.join("\n\n");
-
-    if (combinedDiff.trim()) {
-      const dry = await codexDesktop.workspace.dryRunApplyReverseDiff({ cwd: workspace, diffText: combinedDiff });
-      if (!dry.ok) {
-        pushEvent("rollback:error", translate("runtime.rollbackFilesFailed", { error: dry.error }), {
-          threadId: tid,
-          level: "error",
-        });
-        showToast({
-          kind: "error",
-          title: translate("runtime.rollbackFailedTitle"),
-          message: translate("runtime.fileRollbackPrecheckFailed"),
-        });
-        return;
-      }
-    }
-
-    const resumed = await ensureThreadResumed(tid);
-    if (!resumed) return;
-    const ok = await requestThreadRollback(tid, n);
-    if (!ok) return;
-
-    if (combinedDiff.trim()) {
-      const applied = await codexDesktop.workspace.applyReverseDiff({ cwd: workspace, diffText: combinedDiff });
-      if (!applied.ok) {
-        timelineStore.removeTurnEvents(tid, selectedTurnIds);
-        threadStore.removeTurnsFromState(tid, selectedTurnIds);
-        pushEvent("rollback:error", translate("runtime.contextRolledBackFilesFailed", { error: applied.error }), {
-          threadId: tid,
-          level: "error",
-        });
-        showToast({
-          kind: "error",
-          title: translate("runtime.partialFailureTitle"),
-          message: translate("runtime.contextRolledBackFilesFailedCheckWorkspace"),
-        });
-        return;
-      }
-      pushEvent("rollback", `files reverted: ${(applied.files ?? []).join(", ")}`, { threadId: tid });
-    } else {
-      pushEvent("rollback", "no file diff in selected turns; context only", { threadId: tid });
-    }
-
-    timelineStore.removeTurnEvents(tid, selectedTurnIds);
-    threadStore.removeTurnsFromState(tid, selectedTurnIds);
-    showToast({
-      kind: "success",
-      title: translate("runtime.rollbackCompletedTitle"),
-      message: translate("runtime.rollbackCompletedMessage", { count: n }),
-    });
-  };
 
   const promptResponseRuntime = createPromptResponseRuntime({
     appTimelineId: APP_TIMELINE_ID,
