@@ -1,3 +1,8 @@
+/**
+ * 内置动态工具注册表。
+ *
+ * 这里定义的是注入 Codex 会话的工具元数据和 JSON Schema；真正执行由应用侧的动态工具处理器完成。
+ */
 export type BuiltinDynamicToolName = "image_generate";
 
 export type BuiltinDynamicToolDefinition = {
@@ -10,7 +15,12 @@ export type BuiltinDynamicToolDefinition = {
 };
 
 export const IMAGE_GENERATION_DYNAMIC_TOOL_NAMESPACE = "codenexus";
-export const IMAGE_GENERATION_DYNAMIC_TOOL_NAME: BuiltinDynamicToolName = "image_generate";
+export const IMAGE_GENERATION_DYNAMIC_TOOL_NAME: BuiltinDynamicToolName =
+  "image_generate";
+
+/**
+ * 强制图片请求走应用内动态工具，避免模型绕到不受应用状态管理的内置图片工具。
+ */
 export const IMAGE_GENERATION_DYNAMIC_TOOL_DEVELOPER_INSTRUCTIONS = [
   "For every user request to create, draw, render, or generate an image, call the codenexus.image_generate dynamic tool.",
   "If the user's current message includes image attachments, codenexus.image_generate automatically uses those attachments as reference images for image editing.",
@@ -18,7 +28,11 @@ export const IMAGE_GENERATION_DYNAMIC_TOOL_DEVELOPER_INSTRUCTIONS = [
   "If codenexus.image_generate is unavailable, explain that image generation is unavailable instead of using another image tool.",
 ].join("\n");
 
-export const BUILTIN_DYNAMIC_TOOL_DEFINITIONS: Record<BuiltinDynamicToolName, BuiltinDynamicToolDefinition> = {
+/** 内置工具定义是注入会话的单一来源，避免 commander/worker 使用不同 schema。 */
+export const BUILTIN_DYNAMIC_TOOL_DEFINITIONS: Record<
+  BuiltinDynamicToolName,
+  BuiltinDynamicToolDefinition
+> = {
   image_generate: {
     namespace: IMAGE_GENERATION_DYNAMIC_TOOL_NAMESPACE,
     name: IMAGE_GENERATION_DYNAMIC_TOOL_NAME,
@@ -37,11 +51,13 @@ export const BUILTIN_DYNAMIC_TOOL_DEFINITIONS: Record<BuiltinDynamicToolName, Bu
         },
         size: {
           type: "string",
-          description: "Optional output size, for example 1024x1024, 1024x1536, 1536x1024, or auto.",
+          description:
+            "Optional output size, for example 1024x1024, 1024x1536, 1536x1024, or auto.",
         },
         quality: {
           type: "string",
-          description: "Optional quality hint such as auto, low, medium, or high.",
+          description:
+            "Optional quality hint such as auto, low, medium, or high.",
         },
         output_format: {
           type: "string",
@@ -59,11 +75,18 @@ export const BUILTIN_DYNAMIC_TOOL_DEFINITIONS: Record<BuiltinDynamicToolName, Bu
   },
 };
 
-export const BUILTIN_COMMANDER_DYNAMIC_TOOL_NAMES: BuiltinDynamicToolName[] = [IMAGE_GENERATION_DYNAMIC_TOOL_NAME];
+export const BUILTIN_COMMANDER_DYNAMIC_TOOL_NAMES: BuiltinDynamicToolName[] = [
+  IMAGE_GENERATION_DYNAMIC_TOOL_NAME,
+];
 
-export const BUILTIN_WORKER_DYNAMIC_TOOL_NAMES: BuiltinDynamicToolName[] = [IMAGE_GENERATION_DYNAMIC_TOOL_NAME];
+/** worker 侧保持和 commander 一致的内置工具集合，避免同一会话不同角色能力不一致。 */
+export const BUILTIN_WORKER_DYNAMIC_TOOL_NAMES: BuiltinDynamicToolName[] = [
+  IMAGE_GENERATION_DYNAMIC_TOOL_NAME,
+];
 
-export const BUILTIN_DYNAMIC_TOOL_NAMES: BuiltinDynamicToolName[] = [IMAGE_GENERATION_DYNAMIC_TOOL_NAME];
+export const BUILTIN_DYNAMIC_TOOL_NAMES: BuiltinDynamicToolName[] = [
+  IMAGE_GENERATION_DYNAMIC_TOOL_NAME,
+];
 
 export type DynamicToolSpecLike = {
   namespace?: string;
@@ -73,11 +96,18 @@ export type DynamicToolSpecLike = {
   deferLoading?: boolean;
 };
 
-export function normalizeBuiltinDynamicToolName(value: unknown): BuiltinDynamicToolName | null {
-  return String(value ?? "").trim() === IMAGE_GENERATION_DYNAMIC_TOOL_NAME ? IMAGE_GENERATION_DYNAMIC_TOOL_NAME : null;
+export function normalizeBuiltinDynamicToolName(
+  value: unknown,
+): BuiltinDynamicToolName | null {
+  return String(value ?? "").trim() === IMAGE_GENERATION_DYNAMIC_TOOL_NAME
+    ? IMAGE_GENERATION_DYNAMIC_TOOL_NAME
+    : null;
 }
 
-export function buildBuiltinDynamicToolSpecs(names: BuiltinDynamicToolName[] = []): DynamicToolSpecLike[] {
+/** 生成 Codex app-server 需要的动态工具 spec，调用侧可以按 profile 传入不同工具名集合。 */
+export function buildBuiltinDynamicToolSpecs(
+  names: BuiltinDynamicToolName[] = [],
+): DynamicToolSpecLike[] {
   return names
     .map((name) => BUILTIN_DYNAMIC_TOOL_DEFINITIONS[name])
     .filter(Boolean)
@@ -90,9 +120,13 @@ export function buildBuiltinDynamicToolSpecs(names: BuiltinDynamicToolName[] = [
     }));
 }
 
+/** 用户设置中显式关闭的内置动态工具会在会话注入前被过滤掉。 */
 export function filterEnabledBuiltinDynamicToolNames(
   names: BuiltinDynamicToolName[],
-  enabledByName: Partial<Record<BuiltinDynamicToolName, boolean>> | null | undefined
+  enabledByName:
+    | Partial<Record<BuiltinDynamicToolName, boolean>>
+    | null
+    | undefined,
 ): BuiltinDynamicToolName[] {
   return names.filter((name) => enabledByName?.[name] !== false);
 }

@@ -1,5 +1,10 @@
 import type { TextElement } from "@codenexus/generated/codex-app-server/v2/TextElement";
 
+/**
+ * 本地消息发件箱。
+ *
+ * 用于保存已经在 UI 中排队、但还没稳定进入远端线程流的用户输入，刷新后可继续恢复发送链路。
+ */
 export type LocalTextUserInputElement = TextElement;
 
 export type LocalTextUserInput = {
@@ -18,8 +23,13 @@ export type LocalImagePathUserInput = {
   path: string;
 };
 
-export type LocalUserTurnInput = LocalTextUserInput | LocalImageUserInput | LocalImagePathUserInput;
+/** 文本、远程图片和本地图片路径统一归一成 Codex 可消费的用户输入片段。 */
+export type LocalUserTurnInput =
+  | LocalTextUserInput
+  | LocalImageUserInput
+  | LocalImagePathUserInput;
 
+/** 排队消息保留 displayText 和 localEventId，便于 UI 侧对齐乐观渲染事件。 */
 export type LocalOutboxQueuedMessage = {
   id: string;
   threadId: string;
@@ -43,33 +53,47 @@ export const DEFAULT_LOCAL_MESSAGE_OUTBOX: LocalMessageOutbox = {
   threads: {},
 };
 
+/** 单线程最多保留最近的本地排队消息，避免异常重试把持久化状态撑大。 */
 export const MAX_LOCAL_OUTBOX_ITEMS_PER_THREAD = 50;
 
 function toRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
 }
 
 function toThreadKey(value: unknown): string {
   return String(value ?? "").trim();
 }
 
-function normalizeTextElement(value: unknown): LocalTextUserInputElement | null {
+function normalizeTextElement(
+  value: unknown,
+): LocalTextUserInputElement | null {
   const record = toRecord(value);
-  const byteRangeRecord = toRecord(record?.byteRange) ?? toRecord(record?.byte_range);
+  const byteRangeRecord =
+    toRecord(record?.byteRange) ?? toRecord(record?.byte_range);
   const start = Number(byteRangeRecord?.start ?? record?.start);
   const end = Number(byteRangeRecord?.end ?? record?.end);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start)
+    return null;
   return {
     byteRange: {
       start: Math.max(0, Math.round(start)),
       end: Math.max(0, Math.round(end)),
     },
     placeholder:
-      record?.placeholder == null ? (record?.label == null ? null : String(record.label)) : String(record.placeholder),
+      record?.placeholder == null
+        ? record?.label == null
+          ? null
+          : String(record.label)
+        : String(record.placeholder),
   };
 }
 
-export function normalizeLocalUserTurnInput(value: unknown): LocalUserTurnInput | null {
+/** mention 类型是旧 UI 输入形态，归一化时转换成带 text_elements 的文本输入。 */
+export function normalizeLocalUserTurnInput(
+  value: unknown,
+): LocalUserTurnInput | null {
   const record = toRecord(value);
   const type = String(record?.type ?? "").trim();
   if (type === "text") {
@@ -110,7 +134,10 @@ export function normalizeLocalUserTurnInput(value: unknown): LocalUserTurnInput 
   return null;
 }
 
-export function cloneLocalUserTurnInput(value: LocalUserTurnInput): LocalUserTurnInput {
+/** 克隆输入片段时会再次清理 text_elements，避免把脏 mention 元数据继续传播。 */
+export function cloneLocalUserTurnInput(
+  value: LocalUserTurnInput,
+): LocalUserTurnInput {
   if (value.type === "text") {
     return {
       type: "text",
@@ -119,7 +146,9 @@ export function cloneLocalUserTurnInput(value: LocalUserTurnInput): LocalUserTur
         ? {
             text_elements: value.text_elements
               .map((item) => normalizeTextElement(item))
-              .filter((item): item is LocalTextUserInputElement => item != null),
+              .filter(
+                (item): item is LocalTextUserInputElement => item != null,
+              ),
           }
         : {}),
     };
@@ -134,14 +163,16 @@ export function cloneLocalUserTurnInput(value: LocalUserTurnInput): LocalUserTur
   return exhaustive;
 }
 
-export function cloneLocalUserTurnInputs(values: LocalUserTurnInput[]): LocalUserTurnInput[] {
+export function cloneLocalUserTurnInputs(
+  values: LocalUserTurnInput[],
+): LocalUserTurnInput[] {
   if (!Array.isArray(values) || values.length === 0) return [];
   return values.map((value) => cloneLocalUserTurnInput(value));
 }
 
 export function normalizeLocalOutboxQueuedMessage(
   value: unknown,
-  threadIdValue?: string
+  threadIdValue?: string,
 ): LocalOutboxQueuedMessage | null {
   const record = toRecord(value);
   const id = String(record?.id ?? "").trim();
@@ -158,14 +189,21 @@ export function normalizeLocalOutboxQueuedMessage(
     threadId,
     text: typeof record?.text === "string" ? record.text : "",
     inputs: cloneLocalUserTurnInputs(items),
-    ...(String(record?.displayText ?? "").trim() ? { displayText: String(record?.displayText ?? "").trim() } : {}),
+    ...(String(record?.displayText ?? "").trim()
+      ? { displayText: String(record?.displayText ?? "").trim() }
+      : {}),
     createdAt: Number.isFinite(createdAtRaw) ? createdAtRaw : Date.now(),
     status: "queued",
-    ...(String(record?.localEventId ?? "").trim() ? { localEventId: String(record?.localEventId ?? "").trim() } : {}),
+    ...(String(record?.localEventId ?? "").trim()
+      ? { localEventId: String(record?.localEventId ?? "").trim() }
+      : {}),
   };
 }
 
-export function normalizeLocalMessageOutbox(value: unknown): LocalMessageOutbox {
+/** 恢复发件箱时按创建时间排序，并只保留每个线程最近的有限条目。 */
+export function normalizeLocalMessageOutbox(
+  value: unknown,
+): LocalMessageOutbox {
   const root = toRecord(value);
   const threadsRecord = toRecord(root?.threads);
   const threads: Record<string, LocalOutboxQueuedMessage[]> = {};
@@ -187,10 +225,11 @@ export function normalizeLocalMessageOutbox(value: unknown): LocalMessageOutbox 
   };
 }
 
+/** 替换单线程发件箱；传入空列表时表示清空该线程队列。 */
 export function replaceLocalMessageOutboxThread(
   current: unknown,
   threadIdValue: string,
-  itemsValue: unknown
+  itemsValue: unknown,
 ): LocalMessageOutbox {
   const next = normalizeLocalMessageOutbox(current);
   const threadId = toThreadKey(threadIdValue);
@@ -212,7 +251,11 @@ export function replaceLocalMessageOutboxThread(
   };
 }
 
-export function removeLocalMessageOutboxThread(current: unknown, threadIdValue: string): LocalMessageOutbox {
+/** 删除不存在的发件箱线程不会刷新 updatedAt，保持状态写入幂等。 */
+export function removeLocalMessageOutboxThread(
+  current: unknown,
+  threadIdValue: string,
+): LocalMessageOutbox {
   const next = normalizeLocalMessageOutbox(current);
   const threadId = toThreadKey(threadIdValue);
   if (!threadId || !(threadId in next.threads)) return next;

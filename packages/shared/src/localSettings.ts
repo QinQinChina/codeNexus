@@ -1,6 +1,14 @@
 import { normalizeCustomModelIds } from "./modelCatalog";
-import { normalizeBuiltinDynamicToolName, type BuiltinDynamicToolName } from "./dynamicTools";
+import {
+  normalizeBuiltinDynamicToolName,
+  type BuiltinDynamicToolName,
+} from "./dynamicTools";
 
+/**
+ * 用户本地设置的共享 schema。
+ *
+ * 该模块负责把未知持久化内容收敛成稳定设置对象；实际保存位置和读写时机由主进程服务控制。
+ */
 export type LocalImageGenerationSettings = {
   enabled: boolean;
   baseUrl: string | null;
@@ -44,6 +52,7 @@ export type UiFontFamilyPreset = "alibaba-puhuiti" | "source-han-sans-sc";
 export type UiFontSizePreset = "small" | "medium" | "large";
 export type UiWorkspaceFileIconTheme = "vscode-icons";
 
+/** UI 和主进程共同消费的完整本地设置结构。 */
 export type UserLocalSettings = {
   version: 1;
   ui: {
@@ -77,6 +86,11 @@ export type UserLocalSettings = {
   };
 };
 
+/**
+ * 局部设置补丁。
+ *
+ * undefined 表示不修改；部分字段允许 null，代表清空或回落到对应默认值。
+ */
 export type UserLocalSettingsPatch = {
   ui?: Partial<{
     theme: string | null;
@@ -125,7 +139,10 @@ export type UserLocalSettingsPatch = {
     enabledByName: Partial<Record<BuiltinDynamicToolName, boolean>> | null;
   }>;
   goalAutomation?: Partial<{
-    shutdownByThreadId: Record<string, Partial<LocalGoalShutdownSetting> | null> | null;
+    shutdownByThreadId: Record<
+      string,
+      Partial<LocalGoalShutdownSetting> | null
+    > | null;
   }>;
   developer?: Partial<{
     debugLogEnabled: boolean;
@@ -156,16 +173,21 @@ export const DEFAULT_GOAL_SHUTDOWN_DELAY_SECONDS = 60;
 export const MIN_GOAL_SHUTDOWN_DELAY_SECONDS = 10;
 export const MAX_GOAL_SHUTDOWN_DELAY_SECONDS = 600;
 export const DEFAULT_UI_LANGUAGE: UiLanguage = "zh-CN";
-export const DEFAULT_UI_FONT_FAMILY_PRESET: UiFontFamilyPreset = "alibaba-puhuiti";
+export const DEFAULT_UI_FONT_FAMILY_PRESET: UiFontFamilyPreset =
+  "alibaba-puhuiti";
 export const DEFAULT_UI_FONT_SIZE_PRESET: UiFontSizePreset = "medium";
-export const DEFAULT_UI_WORKSPACE_FILE_ICON_THEME: UiWorkspaceFileIconTheme = "vscode-icons";
+export const DEFAULT_UI_WORKSPACE_FILE_ICON_THEME: UiWorkspaceFileIconTheme =
+  "vscode-icons";
 const UI_FONT_SIZE_ZOOM_FACTORS: Record<UiFontSizePreset, number> = {
   small: 0.92,
   medium: 1,
   large: 1.08,
 };
 
-function buildDefaultDynamicToolsEnabledByName(): Record<BuiltinDynamicToolName, boolean> {
+function buildDefaultDynamicToolsEnabledByName(): Record<
+  BuiltinDynamicToolName,
+  boolean
+> {
   return { image_generate: true };
 }
 
@@ -184,7 +206,13 @@ export function normalizeUiLanguage(value: unknown): UiLanguage {
     .toLowerCase()
     .replace("_", "-");
   if (raw === "en" || raw === "en-us") return "en-US";
-  if (raw === "zh" || raw === "zh-cn" || raw === "zh-hans" || raw === "zh-hans-cn") return "zh-CN";
+  if (
+    raw === "zh" ||
+    raw === "zh-cn" ||
+    raw === "zh-hans" ||
+    raw === "zh-hans-cn"
+  )
+    return "zh-CN";
   return DEFAULT_UI_LANGUAGE;
 }
 
@@ -197,14 +225,24 @@ function normalizeUiFontSizePreset(value: unknown): UiFontSizePreset {
   return DEFAULT_UI_FONT_SIZE_PRESET;
 }
 
-export function normalizeUiWorkspaceFileIconTheme(_value: unknown): UiWorkspaceFileIconTheme {
+export function normalizeUiWorkspaceFileIconTheme(
+  _value: unknown,
+): UiWorkspaceFileIconTheme {
   return DEFAULT_UI_WORKSPACE_FILE_ICON_THEME;
 }
 
 export function resolveUiFontSizeZoomFactor(value: UiFontSizePreset): number {
-  return UI_FONT_SIZE_ZOOM_FACTORS[value] ?? UI_FONT_SIZE_ZOOM_FACTORS[DEFAULT_UI_FONT_SIZE_PRESET];
+  return (
+    UI_FONT_SIZE_ZOOM_FACTORS[value] ??
+    UI_FONT_SIZE_ZOOM_FACTORS[DEFAULT_UI_FONT_SIZE_PRESET]
+  );
 }
 
+/**
+ * 本地设置的唯一默认基线。
+ *
+ * 所有读取和补丁合并最终都会回到这份基线，避免新增字段后旧配置出现 undefined。
+ */
 export const DEFAULT_USER_LOCAL_SETTINGS: UserLocalSettings = {
   version: 1,
   ui: {
@@ -262,14 +300,19 @@ export const DEFAULT_USER_LOCAL_SETTINGS: UserLocalSettings = {
 };
 
 function toRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
 }
 
 function toBoolean(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
 }
 
-function toNullableString(value: unknown, fallback: string | null): string | null {
+function toNullableString(
+  value: unknown,
+  fallback: string | null,
+): string | null {
   if (value == null) return fallback;
   const text = String(value).trim();
   return text || null;
@@ -282,7 +325,12 @@ function toPositiveInteger(value: unknown, fallback: number): number {
   return rounded > 0 ? rounded : fallback;
 }
 
-function toIntegerInRange(value: unknown, fallback: number, min: number, max: number): number {
+function toIntegerInRange(
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
   if (value == null) return fallback;
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
@@ -297,7 +345,11 @@ function toNonEmptyString(value: unknown, fallback: string): string {
   return text || fallback;
 }
 
-function normalizeHttpBaseUrl(value: unknown, fallback: string | null): string | null {
+/** 只接受带 http/https scheme 的服务地址，非法值会回退而不是写入脏配置。 */
+function normalizeHttpBaseUrl(
+  value: unknown,
+  fallback: string | null,
+): string | null {
   const text = toNullableString(value, fallback);
   if (!text) return null;
   const normalized = text.replace(/\/+$/, "");
@@ -313,65 +365,103 @@ function normalizeMainView(value: unknown, fallback: MainView): MainView {
   return fallback;
 }
 
-function normalizeImageGenerationSettings(value: unknown): LocalImageGenerationSettings {
+/** 图片生成设置会限制压缩率、超时和张数，避免 UI 写入超出服务端预期的值。 */
+function normalizeImageGenerationSettings(
+  value: unknown,
+): LocalImageGenerationSettings {
   const record = toRecord(value);
   return {
-    enabled: toBoolean(record?.enabled, DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.enabled),
-    baseUrl: normalizeHttpBaseUrl(record?.baseUrl, DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.baseUrl),
-    apiKey: toNullableString(record?.apiKey, DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.apiKey),
-    model: toNonEmptyString(record?.model, DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.model),
-    defaultSize: toNonEmptyString(record?.defaultSize, DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.defaultSize),
+    enabled: toBoolean(
+      record?.enabled,
+      DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.enabled,
+    ),
+    baseUrl: normalizeHttpBaseUrl(
+      record?.baseUrl,
+      DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.baseUrl,
+    ),
+    apiKey: toNullableString(
+      record?.apiKey,
+      DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.apiKey,
+    ),
+    model: toNonEmptyString(
+      record?.model,
+      DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.model,
+    ),
+    defaultSize: toNonEmptyString(
+      record?.defaultSize,
+      DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.defaultSize,
+    ),
     defaultQuality: toNonEmptyString(
       record?.defaultQuality,
-      DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.defaultQuality
+      DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.defaultQuality,
     ),
-    outputFormat: toNonEmptyString(record?.outputFormat, DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.outputFormat),
+    outputFormat: toNonEmptyString(
+      record?.outputFormat,
+      DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.outputFormat,
+    ),
     defaultBackground: toNonEmptyString(
       record?.defaultBackground,
-      DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.defaultBackground
+      DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.defaultBackground,
     ),
     defaultModeration: toNonEmptyString(
       record?.defaultModeration,
-      DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.defaultModeration
+      DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.defaultModeration,
     ),
     outputCompression: toIntegerInRange(
       record?.outputCompression,
       DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.outputCompression,
       MIN_IMAGE_GENERATION_OUTPUT_COMPRESSION,
-      MAX_IMAGE_GENERATION_OUTPUT_COMPRESSION
+      MAX_IMAGE_GENERATION_OUTPUT_COMPRESSION,
     ),
     timeoutMs: toIntegerInRange(
       record?.timeoutMs,
       DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.timeoutMs,
       MIN_IMAGE_GENERATION_TIMEOUT_MS,
-      MAX_IMAGE_GENERATION_TIMEOUT_MS
+      MAX_IMAGE_GENERATION_TIMEOUT_MS,
     ),
     maxImages: toIntegerInRange(
       record?.maxImages,
       DEFAULT_USER_LOCAL_SETTINGS.imageGeneration.maxImages,
       MIN_IMAGE_GENERATION_MAX_IMAGES,
-      MAX_IMAGE_GENERATION_MAX_IMAGES
+      MAX_IMAGE_GENERATION_MAX_IMAGES,
     ),
   };
 }
 
-function normalizeFlowchartAiSettings(value: unknown): LocalFlowchartAiSettings {
+function normalizeFlowchartAiSettings(
+  value: unknown,
+): LocalFlowchartAiSettings {
   const record = toRecord(value);
   return {
-    enabled: toBoolean(record?.enabled, DEFAULT_USER_LOCAL_SETTINGS.flowchartAi.enabled),
-    baseUrl: normalizeHttpBaseUrl(record?.baseUrl, DEFAULT_USER_LOCAL_SETTINGS.flowchartAi.baseUrl),
-    apiKey: toNullableString(record?.apiKey, DEFAULT_USER_LOCAL_SETTINGS.flowchartAi.apiKey),
-    model: toNonEmptyString(record?.model, DEFAULT_USER_LOCAL_SETTINGS.flowchartAi.model),
+    enabled: toBoolean(
+      record?.enabled,
+      DEFAULT_USER_LOCAL_SETTINGS.flowchartAi.enabled,
+    ),
+    baseUrl: normalizeHttpBaseUrl(
+      record?.baseUrl,
+      DEFAULT_USER_LOCAL_SETTINGS.flowchartAi.baseUrl,
+    ),
+    apiKey: toNullableString(
+      record?.apiKey,
+      DEFAULT_USER_LOCAL_SETTINGS.flowchartAi.apiKey,
+    ),
+    model: toNonEmptyString(
+      record?.model,
+      DEFAULT_USER_LOCAL_SETTINGS.flowchartAi.model,
+    ),
     timeoutMs: toIntegerInRange(
       record?.timeoutMs,
       DEFAULT_USER_LOCAL_SETTINGS.flowchartAi.timeoutMs,
       MIN_FLOWCHART_AI_TIMEOUT_MS,
-      MAX_FLOWCHART_AI_TIMEOUT_MS
+      MAX_FLOWCHART_AI_TIMEOUT_MS,
     ),
   };
 }
 
-function normalizeDynamicToolsSettings(value: unknown): LocalDynamicToolsSettings {
+/** 动态工具设置只接受已登记的内置工具名，避免未知工具被持久化后误注入会话。 */
+function normalizeDynamicToolsSettings(
+  value: unknown,
+): LocalDynamicToolsSettings {
   const record = toRecord(value);
   const enabledRecord = toRecord(record?.enabledByName);
   const enabledByName = buildDefaultDynamicToolsEnabledByName();
@@ -385,7 +475,7 @@ function normalizeDynamicToolsSettings(value: unknown): LocalDynamicToolsSetting
 
 function mergeDynamicToolsEnabledByName(
   current: Record<BuiltinDynamicToolName, boolean>,
-  patchValue: unknown
+  patchValue: unknown,
 ): Record<BuiltinDynamicToolName, boolean> {
   const patchRecord = toRecord(patchValue);
   const next = { ...current };
@@ -397,7 +487,9 @@ function mergeDynamicToolsEnabledByName(
   return next;
 }
 
-function normalizeThreadWorkspaceGroupsCollapsedState(value: unknown): LocalThreadWorkspaceGroupsCollapsedState {
+function normalizeThreadWorkspaceGroupsCollapsedState(
+  value: unknown,
+): LocalThreadWorkspaceGroupsCollapsedState {
   const record = toRecord(value);
   const normalized: LocalThreadWorkspaceGroupsCollapsedState = {};
   for (const [rawKey, rawValue] of Object.entries(record ?? {})) {
@@ -408,11 +500,19 @@ function normalizeThreadWorkspaceGroupsCollapsedState(value: unknown): LocalThre
   return normalized;
 }
 
-function normalizeGoalShutdownSetting(value: unknown): LocalGoalShutdownSetting | null {
+/** 目标关闭规则必须带 objective 和 createdAt，避免空规则被后台任务误执行。 */
+function normalizeGoalShutdownSetting(
+  value: unknown,
+): LocalGoalShutdownSetting | null {
   const record = toRecord(value);
   if (!record) return null;
   const objective = String(record.objective ?? "").trim();
-  const createdAt = toIntegerInRange(record.createdAt, 0, 0, Number.MAX_SAFE_INTEGER);
+  const createdAt = toIntegerInRange(
+    record.createdAt,
+    0,
+    0,
+    Number.MAX_SAFE_INTEGER,
+  );
   if (!objective || createdAt <= 0) return null;
   return {
     enabled: toBoolean(record.enabled, false),
@@ -420,14 +520,16 @@ function normalizeGoalShutdownSetting(value: unknown): LocalGoalShutdownSetting 
       record.delaySeconds,
       DEFAULT_GOAL_SHUTDOWN_DELAY_SECONDS,
       MIN_GOAL_SHUTDOWN_DELAY_SECONDS,
-      MAX_GOAL_SHUTDOWN_DELAY_SECONDS
+      MAX_GOAL_SHUTDOWN_DELAY_SECONDS,
     ),
     objective,
     createdAt,
   };
 }
 
-function normalizeGoalAutomationSettings(value: unknown): LocalGoalAutomationSettings {
+function normalizeGoalAutomationSettings(
+  value: unknown,
+): LocalGoalAutomationSettings {
   const record = toRecord(value);
   const rawByThread = toRecord(record?.shutdownByThreadId);
   const shutdownByThreadId: Record<string, LocalGoalShutdownSetting> = {};
@@ -442,7 +544,7 @@ function normalizeGoalAutomationSettings(value: unknown): LocalGoalAutomationSet
 
 function mergeGoalShutdownByThreadId(
   current: Record<string, LocalGoalShutdownSetting>,
-  patchValue: unknown
+  patchValue: unknown,
 ): Record<string, LocalGoalShutdownSetting> {
   const patchRecord = toRecord(patchValue);
   const next = { ...current };
@@ -460,6 +562,11 @@ function mergeGoalShutdownByThreadId(
   return next;
 }
 
+/**
+ * 从任意持久化内容恢复完整设置。
+ *
+ * 该函数是本地设置读取入口，负责丢弃未知结构、补齐默认值，并把数值限制在 UI/服务可接受范围内。
+ */
 export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
   const root = toRecord(value);
   const ui = toRecord(root?.ui);
@@ -470,7 +577,8 @@ export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
   const dynamicTools = toRecord(root?.dynamicTools);
   const goalAutomation = toRecord(root?.goalAutomation);
   const developer = toRecord(root?.developer);
-  const inferredMainViewFallback: MainView = DEFAULT_USER_LOCAL_SETTINGS.ui.mainView;
+  const inferredMainViewFallback: MainView =
+    DEFAULT_USER_LOCAL_SETTINGS.ui.mainView;
 
   return {
     version: 1,
@@ -478,36 +586,50 @@ export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
       theme: toNullableString(ui?.theme, DEFAULT_USER_LOCAL_SETTINGS.ui.theme),
       language: normalizeUiLanguage(ui?.language),
       mainView: normalizeMainView(ui?.mainView, inferredMainViewFallback),
-      leftSidebarVisible: toBoolean(ui?.leftSidebarVisible, DEFAULT_USER_LOCAL_SETTINGS.ui.leftSidebarVisible),
-      leftSidebarWidthPx: toPositiveInteger(ui?.leftSidebarWidthPx, DEFAULT_USER_LOCAL_SETTINGS.ui.leftSidebarWidthPx),
-      filesSidebarVisible: toBoolean(ui?.filesSidebarVisible, DEFAULT_USER_LOCAL_SETTINGS.ui.filesSidebarVisible),
+      leftSidebarVisible: toBoolean(
+        ui?.leftSidebarVisible,
+        DEFAULT_USER_LOCAL_SETTINGS.ui.leftSidebarVisible,
+      ),
+      leftSidebarWidthPx: toPositiveInteger(
+        ui?.leftSidebarWidthPx,
+        DEFAULT_USER_LOCAL_SETTINGS.ui.leftSidebarWidthPx,
+      ),
+      filesSidebarVisible: toBoolean(
+        ui?.filesSidebarVisible,
+        DEFAULT_USER_LOCAL_SETTINGS.ui.filesSidebarVisible,
+      ),
       filesSidebarWidthPx: toPositiveInteger(
         ui?.filesSidebarWidthPx,
-        DEFAULT_USER_LOCAL_SETTINGS.ui.filesSidebarWidthPx
+        DEFAULT_USER_LOCAL_SETTINGS.ui.filesSidebarWidthPx,
       ),
       centerEditorWidthPx: toPositiveInteger(
         ui?.centerEditorWidthPx,
-        DEFAULT_USER_LOCAL_SETTINGS.ui.centerEditorWidthPx
+        DEFAULT_USER_LOCAL_SETTINGS.ui.centerEditorWidthPx,
       ),
       fontFamilyPreset: normalizeUiFontFamilyPreset(ui?.fontFamilyPreset),
       fontSizePreset: normalizeUiFontSizePreset(ui?.fontSizePreset),
-      workspaceFileIconTheme: normalizeUiWorkspaceFileIconTheme(ui?.workspaceFileIconTheme),
-      threadWorkspaceGroupsCollapsed: normalizeThreadWorkspaceGroupsCollapsedState(ui?.threadWorkspaceGroupsCollapsed),
+      workspaceFileIconTheme: normalizeUiWorkspaceFileIconTheme(
+        ui?.workspaceFileIconTheme,
+      ),
+      threadWorkspaceGroupsCollapsed:
+        normalizeThreadWorkspaceGroupsCollapsedState(
+          ui?.threadWorkspaceGroupsCollapsed,
+        ),
       globalConfigAdvancedOpen: toBoolean(
         ui?.globalConfigAdvancedOpen,
-        DEFAULT_USER_LOCAL_SETTINGS.ui.globalConfigAdvancedOpen
+        DEFAULT_USER_LOCAL_SETTINGS.ui.globalConfigAdvancedOpen,
       ),
     },
     notification: {
       selectedSoundId: toNullableString(
         notification?.selectedSoundId,
-        DEFAULT_USER_LOCAL_SETTINGS.notification.selectedSoundId
+        DEFAULT_USER_LOCAL_SETTINGS.notification.selectedSoundId,
       ),
       soundVolumePercent: toIntegerInRange(
         notification?.soundVolumePercent,
         DEFAULT_USER_LOCAL_SETTINGS.notification.soundVolumePercent,
         0,
-        100
+        100,
       ),
     },
     models: {
@@ -518,14 +640,22 @@ export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
     dynamicTools: normalizeDynamicToolsSettings(dynamicTools),
     goalAutomation: normalizeGoalAutomationSettings(goalAutomation),
     developer: {
-      debugLogEnabled: toBoolean(developer?.debugLogEnabled, DEFAULT_USER_LOCAL_SETTINGS.developer.debugLogEnabled),
+      debugLogEnabled: toBoolean(
+        developer?.debugLogEnabled,
+        DEFAULT_USER_LOCAL_SETTINGS.developer.debugLogEnabled,
+      ),
     },
   };
 }
 
+/**
+ * 将局部 patch 合并到当前设置。
+ *
+ * 只处理 patch 中显式出现的字段，合并后再统一归一化，确保调用侧无法绕过默认值和范围限制。
+ */
 export function mergeUserLocalSettings(
   base: unknown,
-  patch: UserLocalSettingsPatch | null | undefined
+  patch: UserLocalSettingsPatch | null | undefined,
 ): UserLocalSettings {
   const current = normalizeUserLocalSettings(base);
   const patchUi = toRecord(patch?.ui);
@@ -541,21 +671,42 @@ export function mergeUserLocalSettings(
     version: 1,
     ui: {
       theme: patchUi && "theme" in patchUi ? patchUi.theme : current.ui.theme,
-      language: patchUi && "language" in patchUi ? patchUi.language : current.ui.language,
-      mainView: patchUi && "mainView" in patchUi ? patchUi.mainView : current.ui.mainView,
+      language:
+        patchUi && "language" in patchUi
+          ? patchUi.language
+          : current.ui.language,
+      mainView:
+        patchUi && "mainView" in patchUi
+          ? patchUi.mainView
+          : current.ui.mainView,
       leftSidebarVisible:
-        patchUi && "leftSidebarVisible" in patchUi ? patchUi.leftSidebarVisible : current.ui.leftSidebarVisible,
+        patchUi && "leftSidebarVisible" in patchUi
+          ? patchUi.leftSidebarVisible
+          : current.ui.leftSidebarVisible,
       leftSidebarWidthPx:
-        patchUi && "leftSidebarWidthPx" in patchUi ? patchUi.leftSidebarWidthPx : current.ui.leftSidebarWidthPx,
+        patchUi && "leftSidebarWidthPx" in patchUi
+          ? patchUi.leftSidebarWidthPx
+          : current.ui.leftSidebarWidthPx,
       filesSidebarVisible:
-        patchUi && "filesSidebarVisible" in patchUi ? patchUi.filesSidebarVisible : current.ui.filesSidebarVisible,
+        patchUi && "filesSidebarVisible" in patchUi
+          ? patchUi.filesSidebarVisible
+          : current.ui.filesSidebarVisible,
       filesSidebarWidthPx:
-        patchUi && "filesSidebarWidthPx" in patchUi ? patchUi.filesSidebarWidthPx : current.ui.filesSidebarWidthPx,
+        patchUi && "filesSidebarWidthPx" in patchUi
+          ? patchUi.filesSidebarWidthPx
+          : current.ui.filesSidebarWidthPx,
       centerEditorWidthPx:
-        patchUi && "centerEditorWidthPx" in patchUi ? patchUi.centerEditorWidthPx : current.ui.centerEditorWidthPx,
+        patchUi && "centerEditorWidthPx" in patchUi
+          ? patchUi.centerEditorWidthPx
+          : current.ui.centerEditorWidthPx,
       fontFamilyPreset:
-        patchUi && "fontFamilyPreset" in patchUi ? patchUi.fontFamilyPreset : current.ui.fontFamilyPreset,
-      fontSizePreset: patchUi && "fontSizePreset" in patchUi ? patchUi.fontSizePreset : current.ui.fontSizePreset,
+        patchUi && "fontFamilyPreset" in patchUi
+          ? patchUi.fontFamilyPreset
+          : current.ui.fontFamilyPreset,
+      fontSizePreset:
+        patchUi && "fontSizePreset" in patchUi
+          ? patchUi.fontSizePreset
+          : current.ui.fontSizePreset,
       workspaceFileIconTheme:
         patchUi && "workspaceFileIconTheme" in patchUi
           ? patchUi.workspaceFileIconTheme
@@ -580,7 +731,10 @@ export function mergeUserLocalSettings(
           : current.notification.soundVolumePercent,
     },
     models: {
-      customIds: patchModels && "customIds" in patchModels ? patchModels.customIds : current.models.customIds,
+      customIds:
+        patchModels && "customIds" in patchModels
+          ? patchModels.customIds
+          : current.models.customIds,
     },
     imageGeneration: {
       enabled:
@@ -634,11 +788,21 @@ export function mergeUserLocalSettings(
     },
     flowchartAi: {
       enabled:
-        patchFlowchartAi && "enabled" in patchFlowchartAi ? patchFlowchartAi.enabled : current.flowchartAi.enabled,
+        patchFlowchartAi && "enabled" in patchFlowchartAi
+          ? patchFlowchartAi.enabled
+          : current.flowchartAi.enabled,
       baseUrl:
-        patchFlowchartAi && "baseUrl" in patchFlowchartAi ? patchFlowchartAi.baseUrl : current.flowchartAi.baseUrl,
-      apiKey: patchFlowchartAi && "apiKey" in patchFlowchartAi ? patchFlowchartAi.apiKey : current.flowchartAi.apiKey,
-      model: patchFlowchartAi && "model" in patchFlowchartAi ? patchFlowchartAi.model : current.flowchartAi.model,
+        patchFlowchartAi && "baseUrl" in patchFlowchartAi
+          ? patchFlowchartAi.baseUrl
+          : current.flowchartAi.baseUrl,
+      apiKey:
+        patchFlowchartAi && "apiKey" in patchFlowchartAi
+          ? patchFlowchartAi.apiKey
+          : current.flowchartAi.apiKey,
+      model:
+        patchFlowchartAi && "model" in patchFlowchartAi
+          ? patchFlowchartAi.model
+          : current.flowchartAi.model,
       timeoutMs:
         patchFlowchartAi && "timeoutMs" in patchFlowchartAi
           ? patchFlowchartAi.timeoutMs
@@ -647,7 +811,10 @@ export function mergeUserLocalSettings(
     dynamicTools: {
       enabledByName:
         patchDynamicTools && "enabledByName" in patchDynamicTools
-          ? mergeDynamicToolsEnabledByName(current.dynamicTools.enabledByName, patchDynamicTools.enabledByName)
+          ? mergeDynamicToolsEnabledByName(
+              current.dynamicTools.enabledByName,
+              patchDynamicTools.enabledByName,
+            )
           : current.dynamicTools.enabledByName,
     },
     goalAutomation: {
@@ -655,7 +822,7 @@ export function mergeUserLocalSettings(
         patchGoalAutomation && "shutdownByThreadId" in patchGoalAutomation
           ? mergeGoalShutdownByThreadId(
               current.goalAutomation.shutdownByThreadId,
-              patchGoalAutomation.shutdownByThreadId
+              patchGoalAutomation.shutdownByThreadId,
             )
           : current.goalAutomation.shutdownByThreadId,
     },

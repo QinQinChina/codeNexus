@@ -96,6 +96,7 @@ import type { ThreadResumeParams } from "@codenexus/generated/codex-app-server/v
 import type { ThreadStartParams } from "@codenexus/generated/codex-app-server/v2/ThreadStartParams";
 import type { ThreadGoalSetParams } from "@codenexus/generated/codex-app-server/v2/ThreadGoalSetParams";
 import type { ThreadMemoryMode } from "@codenexus/generated/codex-app-server/ThreadMemoryMode";
+import type { GrantedPermissionProfile } from "@codenexus/generated/codex-app-server/v2/GrantedPermissionProfile";
 import type { JsonValue } from "@codenexus/generated/codex-app-server/serde_json/JsonValue";
 import type {
   ComposeImageAttachment,
@@ -190,6 +191,16 @@ type JsonRpcErrorLike = {
   code: number;
   message: string;
 };
+
+function toGrantedPermissionProfile(value: {
+  network: GrantedPermissionProfile["network"] | null;
+  fileSystem: GrantedPermissionProfile["fileSystem"] | null;
+}): GrantedPermissionProfile {
+  return {
+    ...(value.network ? { network: value.network } : {}),
+    ...(value.fileSystem ? { fileSystem: value.fileSystem } : {}),
+  };
+}
 
 async function confirmModalLazy(options: Parameters<(typeof import("../ui/modal"))["confirmModal"]>[0]) {
   const { confirmModal } = await import("../ui/modal");
@@ -4387,6 +4398,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         await codexDesktop.codexServer.respond({
           serverId: prompt.serverId,
           id: prompt.requestId,
+          method: prompt.method,
           result: { answers },
         });
         pushEvent("plan:input", translate("runtime.qaSubmitted", { count: prompt.questions.length }), {
@@ -4418,6 +4430,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         await codexDesktop.codexServer.respond({
           serverId: prompt.serverId,
           id: prompt.requestId,
+          method: prompt.method,
           result: { action: "accept", content, _meta: null },
         });
         pushEvent("mcp:elicitation", translate("runtime.mcpInputSubmitted", { server: prompt.serverName }), {
@@ -4427,6 +4440,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         await codexDesktop.codexServer.respond({
           serverId: prompt.serverId,
           id: prompt.requestId,
+          method: prompt.method,
           result: { action: "accept", content: null, _meta: null },
         });
         pushEvent("mcp:elicitation", translate("runtime.mcpLinkConfirmed", { server: prompt.serverName }), {
@@ -4460,6 +4474,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         await codexDesktop.codexServer.respond({
           serverId: prompt.serverId,
           id: prompt.requestId,
+          method: prompt.method,
           result: { action: "cancel", content: null, _meta: null },
         });
         pushEvent("mcp:elicitation:cancel", `${prompt.method} (id=${prompt.requestId})`, {
@@ -4470,6 +4485,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         await codexDesktop.codexServer.respond({
           serverId: prompt.serverId,
           id: prompt.requestId,
+          method: prompt.method,
           error: { code: 4001, message: "request_user_input cancelled by user" },
         });
         pushEvent("plan:input:cancel", `${prompt.method} (id=${prompt.requestId})`, {
@@ -4529,6 +4545,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         await codexDesktop.codexServer.respond({
           serverId: prompt.serverId,
           id: prompt.requestId,
+          method: prompt.method,
           result: { decision },
         });
         const decisionText = typeof decision === "string" ? decision : safeJsonStringify(decision, { space: 0 });
@@ -4539,6 +4556,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
         await codexDesktop.codexServer.respond({
           serverId: prompt.serverId,
           id: prompt.requestId,
+          method: prompt.method,
           result: { decision },
         });
         const decisionText = typeof decision === "string" ? decision : safeJsonStringify(decision, { space: 0 });
@@ -4551,8 +4569,9 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
           await codexDesktop.codexServer.respond({
             serverId: prompt.serverId,
             id: prompt.requestId,
+            method: prompt.method,
             result: {
-              permissions: prompt.params.permissions,
+              permissions: toGrantedPermissionProfile(prompt.params.permissions),
               scope: normalizedDecision,
             },
           });
@@ -4565,6 +4584,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
           await codexDesktop.codexServer.respond({
             serverId: prompt.serverId,
             id: prompt.requestId,
+            method: prompt.method,
             error: { code: 4001, message },
           });
           pushEvent("approval:permissions", `decision=${normalizedDecision || "decline"}`, { threadId, level: "warn" });

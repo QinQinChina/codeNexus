@@ -1,4 +1,4 @@
-# src/renderer/core
+# packages/app/src/renderer/core
 
 ## 目录用途
 

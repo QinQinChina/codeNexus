@@ -13,7 +13,10 @@ import type { ExperimentalFeatureEnablementSetResponse } from "@codenexus/genera
 import type { EnvironmentAddResponse } from "@codenexus/generated/codex-app-server/v2/EnvironmentAddResponse";
 import type { ListMcpServerStatusResponse } from "@codenexus/generated/codex-app-server/v2/ListMcpServerStatusResponse";
 import type { AppsListResponse } from "@codenexus/generated/codex-app-server/v2/AppsListResponse";
+import type { AttestationGenerateResponse } from "@codenexus/generated/codex-app-server/v2/AttestationGenerateResponse";
+import type { ChatgptAuthTokensRefreshResponse } from "@codenexus/generated/codex-app-server/v2/ChatgptAuthTokensRefreshResponse";
 import type { CollaborationModeListResponse } from "@codenexus/generated/codex-app-server/v2/CollaborationModeListResponse";
+import type { CommandExecutionRequestApprovalResponse } from "@codenexus/generated/codex-app-server/v2/CommandExecutionRequestApprovalResponse";
 import type { CommandExecResponse } from "@codenexus/generated/codex-app-server/v2/CommandExecResponse";
 import type { CommandExecResizeResponse } from "@codenexus/generated/codex-app-server/v2/CommandExecResizeResponse";
 import type { CommandExecTerminateResponse } from "@codenexus/generated/codex-app-server/v2/CommandExecTerminateResponse";
@@ -31,6 +34,7 @@ import type { FsWriteFileResponse } from "@codenexus/generated/codex-app-server/
 import type { ExternalAgentConfigDetectResponse } from "@codenexus/generated/codex-app-server/v2/ExternalAgentConfigDetectResponse";
 import type { ExternalAgentConfigImportResponse } from "@codenexus/generated/codex-app-server/v2/ExternalAgentConfigImportResponse";
 import type { FeedbackUploadResponse } from "@codenexus/generated/codex-app-server/v2/FeedbackUploadResponse";
+import type { FileChangeRequestApprovalResponse } from "@codenexus/generated/codex-app-server/v2/FileChangeRequestApprovalResponse";
 import type { GetAccountRateLimitsResponse } from "@codenexus/generated/codex-app-server/v2/GetAccountRateLimitsResponse";
 import type { GetAccountResponse } from "@codenexus/generated/codex-app-server/v2/GetAccountResponse";
 import type { HooksListResponse } from "@codenexus/generated/codex-app-server/v2/HooksListResponse";
@@ -42,11 +46,14 @@ import type { MarketplaceUpgradeResponse } from "@codenexus/generated/codex-app-
 import type { MemoryResetResponse } from "@codenexus/generated/codex-app-server/v2/MemoryResetResponse";
 import type { McpServerOauthLoginResponse } from "@codenexus/generated/codex-app-server/v2/McpServerOauthLoginResponse";
 import type { McpResourceReadResponse } from "@codenexus/generated/codex-app-server/v2/McpResourceReadResponse";
+import type { McpServerElicitationRequestResponse } from "@codenexus/generated/codex-app-server/v2/McpServerElicitationRequestResponse";
 import type { McpServerRefreshResponse } from "@codenexus/generated/codex-app-server/v2/McpServerRefreshResponse";
 import type { McpServerToolCallResponse } from "@codenexus/generated/codex-app-server/v2/McpServerToolCallResponse";
+import type { DynamicToolCallResponse } from "@codenexus/generated/codex-app-server/v2/DynamicToolCallResponse";
 import type { ModelListResponse } from "@codenexus/generated/codex-app-server/v2/ModelListResponse";
 import type { ModelProviderCapabilitiesReadResponse } from "@codenexus/generated/codex-app-server/v2/ModelProviderCapabilitiesReadResponse";
 import type { MockExperimentalMethodResponse } from "@codenexus/generated/codex-app-server/v2/MockExperimentalMethodResponse";
+import type { PermissionsRequestApprovalResponse } from "@codenexus/generated/codex-app-server/v2/PermissionsRequestApprovalResponse";
 import type { PermissionProfileListResponse } from "@codenexus/generated/codex-app-server/v2/PermissionProfileListResponse";
 import type { PluginInstalledResponse } from "@codenexus/generated/codex-app-server/v2/PluginInstalledResponse";
 import type { PluginInstallResponse } from "@codenexus/generated/codex-app-server/v2/PluginInstallResponse";
@@ -102,6 +109,7 @@ import type { ThreadTurnsItemsListResponse } from "@codenexus/generated/codex-ap
 import type { ThreadTurnsListResponse } from "@codenexus/generated/codex-app-server/v2/ThreadTurnsListResponse";
 import type { ThreadUnarchiveResponse } from "@codenexus/generated/codex-app-server/v2/ThreadUnarchiveResponse";
 import type { ThreadUnsubscribeResponse } from "@codenexus/generated/codex-app-server/v2/ThreadUnsubscribeResponse";
+import type { ToolRequestUserInputResponse } from "@codenexus/generated/codex-app-server/v2/ToolRequestUserInputResponse";
 import type { TurnInterruptResponse } from "@codenexus/generated/codex-app-server/v2/TurnInterruptResponse";
 import type { TurnStartResponse } from "@codenexus/generated/codex-app-server/v2/TurnStartResponse";
 import type { TurnSteerResponse } from "@codenexus/generated/codex-app-server/v2/TurnSteerResponse";
@@ -219,6 +227,17 @@ type SupportedCodexRpcResultMap = {
   "thread/inject_items": ThreadInjectItemsResponse;
 };
 
+type SupportedCodexServerRequestResultMap = {
+  "item/commandExecution/requestApproval": CommandExecutionRequestApprovalResponse;
+  "item/fileChange/requestApproval": FileChangeRequestApprovalResponse;
+  "item/tool/requestUserInput": ToolRequestUserInputResponse;
+  "mcpServer/elicitation/request": McpServerElicitationRequestResponse;
+  "item/permissions/requestApproval": PermissionsRequestApprovalResponse;
+  "item/tool/call": DynamicToolCallResponse;
+  "account/chatgptAuthTokens/refresh": ChatgptAuthTokensRefreshResponse;
+  "attestation/generate": AttestationGenerateResponse;
+};
+
 export type CodexOfficialRpcMethod = ClientRequest["method"];
 export type UnsupportedLegacyCodexRpcMethod =
   | "fuzzyFileSearch"
@@ -231,6 +250,11 @@ export type UnsupportedLegacyCodexRpcMethod =
 export type CodexRpcMethod = Exclude<CodexOfficialRpcMethod, UnsupportedLegacyCodexRpcMethod>;
 export type CodexClientNotificationMethod = ClientNotification["method"];
 export type CodexServerRequestMethod = ServerRequest["method"];
+export type UnsupportedLegacyCodexServerRequestMethod = "applyPatchApproval" | "execCommandApproval";
+export type SupportedCodexServerRequestMethod = Exclude<
+  CodexServerRequestMethod,
+  UnsupportedLegacyCodexServerRequestMethod
+>;
 export type CodexServerNotificationMethod = ServerNotification["method"];
 export type OfficialCodexServerRequest = ServerRequest;
 export type OfficialCodexServerNotification = ServerNotification;
@@ -240,9 +264,34 @@ export type CodexServerNotificationMessage = { kind: "notification" } & ServerNo
 type MissingCodexRpcResultMethods = Exclude<CodexRpcMethod, keyof SupportedCodexRpcResultMap>;
 type ExtraCodexRpcResultMethods = Exclude<keyof SupportedCodexRpcResultMap, CodexRpcMethod>;
 type UnknownUnsupportedLegacyCodexRpcMethods = Exclude<UnsupportedLegacyCodexRpcMethod, CodexOfficialRpcMethod>;
+type MissingCodexServerRequestResultMethods = Exclude<
+  SupportedCodexServerRequestMethod,
+  keyof SupportedCodexServerRequestResultMap
+>;
+type ExtraCodexServerRequestResultMethods = Exclude<
+  keyof SupportedCodexServerRequestResultMap,
+  SupportedCodexServerRequestMethod
+>;
+type UnknownUnsupportedLegacyCodexServerRequestMethods = Exclude<
+  UnsupportedLegacyCodexServerRequestMethod,
+  CodexServerRequestMethod
+>;
 type _AssertNoMissingCodexRpcResultMethods = AssertNever<MissingCodexRpcResultMethods>;
 type _AssertNoExtraCodexRpcResultMethods = AssertNever<ExtraCodexRpcResultMethods>;
 type _AssertNoUnknownUnsupportedLegacyCodexRpcMethods = AssertNever<UnknownUnsupportedLegacyCodexRpcMethods>;
+type _AssertNoMissingCodexServerRequestResultMethods = AssertNever<MissingCodexServerRequestResultMethods>;
+type _AssertNoExtraCodexServerRequestResultMethods = AssertNever<ExtraCodexServerRequestResultMethods>;
+type _AssertNoUnknownUnsupportedLegacyCodexServerRequestMethods = AssertNever<
+  UnknownUnsupportedLegacyCodexServerRequestMethods
+>;
+export type _CodexProtocolTypeAssertions = [
+  _AssertNoMissingCodexRpcResultMethods,
+  _AssertNoExtraCodexRpcResultMethods,
+  _AssertNoUnknownUnsupportedLegacyCodexRpcMethods,
+  _AssertNoMissingCodexServerRequestResultMethods,
+  _AssertNoExtraCodexServerRequestResultMethods,
+  _AssertNoUnknownUnsupportedLegacyCodexServerRequestMethods,
+];
 
 export type CodexRpcParams<M extends CodexRpcMethod> = M extends CodexRpcMethod
   ? Extract<ClientRequest, { method: M }> extends { params: infer P }
@@ -253,6 +302,21 @@ export type CodexRpcParams<M extends CodexRpcMethod> = M extends CodexRpcMethod
 export type CodexRpcResult<M extends CodexRpcMethod> = M extends keyof SupportedCodexRpcResultMap
   ? SupportedCodexRpcResultMap[M]
   : unknown;
+
+export type CodexServerRequestParams<M extends SupportedCodexServerRequestMethod> = M extends SupportedCodexServerRequestMethod
+  ? Extract<ServerRequest, { method: M }> extends { params: infer P }
+    ? P
+    : undefined
+  : unknown;
+
+export type CodexServerRequestResult<M extends SupportedCodexServerRequestMethod> =
+  M extends keyof SupportedCodexServerRequestResultMap ? SupportedCodexServerRequestResultMap[M] : unknown;
+
+export type CodexServerRespondArgs<M extends SupportedCodexServerRequestMethod = SupportedCodexServerRequestMethod> = {
+  serverId: string;
+  id: JsonRpcId;
+  method: M;
+} & ({ result: CodexServerRequestResult<M>; error?: undefined } | { result?: undefined; error: unknown });
 
 export type CodexNotifyParams<M extends string> = M extends ClientNotification["method"]
   ? Extract<ClientNotification, { method: M }> extends { params: infer P }

@@ -1,6 +1,11 @@
 import type { SandboxMode } from "@codenexus/generated/codex-app-server/v2/SandboxMode";
 import { DEFAULT_MODEL_NAME } from "./modelCatalog";
 
+/**
+ * 每个线程的本地输入草稿。
+ *
+ * 该状态用于刷新或切换线程后恢复输入框、模型和沙箱选项，不代表已经发送到 Codex 的消息。
+ */
 export type LocalDraftSandboxMode = SandboxMode;
 
 export type LocalDraftComposeMode = "default" | "plan";
@@ -20,6 +25,7 @@ export type LocalDraftState = {
   threads: Record<string, LocalThreadComposeState>;
 };
 
+/** 单线程草稿默认值代表新会话输入框的初始 UI 状态。 */
 export const DEFAULT_LOCAL_THREAD_COMPOSE_STATE: LocalThreadComposeState = {
   sandboxMode: "danger-full-access",
   composeInput: "",
@@ -38,7 +44,9 @@ export const DEFAULT_LOCAL_DRAFT_STATE: LocalDraftState = {
 const REASONING_EFFORT_OPTIONS = ["low", "medium", "high", "xhigh"] as const;
 
 function toRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
 }
 
 function toThreadKey(value: unknown): string {
@@ -58,7 +66,11 @@ function normalizeModelName(value: unknown): string {
 }
 
 function toSandboxMode(value: unknown): LocalDraftSandboxMode {
-  if (value === "read-only" || value === "workspace-write" || value === "danger-full-access") {
+  if (
+    value === "read-only" ||
+    value === "workspace-write" ||
+    value === "danger-full-access"
+  ) {
     return value;
   }
   return DEFAULT_LOCAL_THREAD_COMPOSE_STATE.sandboxMode;
@@ -72,12 +84,17 @@ function toReasoningEffort(value: unknown): string {
   return hit ?? DEFAULT_LOCAL_THREAD_COMPOSE_STATE.reasoningEffort;
 }
 
-export function normalizeLocalThreadComposeState(value: unknown): LocalThreadComposeState {
+/** 从持久化内容恢复单线程草稿，未知字段回落到当前默认输入设置。 */
+export function normalizeLocalThreadComposeState(
+  value: unknown,
+): LocalThreadComposeState {
   const record = toRecord(value);
   return {
     sandboxMode: toSandboxMode(record?.sandboxMode),
     composeInput:
-      typeof record?.composeInput === "string" ? record.composeInput : DEFAULT_LOCAL_THREAD_COMPOSE_STATE.composeInput,
+      typeof record?.composeInput === "string"
+        ? record.composeInput
+        : DEFAULT_LOCAL_THREAD_COMPOSE_STATE.composeInput,
     composeMode: toComposeMode(record?.composeMode),
     model: normalizeModelName(record?.model),
     reasoningEffort: toReasoningEffort(record?.reasoningEffort),
@@ -105,10 +122,11 @@ export function normalizeLocalDraftState(value: unknown): LocalDraftState {
   };
 }
 
+/** 覆盖单个线程草稿，用于输入框状态即时落盘。 */
 export function upsertLocalDraftThreadState(
   current: unknown,
   threadIdValue: string,
-  stateValue: unknown
+  stateValue: unknown,
 ): LocalDraftState {
   const next = normalizeLocalDraftState(current);
   const threadId = toThreadKey(threadIdValue);
@@ -123,7 +141,11 @@ export function upsertLocalDraftThreadState(
   };
 }
 
-export function mergeLocalDraftThreadStates(current: unknown, stateEntries: Record<string, unknown>): LocalDraftState {
+/** 批量合并多个线程草稿，只有成功写入有效 threadId 时才刷新 updatedAt。 */
+export function mergeLocalDraftThreadStates(
+  current: unknown,
+  stateEntries: Record<string, unknown>,
+): LocalDraftState {
   const next = normalizeLocalDraftState(current);
   const threads = { ...next.threads };
   let changed = false;
@@ -143,7 +165,11 @@ export function mergeLocalDraftThreadStates(current: unknown, stateEntries: Reco
   };
 }
 
-export function removeLocalDraftThreadState(current: unknown, threadIdValue: string): LocalDraftState {
+/** 删除不存在的线程草稿不会刷新 updatedAt，避免无意义持久化写入。 */
+export function removeLocalDraftThreadState(
+  current: unknown,
+  threadIdValue: string,
+): LocalDraftState {
   const next = normalizeLocalDraftState(current);
   const threadId = toThreadKey(threadIdValue);
   if (!threadId || !(threadId in next.threads)) return next;

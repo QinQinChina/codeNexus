@@ -1,4 +1,4 @@
-# src/renderer/processes/protocol-request-responder
+# packages/app/src/renderer/processes/protocol-request-responder
 
 ## 目录用途
 

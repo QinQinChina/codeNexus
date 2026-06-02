@@ -1,5 +1,15 @@
+/**
+ * Codex MCP 配置的导入、归一化与导出模型。
+ *
+ * shared 层只做结构收敛和兼容字段保留，不负责启动 MCP 进程，也不验证网络可达性。
+ */
 export type CodexMcpTransport = "stdio" | "http" | "sse";
 
+/**
+ * 单个 MCP server 的可持久化规格。
+ *
+ * 末尾索引签名用于保留 Codex 或第三方 MCP 配置里的扩展字段，避免导入导出时丢配置。
+ */
 export type CodexMcpServerSpec = {
   type?: CodexMcpTransport;
   command?: string;
@@ -11,19 +21,23 @@ export type CodexMcpServerSpec = {
   [key: string]: unknown;
 };
 
+/** UI 和持久化层使用的完整 MCP server 条目，enabled 不进入原生 server spec。 */
 export type CodexMcpServerConfig = {
   id: string;
   enabled: boolean;
   server: CodexMcpServerSpec;
 };
 
+/** 批量导入时同时返回有效配置和可展示给用户的错误列表。 */
 export type CodexMcpImportResult = {
   servers: CodexMcpServerConfig[];
   errors: string[];
 };
 
 function toRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
 }
 
 function normalizeText(value: unknown): string {
@@ -31,10 +45,14 @@ function normalizeText(value: unknown): string {
 }
 
 function normalizeStringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.map((item) => String(item ?? "").trim()).filter(Boolean) : [];
+  return Array.isArray(value)
+    ? value.map((item) => String(item ?? "").trim()).filter(Boolean)
+    : [];
 }
 
-function normalizeStringRecord(value: unknown): Record<string, string> | undefined {
+function normalizeStringRecord(
+  value: unknown,
+): Record<string, string> | undefined {
   const record = toRecord(value);
   if (!record) return undefined;
   const out: Record<string, string> = {};
@@ -46,6 +64,11 @@ function normalizeStringRecord(value: unknown): Record<string, string> | undefin
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
+/**
+ * 生成稳定、可作为配置键使用的 MCP id。
+ *
+ * 仅保留 Codex 配置中安全的 ASCII 字符，避免导入外部 JSON 时把空格或本地化名称写进键名。
+ */
 export function normalizeCodexMcpServerId(value: unknown): string {
   return normalizeText(value)
     .replace(/\s+/g, "-")
@@ -60,10 +83,23 @@ export function normalizeCodexMcpTransport(value: unknown): CodexMcpTransport {
   return "stdio";
 }
 
-export function normalizeCodexMcpServerSpec(value: unknown): CodexMcpServerSpec {
+/**
+ * 将外部 MCP JSON 收敛成内部 spec。
+ *
+ * 当配置只有 url 且没有 command 时默认按 HTTP MCP 处理；未知字段原样保留以兼容新版 Codex 配置。
+ */
+export function normalizeCodexMcpServerSpec(
+  value: unknown,
+): CodexMcpServerSpec {
   const record = toRecord(value) ?? {};
-  const inferredType = normalizeText(record.url) && !normalizeText(record.command) ? "http" : "stdio";
-  const type = record.type == null || record.type === "" ? inferredType : normalizeCodexMcpTransport(record.type);
+  const inferredType =
+    normalizeText(record.url) && !normalizeText(record.command)
+      ? "http"
+      : "stdio";
+  const type =
+    record.type == null || record.type === ""
+      ? inferredType
+      : normalizeCodexMcpTransport(record.type);
   const spec: CodexMcpServerSpec = { type };
   if (type === "stdio") {
     spec.command = normalizeText(record.command);
@@ -75,7 +111,9 @@ export function normalizeCodexMcpServerSpec(value: unknown): CodexMcpServerSpec 
     if (cwd) spec.cwd = cwd;
   } else {
     spec.url = normalizeText(record.url);
-    const headers = normalizeStringRecord(record.headers ?? record.http_headers);
+    const headers = normalizeStringRecord(
+      record.headers ?? record.http_headers,
+    );
     if (headers) spec.headers = headers;
   }
 
@@ -99,16 +137,23 @@ export function normalizeCodexMcpServerSpec(value: unknown): CodexMcpServerSpec 
   return spec;
 }
 
-export function validateCodexMcpServerConfig(config: CodexMcpServerConfig): string | null {
+export function validateCodexMcpServerConfig(
+  config: CodexMcpServerConfig,
+): string | null {
   const id = normalizeCodexMcpServerId(config.id);
   if (!id) return "MCP id is required";
   const type = normalizeCodexMcpTransport(config.server?.type);
-  if (type === "stdio" && !normalizeText(config.server?.command)) return "stdio MCP is missing command";
-  if ((type === "http" || type === "sse") && !normalizeText(config.server?.url)) return `${type} MCP is missing url`;
+  if (type === "stdio" && !normalizeText(config.server?.command))
+    return "stdio MCP is missing command";
+  if ((type === "http" || type === "sse") && !normalizeText(config.server?.url))
+    return `${type} MCP is missing url`;
   return null;
 }
 
-export function codexMcpServerSpecToConfigValue(config: CodexMcpServerConfig): Record<string, unknown> {
+/** 将内部 MCP 条目还原成 Codex config 可写入的值，headers 会按 Codex 字段名输出为 http_headers。 */
+export function codexMcpServerSpecToConfigValue(
+  config: CodexMcpServerConfig,
+): Record<string, unknown> {
   const spec = normalizeCodexMcpServerSpec(config.server);
   const type = normalizeCodexMcpTransport(spec.type);
   const out: Record<string, unknown> = {
@@ -122,7 +167,8 @@ export function codexMcpServerSpecToConfigValue(config: CodexMcpServerConfig): R
     if (spec.cwd) out.cwd = spec.cwd;
   } else {
     out.url = normalizeText(spec.url);
-    if (spec.headers && Object.keys(spec.headers).length > 0) out.http_headers = spec.headers;
+    if (spec.headers && Object.keys(spec.headers).length > 0)
+      out.http_headers = spec.headers;
   }
   for (const [key, value] of Object.entries(spec)) {
     if (key in out || key === "headers") continue;
@@ -132,7 +178,10 @@ export function codexMcpServerSpecToConfigValue(config: CodexMcpServerConfig): R
   return out;
 }
 
-export function configValueToCodexMcpServerConfig(idValue: unknown, value: unknown): CodexMcpServerConfig | null {
+export function configValueToCodexMcpServerConfig(
+  idValue: unknown,
+  value: unknown,
+): CodexMcpServerConfig | null {
   const id = normalizeCodexMcpServerId(idValue);
   const record = toRecord(value);
   if (!id || !record) return null;
@@ -144,6 +193,11 @@ export function configValueToCodexMcpServerConfig(idValue: unknown, value: unkno
   };
 }
 
+/**
+ * 解析用户粘贴的 MCP JSON。
+ *
+ * 同时兼容标准的 { mcpServers } 批量格式和单个 server 对象格式，便于从不同客户端迁移配置。
+ */
 export function parseCodexMcpJsonImport(text: string): CodexMcpImportResult {
   const errors: string[] = [];
   const servers: CodexMcpServerConfig[] = [];
@@ -151,17 +205,22 @@ export function parseCodexMcpJsonImport(text: string): CodexMcpImportResult {
   try {
     parsed = JSON.parse(String(text ?? "").trim());
   } catch (error: any) {
-    return { servers: [], errors: [`Failed to parse JSON: ${String(error?.message ?? error)}`] };
+    return {
+      servers: [],
+      errors: [`Failed to parse JSON: ${String(error?.message ?? error)}`],
+    };
   }
   const root = toRecord(parsed);
-  if (!root) return { servers: [], errors: ["JSON top level must be an object"] };
+  if (!root)
+    return { servers: [], errors: ["JSON top level must be an object"] };
   const mcpServers = toRecord(root.mcpServers);
   if (mcpServers) {
     for (const [rawId, rawSpec] of Object.entries(mcpServers)) {
       const rawRecord = toRecord(rawSpec);
       const config: CodexMcpServerConfig = {
         id: normalizeCodexMcpServerId(rawId),
-        enabled: typeof rawRecord?.enabled === "boolean" ? rawRecord.enabled : true,
+        enabled:
+          typeof rawRecord?.enabled === "boolean" ? rawRecord.enabled : true,
         server: normalizeCodexMcpServerSpec(rawSpec),
       };
       const error = validateCodexMcpServerConfig(config);

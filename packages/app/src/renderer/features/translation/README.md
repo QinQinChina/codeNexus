@@ -1,4 +1,4 @@
-# src/renderer/features/translation
+# packages/app/src/renderer/features/translation
 
 ## 目录用途
 

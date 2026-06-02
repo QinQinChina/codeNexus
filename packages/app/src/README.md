@@ -1,26 +1,37 @@
-# src
+# packages/app/src
 
 ## 目录用途
 
-项目源码根目录，按 `main / preload / renderer / shared` 四层组织，同时保留 `generated` 协议类型产物。
+`@codenexus/app` 的应用壳源码目录，负责 Electron 主进程、preload 桥接和渲染层宿主。
+
+功能域已经拆到 workspace 包中，`app/src` 只保留应用级入口、运行时编排、IPC 聚合和壳层 UI。
 
 ## 当前结构
 
-| 目录         | 说明                                          |
-| ------------ | --------------------------------------------- |
-| `generated/` | `codex app-server` 生成的 TypeScript 协议类型 |
-| `main/`      | Electron 主进程、窗口、IPC、服务              |
-| `preload/`   | `contextBridge` 桥接与 IPC 客户端             |
-| `renderer/`  | Vue UI、状态、流程编排、业务模块              |
-| `shared/`    | 主渲染共用类型与 IPC 契约                     |
+| 目录        | 说明                                             |
+| ----------- | ------------------------------------------------ |
+| `main/`     | Electron 主进程、窗口、IPC 注册和应用级服务      |
+| `preload/`  | `contextBridge` 桥接、基础 IPC 客户端和 API 聚合 |
+| `renderer/` | Vue 应用壳、状态编排、协议事件流水线和壳层组件   |
+
+## 关联 workspace 包
+
+| 包                             | 说明                                         |
+| ------------------------------ | -------------------------------------------- |
+| `@codenexus/shared`            | 跨进程基础契约、IPC 通道、设置和协议辅助函数 |
+| `@codenexus/generated`         | Codex app-server 生成协议类型                |
+| `@codenexus/feature-paper`     | Paper 工作台状态和 UI                        |
+| `@codenexus/feature-flowchart` | 流程图类型、历史服务、工作台和 AI 设置页     |
+| `@codenexus/feature-imagegen`  | 图片生成类型、任务/历史服务、状态和组件      |
 
 ## 维护边界
 
 - ✅ 跨层通信统一经由 IPC 与 `window.codexDesktop`
-- ✅ 协议升级优先更新 `generated/` 与 `shared/codex-protocol`
-- ❌ 不要把渲染层业务逻辑塞回 `main/` 或 `preload/`
+- ✅ 应用壳只编排功能包，不把功能域实现重新塞回 `app/src`
+- ✅ 协议升级优先更新 `@codenexus/generated` 与 `@codenexus/shared`
+- ❌ 不在 `main/`、`preload/`、`renderer/` 之间共享隐式运行时状态
 
 ## 维护建议
 
-- ✅ 新增能力前先确认层级归属
+- ✅ 新增能力前先确认归属：app 壳层、shared 契约，还是独立 feature 包
 - ✅ 分层职责变化时同步更新对应子目录 `README.md`

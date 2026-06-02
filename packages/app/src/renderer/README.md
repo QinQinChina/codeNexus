@@ -1,25 +1,36 @@
-# src/renderer
+# packages/app/src/renderer
 
 ## 目录用途
 
-渲染层目录，负责 UI、Pinia 状态、运行时编排与协议事件处理。
+渲染层应用壳目录，负责 Vue 启动、Pinia 状态、协议事件流水线、运行时编排与功能包挂载。
+
+Paper、flowchart、image generation 等完整工作台已经拆到独立 workspace 包，渲染层通过包导出接入它们。
 
 ## 当前结构
 
-| 目录 / 文件                           | 说明                                          |
-| ------------------------------------- | --------------------------------------------- |
-| `main.ts`                             | 渲染层启动、主题/字体初始化、本地状态 hydrate |
-| `App.vue`                             | 应用骨架，切换 chat / settings / sleep        |
-| `components/`                         | 页面组件、布局组件与时间线卡片                |
-| `stores/`                             | Pinia 状态容器                                |
-| `domain/`                             | 编排、互操作与本地状态                        |
-| `features/`                           | 业务域能力                                    |
-| `processes/`                          | 事件流水线与请求响应流程                      |
-| `api/` / `infra/`                     | IPC 与桌面 API 适配                           |
-| `styles/` / `theme/` / `tailwind.css` | 全局样式与主题层                              |
+| 目录 / 文件                           | 说明                                           |
+| ------------------------------------- | ---------------------------------------------- |
+| `main.ts`                             | 渲染层启动、主题/字体初始化、本地状态 hydrate  |
+| `App.vue`                             | 应用骨架，承载 chat、settings 和外部功能工作台 |
+| `components/`                         | 壳层布局、时间线卡片与通用 UI                  |
+| `stores/`                             | 应用壳 Pinia 状态容器                          |
+| `domain/`                             | 运行时编排、互操作与本地状态                   |
+| `features/`                           | app 内部保留的轻量业务域能力                   |
+| `processes/`                          | 协议事件流水线与请求响应流程                   |
+| `api/` / `infra/`                     | IPC 与桌面 API 适配                            |
+| `styles/` / `theme/` / `tailwind.css` | 全局样式与主题层                               |
+
+## 外部功能包
+
+| 包                             | 渲染层接入内容                       |
+| ------------------------------ | ------------------------------------ |
+| `@codenexus/feature-paper`     | Paper store、工作台和侧栏组件        |
+| `@codenexus/feature-flowchart` | Flowchart workbench 和 AI 设置页     |
+| `@codenexus/feature-imagegen`  | 图片生成 store、工作台和任务展示组件 |
 
 ## 维护边界
 
 - ✅ 保持 `事件 -> 状态 -> 视图` 的单向流
-- ✅ 协议处理与 UI 展示分层维护
+- ✅ 协议处理、状态归一化与 UI 展示分层维护
+- ✅ feature 工作台通过包导出接入，不回填到 app 本地目录
 - ❌ 不让组件层直接承担协议编排

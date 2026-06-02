@@ -612,7 +612,7 @@ export type CodexDesktopCodexServerApi = {
   stop(args: { serverId: string }): Promise<{ ok: true }>;
   rpc<M extends CodexRpcMethod>(args: CodexRpcArgs<M>): Promise<CodexRpcResponse<M>>;
   notify<M extends string>(args: CodexNotifyArgs<M>): Promise<{ ok: true }>;
-  respond(args: { serverId: string; id: number | string; result?: unknown; error?: unknown }): Promise<{ ok: true }>;
+  respond<M extends SupportedCodexServerRequestMethod>(args: CodexServerRespondArgs<M>): Promise<{ ok: true }>;
   onEvent(cb: (payload: CodexEventPayload) => void): () => void;
 };
 
@@ -665,4 +665,6 @@ import type {
   CodexRpcArgs,
   CodexRpcMethod,
   CodexRpcResponse,
+  CodexServerRespondArgs,
+  SupportedCodexServerRequestMethod,
 } from "../codex-protocol/index";

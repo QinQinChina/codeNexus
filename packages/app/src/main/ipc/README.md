@@ -1,4 +1,4 @@
-# src/main/ipc
+# packages/app/src/main/ipc
 
 ## 目录用途
 

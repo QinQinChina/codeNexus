@@ -1,4 +1,4 @@
-# src/renderer/features/thread
+# packages/app/src/renderer/features/thread
 
 ## 目录用途
 

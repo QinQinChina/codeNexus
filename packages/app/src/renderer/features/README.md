@@ -1,8 +1,10 @@
-# src/renderer/features
+# packages/app/src/renderer/features
 
 ## 目录用途
 
-按业务域拆分的渲染层功能模块目录。
+应用壳内部保留的渲染层功能模块目录。
+
+这里主要维护 chat/timeline/approval/history 等仍属于 app 壳的能力；Paper、flowchart、image generation 已拆分到独立 workspace feature 包。
 
 ## 当前结构
 
@@ -21,7 +23,16 @@
 | `translation/`       | 翻译能力扩展位                      |
 | `workflow/`          | workflow 执行能力                   |
 
+## 外部 feature 包
+
+| 包                             | 归属能力         |
+| ------------------------------ | ---------------- |
+| `@codenexus/feature-paper`     | Paper 工作台     |
+| `@codenexus/feature-flowchart` | Flowchart 工作台 |
+| `@codenexus/feature-imagegen`  | Image generation |
+
 ## 维护边界
 
-- ✅ 每个 feature 只聚焦一个业务域
-- ✅ 跨域共用逻辑优先下沉到 `shared/` 或 `domain/`
+- ✅ 每个 app-local feature 只聚焦一个业务域
+- ✅ 跨域共用逻辑优先下沉到 `domain/`、`@codenexus/shared` 或独立 feature 包
+- ❌ 不把已拆包功能重新放回 app 本地 feature 目录

@@ -1,4 +1,4 @@
-# src/renderer/components/timeline/cards
+# packages/app/src/renderer/components/timeline/cards
 
 ## 目录用途
 

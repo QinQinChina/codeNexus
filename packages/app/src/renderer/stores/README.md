@@ -1,4 +1,4 @@
-# src/renderer/stores
+# packages/app/src/renderer/stores
 
 ## 目录用途
 

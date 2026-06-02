@@ -1,4 +1,4 @@
-# src/main/services
+# packages/app/src/main/services
 
 ## 目录用途
 

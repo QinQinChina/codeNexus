@@ -1,4 +1,4 @@
-# src/preload/api
+# packages/app/src/preload/api
 
 ## 目录用途
 
@@ -15,4 +15,4 @@
 ## 维护边界
 
 - ✅ 新增能力时同步更新 `channels / types / client`
-- ✅ 与 `src/shared/ipc` 保持一致
+- ✅ 与 `@codenexus/shared` 的 IPC 契约保持一致

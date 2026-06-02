@@ -1,4 +1,4 @@
-# src/renderer/features/context
+# packages/app/src/renderer/features/context
 
 ## 目录用途
 

@@ -1,4 +1,4 @@
-# src/renderer/core/runtime
+# packages/app/src/renderer/core/runtime
 
 ## 目录用途
 

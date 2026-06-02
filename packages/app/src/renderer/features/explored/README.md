@@ -1,4 +1,4 @@
-# src/renderer/features/explored
+# packages/app/src/renderer/features/explored
 
 ## 目录用途
 

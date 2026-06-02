@@ -1,4 +1,4 @@
-# src/renderer/app/events
+# packages/app/src/renderer/app/events
 
 ## 目录用途
 

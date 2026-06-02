@@ -1,4 +1,4 @@
-# src/main/windows
+# packages/app/src/main/windows
 
 ## 目录用途
 

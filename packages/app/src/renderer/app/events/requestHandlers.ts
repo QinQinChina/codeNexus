@@ -1,4 +1,4 @@
-import type { CodexServerRequestMessage } from "@codenexus/shared/codex-protocol";
+import type { CodexServerRequestMessage, CodexServerRespondArgs } from "@codenexus/shared/codex-protocol";
 import { isServerRequestMethod, type ServerRequestMethod } from "./protocolMethods";
 
 export type AppServerRequest = CodexServerRequestMessage & { method: ServerRequestMethod };
@@ -17,12 +17,7 @@ export type JsonRpcErrorPayload = {
   data?: unknown;
 };
 
-export type JsonRpcResponsePayload = {
-  serverId: string;
-  id: number | string;
-  result?: unknown;
-  error?: JsonRpcErrorPayload;
-};
+export type JsonRpcResponsePayload<M extends ServerRequestMethod = ServerRequestMethod> = CodexServerRespondArgs<M>;
 
 const APPROVAL_METHODS = new Set<string>([
   "item/commandExecution/requestApproval",
@@ -119,14 +114,16 @@ export function buildInvalidUserInputPayloadError(method: ServerRequestMethod): 
   return buildJsonRpcError(-32602, "invalid request_user_input payload");
 }
 
-export function respondRequestError(
+export function respondRequestError<M extends ServerRequestMethod>(
   serverId: string,
   id: number | string,
+  method: M,
   error: JsonRpcErrorPayload
-): JsonRpcResponsePayload {
+): JsonRpcResponsePayload<M> {
   return {
     serverId,
     id,
+    method,
     error,
   };
 }

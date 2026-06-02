@@ -1,4 +1,4 @@
-# src/renderer/infra/ipc
+# packages/app/src/renderer/infra/ipc
 
 ## 目录用途
 

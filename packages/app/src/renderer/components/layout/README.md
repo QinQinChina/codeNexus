@@ -1,4 +1,4 @@
-# src/renderer/components/layout
+# packages/app/src/renderer/components/layout
 
 ## 目录用途
 

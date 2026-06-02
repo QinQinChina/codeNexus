@@ -1,4 +1,4 @@
-# src/renderer/features/guardian
+# packages/app/src/renderer/features/guardian
 
 ## 目录用途
 

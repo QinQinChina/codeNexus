@@ -1,4 +1,4 @@
-# src/renderer/infra
+# packages/app/src/renderer/infra
 
 ## 目录用途
 

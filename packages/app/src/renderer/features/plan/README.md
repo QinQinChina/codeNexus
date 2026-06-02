@@ -1,4 +1,4 @@
-# src/renderer/features/plan
+# packages/app/src/renderer/features/plan
 
 ## 目录用途
 

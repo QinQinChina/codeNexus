@@ -1,4 +1,4 @@
-# src/renderer/features/timeline/renderModel
+# packages/app/src/renderer/features/timeline/renderModel
 
 ## 目录用途
 

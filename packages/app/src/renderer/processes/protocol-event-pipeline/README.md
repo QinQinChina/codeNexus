@@ -1,4 +1,4 @@
-# src/renderer/processes/protocol-event-pipeline
+# packages/app/src/renderer/processes/protocol-event-pipeline
 
 ## 目录用途
 

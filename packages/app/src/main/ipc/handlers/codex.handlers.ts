@@ -1,6 +1,6 @@
 import { ipcMain } from "electron";
 import { IPC_CODEX_CHANNELS } from "@codenexus/shared/ipc/channels";
-import type { CodexIncomingMessage, CodexNotifyArgs, CodexRpcArgs } from "@codenexus/shared/codex-protocol";
+import type { CodexIncomingMessage, CodexNotifyArgs, CodexRpcArgs, CodexServerRespondArgs } from "@codenexus/shared/codex-protocol";
 import { detectCodexNative, detectNodeNative, detectNpmNative } from "../../systemChecks";
 import { CodexServerManager } from "../../services/CodexServerManager";
 
@@ -51,7 +51,7 @@ export function registerCodexHandlers(deps: {
 
   ipcMain.handle(
     IPC_CODEX_CHANNELS.codexRespond,
-    async (_evt, args: { serverId: string; id: number | string; result?: unknown; error?: unknown }) => {
+    async (_evt, args: CodexServerRespondArgs) => {
       return serverManager.respond(args);
     }
   );

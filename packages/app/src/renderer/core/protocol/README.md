@@ -1,4 +1,4 @@
-# src/renderer/core/protocol
+# packages/app/src/renderer/core/protocol
 
 ## 目录用途
 

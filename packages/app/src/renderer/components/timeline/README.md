@@ -1,4 +1,4 @@
-# src/renderer/components/timeline
+# packages/app/src/renderer/components/timeline
 
 ## 目录用途
 

@@ -1,4 +1,4 @@
-# src/renderer/processes
+# packages/app/src/renderer/processes
 
 ## 目录用途
 

@@ -1,4 +1,4 @@
-# src/renderer/features/history
+# packages/app/src/renderer/features/history
 
 ## 目录用途
 

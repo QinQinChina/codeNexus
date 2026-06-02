@@ -1,4 +1,4 @@
-# src/renderer/domain
+# packages/app/src/renderer/domain
 
 ## 目录用途
 

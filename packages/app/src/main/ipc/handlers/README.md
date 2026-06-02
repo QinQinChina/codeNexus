@@ -1,4 +1,4 @@
-# src/main/ipc/handlers
+# packages/app/src/main/ipc/handlers
 
 ## 目录用途
 

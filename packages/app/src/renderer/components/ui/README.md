@@ -1,4 +1,4 @@
-# src/renderer/components/ui
+# packages/app/src/renderer/components/ui
 
 ## 目录用途
 

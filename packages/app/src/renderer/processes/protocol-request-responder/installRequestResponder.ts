@@ -370,7 +370,7 @@ export function installRequestResponder(pinia: Pinia) {
       const toolParams = normalizeImageToolCallParams(msg.params);
       if (!toolParams || !isCodeNexusImageGenerationTool(toolParams)) {
         void codexDesktop.codexServer.respond(
-          respondRequestError(payload.serverId, msg.id, buildRequestMethodNotImplementedError(msg.method))
+          respondRequestError(payload.serverId, msg.id, msg.method, buildRequestMethodNotImplementedError(msg.method))
         );
         timelineStore.appendEvent({
           threadId,
@@ -472,6 +472,7 @@ export function installRequestResponder(pinia: Pinia) {
           await codexDesktop.codexServer.respond({
             serverId: payload.serverId,
             id: msg.id,
+            method: msg.method,
             result: await buildSuccessfulImageToolResponse(historyItem, referenceResolution),
           });
         } catch (error: any) {
@@ -484,6 +485,7 @@ export function installRequestResponder(pinia: Pinia) {
           await codexDesktop.codexServer.respond({
             serverId: payload.serverId,
             id: msg.id,
+            method: msg.method,
             result: buildFailedToolResponse(message),
           });
         }
@@ -493,7 +495,7 @@ export function installRequestResponder(pinia: Pinia) {
 
     if (handling.kind === "authRefresh") {
       void codexDesktop.codexServer.respond(
-        respondRequestError(payload.serverId, msg.id, buildAuthRefreshNotImplementedError(msg.method))
+        respondRequestError(payload.serverId, msg.id, msg.method, buildAuthRefreshNotImplementedError(msg.method))
       );
       timelineStore.appendEvent({
         threadId,
@@ -509,7 +511,7 @@ export function installRequestResponder(pinia: Pinia) {
       const prompt = normalizeUserInputPrompt(msg, payload.serverId);
       if (!prompt) {
         void codexDesktop.codexServer.respond(
-          respondRequestError(payload.serverId, msg.id, buildInvalidUserInputPayloadError(msg.method))
+          respondRequestError(payload.serverId, msg.id, msg.method, buildInvalidUserInputPayloadError(msg.method))
         );
         timelineStore.appendEvent({
           threadId,
@@ -540,7 +542,7 @@ export function installRequestResponder(pinia: Pinia) {
     }
 
     void codexDesktop.codexServer.respond(
-      respondRequestError(payload.serverId, msg.id, buildRequestMethodNotImplementedError(msg.method))
+      respondRequestError(payload.serverId, msg.id, msg.method, buildRequestMethodNotImplementedError(msg.method))
     );
     timelineStore.appendEvent({
       threadId,
