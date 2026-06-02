@@ -10,12 +10,7 @@ import { showToast } from "../ui/toast";
 import { translate } from "../i18n/translate";
 import { appendDebugLog } from "../shared/debugLog";
 import { sandboxKebabFromUi } from "../shared/sandboxPolicy";
-import {
-  beginThreadCreateAttempt,
-  bindThreadCreateAttemptToThread,
-  createPendingThreadId,
-  isPendingThreadId,
-} from "../shared/threadCreateDebug";
+import { isPendingThreadId } from "../shared/threadCreateDebug";
 import { useRuntimeStore } from "../stores/runtime.store";
 import { useTimelineStore } from "../stores/timeline.store";
 import { useThreadStore } from "../stores/thread.store";
@@ -50,6 +45,7 @@ import { createMcpRuntime } from "./runtime/mcpRuntime";
 import { createMcpResourceReadRuntime } from "./runtime/mcpResourceRuntime";
 import { createSkillsRuntime } from "./runtime/skillsRuntime";
 import { createTurnInputRuntime } from "./runtime/turnInputRuntime";
+import { createThreadCreationRuntime } from "./runtime/threadCreationRuntime";
 import { createTurnStartRuntime } from "./runtime/turnStartRuntime";
 import { createWorkspaceFileRuntime } from "./runtime/workspaceFileRuntime";
 import { createPromptResponseRuntime } from "./runtime/promptResponseRuntime";
@@ -66,16 +62,12 @@ import { createSkillsManagementRuntime } from "./runtime/skillsManagementRuntime
 import { createGlobalConfigManagementRuntime } from "./runtime/globalConfigManagementRuntime";
 import { invalidateThreadContentCache, type ThreadContentCacheEntry } from "./runtime/rendererCacheRuntime";
 import {
-  createDefaultGlobalConfigDraft,
   normalizeApprovalPolicy,
   normalizeApprovalsReviewer,
-  normalizeEffort,
   normalizeModelName,
-  normalizeReasoningSummary,
   normalizeSandboxMode,
 } from "./serverInterop";
 import { isWithinWorkspaceFsPath, resolveWorkspaceFsPath } from "./workspacePath";
-import { buildComposeDraftFromUserTurnInputs } from "./composeFileMentions";
 import type { Thread as ServerThread } from "@codenexus/generated/codex-app-server/v2/Thread";
 import type { ThreadReadParams } from "@codenexus/generated/codex-app-server/v2/ThreadReadParams";
 import type { ThreadResumeParams } from "@codenexus/generated/codex-app-server/v2/ThreadResumeParams";
@@ -108,7 +100,6 @@ import {
   buildDynamicToolNamesForInstructionProfile,
   type CodexInstructionProfile,
 } from "@codenexus/shared/codexInstructionProfiles";
-import { buildNewThreadComposeSeed } from "@codenexus/shared/newThreadComposeSeed";
 import type {
   AppTextEncoding,
   AppTextLineEnding,
@@ -1380,243 +1371,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     return true;
   };
 
-  const createThread = async () => {
-    const attemptId = beginThreadCreateAttempt();
-    const createStartedAt = perfNow();
-    const workspaceBeforeStart = normalizeWorkspacePath(runtimeStore.workspacePath);
-    const serverIdBeforeStart = getServerIdForWorkspace(workspaceBeforeStart);
-    const previousThreadId = String(runtimeStore.currentThreadId ?? "").trim();
-    const globalDraft = configStore.draft ?? createDefaultGlobalConfigDraft();
-    const newThreadComposeSeed = buildNewThreadComposeSeed({
-      previousThreadId,
-      runtime: {
-        composeMode: runtimeStore.composeMode,
-        model: normalizeModelName(runtimeStore.model),
-        reasoningEffort: normalizeEffort(runtimeStore.reasoningEffort),
-        reasoningSummary: normalizeReasoningSummary(runtimeStore.reasoningSummary),
-        sandboxMode: normalizeSandboxMode(runtimeStore.sandboxMode),
-      },
-      global: {
-        model: normalizeModelName(globalDraft.model),
-        reasoningEffort: normalizeEffort(globalDraft.modelReasoningEffort),
-        reasoningSummary: normalizeReasoningSummary(globalDraft.modelReasoningSummary),
-        sandboxMode: normalizeSandboxMode(globalDraft.sandboxMode),
-      },
-    });
-    const optimisticThreadId = createPendingThreadId();
-    appendDebugLog("thread.create", "clicked", {
-      attemptId,
-      workspace: workspaceBeforeStart || null,
-      currentThreadId: String(runtimeStore.currentThreadId ?? "").trim() || null,
-      serverReady: Boolean(serverIdBeforeStart),
-      serverId: serverIdBeforeStart || null,
-    });
-    runtimeStore.seedThreadComposeStateFromSeed(optimisticThreadId, newThreadComposeSeed);
-    setThreadWorkspace(optimisticThreadId, workspaceBeforeStart);
-    runtimeStore.clearPendingThreadInitSendCount(optimisticThreadId);
-    const optimisticCreatedAt = Date.now();
-    const optimisticLocalThread: LocalThreadItem = {
-      id: optimisticThreadId,
-      title: translate("runtime.creating"),
-      meta: workspaceBeforeStart || translate("runtime.noWorkspace"),
-      cwd: workspaceBeforeStart || undefined,
-      createdAt: optimisticCreatedAt,
-      updatedAt: optimisticCreatedAt,
-      running: false,
-      status: "creating",
-    };
-    threadStore.upsertLocalThread(optimisticLocalThread);
-    runtimeStore.setCurrentThread(optimisticThreadId);
-    threadStore.setCurrentThread(optimisticThreadId);
-    appendDebugLog("thread.create", "optimistic thread shown", {
-      attemptId,
-      optimisticThreadId,
-      elapsedMs: elapsedMs(createStartedAt),
-    });
-    const startServerStartedAt = perfNow();
-    const ok = await startServer();
-    appendDebugLog("thread.create", "startServer completed", {
-      attemptId,
-      ok,
-      workspace: normalizeWorkspacePath(runtimeStore.workspacePath) || null,
-      elapsedMs: elapsedMs(startServerStartedAt),
-      totalElapsedMs: elapsedMs(createStartedAt),
-    });
-    if (!ok) {
-      const queued = messageQueueStore.queueByThread.get(optimisticThreadId) ?? [];
-      const candidate = queued.length > 0 ? queued[queued.length - 1] : null;
-      clearThreadRuntimeState(optimisticThreadId);
-      if (previousThreadId) {
-        runtimeStore.setCurrentThread(previousThreadId, { savePrev: false });
-        threadStore.setCurrentThread(previousThreadId);
-        if (candidate) {
-          try {
-            const queueInputs = cloneUserTurnInputs(Array.isArray(candidate.inputs) ? candidate.inputs : []);
-            const { attachments } = await buildComposeAttachmentsFromUserTurnInputs(queueInputs);
-            const draft = buildComposeDraftFromUserTurnInputs(queueInputs);
-            runtimeStore.composeInput = draft.composeInput || String(candidate.text ?? "");
-            runtimeStore.composeAttachments = attachments;
-            runtimeStore.composeFileMentions = draft.composeFileMentions;
-            runtimeStore.saveThreadComposeAttachments(runtimeStore.currentThreadId);
-            runtimeStore.saveThreadComposeFileMentions(runtimeStore.currentThreadId);
-            showToast({
-              kind: "warn",
-              title: translate("runtime.threadCreateFailedTitle"),
-              message: translate("runtime.pendingContentRestored"),
-            });
-          } catch {}
-        }
-      }
-      appendDebugLog("thread.create", "optimistic thread rolled back", {
-        attemptId,
-        optimisticThreadId,
-        reason: "startServer failed",
-        totalElapsedMs: elapsedMs(createStartedAt),
-      });
-      return;
-    }
-    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
-    const serverId = getServerIdForWorkspace(workspace);
-    if (!serverId) {
-      const queued = messageQueueStore.queueByThread.get(optimisticThreadId) ?? [];
-      const candidate = queued.length > 0 ? queued[queued.length - 1] : null;
-      clearThreadRuntimeState(optimisticThreadId);
-      if (previousThreadId) {
-        runtimeStore.setCurrentThread(previousThreadId, { savePrev: false });
-        threadStore.setCurrentThread(previousThreadId);
-        if (candidate) {
-          try {
-            const queueInputs = cloneUserTurnInputs(Array.isArray(candidate.inputs) ? candidate.inputs : []);
-            const { attachments } = await buildComposeAttachmentsFromUserTurnInputs(queueInputs);
-            const draft = buildComposeDraftFromUserTurnInputs(queueInputs);
-            runtimeStore.composeInput = draft.composeInput || String(candidate.text ?? "");
-            runtimeStore.composeAttachments = attachments;
-            runtimeStore.composeFileMentions = draft.composeFileMentions;
-            runtimeStore.saveThreadComposeAttachments(runtimeStore.currentThreadId);
-            runtimeStore.saveThreadComposeFileMentions(runtimeStore.currentThreadId);
-            showToast({
-              kind: "warn",
-              title: translate("runtime.threadCreateFailedTitle"),
-              message: translate("runtime.pendingContentRestored"),
-            });
-          } catch {}
-        }
-      }
-      appendDebugLog("thread.create", "aborted: missing serverId after startServer", {
-        attemptId,
-        workspace: workspace || null,
-        totalElapsedMs: elapsedMs(createStartedAt),
-      });
-      return;
-    }
-    try {
-      // 重要：`thread/start` 的 `sandbox` 使用 kebab-case（见 schema 的 v2/ThreadStartParams.json）。
-      const { params: threadStartParams, configOverrides: modelConfigOverrides } = buildThreadStartParamsForModel({
-        model: newThreadComposeSeed.model,
-        workspace,
-        sandboxMode: newThreadComposeSeed.sandboxMode,
-      });
-      const rpcStartedAt = perfNow();
-      appendDebugLog("thread.create", "thread/start rpc begin", {
-        attemptId,
-        serverId,
-        workspace: workspace || null,
-        model: threadStartParams.model,
-        sandbox: threadStartParams.sandbox,
-        approvalPolicy: threadStartParams.approvalPolicy,
-      });
-      const res = await codexDesktop.codexServer.rpc({
-        serverId,
-        method: "thread/start",
-        params: threadStartParams,
-      });
-      const result = res.result;
-      if (!result) throw new Error("thread/start failed");
-      const id = String(result.thread?.id ?? "").trim();
-      if (!id) throw new Error("thread/start did not return thread id");
-      rememberThreadStartConfigOverrides(id, modelConfigOverrides);
-      bindThreadCreateAttemptToThread(attemptId, id);
-      appendDebugLog("thread.create", "thread/start rpc resolved", {
-        attemptId,
-        threadId: id,
-        elapsedMs: elapsedMs(rpcStartedAt),
-        totalElapsedMs: elapsedMs(createStartedAt),
-      });
-      const applyStateStartedAt = perfNow();
-      runtimeStore.moveThreadComposeState(optimisticThreadId, id);
-      runtimeStore.clearPendingThreadInitSendCount(optimisticThreadId);
-      timelineStore.moveThread(optimisticThreadId, id);
-      const finalizedLocalThread: LocalThreadItem = {
-        id,
-        title: `Thread ${id.slice(-8)}`,
-        meta: workspace || translate("runtime.noWorkspace"),
-        cwd: workspace || undefined,
-        createdAt: optimisticCreatedAt,
-        updatedAt: Date.now(),
-        running: false,
-        status: "ready",
-      };
-      threadStore.replaceThreadId(optimisticThreadId, id);
-      threadStore.replaceLocalThreadId(optimisticThreadId, id, finalizedLocalThread);
-      messageQueueStore.moveThreadQueue(optimisticThreadId, id);
-      resumedThreadIds.add(id);
-      setThreadWorkspace(id, workspace);
-      clearThreadWorkspace(optimisticThreadId);
-      pushEvent("thread", translate("runtime.threadCreated"), { threadId: id });
-      appendDebugLog("thread.create", "local state applied", {
-        attemptId,
-        threadId: id,
-        threadHistorySize: threadStore.threadHistory.length,
-        localThreadSize: threadStore.localThreads.length,
-        elapsedMs: elapsedMs(applyStateStartedAt),
-        totalElapsedMs: elapsedMs(createStartedAt),
-      });
-      const nextTickStartedAt = perfNow();
-      await nextTick();
-      appendDebugLog("thread.create", "nextTick flushed", {
-        attemptId,
-        threadId: id,
-        elapsedMs: elapsedMs(nextTickStartedAt),
-        totalElapsedMs: elapsedMs(createStartedAt),
-      });
-      if (!threadStore.runningThreadIds.has(id)) void flushQueueForThread(id);
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : String(e);
-      const queued = messageQueueStore.queueByThread.get(optimisticThreadId) ?? [];
-      const candidate = queued.length > 0 ? queued[queued.length - 1] : null;
-      clearThreadRuntimeState(optimisticThreadId);
-      if (previousThreadId) {
-        runtimeStore.setCurrentThread(previousThreadId, { savePrev: false });
-        threadStore.setCurrentThread(previousThreadId);
-        if (candidate) {
-          try {
-            const queueInputs = cloneUserTurnInputs(Array.isArray(candidate.inputs) ? candidate.inputs : []);
-            const { attachments } = await buildComposeAttachmentsFromUserTurnInputs(queueInputs);
-            const draft = buildComposeDraftFromUserTurnInputs(queueInputs);
-            runtimeStore.composeInput = draft.composeInput || String(candidate.text ?? "");
-            runtimeStore.composeAttachments = attachments;
-            runtimeStore.composeFileMentions = draft.composeFileMentions;
-            runtimeStore.saveThreadComposeAttachments(runtimeStore.currentThreadId);
-            runtimeStore.saveThreadComposeFileMentions(runtimeStore.currentThreadId);
-            showToast({
-              kind: "warn",
-              title: translate("runtime.threadCreateFailedTitle"),
-              message: translate("runtime.pendingContentRestored"),
-            });
-          } catch {}
-        }
-      }
-      appendDebugLog("thread.create", "failed", {
-        attemptId,
-        workspace: workspace || null,
-        serverId,
-        elapsedMs: elapsedMs(createStartedAt),
-        message: msg,
-      });
-      pushEvent("thread:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
-    }
-  };
-
   const switchThread = async (threadId: string) => {
     const id = String(threadId ?? "").trim();
     if (!id) return;
@@ -1735,6 +1489,31 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     buildUserTurnInput,
     summarizeLocalUserMessage,
   } = turnInputRuntime;
+
+  const threadCreationRuntime = createThreadCreationRuntime({
+    appTimelineId: APP_TIMELINE_ID,
+    runtimeStore,
+    configStore,
+    threadStore,
+    timelineStore,
+    messageQueueStore,
+    normalizeWorkspacePath,
+    getServerIdForWorkspace,
+    startServer,
+    clearThreadRuntimeState,
+    setThreadWorkspace,
+    clearThreadWorkspace,
+    buildThreadStartParamsForModel,
+    rememberThreadStartConfigOverrides,
+    markThreadResumed: (threadId) => resumedThreadIds.add(threadId),
+    flushQueueForThread: (threadId) => flushQueueForThread(threadId),
+    cloneUserTurnInputs,
+    buildComposeAttachmentsFromUserTurnInputs,
+    pushEvent,
+    translate,
+    showToast,
+  });
+  const { createThread } = threadCreationRuntime;
 
   const requestTurnSteer = async (threadId: string, input: UserTurnInput[], turnIdValue: string) => {
     const serverId = getServerIdForThread(threadId);
