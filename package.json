@@ -9,7 +9,7 @@
     "format": "pnpm --filter @codenexus/app format",
     "format:check": "pnpm --filter @codenexus/app format:check",
     "typecheck": "pnpm --filter @codenexus/app typecheck",
-    "ci": "pnpm --filter @codenexus/app ci",
+    "ci": "pnpm --filter @codenexus/app run ci",
     "codex:types": "pnpm --filter @codenexus/app codex:types",
     "dist": "pnpm --filter @codenexus/app dist"
   },

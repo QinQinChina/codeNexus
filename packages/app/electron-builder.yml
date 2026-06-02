@@ -3,7 +3,7 @@ productName: CodeNexus
 
 publish:
   provider: github
-  owner: zhenyue6612
+  owner: QinQinChina
   repo: codeNexus
   releaseType: release
   channel: latest
