@@ -59,6 +59,7 @@ import { createThreadMemoryRuntime } from "./runtime/threadMemoryRuntime";
 import { createThreadRollbackRuntime } from "./runtime/threadRollbackRuntime";
 import { createHistoryRewriteRuntime } from "./runtime/historyRewriteRuntime";
 import { createThreadMetadataRuntime } from "./runtime/threadMetadataRuntime";
+import { createCodexProfileRuntime } from "./runtime/codexProfileRuntime";
 import { invalidateThreadContentCache, type ThreadContentCacheEntry } from "./runtime/rendererCacheRuntime";
 import {
   buildConfigBatchChangesFromDraft,
@@ -118,7 +119,6 @@ import {
   type CodexConfigSwitcherSkillEntry,
   type CodexConfigSwitcherState,
 } from "@codenexus/shared/codexConfigSwitcher";
-import type { CodexProviderProfile } from "@codenexus/shared/codexProfiles";
 import type {
   AppTextEncoding,
   AppTextLineEnding,
@@ -893,81 +893,18 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     );
   };
 
-  const buildCodexProfileConfigChanges = (profile: CodexProviderProfile) => {
-    const providerId = String(profile.modelProviderId ?? "").trim();
-    if (!providerId) throw new Error(translate("runtime.providerIdRequired"));
-    const model = String(profile.model ?? "").trim();
-    if (!model) throw new Error(translate("runtime.modelIdRequired"));
-    const baseUrl = String(profile.baseUrl ?? "").trim();
-    if (!baseUrl) throw new Error(translate("runtime.baseUrlRequired"));
-    return [
-      { keyPath: "model_provider", value: providerId },
-      { keyPath: "model", value: model },
-      {
-        keyPath: `model_providers.${providerId}`,
-        value: {
-          name: String(profile.name ?? "").trim() || providerId,
-          base_url: baseUrl,
-          wire_api: "responses",
-          requires_openai_auth: true,
-        },
-      },
-    ];
-  };
-
-  const buildCodexProfileAuthJsonContent = (profile: CodexProviderProfile) =>
-    `${JSON.stringify({ OPENAI_API_KEY: String(profile.apiKey ?? "").trim() }, null, 2)}\n`;
-
-  const applyCodexProfile = async (profileId: string) => {
-    const id = String(profileId ?? "").trim();
-    if (!id) throw new Error(translate("runtime.profileIdRequired"));
-    if (codexProfilesStore.loadState === "idle") {
-      await codexProfilesStore.refresh();
-    }
-    const profile = codexProfilesStore.profiles.find((item) => item.id === id);
-    if (!profile) throw new Error(translate("runtime.profileNotFound"));
-    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
-    if (!getServerIdForWorkspace(workspace)) throw new Error(translate("runtime.noServiceCannotApplyCodexConfig"));
-
-    codexProfilesStore.applyingProfileId = id;
-    try {
-      const authFileContent = String(profile.authFileContent ?? "").trim()
-        ? String(profile.authFileContent ?? "")
-        : buildCodexProfileAuthJsonContent(profile);
-      const configFileContent = String(profile.configFileContent ?? "").trim() ? String(profile.configFileContent) : "";
-      if (String(profile.authFilePath ?? "").trim()) {
-        await codexDesktop.app.writeTextFile({ path: profile.authFilePath, content: authFileContent });
-      } else {
-        await codexDesktop.app.writeCodexAuthApiKey({ apiKey: profile.apiKey });
-      }
-      if (String(profile.configFilePath ?? "").trim() && configFileContent) {
-        await codexDesktop.app.writeTextFile({ path: profile.configFilePath, content: configFileContent });
-      } else {
-        await requestConfigBatchWrite(buildCodexProfileConfigChanges(profile), profile.configFilePath);
-      }
-      await codexProfilesStore.setActiveProfile(id);
-      await refreshGlobalConfig();
-      pushEvent(
-        "codex:profile",
-        `applied ${profile.name}\nprovider=${profile.modelProviderId}\nmodel=${profile.model}`,
-        {
-          threadId: APP_TIMELINE_ID,
-        }
-      );
-      showToast({
-        kind: "success",
-        title: translate("runtime.profileSwitchedTitle"),
-        message: `${profile.name} · ${profile.model}`,
-      });
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : String(e);
-      pushEvent("codex:profile:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
-      showToast({ kind: "error", title: translate("runtime.profileSwitchFailedTitle"), message: msg });
-      throw e;
-    } finally {
-      codexProfilesStore.applyingProfileId = "";
-    }
-  };
+  const codexProfileRuntime = createCodexProfileRuntime({
+    appTimelineId: APP_TIMELINE_ID,
+    codexProfilesStore,
+    getWorkspacePath: () => String(runtimeStore.workspacePath ?? "").trim(),
+    getServerIdForWorkspace,
+    requestConfigBatchWrite,
+    refreshGlobalConfig,
+    pushEvent,
+    translate,
+    showToast,
+  });
+  const { applyCodexProfile } = codexProfileRuntime;
 
   const ALLOWED_EXTERNAL_PROTOCOLS = new Set(["http:", "https:", "mailto:"]);
   const normalizeExternalUrlForOpen = (url: string): string => {
