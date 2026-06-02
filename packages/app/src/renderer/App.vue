@@ -3,8 +3,12 @@
     <TopBar key="topbar" />
     <main ref="mainRef" class="main" :class="mainClass" :style="mainStyle">
       <Transition :name="leftPaneTransitionName" mode="out-in">
-        <PaperWorkspaceSidebar v-if="showPaperWorkspaceSidebar" key="paper-workspace" class="tasks-pane-host" />
-        <ImageWorkspaceSidebar v-else-if="showImageWorkspaceSidebar" key="image-workspace" class="tasks-pane-host" />
+        <component
+          :is="featureWorkspaceSidebar"
+          v-if="featureWorkspaceSidebar"
+          :key="`${mainView}-workspace`"
+          class="tasks-pane-host"
+        />
         <LeftSidebar v-else-if="showLeftSidebar" key="threads" class="tasks-pane-host" />
       </Transition>
 
@@ -12,14 +16,8 @@
         <div v-if="settingsOpen" key="settings" class="center-content-host">
           <SettingsPage />
         </div>
-        <div v-else-if="mainView === 'image'" key="image" class="center-content-host">
-          <ImageWorkbench />
-        </div>
-        <div v-else-if="mainView === 'flowchart'" key="flowchart" class="center-content-host">
-          <FlowchartWorkbench />
-        </div>
-        <div v-else-if="mainView === 'paper'" key="paper" class="center-content-host">
-          <PaperWorkbench />
+        <div v-else-if="activeFeature" :key="activeFeature.mainView" class="center-content-host">
+          <component :is="activeFeature.workbenchComponent" />
         </div>
         <div v-else key="chat" class="center-content-host">
           <CenterPane />
@@ -42,9 +40,13 @@
         :class="{ 'is-compact': isEditorCompact }"
       />
       <Transition name="side-pane-switch" mode="out-in">
-        <PaperSettingsSidebar v-if="showPaperSettingsSidebar" key="paper-settings" class="files-pane-host" />
+        <component
+          :is="featureSettingsSidebar"
+          v-if="featureSettingsSidebar"
+          :key="`${mainView}-settings`"
+          class="files-pane-host"
+        />
         <DebugTimelineSidebar v-else-if="showDebugSidebar" key="debug" class="files-pane-host" />
-        <ImageSettingsSidebar v-else-if="showImageSettingsSidebar" key="image-settings" class="files-pane-host" />
         <WorkspaceFilesSidebar v-else-if="showFilesSidebar" key="files" class="files-pane-host" />
       </Transition>
     </main>
@@ -65,19 +67,18 @@ import BottomBar from "./components/layout/BottomBar.vue";
 import {
   AppClosingOverlay,
   DebugTimelineSidebar,
-  FlowchartWorkbench,
   GoalShutdownCountdownOverlay,
-  ImageWorkbench,
-  ImageWorkspaceSidebar,
-  ImageSettingsSidebar,
   LeftSidebar,
-  PaperWorkbench,
-  PaperWorkspaceSidebar,
-  PaperSettingsSidebar,
   SettingsPage,
   WorkspaceEditorPane,
   WorkspaceFilesSidebar,
 } from "./components/asyncViews";
+import {
+  allowsWorkspaceFilesSidebar,
+  getFeatureByMainView,
+  mainViewTransitionOrder,
+  shouldShowDefaultLeftSidebar,
+} from "./features/registry";
 import { codexDesktop } from "./api/codexDesktopClient";
 import { useAppClosingStore } from "./stores/appClosing.store";
 import { useAppShellStore } from "./stores/appShell.store";
@@ -118,20 +119,30 @@ const settingsOpen = computed(() => appShellStore.settingsOpen);
 const showAppClosingOverlay = computed(() => appClosingStore.visible);
 const showGoalShutdownOverlay = computed(() => goalShutdownStore.visible);
 const mainView = computed(() => appShellStore.mainView);
+const activeFeature = computed(() => getFeatureByMainView(mainView.value));
+const featureWorkspaceSidebar = computed(() => {
+  if (settingsOpen.value || !appShellStore.leftSidebarVisible) return null;
+  return activeFeature.value?.workspaceSidebarComponent ?? null;
+});
+const featureSettingsSidebar = computed(() => {
+  if (settingsOpen.value) return null;
+  return activeFeature.value?.settingsSidebarComponent ?? null;
+});
 const showLeftSidebar = computed(
-  () => !settingsOpen.value && appShellStore.leftSidebarVisible && mainView.value !== "flowchart"
+  () =>
+    !settingsOpen.value &&
+    appShellStore.leftSidebarVisible &&
+    !featureWorkspaceSidebar.value &&
+    shouldShowDefaultLeftSidebar(mainView.value)
 );
-const showPaperWorkspaceSidebar = computed(() => showLeftSidebar.value && mainView.value === "paper");
-const showImageWorkspaceSidebar = computed(() => showLeftSidebar.value && mainView.value === "image");
+const showLeftPane = computed(() => Boolean(featureWorkspaceSidebar.value) || showLeftSidebar.value);
 const showDebugSidebar = computed(
   () => !settingsOpen.value && mainView.value === "chat" && runtimeStore.timelineDebugEnabled
 );
-const showImageSettingsSidebar = computed(() => !settingsOpen.value && mainView.value === "image");
-const showPaperSettingsSidebar = computed(() => !settingsOpen.value && mainView.value === "paper");
 const showFilesSidebar = computed(() => {
   return (
     !settingsOpen.value &&
-    mainView.value === "chat" &&
+    allowsWorkspaceFilesSidebar(mainView.value) &&
     Boolean(String(runtimeStore.workspacePath ?? "").trim()) &&
     appShellStore.filesSidebarVisible &&
     !showDebugSidebar.value
@@ -192,9 +203,10 @@ watch(
       return;
     }
 
-    const order: Record<typeof nextView, number> = { chat: 0, image: 1, flowchart: 2, paper: 3 };
-    const isForward = order[nextView] > order[previousView];
-    const isBack = order[nextView] < order[previousView];
+    const nextOrder = mainViewTransitionOrder(nextView);
+    const previousOrder = mainViewTransitionOrder(previousView);
+    const isForward = nextOrder > previousOrder;
+    const isBack = nextOrder < previousOrder;
     if (!isForward && !isBack) return;
 
     const direction = isForward ? "forward" : "back";
@@ -214,12 +226,8 @@ const centerHardMinWidthPx = computed(() => {
 const resolvedShellWidths = computed(() => {
   return resolveShellWidths({
     containerWidth: getMainWidthPx(),
-    leftVisible: showLeftSidebar.value,
-    filesVisible:
-      showFilesSidebar.value ||
-      showDebugSidebar.value ||
-      showImageSettingsSidebar.value ||
-      showPaperSettingsSidebar.value,
+    leftVisible: showLeftPane.value,
+    filesVisible: showFilesSidebar.value || showDebugSidebar.value || Boolean(featureSettingsSidebar.value),
     rightVisible: false,
     leftPreferredWidth: UNIFIED_SIDEBAR_WIDTH_PX,
     filesPreferredWidth: UNIFIED_SIDEBAR_WIDTH_PX,
@@ -265,9 +273,9 @@ watch(
 
 const mainClass = computed(() => ({
   "has-editor": !settingsOpen.value && showEditorPane.value,
-  "has-files-sidebar": showFilesSidebar.value || showDebugSidebar.value || showImageSettingsSidebar.value,
-  "has-image-sidebar": showImageSettingsSidebar.value,
-  "has-paper-sidebar": showPaperSettingsSidebar.value,
+  "has-files-sidebar": showFilesSidebar.value || showDebugSidebar.value || Boolean(featureSettingsSidebar.value),
+  "has-image-sidebar": mainView.value === "image" && Boolean(featureSettingsSidebar.value),
+  "has-paper-sidebar": mainView.value === "paper" && Boolean(featureSettingsSidebar.value),
   "has-settings": settingsOpen.value,
 }));
 

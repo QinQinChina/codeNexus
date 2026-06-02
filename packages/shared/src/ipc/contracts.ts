@@ -10,6 +10,15 @@ import type {
 } from "../codexConfigSwitcher";
 import type { ThreadSourceKind } from "@codenexus/generated/codex-app-server/v2/ThreadSourceKind";
 
+/*
+ * IPC 契约类型定义
+ * ─────────────────────────────────────────────────────────────
+ * 作用域：跨进程边界（Main ↔ Preload ↔ Renderer）
+ * 角色：单一事实来源，定义所有通过 preload 暴露的 API 形态与数据结构
+ * 修改约束：任何改动需同步 main / preload / renderer 三层实现
+ * 数据流：Renderer 调用 → Preload 转发 → Main 处理 → 返回结构化结果
+ */
+
 // IPC 契约类型：定义 renderer 可通过 preload 调用的桌面 API 形态与数据结构。
 // 该文件作为跨层协议边界，修改时需同步 main/preload/renderer 三层调用。
 export type CodexEnsureInstalledResult = {
@@ -21,6 +30,18 @@ export type CodexDiagnosticsResult = {
   node: { ok: boolean; details?: string };
   npm: { ok: boolean; details?: string };
 };
+
+
+/*
+ * 历史会话与消息契约
+ * ─────────────────────────────────────────────────────────────
+ * 作用域：History 模块（线程列表、消息、事件、任务、产物）
+ * 数据结构演变：
+ *   HistoryThread → 列表项（支持 cache/disk/runtime 来源）
+ *   HistoryMessage / HistoryThreadEvent → 内容分页
+ *   HistoryThreadTask / Artifact → 任务与产物管理
+ * 用途：renderer 通过 history API 获取、更新、删除会话数据
+ */
 
 // 会话历史列表项（来自 runtime/cache/disk 的统一结构）。
 export type HistoryThread = {
@@ -335,6 +356,16 @@ export type HistoryUpdatedPayload = {
   items: HistoryThread[];
 };
 
+/*
+ * 工作区与 Git 契约
+ * ─────────────────────────────────────────────────────────────
+ * 作用域：Workspace 模块
+ * 数据结构：
+ *   WorkspaceReverseDiffResult → 反向 diff 的 dry-run / apply 结果
+ *   WorkspaceGitStatus* → Git 状态查询结果
+ * 用途：renderer 调用 workspace API 进行文件选择、反向应用、状态检查
+ */
+
 // 反向补丁 dry-run/apply 的统一返回结构。
 export type WorkspaceReverseDiffResult = { ok: true; files: string[] } | { ok: false; error: string; files?: string[] };
 
@@ -361,6 +392,15 @@ export type WorkspaceGitStatusResult =
       message: string;
     };
 
+/*
+ * 窗口与应用生命周期状态
+ * ─────────────────────────────────────────────────────────────
+ * 作用域：Window / App 模块
+ * 数据结构：
+ *   AppWindowState / AppWindowClosingState → 窗口状态与关闭流程
+ *   AppClosingStep → 关闭阶段状态机
+ * 用途：renderer 监听窗口状态变化、关闭确认流程
+ */
 export type AppWindowState = {
   isMaximized: boolean;
   isMinimized: boolean;
@@ -380,6 +420,15 @@ export type AppWindowClosingState = {
   steps: AppClosingStep[];
 };
 
+/*
+ * 缓存管理契约
+ * ─────────────────────────────────────────────────────────────
+ * 作用域：Cache 模块（main / renderer）
+ * 数据结构：
+ *   CacheStatsItem / CacheListResult → 缓存统计
+ *   CacheClear* → 清理请求与结果
+ * 用途：诊断与手动清理缓存
+ */
 export type CacheScope = "main" | "renderer";
 
 export type CacheStatsItem = {
@@ -415,6 +464,16 @@ export type CacheClearResult = {
   generatedAt: number;
 };
 
+/*
+ * 通知、电源与更新契约
+ * ─────────────────────────────────────────────────────────────
+ * 作用域：System / Update 模块
+ * 数据结构：
+ *   NotificationSoundItem → 通知音效
+ *   SystemNotification* / SystemPower* → 系统通知与关机
+ *   AppUpdate* → 自动更新状态机（idle → checking → available → downloading → downloaded）
+ * 用途：renderer 触发系统通知、检查更新、安装更新
+ */
 export type NotificationSoundItem = {
   // 文件名（含扩展名），作为跨层稳定 ID（不使用绝对路径）。
   id: string;
@@ -467,6 +526,17 @@ export type AppUpdateSnapshot = {
   isPackaged: boolean;
 };
 
+/*
+ * 应用文件、设置、配置与认证契约
+ * ─────────────────────────────────────────────────────────────
+ * 作用域：App / LocalState / CodexProfiles / Auth / SkillRoots / ConfigSwitcher
+ * 数据结构：
+ *   AppDirectoryEntry / AppFileMetadata → 文件系统元数据
+ *   LocalSettingsSnapshot / Patched... → 用户本地设置
+ *   CodexProviderProfiles* / CodexAuth* / CodexSkillRoots* → Codex 配置
+ *   CodexConfigSwitcher* → 多配置切换器
+ * 用途：renderer 读写设置、切换 Codex provider、配置 skill roots
+ */
 export type AppDirectoryEntry = {
   fileName: string;
   isDirectory: boolean;
@@ -647,6 +717,21 @@ export type CodexDesktopHistoryApi = {
   getThreadArtifact(args: HistoryThreadArtifactGetArgs): Promise<HistoryThreadArtifactGetResult>;
   onUpdated(cb: (payload: HistoryUpdatedPayload) => void): () => void;
 };
+
+/*
+ * 桌面 API 聚合接口
+ * ─────────────────────────────────────────────────────────────
+ * 作用域：CodexDesktopApi（通过 preload 暴露给 renderer）
+ * 模块关系：
+ *   app → 文件、通知、更新、Codex 配置
+ *   window → 窗口控制与状态
+ *   localState → 设置快照与 patch
+ *   cache → 缓存统计与清理
+ *   codexServer → Codex 进程生命周期 + RPC/Notify/Event
+ *   workspace → 工作区选择、Git、反向 diff
+ *   history → 会话列表、消息、任务、产物
+ * 数据流：renderer 调用这些方法 → preload 转发 → main 实现
+ */
 
 // 通过 preload 暴露给 renderer 的桌面 API 契约。
 export type CodexDesktopApi = {

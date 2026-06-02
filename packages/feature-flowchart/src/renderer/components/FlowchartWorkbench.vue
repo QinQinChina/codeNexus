@@ -503,48 +503,15 @@ import {
   type FlowchartNode,
   type FlowchartTemplateType,
 } from "../../types";
+import {
+  deleteFlowchartHistory,
+  listFlowchartHistory,
+  openFlowchartSettings,
+  runFlowchartAi,
+  showFlowchartToast,
+  upsertFlowchartHistory,
+} from "../runtimeBridge";
 import "./flowchart-workbench.css";
-
-type FlowchartToastKind = "info" | "success" | "warn" | "error";
-
-type FlowchartDesktopApi = {
-  app: {
-    upsertFlowchartHistory(args: { document: FlowchartDocument }): Promise<{ items: FlowchartDocument[] }>;
-    listFlowchartHistory(): Promise<{ items: FlowchartDocument[] }>;
-    deleteFlowchartHistory(args: { id: string }): Promise<{ items: FlowchartDocument[] }>;
-    runFlowchartAi(args: {
-      operation: "generate" | "modify";
-      templateType: FlowchartTemplateType;
-      prompt: string;
-      currentDocument?: FlowchartDocument | null;
-    }): Promise<
-      | {
-          ok: true;
-          document: FlowchartDocument;
-          rawResponse: string;
-          repaired: boolean;
-          validationErrors: string[];
-        }
-      | {
-          ok: false;
-          errorMessage: string;
-          rawResponse: string | null;
-          repaired: boolean;
-          validationErrors: string[];
-        }
-    >;
-  };
-};
-
-const codexDesktop = (window as unknown as { codexDesktop: FlowchartDesktopApi }).codexDesktop;
-
-function showFlowchartToast(options: { kind?: FlowchartToastKind; title?: string; message: string }) {
-  window.dispatchEvent(new CustomEvent("codenexus:toast", { detail: options }));
-}
-
-function openFeatureSettings(tab: string) {
-  window.dispatchEvent(new CustomEvent("codenexus:open-settings", { detail: { tab } }));
-}
 
 type VueFlowNodeData = {
   label: string;
@@ -1037,7 +1004,7 @@ function scheduleSave() {
 
 async function saveCurrentDocument() {
   try {
-    const result = await codexDesktop.app.upsertFlowchartHistory({ document: currentDocument.value });
+    const result = await upsertFlowchartHistory(currentDocument.value);
     historyItems.value = result.items;
   } catch (error) {
     console.warn("[flowchart] save history failed", error);
@@ -1046,7 +1013,7 @@ async function saveCurrentDocument() {
 
 async function refreshHistory() {
   try {
-    const result = await codexDesktop.app.listFlowchartHistory();
+    const result = await listFlowchartHistory();
     historyItems.value = result.items;
   } catch (error: any) {
     showFlowchartToast({ kind: "error", title: t("flowchart.historyLoadFailed"), message: String(error?.message ?? error) });
@@ -1085,7 +1052,7 @@ function loadHistoryItem(item: FlowchartDocument) {
 }
 
 async function deleteHistoryItem(id: string) {
-  const result = await codexDesktop.app.deleteFlowchartHistory({ id });
+  const result = await deleteFlowchartHistory(id);
   historyItems.value = result.items;
   if (currentDocument.value.id === id) createFromTemplate("basic");
 }
@@ -1743,7 +1710,7 @@ async function runAi(operation: "generate" | "modify") {
   aiBusy.value = true;
   aiError.value = "";
   try {
-    const result = await codexDesktop.app.runFlowchartAi({
+    const result = await runFlowchartAi({
       operation,
       templateType: selectedTemplate.value,
       prompt: aiPrompt.value,
@@ -1798,7 +1765,7 @@ async function exportSvg() {
 }
 
 function openAiSettings() {
-  openFeatureSettings("flowchart");
+  openFlowchartSettings();
 }
 
 function onWorkbenchKeydown(event: KeyboardEvent) {

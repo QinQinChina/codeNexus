@@ -1,10 +1,8 @@
 import { ref } from "vue";
 import {
-  DEFAULT_USER_LOCAL_SETTINGS,
-  normalizeUserLocalSettings,
+  normalizeImageGenerationSettings,
   type LocalImageGenerationSettings,
-  type UserLocalSettings,
-} from "@codenexus/shared/localSettings";
+} from "../settings";
 import type {
   ImageGenerationGenerateArgs,
   ImageGenerationGenerateResult,
@@ -46,9 +44,9 @@ type ImagegenDesktopApi = {
   };
   localState: {
     initialSettingsSnapshot?: {
-      settings?: UserLocalSettings;
+      settings?: unknown;
     };
-    readSettings(): Promise<{ settings?: UserLocalSettings }>;
+    readSettings(): Promise<{ settings?: unknown }>;
   };
 };
 
@@ -67,8 +65,12 @@ function toText(value: unknown): string {
   return String(value ?? "").trim();
 }
 
-function normalizeImageSettings(value: unknown): LocalImageGenerationSettings {
-  return normalizeUserLocalSettings(value).imageGeneration;
+function toRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function extractImageSettings(value: unknown): LocalImageGenerationSettings {
+  return normalizeImageGenerationSettings(toRecord(value)?.imageGeneration);
 }
 
 export function installImagegenRuntimeBridge(
@@ -126,15 +128,13 @@ export function getImagegenDesktopApi(): ImagegenDesktopApi {
 export function getInitialImagegenSettings(): LocalImageGenerationSettings {
   const snapshot = (window as unknown as { codexDesktop?: ImagegenDesktopApi })
     .codexDesktop?.localState?.initialSettingsSnapshot;
-  return normalizeImageSettings(
-    snapshot?.settings ?? DEFAULT_USER_LOCAL_SETTINGS,
-  );
+  return extractImageSettings(snapshot?.settings);
 }
 
 export async function readImagegenSettings(): Promise<LocalImageGenerationSettings> {
   try {
     const res = await getImagegenDesktopApi().localState.readSettings();
-    return normalizeImageSettings(res?.settings ?? DEFAULT_USER_LOCAL_SETTINGS);
+    return extractImageSettings(res?.settings);
   } catch {
     return getInitialImagegenSettings();
   }

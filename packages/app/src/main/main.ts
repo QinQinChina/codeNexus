@@ -10,7 +10,7 @@ import {
 } from "@codenexus/shared/ipc";
 import { HistoryStore, type HistoryThread } from "./historyStore";
 import { registerAllHandlers } from "./ipc/handlers";
-import { generateImagesWithSettings } from "./ipc/handlers/app.handlers";
+import { generateImagesWithSettings } from "./ipc/handlers/image-generation.handlers";
 import { RuntimeThreadStateTracker } from "./runtimeThreadStateTracker";
 import { HistoryService } from "./services/HistoryService";
 import { CodexServerManager } from "./services/CodexServerManager";

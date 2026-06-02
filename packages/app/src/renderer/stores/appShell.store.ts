@@ -12,6 +12,7 @@ import {
 } from "@codenexus/shared/localSettings";
 import { refreshDomI18nFallback } from "../i18n/domFallback";
 import { setUiI18nLanguage } from "../i18n";
+import { normalizeRegisteredMainView, shouldForceLeftSidebarVisible, type FeatureMainView } from "../features/registry";
 
 export type IntegrationsDrawerTab = "skills" | "mcp";
 export type SettingsTab = "global" | "profiles" | "sound" | "image" | "flowchart" | "env" | "integrations" | "update";
@@ -130,24 +131,26 @@ export const useAppShellStore = defineStore("appShell", {
     },
     setMainView(next: MainView, opts?: { save?: boolean }) {
       const shouldSave = opts?.save ?? true;
-      const normalized: MainView = next === "image" || next === "flowchart" || next === "paper" ? next : "chat";
+      const normalized = normalizeRegisteredMainView(next);
       this.mainView = normalized;
       if (!shouldSave) return;
       void patchUserLocalSettings({ ui: { mainView: normalized } });
     },
-    openPaperWorkbench(opts?: { save?: boolean }) {
-      this.setMainView("paper", opts);
-      this.setLeftSidebarVisible(true, { save: false });
+    openFeatureWorkbench(next: FeatureMainView, opts?: { save?: boolean }) {
+      this.setMainView(next, opts);
+      if (shouldForceLeftSidebarVisible(next)) {
+        this.setLeftSidebarVisible(true, { save: false });
+      }
       this.closeSettings();
+    },
+    openPaperWorkbench(opts?: { save?: boolean }) {
+      this.openFeatureWorkbench("paper", opts);
     },
     openFlowchartWorkbench(opts?: { save?: boolean }) {
-      this.setMainView("flowchart", opts);
-      this.closeSettings();
+      this.openFeatureWorkbench("flowchart", opts);
     },
     openImageWorkbench(opts?: { save?: boolean }) {
-      this.setMainView("image", opts);
-      this.setLeftSidebarVisible(true, { save: false });
-      this.closeSettings();
+      this.openFeatureWorkbench("image", opts);
     },
     setGlobalConfigDrawerOpen(next: boolean) {
       this.globalConfigDrawerOpen = Boolean(next);

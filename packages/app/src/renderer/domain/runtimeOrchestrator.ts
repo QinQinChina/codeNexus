@@ -42,6 +42,7 @@ import { useCodexProfilesStore } from "../stores/codexProfiles.store";
 import { useCodexSkillRootsStore } from "../stores/codexSkillRoots.store";
 import { useCodexConfigSwitcherStore } from "../stores/codexConfigSwitcher.store";
 import { usePaperStore } from "@codenexus/feature-paper";
+import { resolveCodexInstructionProfileForMainView } from "../features/registry";
 import { resolveHistoryRewriteRollback } from "./historyRewriteRollback";
 import { useApprovalStore } from "../stores/approval.store";
 import { useWorkspaceFilesStore } from "../stores/workspaceFiles.store";
@@ -125,7 +126,6 @@ import { buildBuiltinDynamicToolSpecs } from "@codenexus/shared/dynamicTools";
 import {
   buildDeveloperInstructionsForProfile,
   buildDynamicToolNamesForInstructionProfile,
-  codexInstructionProfileForMainView,
   type CodexInstructionProfile,
 } from "@codenexus/shared/codexInstructionProfiles";
 import { buildNewThreadComposeSeed } from "@codenexus/shared/newThreadComposeSeed";
@@ -360,7 +360,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const threadContentCacheByKey = new Map<string, ThreadContentCacheEntry>();
 
   const resolveCurrentInstructionProfile = (): CodexInstructionProfile => {
-    return codexInstructionProfileForMainView(appShellStore.mainView, paperStore.mode);
+    return resolveCodexInstructionProfileForMainView(appShellStore.mainView, { paperMode: paperStore.mode });
   };
   const serverIdByWorkspace = new Map<string, string>();
   const workspaceByServerId = new Map<string, string>();

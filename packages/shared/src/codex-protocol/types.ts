@@ -1,3 +1,7 @@
+/**
+ * 协议总入口类型：用于获得官方 method 联合、params shape、通知和反向请求 envelope。
+ * 这些类型足够推导请求参数，所以不需要逐个导入所有 params 类型。
+ */
 import type {
   ClientNotification,
   ClientRequest,
@@ -5,6 +9,10 @@ import type {
   ServerNotification,
   ServerRequest,
 } from "@codenexus/generated/codex-app-server";
+/**
+ * Result 映射类型：官方生成包没有提供 method -> result 的总映射，
+ * 因此这里按实际支持的 RPC / ServerRequest response 显式导入。
+ */
 import type { CancelLoginAccountResponse } from "@codenexus/generated/codex-app-server/v2/CancelLoginAccountResponse";
 import type { ConfigReadResponse } from "@codenexus/generated/codex-app-server/v2/ConfigReadResponse";
 import type { ConfigRequirementsReadResponse } from "@codenexus/generated/codex-app-server/v2/ConfigRequirementsReadResponse";
@@ -120,7 +128,13 @@ export type JsonRpcId = number | string;
 
 type AssertNever<T extends never> = T;
 
+/**
+ * ClientRequest -> result 的显式映射。
+ *
+ * 参数类型由官方 ClientRequest 联合推导；result 类型只能通过这里维护映射。
+ */
 type SupportedCodexRpcResultMap = {
+  // 初始化与线程生命周期
   initialize: InitializeResponse;
   "thread/start": ThreadStartResponse;
   "thread/resume": ThreadResumeResponse;
@@ -147,14 +161,20 @@ type SupportedCodexRpcResultMap = {
   "thread/shellCommand": ThreadShellCommandResponse;
   "thread/approveGuardianDeniedAction": ThreadApproveGuardianDeniedActionResponse;
   "thread/backgroundTerminals/clean": ThreadBackgroundTerminalsCleanResponse;
+
+  // 回合控制
   "turn/start": TurnStartResponse;
   "turn/steer": TurnSteerResponse;
   "turn/interrupt": TurnInterruptResponse;
+
+  // realtime 会话
   "thread/realtime/start": ThreadRealtimeStartResponse;
   "thread/realtime/appendAudio": ThreadRealtimeAppendAudioResponse;
   "thread/realtime/appendText": ThreadRealtimeAppendTextResponse;
   "thread/realtime/stop": ThreadRealtimeStopResponse;
   "thread/realtime/listVoices": ThreadRealtimeListVoicesResponse;
+
+  // 配置、技能、插件、市场和模型目录
   "config/read": ConfigReadResponse;
   "config/value/write": ConfigWriteResponse;
   "config/batchWrite": ConfigWriteResponse;
@@ -182,6 +202,8 @@ type SupportedCodexRpcResultMap = {
   "experimentalFeature/list": ExperimentalFeatureListResponse;
   "permissionProfile/list": PermissionProfileListResponse;
   "experimentalFeature/enablement/set": ExperimentalFeatureEnablementSetResponse;
+
+  // 远控、环境和 MCP 资源/工具
   "remoteControl/enable": RemoteControlEnableResponse;
   "remoteControl/disable": RemoteControlDisableResponse;
   "remoteControl/status/read": RemoteControlStatusReadResponse;
@@ -192,10 +214,14 @@ type SupportedCodexRpcResultMap = {
   "mcpServer/oauth/login": McpServerOauthLoginResponse;
   "mcpServer/resource/read": McpResourceReadResponse;
   "mcpServer/tool/call": McpServerToolCallResponse;
+
+  // 审查、外部配置和反馈
   "review/start": ReviewStartResponse;
   "externalAgentConfig/detect": ExternalAgentConfigDetectResponse;
   "externalAgentConfig/import": ExternalAgentConfigImportResponse;
   "feedback/upload": FeedbackUploadResponse;
+
+  // 命令、进程和文件系统
   "command/exec": CommandExecResponse;
   "command/exec/write": CommandExecWriteResponse;
   "command/exec/terminate": CommandExecTerminateResponse;
@@ -213,6 +239,8 @@ type SupportedCodexRpcResultMap = {
   "fs/copy": FsCopyResponse;
   "fs/watch": FsWatchResponse;
   "fs/unwatch": FsUnwatchResponse;
+
+  // 调试、Windows sandbox、账号和线程查询
   "mock/experimentalMethod": MockExperimentalMethodResponse;
   "windowsSandbox/setupStart": WindowsSandboxSetupStartResponse;
   "windowsSandbox/readiness": WindowsSandboxReadinessResponse;
@@ -227,17 +255,26 @@ type SupportedCodexRpcResultMap = {
   "thread/inject_items": ThreadInjectItemsResponse;
 };
 
+/**
+ * ServerRequest -> result 的显式映射。
+ *
+ * 这是 app-server 反向请求客户端时，客户端 respond 需要返回的 result 类型。
+ */
 type SupportedCodexServerRequestResultMap = {
+  // 用户审批与用户输入类反向请求
   "item/commandExecution/requestApproval": CommandExecutionRequestApprovalResponse;
   "item/fileChange/requestApproval": FileChangeRequestApprovalResponse;
   "item/tool/requestUserInput": ToolRequestUserInputResponse;
   "mcpServer/elicitation/request": McpServerElicitationRequestResponse;
   "item/permissions/requestApproval": PermissionsRequestApprovalResponse;
+
+  // 工具调用、账号刷新和 attestation 类反向请求
   "item/tool/call": DynamicToolCallResponse;
   "account/chatgptAuthTokens/refresh": ChatgptAuthTokensRefreshResponse;
   "attestation/generate": AttestationGenerateResponse;
 };
 
+/** 官方 method 集合与当前项目明确不支持的 legacy method。 */
 export type CodexOfficialRpcMethod = ClientRequest["method"];
 export type UnsupportedLegacyCodexRpcMethod =
   | "fuzzyFileSearch"
@@ -247,10 +284,15 @@ export type UnsupportedLegacyCodexRpcMethod =
   | "getConversationSummary"
   | "gitDiffToRemote"
   | "getAuthStatus";
-export type CodexRpcMethod = Exclude<CodexOfficialRpcMethod, UnsupportedLegacyCodexRpcMethod>;
+export type CodexRpcMethod = Exclude<
+  CodexOfficialRpcMethod,
+  UnsupportedLegacyCodexRpcMethod
+>;
 export type CodexClientNotificationMethod = ClientNotification["method"];
 export type CodexServerRequestMethod = ServerRequest["method"];
-export type UnsupportedLegacyCodexServerRequestMethod = "applyPatchApproval" | "execCommandApproval";
+export type UnsupportedLegacyCodexServerRequestMethod =
+  | "applyPatchApproval"
+  | "execCommandApproval";
 export type SupportedCodexServerRequestMethod = Exclude<
   CodexServerRequestMethod,
   UnsupportedLegacyCodexServerRequestMethod
@@ -258,12 +300,28 @@ export type SupportedCodexServerRequestMethod = Exclude<
 export type CodexServerNotificationMethod = ServerNotification["method"];
 export type OfficialCodexServerRequest = ServerRequest;
 export type OfficialCodexServerNotification = ServerNotification;
-export type CodexServerRequestMessage = { kind: "request" } & ServerRequest;
-export type CodexServerNotificationMessage = { kind: "notification" } & ServerNotification;
 
-type MissingCodexRpcResultMethods = Exclude<CodexRpcMethod, keyof SupportedCodexRpcResultMap>;
-type ExtraCodexRpcResultMethods = Exclude<keyof SupportedCodexRpcResultMap, CodexRpcMethod>;
-type UnknownUnsupportedLegacyCodexRpcMethods = Exclude<UnsupportedLegacyCodexRpcMethod, CodexOfficialRpcMethod>;
+/** app-server 输入流统一转成带 kind 的 envelope，方便运行时分流。 */
+export type CodexServerRequestMessage = { kind: "request" } & ServerRequest;
+export type CodexServerNotificationMessage = {
+  kind: "notification";
+} & ServerNotification;
+
+/**
+ * 协议漂移断言：官方新增/删除 method 时，这里会迫使 result map 或 legacy 排除列表同步更新。
+ */
+type MissingCodexRpcResultMethods = Exclude<
+  CodexRpcMethod,
+  keyof SupportedCodexRpcResultMap
+>;
+type ExtraCodexRpcResultMethods = Exclude<
+  keyof SupportedCodexRpcResultMap,
+  CodexRpcMethod
+>;
+type UnknownUnsupportedLegacyCodexRpcMethods = Exclude<
+  UnsupportedLegacyCodexRpcMethod,
+  CodexOfficialRpcMethod
+>;
 type MissingCodexServerRequestResultMethods = Exclude<
   SupportedCodexServerRequestMethod,
   keyof SupportedCodexServerRequestResultMap
@@ -276,14 +334,18 @@ type UnknownUnsupportedLegacyCodexServerRequestMethods = Exclude<
   UnsupportedLegacyCodexServerRequestMethod,
   CodexServerRequestMethod
 >;
-type _AssertNoMissingCodexRpcResultMethods = AssertNever<MissingCodexRpcResultMethods>;
-type _AssertNoExtraCodexRpcResultMethods = AssertNever<ExtraCodexRpcResultMethods>;
-type _AssertNoUnknownUnsupportedLegacyCodexRpcMethods = AssertNever<UnknownUnsupportedLegacyCodexRpcMethods>;
-type _AssertNoMissingCodexServerRequestResultMethods = AssertNever<MissingCodexServerRequestResultMethods>;
-type _AssertNoExtraCodexServerRequestResultMethods = AssertNever<ExtraCodexServerRequestResultMethods>;
-type _AssertNoUnknownUnsupportedLegacyCodexServerRequestMethods = AssertNever<
-  UnknownUnsupportedLegacyCodexServerRequestMethods
->;
+type _AssertNoMissingCodexRpcResultMethods =
+  AssertNever<MissingCodexRpcResultMethods>;
+type _AssertNoExtraCodexRpcResultMethods =
+  AssertNever<ExtraCodexRpcResultMethods>;
+type _AssertNoUnknownUnsupportedLegacyCodexRpcMethods =
+  AssertNever<UnknownUnsupportedLegacyCodexRpcMethods>;
+type _AssertNoMissingCodexServerRequestResultMethods =
+  AssertNever<MissingCodexServerRequestResultMethods>;
+type _AssertNoExtraCodexServerRequestResultMethods =
+  AssertNever<ExtraCodexServerRequestResultMethods>;
+type _AssertNoUnknownUnsupportedLegacyCodexServerRequestMethods =
+  AssertNever<UnknownUnsupportedLegacyCodexServerRequestMethods>;
 export type _CodexProtocolTypeAssertions = [
   _AssertNoMissingCodexRpcResultMethods,
   _AssertNoExtraCodexRpcResultMethods,
@@ -293,36 +355,52 @@ export type _CodexProtocolTypeAssertions = [
   _AssertNoUnknownUnsupportedLegacyCodexServerRequestMethods,
 ];
 
+/** 调用侧公开类型：从官方请求 union 中推导 params，再结合显式 result map 输出强类型 RPC 参数。 */
 export type CodexRpcParams<M extends CodexRpcMethod> = M extends CodexRpcMethod
   ? Extract<ClientRequest, { method: M }> extends { params: infer P }
     ? P
     : undefined
   : unknown;
 
-export type CodexRpcResult<M extends CodexRpcMethod> = M extends keyof SupportedCodexRpcResultMap
-  ? SupportedCodexRpcResultMap[M]
-  : unknown;
+export type CodexRpcResult<M extends CodexRpcMethod> =
+  M extends keyof SupportedCodexRpcResultMap
+    ? SupportedCodexRpcResultMap[M]
+    : unknown;
 
-export type CodexServerRequestParams<M extends SupportedCodexServerRequestMethod> = M extends SupportedCodexServerRequestMethod
+/** ServerRequest 的 params/result/response args，用于约束客户端 respond 必须带 method。 */
+export type CodexServerRequestParams<
+  M extends SupportedCodexServerRequestMethod,
+> = M extends SupportedCodexServerRequestMethod
   ? Extract<ServerRequest, { method: M }> extends { params: infer P }
     ? P
     : undefined
   : unknown;
 
-export type CodexServerRequestResult<M extends SupportedCodexServerRequestMethod> =
-  M extends keyof SupportedCodexServerRequestResultMap ? SupportedCodexServerRequestResultMap[M] : unknown;
+export type CodexServerRequestResult<
+  M extends SupportedCodexServerRequestMethod,
+> = M extends keyof SupportedCodexServerRequestResultMap
+  ? SupportedCodexServerRequestResultMap[M]
+  : unknown;
 
-export type CodexServerRespondArgs<M extends SupportedCodexServerRequestMethod = SupportedCodexServerRequestMethod> = {
+export type CodexServerRespondArgs<
+  M extends SupportedCodexServerRequestMethod =
+    SupportedCodexServerRequestMethod,
+> = {
   serverId: string;
   id: JsonRpcId;
   method: M;
-} & ({ result: CodexServerRequestResult<M>; error?: undefined } | { result?: undefined; error: unknown });
+} & (
+  | { result: CodexServerRequestResult<M>; error?: undefined }
+  | { result?: undefined; error: unknown }
+);
 
-export type CodexNotifyParams<M extends string> = M extends ClientNotification["method"]
-  ? Extract<ClientNotification, { method: M }> extends { params: infer P }
-    ? P
-    : undefined
-  : unknown;
+/** 通知只需要 params 推导，不需要 result 映射。 */
+export type CodexNotifyParams<M extends string> =
+  M extends ClientNotification["method"]
+    ? Extract<ClientNotification, { method: M }> extends { params: infer P }
+      ? P
+      : undefined
+    : unknown;
 
 export type CodexRpcArgs<M extends CodexRpcMethod = CodexRpcMethod> =
   CodexRpcParams<M> extends undefined
@@ -338,12 +416,25 @@ export type CodexNotifyArgs<M extends string = string> =
     ? { serverId: string; method: M; params?: undefined }
     : { serverId: string; method: M; params: CodexNotifyParams<M> };
 
+/** Codex 进程本地事件：不来自 app-server 协议，但会进入同一条消息分流链路。 */
 export type CodexLocalEvent =
-  | { kind: "local"; method: "codex/exit"; params: { code: number | null; signal: string | null; expected: boolean } }
+  | {
+      kind: "local";
+      method: "codex/exit";
+      params: { code: number | null; signal: string | null; expected: boolean };
+    }
   | { kind: "local"; method: "codex/stderr"; params: { text: string } }
   | { kind: "local"; method: "codex/parseError"; params: { line: string } }
-  | { kind: "local"; method: "codex/unmatchedResponse"; params: CodexJsonRpcResponse }
-  | { kind: "local"; method: "codex/protocolError"; params: { reason: string; message: unknown } };
+  | {
+      kind: "local";
+      method: "codex/unmatchedResponse";
+      params: CodexJsonRpcResponse;
+    }
+  | {
+      kind: "local";
+      method: "codex/protocolError";
+      params: { reason: string; message: unknown };
+    };
 
 export type CodexJsonRpcResponse = {
   id: JsonRpcId;
@@ -351,8 +442,11 @@ export type CodexJsonRpcResponse = {
   error?: unknown;
 };
 
-export type CodexJsonRpcResponseMessage = { kind: "response" } & CodexJsonRpcResponse;
+export type CodexJsonRpcResponseMessage = {
+  kind: "response";
+} & CodexJsonRpcResponse;
 
+/** Codex app-server manager 对外广播的统一消息入口。 */
 export type CodexIncomingMessage =
   | CodexServerNotificationMessage
   | CodexServerRequestMessage
@@ -364,22 +458,34 @@ function toRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
-export function isCodexServerNotificationMessage(value: unknown): value is CodexServerNotificationMessage {
+/** 运行时守卫只检查分流所需的最小 envelope，不在这里完整校验 params。 */
+export function isCodexServerNotificationMessage(
+  value: unknown,
+): value is CodexServerNotificationMessage {
   const record = toRecord(value);
   return record?.kind === "notification" && typeof record.method === "string";
 }
 
-export function isCodexServerRequestMessage(value: unknown): value is CodexServerRequestMessage {
+export function isCodexServerRequestMessage(
+  value: unknown,
+): value is CodexServerRequestMessage {
   const record = toRecord(value);
   return record?.kind === "request" && typeof record.method === "string";
 }
 
-export function isCodexJsonRpcResponseMessage(value: unknown): value is CodexJsonRpcResponseMessage {
+export function isCodexJsonRpcResponseMessage(
+  value: unknown,
+): value is CodexJsonRpcResponseMessage {
   const record = toRecord(value);
-  return record?.kind === "response" && (typeof record.id === "string" || typeof record.id === "number");
+  return (
+    record?.kind === "response" &&
+    (typeof record.id === "string" || typeof record.id === "number")
+  );
 }
 
-export function isCodexLocalEventMessage(value: unknown): value is CodexLocalEvent {
+export function isCodexLocalEventMessage(
+  value: unknown,
+): value is CodexLocalEvent {
   const record = toRecord(value);
   return record?.kind === "local" && typeof record.method === "string";
 }

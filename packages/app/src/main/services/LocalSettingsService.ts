@@ -6,7 +6,7 @@ import {
   normalizeUserLocalSettings,
   type UserLocalSettings,
   type UserLocalSettingsPatch,
-} from "@codenexus/shared/localSettings";
+} from "../../common/localSettings";
 
 function tryParseJson(text: string): unknown {
   try {

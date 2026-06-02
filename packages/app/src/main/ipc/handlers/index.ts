@@ -18,8 +18,11 @@ import { WorkspacePatchService } from "../../services/WorkspacePatchService";
 import { registerAppHandlers } from "./app.handlers";
 import { registerCacheHandlers } from "./cache.handlers";
 import { registerCodexHandlers } from "./codex.handlers";
+import { registerFlowchartHandlers } from "./flowchart.handlers";
 import { registerHistoryHandlers } from "./history.handlers";
+import { registerImageGenerationHandlers } from "./image-generation.handlers";
 import { registerWorkspaceHandlers } from "./workspace.handlers";
+import { registerWindowHandlers } from "./window.handlers";
 import { CacheRegistryService } from "../../services/CacheRegistryService";
 import type { HistoryThreadRunningStateResult } from "@codenexus/shared/ipc/contracts";
 
@@ -54,11 +57,18 @@ export function registerAllHandlers(deps: IpcHandlersDeps) {
     codexProfileService: deps.codexProfileService,
     codexSkillRootsService: deps.codexSkillRootsService,
     codexConfigSwitcherService: deps.codexConfigSwitcherService,
-    imageGenerationHistoryService: deps.imageGenerationHistoryService,
-    imageGenerationTaskService: deps.imageGenerationTaskService,
-    flowchartHistoryService: deps.flowchartHistoryService,
     updateService: deps.updateService,
   });
+  registerImageGenerationHandlers({
+    localSettingsService: deps.localSettingsService,
+    imageGenerationHistoryService: deps.imageGenerationHistoryService,
+    imageGenerationTaskService: deps.imageGenerationTaskService,
+  });
+  registerFlowchartHandlers({
+    localSettingsService: deps.localSettingsService,
+    flowchartHistoryService: deps.flowchartHistoryService,
+  });
+  registerWindowHandlers({ getMainWindow: deps.getMainWindow });
   registerCodexHandlers({ serverManager: deps.serverManager, sendEvent: deps.sendCodexEvent });
   registerCacheHandlers({ cacheRegistryService: deps.cacheRegistryService });
   registerHistoryHandlers({

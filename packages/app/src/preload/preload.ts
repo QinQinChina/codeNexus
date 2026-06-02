@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { createCodexDesktopApi } from "./api/client";
-import { DEFAULT_USER_LOCAL_SETTINGS, normalizeUserLocalSettings } from "@codenexus/shared/localSettings";
+import { DEFAULT_USER_LOCAL_SETTINGS, normalizeUserLocalSettings } from "../common/localSettings";
 
 // 从主进程传下来的启动参数里恢复首个本地设置快照，供渲染层初始化使用。
 function parseInitialLocalSettingsSnapshot() {

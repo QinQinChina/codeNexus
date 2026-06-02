@@ -206,138 +206,29 @@
 import { computed, reactive, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import {
-  DEFAULT_IMAGE_GENERATION_BACKGROUND,
-  DEFAULT_IMAGE_GENERATION_MAX_IMAGES,
-  DEFAULT_IMAGE_GENERATION_MODERATION,
-  DEFAULT_IMAGE_GENERATION_MODEL,
-  DEFAULT_IMAGE_GENERATION_OUTPUT_COMPRESSION,
-  DEFAULT_IMAGE_GENERATION_OUTPUT_FORMAT,
-  DEFAULT_IMAGE_GENERATION_QUALITY,
-  DEFAULT_IMAGE_GENERATION_SIZE,
-  DEFAULT_IMAGE_GENERATION_TIMEOUT_MS,
   MAX_IMAGE_GENERATION_OUTPUT_COMPRESSION,
   MAX_IMAGE_GENERATION_MAX_IMAGES,
   MAX_IMAGE_GENERATION_TIMEOUT_MS,
   MIN_IMAGE_GENERATION_OUTPUT_COMPRESSION,
   MIN_IMAGE_GENERATION_MAX_IMAGES,
   MIN_IMAGE_GENERATION_TIMEOUT_MS,
+  cloneImageGenerationSettings,
+  normalizeImageGenerationSettings,
+  resolveImageGenerationEndpointPreview,
   type LocalImageGenerationSettings,
-} from "@codenexus/shared/localSettings";
+} from "@codenexus/feature-imagegen/settings";
 import { getCachedUserLocalSettings, patchUserLocalSettings } from "../../../domain/localSettings";
 import { showToast } from "../../../ui/toast";
 
 type Draft = LocalImageGenerationSettings;
 
-function toNullableText(value: unknown): string | null {
-  const text = String(value ?? "").trim();
-  return text || null;
-}
-
-function normalizeHttpBaseUrl(value: unknown): string | null {
-  const text = toNullableText(value);
-  if (!text) return null;
-  const trimmed = text.replace(/\/+$/, "");
-  return /^https?:\/\//i.test(trimmed) ? trimmed : null;
-}
-
-function normalizeOutputFormat(value: unknown): string {
-  const text = String(value ?? "")
-    .trim()
-    .toLowerCase();
-  if (text === "jpg") return "jpeg";
-  if (text === "jpeg" || text === "webp" || text === "png") return text;
-  return DEFAULT_IMAGE_GENERATION_OUTPUT_FORMAT;
-}
-
-function normalizeBackground(value: unknown): string {
-  const text = String(value ?? "")
-    .trim()
-    .toLowerCase();
-  if (text === "transparent" || text === "opaque" || text === "auto") return text;
-  return DEFAULT_IMAGE_GENERATION_BACKGROUND;
-}
-
-function normalizeModeration(value: unknown): string {
-  const text = String(value ?? "")
-    .trim()
-    .toLowerCase();
-  if (text === "low" || text === "auto") return text;
-  return DEFAULT_IMAGE_GENERATION_MODERATION;
-}
-
-function clampInteger(value: unknown, fallback: number, min: number, max: number): number {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.max(min, Math.min(max, Math.round(n)));
-}
-
-function cloneSettings(value: LocalImageGenerationSettings): Draft {
-  return {
-    enabled: Boolean(value.enabled),
-    baseUrl: value.baseUrl,
-    apiKey: value.apiKey,
-    model: String(value.model || DEFAULT_IMAGE_GENERATION_MODEL),
-    defaultSize: String(value.defaultSize || DEFAULT_IMAGE_GENERATION_SIZE),
-    defaultQuality: String(value.defaultQuality || DEFAULT_IMAGE_GENERATION_QUALITY),
-    outputFormat: normalizeOutputFormat(value.outputFormat),
-    defaultBackground: normalizeBackground(value.defaultBackground),
-    defaultModeration: normalizeModeration(value.defaultModeration),
-    outputCompression: clampInteger(
-      value.outputCompression,
-      DEFAULT_IMAGE_GENERATION_OUTPUT_COMPRESSION,
-      MIN_IMAGE_GENERATION_OUTPUT_COMPRESSION,
-      MAX_IMAGE_GENERATION_OUTPUT_COMPRESSION
-    ),
-    timeoutMs: clampInteger(
-      value.timeoutMs,
-      DEFAULT_IMAGE_GENERATION_TIMEOUT_MS,
-      MIN_IMAGE_GENERATION_TIMEOUT_MS,
-      MAX_IMAGE_GENERATION_TIMEOUT_MS
-    ),
-    maxImages: clampInteger(
-      value.maxImages,
-      DEFAULT_IMAGE_GENERATION_MAX_IMAGES,
-      MIN_IMAGE_GENERATION_MAX_IMAGES,
-      MAX_IMAGE_GENERATION_MAX_IMAGES
-    ),
-  };
-}
-
-const initial = cloneSettings(getCachedUserLocalSettings().settings.imageGeneration);
+const initial = cloneImageGenerationSettings(getCachedUserLocalSettings().settings.imageGeneration);
 const { t } = useI18n();
-const snapshot = ref<Draft>(cloneSettings(initial));
-const draft = reactive<Draft>(cloneSettings(initial));
+const snapshot = ref<Draft>(cloneImageGenerationSettings(initial));
+const draft = reactive<Draft>(cloneImageGenerationSettings(initial));
 const saving = ref(false);
 
-const normalizedDraft = computed<Draft>(() => ({
-  enabled: Boolean(draft.enabled),
-  baseUrl: normalizeHttpBaseUrl(draft.baseUrl),
-  apiKey: toNullableText(draft.apiKey),
-  model: toNullableText(draft.model) ?? DEFAULT_IMAGE_GENERATION_MODEL,
-  defaultSize: toNullableText(draft.defaultSize) ?? DEFAULT_IMAGE_GENERATION_SIZE,
-  defaultQuality: toNullableText(draft.defaultQuality) ?? DEFAULT_IMAGE_GENERATION_QUALITY,
-  outputFormat: normalizeOutputFormat(draft.outputFormat),
-  defaultBackground: normalizeBackground(draft.defaultBackground),
-  defaultModeration: normalizeModeration(draft.defaultModeration),
-  outputCompression: clampInteger(
-    draft.outputCompression,
-    DEFAULT_IMAGE_GENERATION_OUTPUT_COMPRESSION,
-    MIN_IMAGE_GENERATION_OUTPUT_COMPRESSION,
-    MAX_IMAGE_GENERATION_OUTPUT_COMPRESSION
-  ),
-  timeoutMs: clampInteger(
-    draft.timeoutMs,
-    DEFAULT_IMAGE_GENERATION_TIMEOUT_MS,
-    MIN_IMAGE_GENERATION_TIMEOUT_MS,
-    MAX_IMAGE_GENERATION_TIMEOUT_MS
-  ),
-  maxImages: clampInteger(
-    draft.maxImages,
-    DEFAULT_IMAGE_GENERATION_MAX_IMAGES,
-    MIN_IMAGE_GENERATION_MAX_IMAGES,
-    MAX_IMAGE_GENERATION_MAX_IMAGES
-  ),
-}));
+const normalizedDraft = computed<Draft>(() => normalizeImageGenerationSettings({ ...draft }));
 
 const hasChanges = computed(() => JSON.stringify(normalizedDraft.value) !== JSON.stringify(snapshot.value));
 const isConfigured = computed(() =>
@@ -355,22 +246,16 @@ const statusText = computed(() => {
   if (!normalizedDraft.value.apiKey) return t("settingsImageGeneration.missingApiKey");
   return t("settingsImageGeneration.configured");
 });
-function endpointPreview(kind: "generations" | "edits") {
-  const baseUrl = normalizedDraft.value.baseUrl;
-  if (!baseUrl) return "-";
-  if (/\/images\/(generations|edits)$/i.test(baseUrl)) {
-    return baseUrl.replace(/\/images\/(generations|edits)$/i, `/images/${kind}`);
-  }
-  if (/\/v1$/i.test(baseUrl)) return `${baseUrl}/images/${kind}`;
-  return `${baseUrl}/v1/images/${kind}`;
-}
-
-const generationEndpointPreview = computed(() => endpointPreview("generations"));
-const editEndpointPreview = computed(() => endpointPreview("edits"));
+const generationEndpointPreview = computed(() =>
+  resolveImageGenerationEndpointPreview(normalizedDraft.value.baseUrl, "generations")
+);
+const editEndpointPreview = computed(() =>
+  resolveImageGenerationEndpointPreview(normalizedDraft.value.baseUrl, "edits")
+);
 
 function applySnapshot(next: Draft) {
-  snapshot.value = cloneSettings(next);
-  Object.assign(draft, cloneSettings(next));
+  snapshot.value = cloneImageGenerationSettings(next);
+  Object.assign(draft, cloneImageGenerationSettings(next));
 }
 
 function normalizeDraftNumbers() {

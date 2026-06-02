@@ -31,8 +31,7 @@
             <GlobalConfigDrawer v-if="activeTab === 'global'" mode="settings" />
             <CodexProfilesSettingsTab v-else-if="activeTab === 'profiles'" />
             <SettingsSoundTab v-else-if="activeTab === 'sound'" />
-            <SettingsImageGenerationTab v-else-if="activeTab === 'image'" />
-            <SettingsFlowchartAiTab v-else-if="activeTab === 'flowchart'" />
+            <component :is="activeFeatureSettingsComponent" v-else-if="activeFeatureSettingsComponent" />
             <SettingsUpdateTab v-else-if="activeTab === 'update'" />
             <EnvSetupDrawer v-else-if="activeTab === 'env'" mode="settings" />
             <IntegrationsDrawer v-else-if="activeTab === 'integrations'" mode="settings" />
@@ -49,18 +48,22 @@ import { computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { Bell, Bot, Download, Image, PlugZap, Settings2, SlidersHorizontal, Workflow } from "lucide-vue-next";
 import { useAppShellStore } from "../../stores/appShell.store";
+import { FEATURE_SETTINGS_TABS, getFeatureSettingsByTab } from "../../features/registry";
 import GlobalConfigDrawer from "./overlays/GlobalConfigDrawer.vue";
 import EnvSetupDrawer from "./overlays/EnvSetupDrawer.vue";
 import IntegrationsDrawer from "./overlays/IntegrationsDrawer.vue";
 import SettingsSoundTab from "./settings/SettingsSoundTab.vue";
-import SettingsImageGenerationTab from "./settings/SettingsImageGenerationTab.vue";
-import SettingsFlowchartAiTab from "@codenexus/feature-flowchart/renderer/settings/SettingsFlowchartAiTab";
 import SettingsUpdateTab from "./settings/SettingsUpdateTab.vue";
 import CodexProfilesSettingsTab from "./settings/CodexProfilesSettingsTab.vue";
 
 const appShellStore = useAppShellStore();
 const { t } = useI18n();
 const activeTab = computed(() => appShellStore.settingsActiveTab);
+const settingsFeatureIconByName = {
+  image: Image,
+  workflow: Workflow,
+} as const;
+const activeFeatureSettingsComponent = computed(() => getFeatureSettingsByTab(activeTab.value)?.component ?? null);
 const tabGroups = computed(() => [
   {
     label: t("settings.groups.basics"),
@@ -88,18 +91,12 @@ const tabGroups = computed(() => [
         desc: t("settings.tabs.integrationsDesc"),
         icon: PlugZap,
       },
-      {
-        key: "image" as const,
-        label: t("settings.tabs.image"),
-        desc: t("settings.tabs.imageDesc"),
-        icon: Image,
-      },
-      {
-        key: "flowchart" as const,
-        label: t("settings.tabs.flowchart"),
-        desc: t("settings.tabs.flowchartDesc"),
-        icon: Workflow,
-      },
+      ...FEATURE_SETTINGS_TABS.map((tab) => ({
+        key: tab.tab,
+        label: t(tab.labelKey),
+        desc: t(tab.descKey),
+        icon: settingsFeatureIconByName[tab.icon],
+      })),
     ],
   },
   {

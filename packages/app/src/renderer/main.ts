@@ -8,16 +8,13 @@ import { initRuntimeOrchestrator } from "./domain/runtimeOrchestrator";
 import { installDomI18nFallback } from "./i18n/domFallback";
 import { i18n } from "./i18n";
 import { translate } from "./i18n/translate";
-import {
-  installImagegenRuntimeBridge,
-  setImagegenWorkspacePath,
-} from "@codenexus/feature-imagegen/renderer/runtimeBridge";
+import { installFeatureRuntimeBridges, FEATURE_SETTINGS_TAB_KEYS, type AppSettingsTab } from "./features/registry";
 import { loadUserLocalSettings } from "./domain/localSettings";
 import { loadLocalDraftState } from "./domain/localDraftState";
 import { loadLocalMessageOutbox } from "./domain/localMessageOutbox";
 import { useThemeStore } from "./stores/theme.store";
 import { useTypographyStore } from "./stores/typography.store";
-import { useAppShellStore, type SettingsTab } from "./stores/appShell.store";
+import { useAppShellStore } from "./stores/appShell.store";
 import { useRuntimeStore } from "./stores/runtime.store";
 import { useMessageQueueStore } from "./stores/messageQueue.store";
 import { useCodexProfilesStore } from "./stores/codexProfiles.store";
@@ -36,13 +33,18 @@ async function bootstrap() {
   useTypographyStore(pinia).initTypography();
 
   const runtimeStore = useRuntimeStore(pinia);
-  installImagegenRuntimeBridge({ translate });
-  setImagegenWorkspacePath(runtimeStore.workspacePath);
-  watch(
-    () => runtimeStore.workspacePath,
-    (workspacePath) => setImagegenWorkspacePath(workspacePath),
-    { immediate: true }
-  );
+  const disposeFeatureRuntimeBridges = installFeatureRuntimeBridges({
+    translate,
+    getWorkspacePath: () => runtimeStore.workspacePath,
+    watchWorkspacePath: (listener) => {
+      const stop = watch(
+        () => runtimeStore.workspacePath,
+        (workspacePath) => listener(String(workspacePath ?? "")),
+        { immediate: true }
+      );
+      return stop;
+    },
+  });
   const messageQueueStore = useMessageQueueStore(pinia);
 
   const [draftState, messageOutbox] = await Promise.all([loadLocalDraftState(), loadLocalMessageOutbox()]);
@@ -66,22 +68,21 @@ async function bootstrap() {
     showToast({ kind: detail?.kind, title: detail?.title, message });
   };
   window.addEventListener("codenexus:toast", handleFeatureToast);
-  const featureSettingsTabs = new Set<SettingsTab>([
+  const openSettingsTabs = new Set<AppSettingsTab>([
     "global",
     "profiles",
     "sound",
-    "image",
-    "flowchart",
     "env",
     "integrations",
     "update",
+    ...FEATURE_SETTINGS_TAB_KEYS,
   ]);
-  const toFeatureSettingsTab = (value: unknown): SettingsTab | undefined => {
+  const toOpenSettingsTab = (value: unknown): AppSettingsTab | undefined => {
     const tab = String(value ?? "").trim();
-    return featureSettingsTabs.has(tab as SettingsTab) ? (tab as SettingsTab) : undefined;
+    return openSettingsTabs.has(tab as AppSettingsTab) ? (tab as AppSettingsTab) : undefined;
   };
   const handleFeatureOpenSettings = (evt: Event) => {
-    const tab = toFeatureSettingsTab((evt as CustomEvent<{ tab?: string }>).detail?.tab);
+    const tab = toOpenSettingsTab((evt as CustomEvent<{ tab?: string }>).detail?.tab);
     appShellStore.openSettings(tab);
   };
   window.addEventListener("codenexus:open-settings", handleFeatureOpenSettings);
@@ -140,6 +141,7 @@ async function bootstrap() {
     () => {
       window.removeEventListener("codenexus:toast", handleFeatureToast);
       window.removeEventListener("codenexus:open-settings", handleFeatureOpenSettings);
+      disposeFeatureRuntimeBridges();
       runtime.dispose();
       disposeDomI18nFallback();
     },

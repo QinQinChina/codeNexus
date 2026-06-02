@@ -83,6 +83,7 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { ClipboardCopy, FilePenLine, ListTree, Quote, ScanSearch } from "lucide-vue-next";
 import { usePaperStore, type PaperGenerationMode } from "../store";
+import { showPaperToast } from "../runtimeBridge";
 
 const { t } = useI18n();
 const paper = usePaperStore();
@@ -106,16 +107,12 @@ const localizedPrompt = computed(() =>
   ].join("\n")
 );
 
-function showPaperToast(kind: "success" | "error", message: string) {
-  window.dispatchEvent(new CustomEvent("codenexus:toast", { detail: { kind, message } }));
-}
-
 async function copyPrompt() {
   try {
     await navigator.clipboard.writeText(localizedPrompt.value);
-    showPaperToast("success", t("paperSidebar.promptCopied"));
+    showPaperToast({ kind: "success", message: t("paperSidebar.promptCopied") });
   } catch (error) {
-    showPaperToast("error", String((error as Error)?.message ?? error));
+    showPaperToast({ kind: "error", message: String((error as Error)?.message ?? error) });
   }
 }
 </script>

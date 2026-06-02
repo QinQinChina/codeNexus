@@ -4,7 +4,7 @@ import {
   normalizeUserLocalSettings,
   type UserLocalSettings,
   type UserLocalSettingsPatch,
-} from "@codenexus/shared/localSettings";
+} from "../../common/localSettings";
 
 export type LoadedUserLocalSettings = {
   path: string;

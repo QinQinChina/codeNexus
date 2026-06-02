@@ -1,4 +1,5 @@
 export * from "./types";
+export * from "./settings";
 export { ImageGenerationHistoryService } from "./main/ImageGenerationHistoryService";
 export { ImageGenerationTaskService } from "./main/ImageGenerationTaskService";
 export { useImageWorkbenchStore } from "./renderer/store";

@@ -95,83 +95,24 @@
 import { computed, reactive, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import {
-  DEFAULT_FLOWCHART_AI_MODEL,
-  DEFAULT_FLOWCHART_AI_TIMEOUT_MS,
   MAX_FLOWCHART_AI_TIMEOUT_MS,
   MIN_FLOWCHART_AI_TIMEOUT_MS,
-} from "../../types";
-import { DEFAULT_USER_LOCAL_SETTINGS, type LocalFlowchartAiSettings } from "@codenexus/shared/localSettings";
+  cloneFlowchartAiSettings,
+  normalizeFlowchartAiSettings,
+  resolveFlowchartAiEndpointPreview,
+  type LocalFlowchartAiSettings,
+} from "@codenexus/feature-flowchart/settings";
+import { getInitialFlowchartAiSettings, patchFlowchartAiSettings, showFlowchartToast } from "../runtimeBridge";
 
 type Draft = LocalFlowchartAiSettings;
 
-type FlowchartSettingsDesktopApi = {
-  localState: {
-    initialSettingsSnapshot?: { settings?: { flowchartAi?: LocalFlowchartAiSettings } };
-    patchSettings(args: { patch: { flowchartAi: LocalFlowchartAiSettings } }): Promise<{
-      settings: { flowchartAi: LocalFlowchartAiSettings };
-    }>;
-  };
-};
-
-const codexDesktop = (window as unknown as { codexDesktop: FlowchartSettingsDesktopApi }).codexDesktop;
-
-function showFlowchartSettingsToast(options: { kind?: "success" | "error"; title?: string; message: string }) {
-  window.dispatchEvent(new CustomEvent("codenexus:toast", { detail: options }));
-}
-
-function toNullableText(value: unknown): string | null {
-  const text = String(value ?? "").trim();
-  return text || null;
-}
-
-function normalizeHttpBaseUrl(value: unknown): string | null {
-  const text = toNullableText(value);
-  if (!text) return null;
-  const trimmed = text.replace(/\/+$/, "");
-  return /^https?:\/\//i.test(trimmed) ? trimmed : null;
-}
-
-function clampInteger(value: unknown, fallback: number, min: number, max: number): number {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.max(min, Math.min(max, Math.round(n)));
-}
-
-function cloneSettings(value: LocalFlowchartAiSettings): Draft {
-  return {
-    enabled: Boolean(value.enabled),
-    baseUrl: value.baseUrl,
-    apiKey: value.apiKey,
-    model: toNullableText(value.model) ?? DEFAULT_FLOWCHART_AI_MODEL,
-    timeoutMs: clampInteger(
-      value.timeoutMs,
-      DEFAULT_FLOWCHART_AI_TIMEOUT_MS,
-      MIN_FLOWCHART_AI_TIMEOUT_MS,
-      MAX_FLOWCHART_AI_TIMEOUT_MS
-    ),
-  };
-}
-
 const { t } = useI18n();
-const initial = cloneSettings(
-  codexDesktop.localState.initialSettingsSnapshot?.settings?.flowchartAi ?? DEFAULT_USER_LOCAL_SETTINGS.flowchartAi
-);
-const snapshot = ref<Draft>(cloneSettings(initial));
-const draft = reactive<Draft>(cloneSettings(initial));
+const initial = cloneFlowchartAiSettings(getInitialFlowchartAiSettings());
+const snapshot = ref<Draft>(cloneFlowchartAiSettings(initial));
+const draft = reactive<Draft>(cloneFlowchartAiSettings(initial));
 const saving = ref(false);
 
-const normalizedDraft = computed<Draft>(() => ({
-  enabled: Boolean(draft.enabled),
-  baseUrl: normalizeHttpBaseUrl(draft.baseUrl),
-  apiKey: toNullableText(draft.apiKey),
-  model: toNullableText(draft.model) ?? DEFAULT_FLOWCHART_AI_MODEL,
-  timeoutMs: clampInteger(
-    draft.timeoutMs,
-    DEFAULT_FLOWCHART_AI_TIMEOUT_MS,
-    MIN_FLOWCHART_AI_TIMEOUT_MS,
-    MAX_FLOWCHART_AI_TIMEOUT_MS
-  ),
-}));
+const normalizedDraft = computed<Draft>(() => normalizeFlowchartAiSettings({ ...draft }));
 
 const hasChanges = computed(() => JSON.stringify(normalizedDraft.value) !== JSON.stringify(snapshot.value));
 const isConfigured = computed(() =>
@@ -189,17 +130,11 @@ const statusText = computed(() => {
   if (!normalizedDraft.value.apiKey) return t("settingsFlowchartAi.missingApiKey");
   return t("settingsFlowchartAi.configured");
 });
-const endpointPreview = computed(() => {
-  const baseUrl = normalizedDraft.value.baseUrl;
-  if (!baseUrl) return "-";
-  if (/\/chat\/completions$/i.test(baseUrl)) return baseUrl;
-  if (/\/v1$/i.test(baseUrl)) return `${baseUrl}/chat/completions`;
-  return `${baseUrl}/v1/chat/completions`;
-});
+const endpointPreview = computed(() => resolveFlowchartAiEndpointPreview(normalizedDraft.value.baseUrl));
 
 function applySnapshot(next: Draft) {
-  snapshot.value = cloneSettings(next);
-  Object.assign(draft, cloneSettings(next));
+  snapshot.value = cloneFlowchartAiSettings(next);
+  Object.assign(draft, cloneFlowchartAiSettings(next));
 }
 
 function normalizeDraftNumbers() {
@@ -209,15 +144,15 @@ function normalizeDraftNumbers() {
 async function onSave() {
   saving.value = true;
   try {
-    const result = await codexDesktop.localState.patchSettings({ patch: { flowchartAi: normalizedDraft.value } });
-    applySnapshot(result.settings.flowchartAi);
-    showFlowchartSettingsToast({
+    const nextSettings = await patchFlowchartAiSettings(normalizedDraft.value);
+    applySnapshot(nextSettings);
+    showFlowchartToast({
       kind: "success",
       title: t("settingsFlowchartAi.saveSuccessTitle"),
       message: t("settingsFlowchartAi.saveSuccessMessage"),
     });
   } catch (error: any) {
-    showFlowchartSettingsToast({
+    showFlowchartToast({
       kind: "error",
       title: t("settingsFlowchartAi.saveFailedTitle"),
       message: String(error?.message ?? error ?? "unknown error"),

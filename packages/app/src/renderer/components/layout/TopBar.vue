@@ -140,6 +140,7 @@ import TopBarWindowControls from "./topbar/TopBarWindowControls.vue";
 import { useAppShellStore } from "../../stores/appShell.store";
 import { useRuntimeStore } from "../../stores/runtime.store";
 import { useWorkspaceFilesStore } from "../../stores/workspaceFiles.store";
+import { isFeatureMainView } from "../../features/registry";
 import "./topbar/topbar.css";
 import type { MainView } from "@codenexus/shared/localSettings";
 
@@ -248,16 +249,8 @@ onBeforeUnmount(() => {
 });
 
 function onSetMainView(next: MainView) {
-  if (next === "image") {
-    appShellStore.openImageWorkbench();
-    return;
-  }
-  if (next === "flowchart") {
-    appShellStore.openFlowchartWorkbench();
-    return;
-  }
-  if (next === "paper") {
-    appShellStore.openPaperWorkbench();
+  if (isFeatureMainView(next)) {
+    appShellStore.openFeatureWorkbench(next);
     return;
   }
   appShellStore.setMainView(next);
