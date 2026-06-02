@@ -1,12 +1,6 @@
 import { nextTick } from "vue";
 import type { Pinia } from "pinia";
 import { codexDesktop } from "../api/codexDesktopClient";
-import {
-  ALL_THREAD_SOURCE_KINDS,
-  buildHistoryThreadMetadataPatchFromServerThread,
-  normalizeOptionalText,
-  resolveThreadParentIdForGraph,
-} from "../features/history/threadMetadata";
 import { toThreadHistoryItem as toThreadHistoryItemFromHistory } from "../features/history/threadHistoryItem";
 import {
   fallbackThreadTitle,
@@ -16,7 +10,6 @@ import {
 import { showToast } from "../ui/toast";
 import { translate } from "../i18n/translate";
 import { appendDebugLog } from "../shared/debugLog";
-import { isIpcHandlerMissingError } from "../shared/ipcErrors";
 import { sandboxKebabFromUi } from "../shared/sandboxPolicy";
 import {
   beginThreadCreateAttempt,
@@ -65,6 +58,7 @@ import { createThreadGoalRuntime } from "./runtime/threadGoalRuntime";
 import { createThreadMemoryRuntime } from "./runtime/threadMemoryRuntime";
 import { createThreadRollbackRuntime } from "./runtime/threadRollbackRuntime";
 import { createHistoryRewriteRuntime } from "./runtime/historyRewriteRuntime";
+import { createThreadMetadataRuntime } from "./runtime/threadMetadataRuntime";
 import { invalidateThreadContentCache, type ThreadContentCacheEntry } from "./runtime/rendererCacheRuntime";
 import {
   buildConfigBatchChangesFromDraft,
@@ -83,8 +77,6 @@ import { isWithinWorkspaceFsPath, resolveWorkspaceFsPath } from "./workspacePath
 import { buildComposeDraftFromUserTurnInputs } from "./composeFileMentions";
 import type { HistoryThread } from "@codenexus/shared/ipc";
 import type { Thread as ServerThread } from "@codenexus/generated/codex-app-server/v2/Thread";
-import type { ThreadListParams } from "@codenexus/generated/codex-app-server/v2/ThreadListParams";
-import type { ThreadListResponse } from "@codenexus/generated/codex-app-server/v2/ThreadListResponse";
 import type { ThreadReadParams } from "@codenexus/generated/codex-app-server/v2/ThreadReadParams";
 import type { ThreadResumeParams } from "@codenexus/generated/codex-app-server/v2/ThreadResumeParams";
 import type { ThreadStartParams } from "@codenexus/generated/codex-app-server/v2/ThreadStartParams";
@@ -105,7 +97,6 @@ import type {
   WorkspaceTextFileReadResult,
   WorkspaceTextFileWriteResult,
 } from "./types";
-import { IPC_HISTORY_CHANNELS } from "@codenexus/shared/ipc";
 import {
   buildThreadStartConfigOverridesForModel,
   hasThreadStartConfigOverridesForModel,
@@ -776,146 +767,18 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   });
   const { hydrateReplayFromCacheIfNeeded, loadHistoryMessages, loadOlderHistoryTurns } = historyReplayWindowRuntime;
 
-  const requestThreadListPage = async (
-    workspacePathValue: string,
-    archived: boolean,
-    cursor?: string | null
-  ): Promise<ThreadListResponse> => {
-    const workspace = normalizeWorkspacePath(workspacePathValue);
-    const serverId = getServerIdForWorkspace(workspace);
-    if (!workspace || !serverId) {
-      return { data: [], nextCursor: null, backwardsCursor: null };
-    }
-    const params: ThreadListParams = {
-      cwd: workspace,
-      archived,
-      cursor: cursor ?? null,
-      limit: THREAD_METADATA_PAGE_SIZE,
-      sortKey: "updated_at",
-      sourceKinds: ALL_THREAD_SOURCE_KINDS,
-    };
-    const { result } = await codexDesktop.codexServer.rpc({
-      serverId,
-      method: "thread/list",
-      params,
-    });
-    return result;
-  };
-
-  const requestAllThreadsForWorkspace = async (workspacePathValue: string): Promise<ServerThread[]> => {
-    const workspace = normalizeWorkspacePath(workspacePathValue);
-    if (!workspace) return [];
-    const deduped = new Map<string, ServerThread>();
-
-    for (const archived of [false, true]) {
-      let cursor: string | null = null;
-      while (true) {
-        const page = await requestThreadListPage(workspace, archived, cursor);
-        const threads = Array.isArray(page?.data) ? page.data : [];
-        for (const thread of threads) {
-          const threadId = normalizeOptionalText(thread?.id);
-          if (!threadId) continue;
-          deduped.set(threadId, thread);
-        }
-        const nextCursor = normalizeOptionalText(page?.nextCursor);
-        if (!nextCursor) break;
-        cursor = nextCursor;
-      }
-    }
-
-    return [...deduped.values()];
-  };
-
-  const hydrateThreadMetadataForWorkspace = async (workspacePathValue: string): Promise<void> => {
-    const workspace = normalizeWorkspacePath(workspacePathValue);
-    const serverId = getServerIdForWorkspace(workspace);
-    if (!workspace || !serverId) return;
-
-    const existing = threadMetadataHydrationPromiseByWorkspace.get(workspace);
-    if (existing) return existing;
-
-    const task = (async () => {
-      try {
-        const threads = await requestAllThreadsForWorkspace(workspace);
-        const patches = threads.flatMap((thread) => {
-          const patch = buildHistoryThreadMetadataPatchFromServerThread(thread);
-          return patch ? [patch] : [];
-        });
-        if (patches.length === 0) return;
-        await codexDesktop.history.mergeThreadMetadata({ threads: patches });
-      } catch (e: any) {
-        const rpcErr = parseJsonRpcError(e);
-        if (rpcErr?.code === -32601) return;
-        const msg = e?.message ? String(e.message) : String(e);
-        if (isIpcHandlerMissingError(msg, IPC_HISTORY_CHANNELS.historyMergeThreadMetadata)) return;
-        console.warn("[runtimeOrchestrator] thread metadata hydration failed", { workspace, msg });
-      } finally {
-        threadMetadataHydrationPromiseByWorkspace.delete(workspace);
-      }
-    })();
-
-    threadMetadataHydrationPromiseByWorkspace.set(workspace, task);
-    return task;
-  };
-
-  const hydrateThreadHandoffDiagnostics = async (
-    threadIdValue: string,
-    options?: { force?: boolean }
-  ): Promise<void> => {
-    const threadId = String(threadIdValue ?? "").trim();
-    if (!threadId || threadId === APP_TIMELINE_ID) return;
-
-    const historyItem = findThreadListItem(threadId);
-    const parentThreadId = historyItem ? resolveThreadParentIdForGraph(historyItem) : "";
-    if (!parentThreadId) {
-      threadStore.clearThreadHandoffDiagnostics(threadId);
-      return;
-    }
-
-    if (!options?.force && threadStore.handoffDiagnosticsByThread.has(threadId)) return;
-    const existing = handoffDiagnosticsPromiseByThread.get(threadId);
-    if (existing) return existing;
-
-    const task = (async () => {
-      threadStore.setThreadHandoffDiagnosticsLoading(threadId, true);
-      try {
-        const [currentResult, parentResult] = await Promise.allSettled([
-          requestThreadRead(threadId),
-          requestThreadRead(parentThreadId),
-        ]);
-        if (currentResult.status !== "fulfilled") throw currentResult.reason;
-
-        const { buildThreadHandoffDiagnostics } = await import("../features/history/threadHandoffDiagnostics");
-        const diagnostics = buildThreadHandoffDiagnostics({
-          threadId,
-          parentThreadId,
-          currentThread: currentResult.value,
-          parentThread: parentResult.status === "fulfilled" ? parentResult.value : null,
-        });
-        threadStore.setThreadHandoffDiagnostics(threadId, diagnostics);
-
-        if (parentResult.status !== "fulfilled") {
-          const parentError = parentResult.reason;
-          const parentMsg = parentError?.message ? String(parentError.message) : String(parentError);
-          console.warn("[runtimeOrchestrator] parent thread handoff diagnostics degraded", {
-            threadId,
-            parentThreadId,
-            msg: parentMsg,
-          });
-        }
-      } catch (e: any) {
-        const msg = e?.message ? String(e.message) : String(e);
-        console.warn("[runtimeOrchestrator] thread handoff diagnostics failed", { threadId, parentThreadId, msg });
-        threadStore.clearThreadHandoffDiagnostics(threadId);
-      } finally {
-        threadStore.setThreadHandoffDiagnosticsLoading(threadId, false);
-        handoffDiagnosticsPromiseByThread.delete(threadId);
-      }
-    })();
-
-    handoffDiagnosticsPromiseByThread.set(threadId, task);
-    return task;
-  };
+  const threadMetadataRuntime = createThreadMetadataRuntime({
+    appTimelineId: APP_TIMELINE_ID,
+    threadStore,
+    threadMetadataHydrationPromiseByWorkspace,
+    handoffDiagnosticsPromiseByThread,
+    threadMetadataPageSize: THREAD_METADATA_PAGE_SIZE,
+    normalizeWorkspacePath,
+    getServerIdForWorkspace,
+    findThreadListItem,
+    requestThreadRead,
+  });
+  const { hydrateThreadMetadataForWorkspace, hydrateThreadHandoffDiagnostics } = threadMetadataRuntime;
 
   const refreshGlobalConfig = async () => {
     if (!getServerIdForWorkspace(runtimeStore.workspacePath)) {
