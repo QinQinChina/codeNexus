@@ -7,7 +7,7 @@ import type {
   WorkspaceTextFileReadResult,
   WorkspaceTextFileWriteResult,
 } from "../types";
-import { resolveWorkspaceFsPath } from "../workspacePath";
+import { isWithinWorkspaceFsPath, resolveWorkspaceFsPath } from "../workspacePath";
 import { IPC_APP_CHANNELS } from "@codenexus/shared/ipc";
 import type { AppTextEncoding, AppTextLineEnding } from "@codenexus/shared/ipc/contracts";
 
@@ -17,6 +17,24 @@ type WorkspacePathResolution = {
 };
 
 export type WorkspacePathResolver = (inputPath: string) => WorkspacePathResolution;
+
+export type WorkspacePathResolverDeps = {
+  getWorkspacePath: () => string;
+  normalizeWorkspacePath: (value: string) => string;
+};
+
+export function createWorkspacePathResolver(deps: WorkspacePathResolverDeps): WorkspacePathResolver {
+  return (inputPath: string) => {
+    const workspace = deps.normalizeWorkspacePath(deps.getWorkspacePath());
+    if (!workspace) throw new Error(translate("runtime.workspaceRequired"));
+    const path = resolveWorkspaceFsPath(workspace, inputPath);
+    if (!path) throw new Error(translate("runtime.invalidFilePath"));
+    if (!isWithinWorkspaceFsPath(workspace, path)) {
+      throw new Error(translate("runtime.fileOutsideWorkspace"));
+    }
+    return { workspace, path };
+  };
+}
 
 export type WorkspaceFileRuntime = {
   readTextFile: (path: string) => Promise<string>;

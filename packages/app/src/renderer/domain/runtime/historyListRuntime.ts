@@ -19,6 +19,7 @@ export type HistoryListRuntimeDeps = {
 export type HistoryListRuntime = {
   applyHistoryItems: (items: HistoryThread[]) => void;
   refreshHistory: (force?: boolean) => Promise<void>;
+  subscribeHistoryUpdates: () => () => void;
 };
 
 const LOCAL_THREAD_TTL_MS = 10 * 60_000;
@@ -121,5 +122,12 @@ export function createHistoryListRuntime(deps: HistoryListRuntimeDeps): HistoryL
     }
   };
 
-  return { applyHistoryItems, refreshHistory };
+  const subscribeHistoryUpdates = () => {
+    return codexDesktop.history.onUpdated((payload) => {
+      const items = Array.isArray(payload?.items) ? payload.items : [];
+      applyHistoryItems(items);
+    });
+  };
+
+  return { applyHistoryItems, refreshHistory, subscribeHistoryUpdates };
 }

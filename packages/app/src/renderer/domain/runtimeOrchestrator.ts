@@ -1,15 +1,8 @@
-import { nextTick } from "vue";
 import type { Pinia } from "pinia";
 import { codexDesktop } from "../api/codexDesktopClient";
-import {
-  fallbackThreadTitle,
-  isBootstrapThreadTitleSource,
-  titleFromFirstUserMessage,
-} from "../features/history/threadTitle";
 import { showToast } from "../ui/toast";
 import { translate } from "../i18n/translate";
 import { appendDebugLog } from "../shared/debugLog";
-import { sandboxKebabFromUi } from "../shared/sandboxPolicy";
 import { isPendingThreadId } from "../shared/threadCreateDebug";
 import { useRuntimeStore } from "../stores/runtime.store";
 import { useTimelineStore } from "../stores/timeline.store";
@@ -27,19 +20,19 @@ import { useCodexProfilesStore } from "../stores/codexProfiles.store";
 import { useCodexSkillRootsStore } from "../stores/codexSkillRoots.store";
 import { useCodexConfigSwitcherStore } from "../stores/codexConfigSwitcher.store";
 import { usePaperStore } from "@codenexus/feature-paper";
-import { resolveCodexInstructionProfileForMainView } from "../features/registry";
 import { useApprovalStore } from "../stores/approval.store";
 import { useWorkspaceFilesStore } from "../stores/workspaceFiles.store";
-import { installEventPipeline } from "../processes/protocol-event-pipeline/installEventPipeline";
-import { installRequestResponder } from "../processes/protocol-request-responder/installRequestResponder";
-import { notifyTurnCompleted } from "../features/systemNotification/systemNotification";
 import { type ThreadReplayCache } from "./runtime/historyReplayRuntime";
 import { createHistoryListRuntime } from "./runtime/historyListRuntime";
+import { createCodexServerEventRuntime } from "./runtime/codexServerEventRuntime";
 import {
   createHistoryReplayWindowRuntime,
   type ThreadReplayWindowState,
 } from "./runtime/historyReplayWindowRuntime";
 import { createHistoryThreadRuntime } from "./runtime/historyThreadRuntime";
+import { createThreadReadRuntime } from "./runtime/threadReadRuntime";
+import { createThreadListLookupRuntime } from "./runtime/threadListLookupRuntime";
+import { createHistoryThreadDeletionRuntime } from "./runtime/historyThreadDeletionRuntime";
 import { createConfigRuntime } from "./runtime/configRuntime";
 import { createMcpRuntime } from "./runtime/mcpRuntime";
 import { createMcpResourceReadRuntime } from "./runtime/mcpResourceRuntime";
@@ -48,59 +41,51 @@ import { createTurnInputRuntime } from "./runtime/turnInputRuntime";
 import { createThreadCreationRuntime } from "./runtime/threadCreationRuntime";
 import { createThreadModelCompatibilityRuntime } from "./runtime/threadModelCompatibilityRuntime";
 import { createTurnStartRuntime } from "./runtime/turnStartRuntime";
-import { createWorkspaceFileRuntime } from "./runtime/workspaceFileRuntime";
+import { createTurnSendDraftRuntime, type TurnSendDraft } from "./runtime/turnSendDraftRuntime";
+import { createTurnSteerRuntime } from "./runtime/turnSteerRuntime";
+import { createWorkspaceFileRuntime, createWorkspacePathResolver } from "./runtime/workspaceFileRuntime";
 import { createWorkspaceSessionRuntime } from "./runtime/workspaceSessionRuntime";
 import { createPromptResponseRuntime } from "./runtime/promptResponseRuntime";
 import { createMessageQueueRuntime } from "./runtime/messageQueueRuntime";
+import { createThreadPreparingRuntime } from "./runtime/threadPreparingRuntime";
 import { createThreadGoalRuntime } from "./runtime/threadGoalRuntime";
 import { createThreadMemoryRuntime } from "./runtime/threadMemoryRuntime";
+import { createThreadTurnControlRuntime } from "./runtime/threadTurnControlRuntime";
+import { createThreadTitleUpdateRuntime } from "./runtime/threadTitleUpdateRuntime";
+import { createThreadSwitchRuntime } from "./runtime/threadSwitchRuntime";
 import { createThreadRollbackRuntime } from "./runtime/threadRollbackRuntime";
 import { createHistoryRewriteRuntime } from "./runtime/historyRewriteRuntime";
+import { createThreadResumeRuntime } from "./runtime/threadResumeRuntime";
+import { createThreadRuntimeCleanupRuntime } from "./runtime/threadRuntimeCleanupRuntime";
+import { createThreadStartParamsRuntime } from "./runtime/threadStartParamsRuntime";
 import { createThreadMetadataRuntime } from "./runtime/threadMetadataRuntime";
 import { createCodexProfileRuntime } from "./runtime/codexProfileRuntime";
 import { createCodexConfigSwitcherRuntime } from "./runtime/codexConfigSwitcherRuntime";
 import { createMcpManagementRuntime } from "./runtime/mcpManagementRuntime";
 import { createSkillsManagementRuntime } from "./runtime/skillsManagementRuntime";
 import { createGlobalConfigManagementRuntime } from "./runtime/globalConfigManagementRuntime";
-import { invalidateThreadContentCache, type ThreadContentCacheEntry } from "./runtime/rendererCacheRuntime";
-import {
-  normalizeApprovalPolicy,
-  normalizeApprovalsReviewer,
-  normalizeModelName,
-  normalizeSandboxMode,
-} from "./serverInterop";
-import { isWithinWorkspaceFsPath, resolveWorkspaceFsPath } from "./workspacePath";
-import type { Thread as ServerThread } from "@codenexus/generated/codex-app-server/v2/Thread";
-import type { ThreadReadParams } from "@codenexus/generated/codex-app-server/v2/ThreadReadParams";
-import type { ThreadResumeParams } from "@codenexus/generated/codex-app-server/v2/ThreadResumeParams";
-import type { ThreadStartParams } from "@codenexus/generated/codex-app-server/v2/ThreadStartParams";
+import { createEnvironmentRuntime } from "./runtime/environmentRuntime";
+import { createExternalUrlRuntime } from "./runtime/externalUrlRuntime";
+import { createCompletedTurnNotificationRuntime } from "./runtime/completedTurnNotificationRuntime";
+import { createRightPanelRuntime, type McpSnapshot, type SkillsSnapshot } from "./runtime/rightPanelRuntime";
+import { createRightPanelRefreshRuntime } from "./runtime/rightPanelRefreshRuntime";
+import { createRendererCacheManagementRuntime } from "./runtime/rendererCacheManagementRuntime";
+import { createRuntimeTimelineEventRuntime } from "./runtime/runtimeTimelineEventRuntime";
+import { createRuntimeDisposeRuntime } from "./runtime/runtimeDisposeRuntime";
+import { createRuntimeStartupRuntime } from "./runtime/runtimeStartupRuntime";
+import type { ThreadContentCacheEntry } from "./runtime/rendererCacheRuntime";
 import type { ThreadMemoryMode } from "@codenexus/generated/codex-app-server/ThreadMemoryMode";
 import type {
   ComposeImageAttachment,
   ComposeWorkspaceFileMention,
   McpResourceContentState,
   McpResourceParameterEntry,
-  McpServerState,
-  SkillState,
-  LocalThreadItem,
   ThreadGoalState,
-  ThreadHistoryItem,
-  UserTurnInput,
   WorkspaceDirectoryReadResult,
   WorkspaceFileMetadataState,
   WorkspaceTextFileReadResult,
   WorkspaceTextFileWriteResult,
 } from "./types";
-import {
-  buildThreadStartConfigOverridesForModel,
-  type ThreadStartConfigOverrides,
-} from "@codenexus/shared/modelToolFeatureOverrides";
-import { buildBuiltinDynamicToolSpecs } from "@codenexus/shared/dynamicTools";
-import {
-  buildDeveloperInstructionsForProfile,
-  buildDynamicToolNamesForInstructionProfile,
-  type CodexInstructionProfile,
-} from "@codenexus/shared/codexInstructionProfiles";
 import type {
   AppTextEncoding,
   AppTextLineEnding,
@@ -113,7 +98,6 @@ import type {
   HistoryThreadTaskUpdateArgs,
   HistoryThreadTaskUpdateResult,
 } from "@codenexus/shared/ipc/contracts";
-import { isCodexLocalEventMessage, isCodexServerNotificationMessage } from "@codenexus/shared/codex-protocol";
 
 const APP_TIMELINE_ID = "__app__";
 const HISTORY_REPLAY_BATCH = 1000;
@@ -123,22 +107,6 @@ const THREAD_METADATA_PAGE_SIZE = 200;
 const THREAD_CONTENT_CACHE_TTL_MS = 2000;
 const MCP_STATUS_REFRESH_DEBOUNCE_MS = 250;
 const SKILLS_REFRESH_DEBOUNCE_MS = 250;
-
-type SkillsSnapshot = {
-  items: SkillState[];
-  parseErrors: string[];
-  summary: string;
-};
-
-type McpSnapshot = {
-  servers: McpServerState[];
-  statusText: string;
-};
-
-type JsonRpcErrorLike = {
-  code: number;
-  message: string;
-};
 
 export type RuntimeOrchestrator = {
   dispose: () => void;
@@ -271,118 +239,37 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const replayRequestSeqByThread = new Map<string, number>();
   const olderHistoryLoadPromiseByThread = new Map<string, Promise<boolean>>();
   const threadContentCacheByKey = new Map<string, ThreadContentCacheEntry>();
-
-  const resolveCurrentInstructionProfile = (): CodexInstructionProfile => {
-    return resolveCodexInstructionProfileForMainView(appShellStore.mainView, { paperMode: paperStore.mode });
-  };
   const threadMetadataHydrationPromiseByWorkspace = new Map<string, Promise<void>>();
   const handoffDiagnosticsPromiseByThread = new Map<string, Promise<void>>();
-  let latestSwitchThreadSeq = 0;
   const skillsSnapshotByWorkspace = new Map<string, SkillsSnapshot>();
   const mcpSnapshotByWorkspace = new Map<string, McpSnapshot>();
   const disposers: Array<() => void> = [];
-  const THREAD_PREPARING_EVENT_ID = "local:threadPreparing";
-  const threadPreparingEnvironmentText = () => translate("runtime.threadPreparingEnvironment");
-
-  // 统一写入时间线事件，默认写到应用级线程。
-  const pushEvent = (
-    method: string,
-    paramsText: string,
-    opts?: { threadId?: string; turnId?: string; level?: "info" | "warn" | "error" }
-  ) => {
-    timelineStore.appendEvent({
-      threadId: opts?.threadId || APP_TIMELINE_ID,
-      method,
-      paramsText,
-      turnId: opts?.turnId,
-      level: opts?.level ?? "info",
-    });
-  };
-
-  const upsertThreadPreparingEvent = (threadIdValue: string) => {
-    const threadId = String(threadIdValue ?? "").trim();
-    if (!threadId || threadId === APP_TIMELINE_ID) return;
-    timelineStore.upsertEvent({
-      threadId,
-      id: THREAD_PREPARING_EVENT_ID,
-      method: "local/thinking",
-      paramsText: threadPreparingEnvironmentText(),
-      params: { phase: "preparingEnvironment" },
-      level: "info",
-      localKind: "thinking",
-      thinkingPhase: "preparing",
-    });
-  };
-
-  const clearThreadPreparingEvent = (threadIdValue: string) => {
-    const threadId = String(threadIdValue ?? "").trim();
-    if (!threadId || threadId === APP_TIMELINE_ID) return;
-    timelineStore.removeEvent({ threadId, id: THREAD_PREPARING_EVENT_ID });
-  };
-
-  const perfNow = () => {
-    if (typeof performance !== "undefined" && typeof performance.now === "function") return performance.now();
-    return Date.now();
-  };
-
-  const elapsedMs = (startedAt: number) => Number((perfNow() - startedAt).toFixed(1));
 
   const normalizeWorkspacePath = (value: string) => String(value ?? "").trim();
 
-  const buildThreadStartParamsForModel = (args: {
-    model: string;
-    workspace: string;
-    sandboxMode: string;
-  }): { params: ThreadStartParams; configOverrides: ThreadStartConfigOverrides | null } => {
-    const model = normalizeModelName(args.model);
-    const workspace = normalizeWorkspacePath(args.workspace);
-    const configOverrides = buildThreadStartConfigOverridesForModel(model);
-    const approvalPolicy = normalizeApprovalPolicy(configStore.draft.approvalPolicy);
-    const approvalsReviewer = normalizeApprovalsReviewer(configStore.draft.approvalsReviewer);
-    const instructionProfile = resolveCurrentInstructionProfile();
-    const dynamicTools = buildBuiltinDynamicToolSpecs(
-      buildDynamicToolNamesForInstructionProfile(instructionProfile)
-    ) as ThreadStartParams["dynamicTools"];
-    const developerInstructions = buildDeveloperInstructionsForProfile(instructionProfile);
-    return {
-      configOverrides,
-      params: {
-        model,
-        cwd: workspace,
-        approvalPolicy: approvalPolicy as ThreadStartParams["approvalPolicy"],
-        approvalsReviewer: approvalsReviewer as ThreadStartParams["approvalsReviewer"],
-        sandbox: sandboxKebabFromUi(normalizeSandboxMode(args.sandboxMode)),
-        ...(configOverrides ? { config: configOverrides } : {}),
-        ...(dynamicTools && dynamicTools.length > 0 ? { dynamicTools } : {}),
-        ...(developerInstructions ? { developerInstructions } : {}),
-        experimentalRawEvents: false,
-        persistExtendedHistory: true,
-      },
-    };
-  };
+  const runtimeTimelineEventRuntime = createRuntimeTimelineEventRuntime({
+    appTimelineId: APP_TIMELINE_ID,
+    timelineStore,
+  });
+  const { pushEvent } = runtimeTimelineEventRuntime;
 
-  const cloneSkillItems = (items: SkillState[]): SkillState[] => {
-    return items.map((item) => ({ ...item }));
-  };
+  const threadPreparingRuntime = createThreadPreparingRuntime({
+    appTimelineId: APP_TIMELINE_ID,
+    timelineStore,
+    translate,
+  });
+  const { upsertThreadPreparingEvent, clearThreadPreparingEvent } = threadPreparingRuntime;
 
-  const cloneMcpServers = (servers: McpServerState[]): McpServerState[] => {
-    return servers.map((server) => ({
-      ...server,
-      ...(Array.isArray(server.args) ? { args: [...server.args] } : {}),
-      ...(server.env ? { env: { ...server.env } } : {}),
-      ...(server.headers ? { headers: { ...server.headers } } : {}),
-      tools: Array.isArray(server.tools) ? server.tools.map((tool) => ({ ...tool })) : [],
-      resources: Array.isArray(server.resources) ? [...server.resources] : [],
-      resourceTemplates: Array.isArray(server.resourceTemplates) ? [...server.resourceTemplates] : [],
-    }));
-  };
+  const threadStartParamsRuntime = createThreadStartParamsRuntime({
+    getMainView: () => appShellStore.mainView,
+    getPaperMode: () => paperStore.mode,
+    getApprovalPolicy: () => configStore.draft.approvalPolicy,
+    getApprovalsReviewer: () => configStore.draft.approvalsReviewer,
+    normalizeWorkspacePath,
+  });
+  const { resolveCurrentInstructionProfile, buildThreadStartParamsForModel } = threadStartParamsRuntime;
 
-  const readErrorMessage = (error: unknown): string => {
-    if (error instanceof Error) return error.message || error.name;
-    return String(error ?? "unknown error");
-  };
-
-  const createRendererCacheContext = () => ({
+  const rendererCacheManagementRuntime = createRendererCacheManagementRuntime({
     threadContentCacheByKey,
     replayCacheByThread,
     replayWindowStateByThread,
@@ -393,143 +280,46 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     mcpResourceStore,
     workspaceFilesStore,
   });
+  const { listRendererCaches, clearRendererCaches } = rendererCacheManagementRuntime;
 
-  const listRendererCaches = async (): Promise<CacheListResult> => {
-    const { listRendererCachesForRuntime } = await import("./runtime/rendererCacheRegistry");
-    return listRendererCachesForRuntime(createRendererCacheContext());
-  };
+  const workspaceFileRuntime = createWorkspaceFileRuntime(
+    createWorkspacePathResolver({
+      getWorkspacePath: () => runtimeStore.workspacePath,
+      normalizeWorkspacePath,
+    })
+  );
+  const rightPanelRuntime = createRightPanelRuntime({
+    configStore,
+    configRequirementsStore,
+    skillsStore,
+    mcpStore,
+    mcpResourceStore,
+    userInputStore,
+    skillsSnapshotByWorkspace,
+    mcpSnapshotByWorkspace,
+    normalizeWorkspacePath,
+    translate,
+  });
+  const {
+    saveSkillsSnapshot,
+    invalidateSkillsSnapshot,
+    hasSkillsSnapshot,
+    saveMcpSnapshot,
+    invalidateMcpSnapshot,
+    hasMcpSnapshot,
+    applyCachedRightPanels,
+    resetSidePanelStores,
+  } = rightPanelRuntime;
 
-  const clearRendererCaches = async (args?: CacheClearArgs): Promise<CacheClearResult> => {
-    const { clearRendererCachesForRuntime } = await import("./runtime/rendererCacheRegistry");
-    return clearRendererCachesForRuntime(createRendererCacheContext(), args);
-  };
+  const threadListLookupRuntime = createThreadListLookupRuntime({ threadStore });
+  const { findThreadListItem } = threadListLookupRuntime;
 
-  const parseJsonRpcError = (error: unknown): JsonRpcErrorLike | null => {
-    const raw = readErrorMessage(error).trim();
-    if (!raw) return null;
-    try {
-      const parsed = JSON.parse(raw) as Record<string, unknown>;
-      const code = typeof parsed.code === "number" ? parsed.code : null;
-      const message = typeof parsed.message === "string" ? parsed.message : "";
-      if (code == null) return null;
-      return { code, message };
-    } catch {
-      return null;
-    }
-  };
-
-  const _isRpcMethodUnavailable = (error: unknown, method: string): boolean => {
-    const rpcErr = parseJsonRpcError(error);
-    if (!rpcErr) return false;
-    if (rpcErr.code === -32601) return true;
-    if (rpcErr.code !== -32600) return false;
-    const message = String(rpcErr.message ?? "");
-    return message.includes(`unknown variant \`${method}\``) || message.includes(`unknown variant '${method}'`);
-  };
-
-  const resolveWorkspacePathForFileAccess = (inputPath: string) => {
-    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
-    if (!workspace) throw new Error(translate("runtime.workspaceRequired"));
-    const path = resolveWorkspaceFsPath(workspace, inputPath);
-    if (!path) throw new Error(translate("runtime.invalidFilePath"));
-    if (!isWithinWorkspaceFsPath(workspace, path)) {
-      throw new Error(translate("runtime.fileOutsideWorkspace"));
-    }
-    return { workspace, path };
-  };
-
-  // 右侧面板缓存命中时直接回填，减少切换工作区时的重复请求。
-  const applySkillsSnapshot = (workspacePathValue: string): boolean => {
-    const workspace = normalizeWorkspacePath(workspacePathValue);
-    if (!workspace) return false;
-    const snapshot = skillsSnapshotByWorkspace.get(workspace);
-    if (!snapshot) return false;
-    skillsStore.setItems(cloneSkillItems(snapshot.items));
-    skillsStore.setParseErrors([...snapshot.parseErrors]);
-    skillsStore.setSummary(snapshot.summary);
-    skillsStore.setLoadState("ready");
-    return true;
-  };
-
-  const saveSkillsSnapshot = (workspacePathValue: string, snapshot: SkillsSnapshot) => {
-    const workspace = normalizeWorkspacePath(workspacePathValue);
-    if (!workspace) return;
-    skillsSnapshotByWorkspace.set(workspace, {
-      items: cloneSkillItems(snapshot.items),
-      parseErrors: [...snapshot.parseErrors],
-      summary: snapshot.summary,
-    });
-  };
-
-  const invalidateSkillsSnapshot = (workspacePathValue?: string) => {
-    const workspace = normalizeWorkspacePath(workspacePathValue ?? "");
-    if (!workspace) return;
-    skillsSnapshotByWorkspace.delete(workspace);
-  };
-
-  const hasSkillsSnapshot = (workspacePathValue: string): boolean => {
-    const workspace = normalizeWorkspacePath(workspacePathValue);
-    if (!workspace) return false;
-    return skillsSnapshotByWorkspace.has(workspace);
-  };
-
-  const applyMcpSnapshot = (workspacePathValue: string): boolean => {
-    const workspace = normalizeWorkspacePath(workspacePathValue);
-    if (!workspace) return false;
-    const snapshot = mcpSnapshotByWorkspace.get(workspace);
-    if (!snapshot) return false;
-    mcpStore.setServers(cloneMcpServers(snapshot.servers));
-    mcpStore.setStatusText(snapshot.statusText);
-    mcpStore.setLoadState("ready");
-    return true;
-  };
-
-  const saveMcpSnapshot = (workspacePathValue: string, snapshot: McpSnapshot) => {
-    const workspace = normalizeWorkspacePath(workspacePathValue);
-    if (!workspace) return;
-    mcpSnapshotByWorkspace.set(workspace, {
-      servers: cloneMcpServers(snapshot.servers),
-      statusText: snapshot.statusText,
-    });
-  };
-
-  const invalidateMcpSnapshot = (workspacePathValue?: string) => {
-    const workspace = normalizeWorkspacePath(workspacePathValue ?? "");
-    if (!workspace) return;
-    mcpSnapshotByWorkspace.delete(workspace);
-  };
-
-  const hasMcpSnapshot = (workspacePathValue: string): boolean => {
-    const workspace = normalizeWorkspacePath(workspacePathValue);
-    if (!workspace) return false;
-    return mcpSnapshotByWorkspace.has(workspace);
-  };
-
-  const applyCachedRightPanels = (workspacePathValue: string) => {
-    const workspace = normalizeWorkspacePath(workspacePathValue);
-    if (!workspace) return;
-    applySkillsSnapshot(workspace);
-    applyMcpSnapshot(workspace);
-  };
-
-  // 统一重置右侧面板 store，避免状态残留。
-  const resetSidePanelStores = (statusText = translate("runtime.noService")) => {
-    configStore.resetState(statusText);
-    configRequirementsStore.resetState(statusText);
-    skillsStore.resetState(statusText);
-    mcpStore.resetState(statusText);
-    mcpResourceStore.resetState();
-    userInputStore.resetAll();
-  };
-
-  const findThreadListItem = (threadIdValue: string): ThreadHistoryItem | LocalThreadItem | undefined => {
-    const threadId = String(threadIdValue ?? "").trim();
-    if (!threadId) return undefined;
-    return (
-      threadStore.threadHistory.find((item) => item.id === threadId) ??
-      threadStore.localThreads.find((item) => item.id === threadId)
-    );
-  };
+  const threadTitleUpdateRuntime = createThreadTitleUpdateRuntime({
+    threadStore,
+    findThreadListItem,
+    translate,
+  });
+  const { seedThreadTitleFromDraft } = threadTitleUpdateRuntime;
 
   const workspaceSessionRuntime = createWorkspaceSessionRuntime({
     appTimelineId: APP_TIMELINE_ID,
@@ -599,28 +389,11 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   });
   const { requestConfigRead, requestConfigRequirementsRead, requestConfigBatchWrite } = configRuntime;
 
-  const requestThreadRead = async (threadIdValue: string): Promise<ServerThread> => {
-    const threadId = String(threadIdValue ?? "").trim();
-    if (!threadId) throw new Error("missing thread id");
-    const workspace = getWorkspaceForThread(threadId);
-    const serverId = await ensureServerForWorkspace(workspace);
-    if (!serverId) throw new Error("server not running");
-    const params: ThreadReadParams = { threadId, includeTurns: true };
-    const res = await codexDesktop.codexServer.rpc({
-      serverId,
-      method: "thread/read",
-      params,
-    });
-    return res.result.thread;
-  };
-
-  const ensureServerForThread = async (threadIdValue: string) => {
-    const threadId = String(threadIdValue ?? "").trim();
-    if (!threadId) return "";
-    const workspace = getWorkspaceForThread(threadId);
-    const serverId = await ensureServerForWorkspace(workspace);
-    return serverId || "";
-  };
+  const threadReadRuntime = createThreadReadRuntime({
+    getWorkspaceForThread,
+    ensureServerForWorkspace,
+  });
+  const { requestThreadRead, ensureServerForThread } = threadReadRuntime;
 
   const threadGoalRuntime = createThreadGoalRuntime({
     appTimelineId: APP_TIMELINE_ID,
@@ -656,26 +429,14 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   const { requestMcpStatusList, requestReloadMcpConfig, requestStartMcpOAuthLogin, requestMcpResourceRead } =
     mcpRuntime;
 
-  const requestTurnInterrupt = async (
-    threadIdValue: string,
-    turnIdValue: string,
-    opts?: { silentSuccess?: boolean }
-  ): Promise<boolean> => {
-    const threadId = String(threadIdValue ?? "").trim();
-    const turnId = String(turnIdValue ?? "").trim();
-    if (!threadId || !turnId) return false;
-    const serverId = getServerIdForThread(threadId);
-    if (!serverId) return false;
-    try {
-      await codexDesktop.codexServer.rpc({ serverId, method: "turn/interrupt", params: { threadId, turnId } });
-      if (!opts?.silentSuccess) pushEvent("interrupt", translate("runtime.interruptRequested"), { threadId });
-      return true;
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : String(e);
-      pushEvent("interrupt:error", msg || "turn/interrupt failed", { threadId, level: "error" });
-      return false;
-    }
-  };
+  const threadTurnControlRuntime = createThreadTurnControlRuntime({
+    getCurrentThreadId: () => String(runtimeStore.currentThreadId ?? "").trim(),
+    getActiveTurnId: (threadId) => String(threadStore.activeTurnIdByThread.get(threadId) ?? "").trim(),
+    getServerIdForThread,
+    pushEvent,
+    translate,
+  });
+  const { requestTurnInterrupt, interruptTurn, compactThread } = threadTurnControlRuntime;
 
   const historyReplayWindowRuntime = createHistoryReplayWindowRuntime({
     runtimeStore,
@@ -712,7 +473,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     setThreadWorkspace,
     hydrateThreadMetadataForWorkspace,
   });
-  const { applyHistoryItems, refreshHistory } = historyListRuntime;
+  const { refreshHistory, subscribeHistoryUpdates } = historyListRuntime;
 
   const globalConfigManagementRuntime = createGlobalConfigManagementRuntime({
     appTimelineId: APP_TIMELINE_ID,
@@ -743,29 +504,9 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   });
   const { applyCodexProfile } = codexProfileRuntime;
 
-  const ALLOWED_EXTERNAL_PROTOCOLS = new Set(["http:", "https:", "mailto:"]);
-  const normalizeExternalUrlForOpen = (url: string): string => {
-    const raw = String(url ?? "").trim();
-    if (!raw) return "";
-    try {
-      const parsed = new URL(raw);
-      const protocol = String(parsed.protocol ?? "").toLowerCase();
-      if (!ALLOWED_EXTERNAL_PROTOCOLS.has(protocol)) return "";
-      if ((protocol === "http:" || protocol === "https:") && !parsed.hostname) return "";
-      return parsed.toString();
-    } catch {
-      return "";
-    }
-  };
+  const externalUrlRuntime = createExternalUrlRuntime({ translate });
+  const { openExternalUrl } = externalUrlRuntime;
 
-  // 统一外链打开入口。
-  const openExternalUrl = async (url: string) => {
-    const value = normalizeExternalUrlForOpen(url);
-    if (!value) throw new Error(translate("runtime.externalUrlUnsupported"));
-    await codexDesktop.app.openExternal({ url: value });
-  };
-
-  const workspaceFileRuntime = createWorkspaceFileRuntime(resolveWorkspacePathForFileAccess);
   const {
     readTextFile,
     writeTextFile,
@@ -865,70 +606,43 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   });
   const { readMcpResource } = mcpResourceReadRuntime;
 
-  const refreshRightPanels = async (opts?: { forceSkills?: boolean; forceMcp?: boolean }) => {
-    const workspace = normalizeWorkspacePath(runtimeStore.workspacePath);
-    if (!workspace || !getServerIdForWorkspace(workspace)) return;
-    const shouldRefreshSkills = Boolean(opts?.forceSkills) || !hasSkillsSnapshot(workspace);
-    const shouldRefreshMcp = Boolean(opts?.forceMcp) || !hasMcpSnapshot(workspace);
-    const tasks: Promise<unknown>[] = [ensureGlobalConfigLoadedOnce()];
-    if (shouldRefreshSkills) tasks.push(refreshSkills(false));
-    if (shouldRefreshMcp) tasks.push(refreshMcp());
-    await Promise.allSettled(tasks);
-  };
+  const rightPanelRefreshRuntime = createRightPanelRefreshRuntime({
+    getWorkspacePath: () => runtimeStore.workspacePath,
+    normalizeWorkspacePath,
+    getServerIdForWorkspace,
+    hasSkillsSnapshot,
+    hasMcpSnapshot,
+    ensureGlobalConfigLoadedOnce,
+    refreshSkills,
+    refreshMcp,
+  });
+  const { refreshRightPanels } = rightPanelRefreshRuntime;
 
-  const clearThreadRuntimeState = (threadIdValue: string) => {
-    const id = String(threadIdValue ?? "").trim();
-    if (!id) return;
-    threadStore.threadHistory = threadStore.threadHistory.filter((item) => item.id !== id);
-    threadStore.clearThreadState(id);
-    timelineStore.clearThread(id);
-    // 删除线程时同步清理“排队消息”的线程级持久化，避免幽灵队列残留。
-    messageQueueStore.clearThreadQueue(id);
-    runtimeStore.clearThreadComposeState(id);
-    replayCacheByThread.delete(id);
-    replayWindowStateByThread.delete(id);
-    replayRequestSeqByThread.delete(id);
-    olderHistoryLoadPromiseByThread.delete(id);
-    resumedThreadIds.delete(id);
-    resumePromisesByThread.delete(id);
-    clearThreadStartConfigOverrides(id);
-    clearThreadWorkspace(id);
-    if (runtimeStore.currentThreadId === id) {
-      runtimeStore.setCurrentThread("", { savePrev: false });
-      threadStore.setCurrentThread("");
-    }
-  };
+  const threadResumeRuntime = createThreadResumeRuntime({
+    resumedThreadIds,
+    resumePromisesByThread,
+    getWorkspaceForThread,
+    ensureServerForWorkspace,
+    pushEvent,
+  });
+  const { ensureThreadResumed, markThreadResumed, clearThreadResumeState } = threadResumeRuntime;
 
-  const ensureThreadResumed = async (threadId: string): Promise<boolean> => {
-    const tid = String(threadId ?? "").trim();
-    if (!tid) return false;
-    if (resumedThreadIds.has(tid)) {
-      return true;
-    }
-    const existing = resumePromisesByThread.get(tid);
-    if (existing) {
-      return existing;
-    }
-    const task = (async (): Promise<boolean> => {
-      try {
-        const workspace = getWorkspaceForThread(tid);
-        const serverId = await ensureServerForWorkspace(workspace);
-        if (!serverId) return false;
-        const resumeParams: ThreadResumeParams = { threadId: tid, persistExtendedHistory: true };
-        await codexDesktop.codexServer.rpc({ serverId, method: "thread/resume", params: resumeParams });
-        resumedThreadIds.add(tid);
-        return true;
-      } catch (e: any) {
-        const msg = e?.message ? String(e.message) : String(e);
-        pushEvent("thread:resume:error", msg, { threadId, level: "error" });
-        return false;
-      } finally {
-        resumePromisesByThread.delete(tid);
-      }
-    })();
-    resumePromisesByThread.set(tid, task);
-    return task;
-  };
+  const threadRuntimeCleanupRuntime = createThreadRuntimeCleanupRuntime({
+    runtimeStore,
+    threadStore,
+    timelineStore,
+    messageQueueStore,
+    threadScopedCaches: [
+      replayCacheByThread,
+      replayWindowStateByThread,
+      replayRequestSeqByThread,
+      olderHistoryLoadPromiseByThread,
+    ],
+    clearThreadResumeState,
+    clearThreadStartConfigOverrides,
+    clearThreadWorkspace,
+  });
+  const { clearThreadRuntimeState, clearThreadLocalContextCompactionEvents } = threadRuntimeCleanupRuntime;
 
   const threadRollbackRuntime = createThreadRollbackRuntime({
     runtimeStore,
@@ -960,170 +674,49 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   });
   const { rollbackHistoryRewriteBeforeSend } = historyRewriteRuntime;
 
-  const checkEnvironment = async () => {
-    showToast({
-      kind: "info",
-      title: translate("runtime.checkEnvironmentTitle"),
-      message: translate("runtime.checkingCodexNodeNpm"),
-    });
+  const environmentRuntime = createEnvironmentRuntime({
+    appTimelineId: APP_TIMELINE_ID,
+    appShellStore,
+    pushEvent,
+    translate,
+    showToast,
+  });
+  const { checkEnvironment } = environmentRuntime;
 
-    try {
-      const res = await codexDesktop.codexServer.getDiagnostics();
-      const ready = Boolean(res.codex.ok) && Boolean(res.node.ok) && Boolean(res.npm.ok);
-      const details = [
-        translate("runtime.diagnosticLine", {
-          name: "codex",
-          status: res.codex.ok ? translate("runtime.diagnosticOk") : translate("runtime.diagnosticMissing"),
-        }),
-        String(res.codex.details ?? "").trim(),
-        translate("runtime.diagnosticLine", {
-          name: "node",
-          status: res.node.ok ? translate("runtime.diagnosticOk") : translate("runtime.diagnosticMissing"),
-        }),
-        String(res.node.details ?? "").trim(),
-        translate("runtime.diagnosticLine", {
-          name: "npm",
-          status: res.npm.ok ? translate("runtime.diagnosticOk") : translate("runtime.diagnosticMissing"),
-        }),
-        String(res.npm.details ?? "").trim(),
-      ]
-        .filter(Boolean)
-        .join("\n");
+  const threadSwitchRuntime = createThreadSwitchRuntime({
+    appTimelineId: APP_TIMELINE_ID,
+    runtimeStore,
+    threadStore,
+    timelineStore,
+    workspaceFilesStore,
+    normalizeWorkspacePath,
+    findThreadListItem,
+    getWorkspaceForThread,
+    setThreadWorkspace,
+    syncActiveServerByWorkspace,
+    ensureServerForWorkspace,
+    applyCachedRightPanels,
+    hasReplayCache: (threadId) => replayCacheByThread.has(threadId),
+    hydrateReplayFromCacheIfNeeded,
+    loadHistoryMessages,
+    ensureThreadResumed,
+    refreshThreadGoal: (threadId) => refreshThreadGoal(threadId),
+    hydrateThreadHandoffDiagnostics: (threadId, opts) => hydrateThreadHandoffDiagnostics(threadId, opts),
+    refreshRightPanels: () => refreshRightPanels(),
+    pushEvent,
+  });
+  const { switchThread } = threadSwitchRuntime;
 
-      pushEvent("env", details, {
-        threadId: APP_TIMELINE_ID,
-        level: ready ? "info" : "error",
-      });
-
-      if (ready) {
-        showToast({
-          kind: "success",
-          title: translate("runtime.environmentReadyTitle"),
-          message: translate("runtime.codexNodeNpmReady"),
-        });
-        return;
-      }
-
-      appShellStore.openSettings("env");
-      showToast({
-        kind: "warn",
-        title: translate("runtime.environmentNotReadyTitle"),
-        message: translate("runtime.environmentInstallHint"),
-      });
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : String(e);
-      showToast({ kind: "error", title: translate("runtime.checkFailedTitle"), message: msg });
-      pushEvent("env:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
-    }
-  };
-
-  const switchThread = async (threadId: string) => {
-    const id = String(threadId ?? "").trim();
-    if (!id) return;
-    const switchStartedAt = perfNow();
-    const target = findThreadListItem(id);
-    const targetRunning = threadStore.runningThreadIds.has(id);
-    const existingTimelineEvents = timelineStore.eventsForThread(id);
-    const canFastActivateRunningThread = targetRunning && existingTimelineEvents.length > 0;
-    const prevWorkspace = normalizeWorkspacePath(runtimeStore.workspacePath);
-    const nextCwd = normalizeWorkspacePath(String(target?.cwd ?? getWorkspaceForThread(id)));
-    const didWorkspaceChange = Boolean(nextCwd && nextCwd !== prevWorkspace);
-    if (didWorkspaceChange) {
-      const confirmed = await workspaceFilesStore.confirmResetDirtyTabsForWorkspaceChange(nextCwd);
-      if (!confirmed) return;
-    }
-    const switchSeq = ++latestSwitchThreadSeq;
-    const isActiveSwitch = () => switchSeq === latestSwitchThreadSeq;
-    appendDebugLog("thread.switch", "begin", {
-      threadId: id,
-      running: targetRunning,
-      existingTimelineEventCount: existingTimelineEvents.length,
-      hasReplayCache: replayCacheByThread.has(id),
-      fastActivate: canFastActivateRunningThread,
-    });
-    threadStore.setLoadingThread(id);
-    runtimeStore.setCurrentThread(id);
-    threadStore.setCurrentThread(id);
-    const reusedReplayCache = hydrateReplayFromCacheIfNeeded(id);
-    const shouldLoadHistory = !canFastActivateRunningThread && !reusedReplayCache;
-    if (canFastActivateRunningThread) {
-      appendDebugLog("thread.switch", "fast activate live timeline", {
-        threadId: id,
-        existingTimelineEventCount: existingTimelineEvents.length,
-      });
-    }
-    const historyLoadPromise = shouldLoadHistory ? loadHistoryMessages(id) : Promise.resolve(true);
-    if (shouldLoadHistory) {
-      void historyLoadPromise.finally(() => {
-        if (isActiveSwitch()) threadStore.clearLoadingThread(id);
-      });
-    } else {
-      threadStore.clearLoadingThread(id);
-    }
-    try {
-      if (didWorkspaceChange) {
-        runtimeStore.setWorkspace(nextCwd);
-        threadStore.setWorkspace(nextCwd);
-        pushEvent("workspace:history", nextCwd, { threadId: APP_TIMELINE_ID });
-        syncActiveServerByWorkspace(nextCwd);
-      }
-      const workspace = nextCwd || prevWorkspace;
-      if (!workspace) {
-        await historyLoadPromise;
-        return;
-      }
-      const serverId = await ensureServerForWorkspace(workspace);
-      if (!isActiveSwitch()) return;
-      if (!serverId) {
-        return;
-      }
-      setThreadWorkspace(id, workspace);
-      applyCachedRightPanels(workspace);
-      await historyLoadPromise;
-      if (!isActiveSwitch()) return;
-      appendDebugLog("thread.switch", "history loaded", { threadId: id, elapsedMs: elapsedMs(switchStartedAt) });
-
-      // 恢复线程上下文不应阻塞“打开线程”；发送/回滚等入口会再次确保 resume。
-      void ensureThreadResumed(id);
-      void refreshThreadGoal(id);
-      void hydrateThreadHandoffDiagnostics(id, { force: true });
-
-      // 刷新文件树可能较慢，尽量让时间线先渲染，再后台刷新，避免“点进去卡住”的观感。
-      const mode = didWorkspaceChange ? "full" : "light";
-      void nextTick().then(() => {
-        if (!isActiveSwitch()) {
-          return;
-        }
-        void workspaceFilesStore.reloadTreeForThreadSwitch({ mode });
-      });
-
-      void refreshRightPanels();
-    } finally {
-      threadStore.clearLoadingThread(id);
-    }
-  };
-
-  const deleteHistoryThread = async (threadId: string) => {
-    const id = String(threadId ?? "").trim();
-    if (!id) return;
-    const hasHistoryThread = threadStore.threadHistory.some((item) => item.id === id);
-    if (!hasHistoryThread && threadStore.hasLocalThread(id)) {
-      invalidateThreadContentCache(threadContentCacheByKey, id);
-      clearThreadRuntimeState(id);
-      pushEvent("history", translate("runtime.localSessionRemoved"), { threadId: APP_TIMELINE_ID });
-      return;
-    }
-    try {
-      await codexDesktop.history.deleteThread({ threadId: id });
-      invalidateThreadContentCache(threadContentCacheByKey, id);
-      clearThreadRuntimeState(id);
-      pushEvent("history", translate("runtime.sessionDeleted"), { threadId: APP_TIMELINE_ID });
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : String(e);
-      showToast({ kind: "error", title: translate("runtime.deleteFailedTitle"), message: msg });
-      pushEvent("history:error", msg, { threadId: APP_TIMELINE_ID, level: "error" });
-    }
-  };
+  const historyThreadDeletionRuntime = createHistoryThreadDeletionRuntime({
+    appTimelineId: APP_TIMELINE_ID,
+    threadStore,
+    threadContentCacheByKey,
+    clearThreadRuntimeState,
+    pushEvent,
+    translate,
+    showToast,
+  });
+  const { deleteHistoryThread } = historyThreadDeletionRuntime;
 
   const turnInputRuntime = createTurnInputRuntime();
   const {
@@ -1151,7 +744,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     clearThreadWorkspace,
     buildThreadStartParamsForModel,
     rememberThreadStartConfigOverrides,
-    markThreadResumed: (threadId) => resumedThreadIds.add(threadId),
+    markThreadResumed,
     flushQueueForThread: (threadId) => flushQueueForThread(threadId),
     cloneUserTurnInputs,
     buildComposeAttachmentsFromUserTurnInputs,
@@ -1161,27 +754,13 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   });
   const { createThread } = threadCreationRuntime;
 
-  const requestTurnSteer = async (threadId: string, input: UserTurnInput[], turnIdValue: string) => {
-    const serverId = getServerIdForThread(threadId);
-    if (!serverId) return false;
-    if (!turnIdValue) {
-      pushEvent("steer:error", translate("runtime.missingActiveTurnForSteer"), { threadId, level: "error" });
-      return false;
-    }
-    const params = {
-      threadId,
-      expectedTurnId: turnIdValue,
-      input: toCodexUserInputs(input),
-    };
-    try {
-      await codexDesktop.codexServer.rpc({ serverId, method: "turn/steer", params });
-      return true;
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : String(e);
-      pushEvent("steer:error", msg || "turn/steer failed", { threadId, level: "error" });
-      return false;
-    }
-  };
+  const turnSteerRuntime = createTurnSteerRuntime({
+    getServerIdForThread,
+    toCodexUserInputs,
+    pushEvent,
+    translate,
+  });
+  const { requestTurnSteer } = turnSteerRuntime;
 
   const turnStartRuntime = createTurnStartRuntime({
     getComposeMode: () => runtimeStore.composeMode,
@@ -1196,50 +775,17 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   });
   const { startTurnWithInput } = turnStartRuntime;
 
-  type SendDraft = {
-    anchorTurnId?: string;
-    composeInput: string;
-    composeAttachments: ComposeImageAttachment[];
-    composeFileMentions: ComposeWorkspaceFileMention[];
-    model?: string;
-    reasoningEffort?: string;
-    sandboxMode?: string;
-    composeMode?: "default" | "plan";
-  };
-
-  function cloneComposeAttachmentsForSend(items: ComposeImageAttachment[]): ComposeImageAttachment[] {
-    return items.map((item: ComposeImageAttachment) => ({
-      ...item,
-      input: { ...item.input },
-    }));
-  }
-
-  function cloneComposeMentionsForSend(items: ComposeWorkspaceFileMention[]): ComposeWorkspaceFileMention[] {
-    return items.map((item: ComposeWorkspaceFileMention) => ({ ...item }));
-  }
-
-  function runtimeStoreSendDraft(): SendDraft {
-    return {
-      composeInput: String(runtimeStore.composeInput ?? ""),
-      composeAttachments: runtimeStore.composeAttachments,
-      composeFileMentions: runtimeStore.composeFileMentions,
-      model: runtimeStore.model,
-      reasoningEffort: runtimeStore.reasoningEffort,
-      sandboxMode: runtimeStore.sandboxMode,
-      composeMode: runtimeStore.composeMode,
-    };
-  }
-
-  function clearRuntimeStoreDraftAfterSend() {
-    runtimeStore.composeInput = "";
-    runtimeStore.clearComposeAttachments();
-    runtimeStore.clearComposeFileMentions();
-    runtimeStore.endHistoryRewrite();
-  }
+  const turnSendDraftRuntime = createTurnSendDraftRuntime({ runtimeStore });
+  const {
+    cloneComposeAttachmentsForSend,
+    cloneComposeMentionsForSend,
+    runtimeStoreSendDraft,
+    clearRuntimeStoreDraftAfterSend,
+  } = turnSendDraftRuntime;
 
   const sendOrQueueDraft = async (
     mode: "auto" | "steer",
-    draft: SendDraft,
+    draft: TurnSendDraft,
     opts?: { clearRuntimeDraftOnAccept?: boolean }
   ): Promise<boolean> => {
     const clearRuntimeDraftOnAccept = opts?.clearRuntimeDraftOnAccept ?? false;
@@ -1361,35 +907,13 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       setThreadWorkspace(threadId, threadWorkspace);
     }
 
-    {
-      const existing = findThreadListItem(threadId);
-      const currentTitle = String(existing?.title ?? "").trim();
-      const placeholder = fallbackThreadTitle(threadId);
-      const titleSeedText =
-        visibleText ||
-        (composeFileMentions.length > 0
-          ? translate("runtime.fileCount", { count: composeFileMentions.length })
-          : translate("runtime.imageCount", { count: composeAttachments.length }));
-      if (!currentTitle || currentTitle === placeholder) {
-        if (!isBootstrapThreadTitleSource(titleSeedText)) {
-          const nextTitle = titleFromFirstUserMessage(titleSeedText) || placeholder;
-          const titlePatch = {
-            id: threadId,
-            title: nextTitle,
-            meta: String(existing?.meta ?? threadWorkspace ?? "").trim() || translate("runtime.noWorkspace"),
-            cwd: String(existing?.cwd ?? threadWorkspace ?? "").trim() || undefined,
-            modelProvider: String(existing?.modelProvider ?? "").trim() || undefined,
-            updatedAt: Date.now(),
-            running: threadStore.runningThreadIds.has(threadId),
-          };
-          if (threadStore.hasLocalThread(threadId)) {
-            threadStore.patchLocalThread(threadId, titlePatch);
-          } else {
-            threadStore.upsertThreadHistory(titlePatch);
-          }
-        }
-      }
-    }
+    seedThreadTitleFromDraft({
+      threadId,
+      threadWorkspace,
+      visibleText,
+      composeFileMentionCount: composeFileMentions.length,
+      composeAttachmentCount: composeAttachments.length,
+    });
 
     const overrideAnchorTurnId = String(draft.anchorTurnId ?? "").trim();
     const rewroteHistoryBeforeSend =
@@ -1412,10 +936,7 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
       }
     }
 
-    for (const event of timelineStore.eventsForThread(threadId)) {
-      if (event.method !== "local/contextCompaction") continue;
-      timelineStore.removeEvent({ threadId, id: event.id });
-    }
+    clearThreadLocalContextCompactionEvents(threadId);
 
     if (clearRuntimeDraftOnAccept) clearRuntimeStoreDraftAfterSend();
 
@@ -1522,24 +1043,13 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
   });
   const { flushQueueForThread, sendQueuedMessageNow, editQueuedMessage, removeQueuedMessage } = messageQueueRuntime;
 
-  const notifyCompletedTurnIfBackground = async (threadIdValue: string) => {
-    const threadId = String(threadIdValue ?? "").trim();
-    if (!threadId) return;
-    const historyItem = findThreadListItem(threadId);
-    const threadTitle = threadStore.displayThreadTitle(threadId, historyItem?.title ?? threadId);
-    try {
-      const windowState = await codexDesktop.window.getState();
-      await notifyTurnCompleted({
-        app: codexDesktop.app,
-        focused: typeof document !== "undefined" ? document.hasFocus() : false,
-        hidden: typeof document !== "undefined" ? document.hidden : true,
-        minimized: Boolean(windowState?.isMinimized),
-        threadTitle,
-      });
-    } catch (error) {
-      console.warn("[systemNotification] turn completed notification failed", error);
-    }
-  };
+  const completedTurnNotificationRuntime = createCompletedTurnNotificationRuntime({
+    getThreadTitle: (threadId) => {
+      const historyItem = findThreadListItem(threadId);
+      return threadStore.displayThreadTitle(threadId, historyItem?.title ?? threadId);
+    },
+  });
+  const { notifyCompletedTurnIfBackground } = completedTurnNotificationRuntime;
 
   const send = async () => {
     return await sendOrQueueDraft("auto", runtimeStoreSendDraft(), { clearRuntimeDraftOnAccept: true });
@@ -1569,33 +1079,6 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
 
   const steerNow = async () => {
     await sendOrQueueDraft("steer", runtimeStoreSendDraft(), { clearRuntimeDraftOnAccept: true });
-  };
-
-  const interruptTurn = async () => {
-    const threadId = runtimeStore.currentThreadId;
-    if (!threadId) return;
-    const turnIdValue = String(threadStore.activeTurnIdByThread.get(threadId) ?? "").trim();
-    if (!turnIdValue) {
-      pushEvent("interrupt:error", translate("runtime.missingActiveTurnForInterrupt"), { threadId, level: "error" });
-      return;
-    }
-    await requestTurnInterrupt(threadId, turnIdValue);
-  };
-
-  const compactThread = async () => {
-    if (!runtimeStore.currentThreadId) return;
-    const serverId = getServerIdForThread(runtimeStore.currentThreadId);
-    if (!serverId) return;
-    try {
-      await codexDesktop.codexServer.rpc({
-        serverId,
-        method: "thread/compact/start",
-        params: { threadId: runtimeStore.currentThreadId },
-      });
-    } catch (e: any) {
-      const msg = e?.message ? String(e.message) : String(e);
-      pushEvent("compact:error", msg, { threadId: runtimeStore.currentThreadId, level: "error" });
-    }
   };
 
   const threadMemoryRuntime = createThreadMemoryRuntime({
@@ -1628,151 +1111,61 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     dismissActiveApprovalPrompt,
   } = promptResponseRuntime;
 
-  disposers.push(
-    codexDesktop.history.onUpdated((payload) => {
-      const items = Array.isArray(payload?.items) ? payload.items : [];
-      applyHistoryItems(items);
-    })
-  );
-  disposers.push(
-    codexDesktop.codexServer.onEvent((payload) => {
-      const msg = payload?.msg;
-      if (isCodexServerNotificationMessage(msg)) {
-        if (msg.method === "serverRequest/resolved") {
-          const resolvedThreadId = String(msg.params?.threadId ?? "").trim();
-          const requestId = msg.params?.requestId;
-          if (resolvedThreadId && (typeof requestId === "string" || typeof requestId === "number")) {
-            approvalStore.removeResolved(resolvedThreadId, requestId);
-            userInputStore.removePrompt(resolvedThreadId, requestId);
-          }
-        }
+  const codexServerEventRuntime = createCodexServerEventRuntime({
+    runtimeStore,
+    threadStore,
+    approvalStore,
+    userInputStore,
+    appShellStore,
+    workspaceFilesStore,
+    threadScopedCaches: [
+      replayCacheByThread,
+      replayWindowStateByThread,
+      replayRequestSeqByThread,
+      olderHistoryLoadPromiseByThread,
+    ],
+    normalizeWorkspacePath,
+    getWorkspaceForServerId,
+    getThreadWorkspaceEntries,
+    clearServerById,
+    syncActiveServerByWorkspace,
+    clearThreadResumeState,
+    resetSidePanelStores,
+    invalidateSkillsSnapshot,
+    scheduleSkillsRefresh,
+    invalidateMcpSnapshot,
+    applyMcpStartupStatusNotification,
+    scheduleMcpStatusRefresh,
+    refreshMcp,
+    hydrateThreadHandoffDiagnostics,
+    notifyCompletedTurnIfBackground,
+    flushQueueForThread,
+    translate,
+  });
+  const runtimeStartupRuntime = createRuntimeStartupRuntime({
+    pinia,
+    threadStore,
+    subscribeHistoryUpdates,
+    subscribeCodexServerEvents: codexServerEventRuntime.subscribeCodexServerEvents,
+    refreshHistory,
+    resetSidePanelStores,
+    translate,
+  });
+  disposers.push(...runtimeStartupRuntime.startRuntime());
 
-        if (msg.method === "turn/completed") {
-          const threadId = String(msg.params?.threadId ?? "").trim();
-          if (threadId) {
-            void hydrateThreadHandoffDiagnostics(threadId, { force: true });
-            void notifyCompletedTurnIfBackground(threadId);
-            workspaceFilesStore.scheduleGitStatusRefresh(500);
-            setTimeout(() => {
-              if (!threadStore.runningThreadIds.has(threadId)) void flushQueueForThread(threadId);
-            }, 120);
-          }
-          return;
-        }
-
-        if (msg.method === "turn/started") {
-          return;
-        }
-
-        if (msg.method === "skills/changed") {
-          const eventServerId = normalizeWorkspacePath(payload?.serverId ?? "");
-          const workspace = normalizeWorkspacePath(
-            getWorkspaceForServerId(eventServerId) ||
-              (eventServerId && eventServerId === runtimeStore.serverId ? runtimeStore.workspacePath : "")
-          );
-          if (workspace) invalidateSkillsSnapshot(workspace);
-          if (workspace && normalizeWorkspacePath(runtimeStore.workspacePath) === workspace)
-            scheduleSkillsRefresh(workspace);
-          return;
-        }
-
-        if (msg.method === "mcpServer/startupStatus/updated") {
-          const eventServerId = normalizeWorkspacePath(payload?.serverId ?? "");
-          const workspace = normalizeWorkspacePath(
-            getWorkspaceForServerId(eventServerId) ||
-              (eventServerId && eventServerId === runtimeStore.serverId ? runtimeStore.workspacePath : "")
-          );
-          const params = (msg.params ?? {}) as Record<string, unknown>;
-          const name = String(params.name ?? "").trim();
-          const status = String(params.status ?? "").trim();
-          const error = String(params.error ?? "").trim();
-          if (workspace) {
-            invalidateMcpSnapshot(workspace);
-            applyMcpStartupStatusNotification({ workspace, name, status, error });
-            if (status === "ready" || status === "failed" || status === "cancelled") {
-              scheduleMcpStatusRefresh(workspace);
-            }
-          }
-          return;
-        }
-
-        if (msg.method === "mcpServer/oauthLogin/completed") {
-          const eventServerId = normalizeWorkspacePath(payload?.serverId ?? "");
-          const workspace = normalizeWorkspacePath(getWorkspaceForServerId(eventServerId));
-          if (workspace) invalidateMcpSnapshot(workspace);
-          if (!eventServerId || eventServerId === runtimeStore.serverId) void refreshMcp();
-          return;
-        }
-
-        return;
-      }
-
-      if (!isCodexLocalEventMessage(msg)) return;
-
-      if (msg.method === "codex/exit") {
-        const serverId = normalizeWorkspacePath(payload?.serverId ?? "");
-        const expected = Boolean(msg?.params?.expected);
-        const stoppedWorkspace = clearServerById(serverId);
-        if (stoppedWorkspace) {
-          for (const [threadId, workspace] of getThreadWorkspaceEntries()) {
-            if (workspace !== stoppedWorkspace) continue;
-            threadStore.setThreadRunning(threadId, false);
-            threadStore.setActiveTurn(threadId, "");
-            resumedThreadIds.delete(threadId);
-            replayCacheByThread.delete(threadId);
-            replayWindowStateByThread.delete(threadId);
-            replayRequestSeqByThread.delete(threadId);
-            olderHistoryLoadPromiseByThread.delete(threadId);
-          }
-        }
-        const activeWorkspace = normalizeWorkspacePath(runtimeStore.workspacePath);
-        if (stoppedWorkspace && activeWorkspace === stoppedWorkspace) {
-          const activeServerId = syncActiveServerByWorkspace(activeWorkspace);
-          if (!activeServerId && !expected) {
-            appShellStore.setServerConnState("failed", "codex app-server exited");
-          }
-        } else if (runtimeStore.serverId === serverId) {
-          runtimeStore.clearServer();
-          if (!expected) appShellStore.setServerConnState("failed", "codex app-server exited");
-          else appShellStore.setServerConnState("disconnected");
-          resetSidePanelStores(translate("runtime.noService"));
-        }
-        return;
-      }
-      if (msg.method === "codex/protocolError") {
-        console.warn("[runtimeOrchestrator] protocol error", msg?.params ?? msg);
-        return;
-      }
-    })
-  );
-  disposers.push(installEventPipeline(pinia));
-  disposers.push(installRequestResponder(pinia));
-  void codexDesktop.history
-    .getThreadTitleOverrides()
-    .then((res) => {
-      threadStore.applyThreadTitleOverrides(res?.overrides ?? {});
-    })
-    .catch(() => {
-      threadStore.applyThreadTitleOverrides({});
-    });
-  void refreshHistory(false);
-  resetSidePanelStores(translate("runtime.noService"));
-
-  runtimeOrchestrator = {
-    dispose() {
-      // 窗口卸载/热重载时强制落盘输入草稿与线程级参数，避免防抖计时器未触发导致丢失。
-      try {
-        runtimeStore.flushPendingComposeStateSaves();
-      } catch {}
-      skillsManagementRuntime.dispose();
-      mcpManagementRuntime.dispose();
-      for (const dispose of disposers) {
-        try {
-          dispose();
-        } catch {}
-      }
+  const runtimeDisposeRuntime = createRuntimeDisposeRuntime({
+    flushPendingComposeStateSaves: () => runtimeStore.flushPendingComposeStateSaves(),
+    disposeSkillsManagement: () => skillsManagementRuntime.dispose(),
+    disposeMcpManagement: () => mcpManagementRuntime.dispose(),
+    disposers,
+    clearRuntimeOrchestrator: () => {
       runtimeOrchestrator = null;
     },
+  });
+  const { dispose } = runtimeDisposeRuntime;
+
+  runtimeOrchestrator = {
+    dispose,
     checkEnvironment,
     selectWorkspace,
     switchWorkspace,
