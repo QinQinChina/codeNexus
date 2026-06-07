@@ -12,6 +12,7 @@ import type { CodexProfileService } from "../../services/CodexProfileService";
 import type { CodexSkillRootsService } from "../../services/CodexSkillRootsService";
 import type { CodexConfigSwitcherService } from "../../services/CodexConfigSwitcherService";
 import type { UpdateService } from "../../services/UpdateService";
+import type { DeepSeekResponsesProxyService } from "../../services/DeepSeekResponsesProxyService";
 import type { CodexProviderProfileInput } from "@codenexus/shared/codexProfiles";
 import type { CodexConfigSwitcherImportArgs, CodexConfigSwitcherState } from "@codenexus/shared/codexConfigSwitcher";
 import {
@@ -162,6 +163,7 @@ export function registerAppHandlers(deps: {
   codexSkillRootsService: CodexSkillRootsService;
   codexConfigSwitcherService: CodexConfigSwitcherService;
   updateService: UpdateService;
+  deepSeekResponsesProxyService: DeepSeekResponsesProxyService;
 }) {
   const {
     localSettingsService,
@@ -169,6 +171,7 @@ export function registerAppHandlers(deps: {
     codexSkillRootsService,
     codexConfigSwitcherService,
     updateService,
+    deepSeekResponsesProxyService,
   } = deps;
   const getWindowOrNull = (): BrowserWindow | null => {
     const win = deps.getMainWindow();
@@ -338,7 +341,7 @@ export function registerAppHandlers(deps: {
 
   ipcMain.handle(
     IPC_APP_CHANNELS.appCodexProviderTest,
-    async (_evt, args: { baseUrl: string; apiKey: string; timeoutMs?: number }) => {
+    async (_evt, args: { providerKind?: string; baseUrl: string; apiKey: string; timeoutMs?: number }) => {
       const endpoint = normalizeOpenAiModelsEndpoint(args?.baseUrl);
       const apiKey = String(args?.apiKey ?? "").trim();
       if (!apiKey) throw new Error("API Key is required.");
@@ -398,6 +401,10 @@ export function registerAppHandlers(deps: {
       }
     }
   );
+
+  ipcMain.handle(IPC_APP_CHANNELS.appDeepSeekProxyPrepare, async (_evt, args: { upstreamBaseUrl: string }) => {
+    return await deepSeekResponsesProxyService.prepare({ upstreamBaseUrl: args?.upstreamBaseUrl ?? "" });
+  });
 
   ipcMain.handle(IPC_APP_CHANNELS.appCodexSkillRootsRead, async () => {
     const { exists, state } = await codexSkillRootsService.read();

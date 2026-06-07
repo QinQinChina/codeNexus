@@ -70,6 +70,8 @@ export function createAppApi(ipcRenderer: IpcRenderer): CodexDesktopApi["app"] {
     writeCodexAuthApiKey: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appCodexAuthWriteApiKey, args),
     // 测试供应商连接：主进程执行请求，避免 renderer CORS 差异。
     testCodexProvider: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appCodexProviderTest, args),
+    // 准备 DeepSeek 本地适配代理：返回 Codex 可写入的本地 base_url。
+    prepareDeepSeekProxy: (args) => ipcRenderer.invoke(IPC_APP_CHANNELS.appDeepSeekProxyPrepare, args),
     // 读取 skill roots：获取当前启用的技能根目录。
     readCodexSkillRoots: () => ipcRenderer.invoke(IPC_APP_CHANNELS.appCodexSkillRootsRead),
     // 为当前工作区设置 skill roots：联动工作区与技能配置。

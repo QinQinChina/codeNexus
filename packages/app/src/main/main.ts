@@ -27,6 +27,7 @@ import { ThreadTaskService } from "./services/ThreadTaskService";
 import { ThreadTitleOverrideService } from "./services/ThreadTitleOverrideService";
 import { UpdateService } from "./services/UpdateService";
 import { WorkspacePatchService } from "./services/WorkspacePatchService";
+import { DeepSeekResponsesProxyService } from "./services/DeepSeekResponsesProxyService";
 import { createMainWindow } from "./windows/mainWindow";
 
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
@@ -47,6 +48,7 @@ const codexServerManager = new CodexServerManager();
 const workspacePatchService = new WorkspacePatchService();
 const runtimeThreadStateTracker = new RuntimeThreadStateTracker();
 const cacheRegistryService = new CacheRegistryService();
+const deepSeekResponsesProxyService = new DeepSeekResponsesProxyService();
 
 const APP_CLOSE_OVERLAY_BOOT_MS = 56;
 const APP_CLOSE_PREPARE_MS = 200;
@@ -106,6 +108,11 @@ function stopCodexServersForClose(_reason: string) {
     codexServerManager.stopAll();
   } catch (error) {
     console.warn("[app-close] stop codex servers failed", error);
+  }
+  try {
+    deepSeekResponsesProxyService.stop();
+  } catch (error) {
+    console.warn("[app-close] stop DeepSeek proxy failed", error);
   }
 }
 
@@ -275,6 +282,7 @@ app
       imageGenerationTaskService,
       flowchartHistoryService,
       updateService,
+      deepSeekResponsesProxyService,
       cacheRegistryService,
     });
 

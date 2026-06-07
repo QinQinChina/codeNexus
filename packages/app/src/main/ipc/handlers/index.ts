@@ -14,6 +14,7 @@ import type { ThreadArtifactService } from "../../services/ThreadArtifactService
 import type { ThreadTaskService } from "../../services/ThreadTaskService";
 import type { ThreadTitleOverrideService } from "../../services/ThreadTitleOverrideService";
 import type { UpdateService } from "../../services/UpdateService";
+import type { DeepSeekResponsesProxyService } from "../../services/DeepSeekResponsesProxyService";
 import { WorkspacePatchService } from "../../services/WorkspacePatchService";
 import { registerAppHandlers } from "./app.handlers";
 import { registerCacheHandlers } from "./cache.handlers";
@@ -47,6 +48,7 @@ export type IpcHandlersDeps = {
   imageGenerationTaskService: ImageGenerationTaskService;
   flowchartHistoryService: FlowchartHistoryService;
   updateService: UpdateService;
+  deepSeekResponsesProxyService: DeepSeekResponsesProxyService;
   cacheRegistryService: CacheRegistryService;
 };
 
@@ -58,6 +60,7 @@ export function registerAllHandlers(deps: IpcHandlersDeps) {
     codexSkillRootsService: deps.codexSkillRootsService,
     codexConfigSwitcherService: deps.codexConfigSwitcherService,
     updateService: deps.updateService,
+    deepSeekResponsesProxyService: deps.deepSeekResponsesProxyService,
   });
   registerImageGenerationHandlers({
     localSettingsService: deps.localSettingsService,
