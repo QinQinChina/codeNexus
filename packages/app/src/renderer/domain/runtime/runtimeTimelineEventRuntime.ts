@@ -15,9 +15,7 @@ export type RuntimeTimelineEventRuntime = {
   ) => void;
 };
 
-export function createRuntimeTimelineEventRuntime(
-  deps: RuntimeTimelineEventRuntimeDeps
-): RuntimeTimelineEventRuntime {
+export function createRuntimeTimelineEventRuntime(deps: RuntimeTimelineEventRuntimeDeps): RuntimeTimelineEventRuntime {
   const pushEvent: RuntimeTimelineEventRuntime["pushEvent"] = (method, paramsText, opts) => {
     deps.timelineStore.appendEvent({
       threadId: opts?.threadId || deps.appTimelineId,

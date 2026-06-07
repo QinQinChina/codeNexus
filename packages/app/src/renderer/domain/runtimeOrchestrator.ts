@@ -25,10 +25,7 @@ import { useWorkspaceFilesStore } from "../stores/workspaceFiles.store";
 import { type ThreadReplayCache } from "./runtime/historyReplayRuntime";
 import { createHistoryListRuntime } from "./runtime/historyListRuntime";
 import { createCodexServerEventRuntime } from "./runtime/codexServerEventRuntime";
-import {
-  createHistoryReplayWindowRuntime,
-  type ThreadReplayWindowState,
-} from "./runtime/historyReplayWindowRuntime";
+import { createHistoryReplayWindowRuntime, type ThreadReplayWindowState } from "./runtime/historyReplayWindowRuntime";
 import { createHistoryThreadRuntime } from "./runtime/historyThreadRuntime";
 import { createThreadReadRuntime } from "./runtime/threadReadRuntime";
 import { createThreadListLookupRuntime } from "./runtime/threadListLookupRuntime";
@@ -377,11 +374,8 @@ export function initRuntimeOrchestrator(pinia: Pinia): RuntimeOrchestrator {
     pushEvent,
     translate,
   });
-  const {
-    rememberThreadStartConfigOverrides,
-    clearThreadStartConfigOverrides,
-    ensureThreadModelToolCompatibility,
-  } = threadModelCompatibilityRuntime;
+  const { rememberThreadStartConfigOverrides, clearThreadStartConfigOverrides, ensureThreadModelToolCompatibility } =
+    threadModelCompatibilityRuntime;
 
   const configRuntime = createConfigRuntime({
     requireActiveWorkspaceServerId,

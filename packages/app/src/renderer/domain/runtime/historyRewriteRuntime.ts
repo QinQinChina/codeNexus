@@ -15,11 +15,7 @@ type TranslateFn = (key: string, params?: Record<string, unknown>) => string;
 type PushEvent = (method: string, paramsText: string, opts?: { threadId?: string; level?: RuntimeEventLevel }) => void;
 type ShowToast = (options: { kind?: ToastKind; title?: string; message: string }) => void;
 
-type TurnInterruptRequest = (
-  threadId: string,
-  turnId: string,
-  opts?: { silentSuccess?: boolean }
-) => Promise<boolean>;
+type TurnInterruptRequest = (threadId: string, turnId: string, opts?: { silentSuccess?: boolean }) => Promise<boolean>;
 
 export type HistoryRewriteRuntimeDeps = {
   runtimeStore: RuntimeStore;

@@ -27,9 +27,7 @@ export type ThreadRuntimeCleanupRuntime = {
   clearThreadLocalContextCompactionEvents: (threadId: string) => void;
 };
 
-export function createThreadRuntimeCleanupRuntime(
-  deps: ThreadRuntimeCleanupRuntimeDeps
-): ThreadRuntimeCleanupRuntime {
+export function createThreadRuntimeCleanupRuntime(deps: ThreadRuntimeCleanupRuntimeDeps): ThreadRuntimeCleanupRuntime {
   const {
     runtimeStore,
     threadStore,

@@ -68,16 +68,7 @@ function isEmptyMcpElicitationSchema(value: unknown): boolean {
 }
 
 export function createPromptResponseRuntime(deps: PromptResponseRuntimeDeps): PromptResponseRuntime {
-  const {
-    appTimelineId,
-    runtimeStore,
-    approvalStore,
-    userInputStore,
-    respond,
-    pushEvent,
-    translate,
-    showToast,
-  } = deps;
+  const { appTimelineId, runtimeStore, approvalStore, userInputStore, respond, pushEvent, translate, showToast } = deps;
 
   const submitUserInputPromptForThread = async (threadIdValue: unknown) => {
     const tid = String(threadIdValue ?? "").trim();

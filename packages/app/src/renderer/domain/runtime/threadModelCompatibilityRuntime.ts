@@ -33,9 +33,7 @@ type ThreadStartBuildResult = {
   configOverrides: ThreadStartConfigOverrides | null;
 };
 
-type EnsureThreadModelToolCompatibilityResult =
-  | { ok: true; threadId: string }
-  | { ok: false; error: string };
+type EnsureThreadModelToolCompatibilityResult = { ok: true; threadId: string } | { ok: false; error: string };
 
 export type ThreadModelCompatibilityRuntimeDeps = {
   runtimeStore: RuntimeStore;

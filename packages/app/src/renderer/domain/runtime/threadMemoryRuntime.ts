@@ -26,7 +26,15 @@ export type ThreadMemoryRuntime = {
 };
 
 export function createThreadMemoryRuntime(deps: ThreadMemoryRuntimeDeps): ThreadMemoryRuntime {
-  const { appTimelineId, runtimeStore, getServerIdForWorkspace, getServerIdForThread, pushEvent, translate, showToast } = deps;
+  const {
+    appTimelineId,
+    runtimeStore,
+    getServerIdForWorkspace,
+    getServerIdForThread,
+    pushEvent,
+    translate,
+    showToast,
+  } = deps;
 
   const resetCodexMemory = async () => {
     const serverId = getServerIdForWorkspace(runtimeStore.workspacePath);
