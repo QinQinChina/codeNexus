@@ -8,6 +8,7 @@ import type { ReasoningEffort } from "@codenexus/generated/codex-app-server/Reas
 export type CodexProviderProfile = {
   id: string;
   name: string;
+  providerKind: CodexProviderKind;
   modelProviderId: string;
   model: string;
   baseUrl: string;
@@ -27,12 +28,15 @@ export type CodexProviderProfile = {
   updatedAt: number;
 };
 
+export type CodexProviderKind = "openai-responses" | "deepseek-chat";
+
 /** 创建或更新 profile 时的输入形态，未传字段会从 existing 或默认值继承。 */
 export type CodexProviderProfileInput = Partial<
   Pick<
     CodexProviderProfile,
     | "id"
     | "name"
+    | "providerKind"
     | "modelProviderId"
     | "model"
     | "baseUrl"
@@ -60,6 +64,8 @@ export type CodexProviderProfilesState = {
 /** 新建 provider profile 时的保守默认值，避免空模型或空 reasoning effort 写入 Codex 配置。 */
 export const DEFAULT_CODEX_PROFILE_MODEL = "gpt-5.4";
 export const DEFAULT_CODEX_PROFILE_REASONING_EFFORT: ReasoningEffort = "high";
+export const DEFAULT_CODEX_PROVIDER_KIND: CodexProviderKind =
+  "openai-responses";
 export const DEFAULT_CODEX_AUTH_FILE_PATH = "";
 export const DEFAULT_CODEX_CONFIG_FILE_PATH = "";
 
@@ -102,6 +108,12 @@ function normalizeOrder(value: unknown, fallback = 0): number {
 
 function normalizeLastTestStatus(value: unknown): "ok" | "error" | null {
   return value === "ok" || value === "error" ? value : null;
+}
+
+export function normalizeCodexProviderKind(value: unknown): CodexProviderKind {
+  return value === "deepseek-chat"
+    ? "deepseek-chat"
+    : DEFAULT_CODEX_PROVIDER_KIND;
 }
 
 /** provider id 需要稳定且可作为文件/配置键使用，因此统一转成小写安全字符。 */
@@ -168,6 +180,7 @@ export function normalizeCodexProviderProfile(
   return {
     id,
     name: normalizeCodexProfileName(record.name, modelProviderId),
+    providerKind: normalizeCodexProviderKind(record.providerKind),
     modelProviderId,
     model: normalizeCodexProfileModel(record.model),
     baseUrl,
@@ -244,6 +257,9 @@ export function buildCodexProviderProfile(
     name: normalizeCodexProfileName(
       input.name ?? existing?.name,
       modelProviderId,
+    ),
+    providerKind: normalizeCodexProviderKind(
+      input.providerKind ?? existing?.providerKind,
     ),
     modelProviderId,
     model: normalizeCodexProfileModel(input.model ?? existing?.model),

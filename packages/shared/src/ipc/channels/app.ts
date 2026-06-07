@@ -26,6 +26,7 @@ export const IPC_APP_CHANNELS = {
   appCodexAuthReadApiKey: "app:codexAuth:readApiKey",
   appCodexAuthWriteApiKey: "app:codexAuth:writeApiKey",
   appCodexProviderTest: "app:codexProvider:test",
+  appDeepSeekProxyPrepare: "app:deepSeekProxy:prepare",
 
   // Codex 工作区附加配置：技能根目录和配置切换器都和当前机器上的文件状态有关。
   appCodexSkillRootsRead: "app:codexSkillRoots:read",

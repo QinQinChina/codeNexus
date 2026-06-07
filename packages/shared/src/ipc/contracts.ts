@@ -1,5 +1,5 @@
 import type { UserLocalSettings, UserLocalSettingsPatch } from "../localSettings";
-import type { CodexProviderProfileInput, CodexProviderProfilesState } from "../codexProfiles";
+import type { CodexProviderKind, CodexProviderProfileInput, CodexProviderProfilesState } from "../codexProfiles";
 import type { CodexSkillRootsState } from "../codexSkillRoots";
 import type {
   CodexConfigSwitcherActivateResult,
@@ -639,7 +639,13 @@ export type CodexDesktopAppApi = {
   setActiveCodexProfile(args: { id: string | null }): Promise<CodexProviderProfilesMutationResult>;
   readCodexAuthApiKey(): Promise<CodexAuthReadApiKeyResult>;
   writeCodexAuthApiKey(args: { apiKey: string; filePath?: string | null }): Promise<CodexAuthWriteApiKeyResult>;
-  testCodexProvider(args: { baseUrl: string; apiKey: string; timeoutMs?: number }): Promise<CodexProviderTestResult>;
+  testCodexProvider(args: {
+    providerKind?: CodexProviderKind;
+    baseUrl: string;
+    apiKey: string;
+    timeoutMs?: number;
+  }): Promise<CodexProviderTestResult>;
+  prepareDeepSeekProxy(args: { upstreamBaseUrl: string }): Promise<{ ok: true; baseUrl: string }>;
   readCodexSkillRoots(): Promise<CodexSkillRootsSnapshot>;
   setCodexSkillRootsForWorkspace(args: {
     workspacePath: string;
