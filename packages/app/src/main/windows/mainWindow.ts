@@ -2,6 +2,7 @@ import { app, BrowserWindow, shell } from "electron";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { normalizeSafeExternalUrl } from "../utils/externalUrl";
+import { logger } from "../utils/logger";
 import { IPC_APP_CHANNELS } from "@codenexus/shared/ipc/channels";
 import type { AppWindowState } from "@codenexus/shared/ipc/contracts";
 import { resolveUiFontSizeZoomFactor, type UserLocalSettings } from "@codenexus/shared/localSettings";
@@ -64,7 +65,9 @@ export async function createMainWindow(opts: MainWindowOptions): Promise<Browser
     if (Number.isFinite(zoomFactor) && zoomFactor > 0) {
       win.webContents.setZoomFactor(zoomFactor);
     }
-  } catch {}
+  } catch (error) {
+    logger.warn("window", "failed to set initial zoom factor", error);
+  }
 
   // 禁止渲染进程自行打开新窗口；外链统一交给系统浏览器。
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -84,7 +87,9 @@ export async function createMainWindow(opts: MainWindowOptions): Promise<Browser
   try {
     win.setMenuBarVisibility(false);
     win.removeMenu();
-  } catch {}
+  } catch (error) {
+    logger.warn("window", "failed to hide menu bar", error);
+  }
 
   const toWindowState = (): AppWindowState => ({
     isMaximized: win.isMaximized(),
@@ -95,7 +100,9 @@ export async function createMainWindow(opts: MainWindowOptions): Promise<Browser
   const pushWindowState = () => {
     try {
       win.webContents.send(IPC_APP_CHANNELS.appWindowState, toWindowState());
-    } catch {}
+    } catch (error) {
+      logger.warn("window", "failed to push window state", error);
+    }
   };
 
   // 首屏加载完成后同步一次状态；并在窗口状态变化时持续推送。

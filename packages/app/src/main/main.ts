@@ -2,6 +2,8 @@ import { app, BrowserWindow, Menu } from "electron";
 import { readFile, rm, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { installContentSecurityPolicy } from "./security/contentSecurityPolicy";
+import { logger } from "./utils/logger";
 import {
   IPC_APP_CHANNELS,
   IPC_EVENT_CHANNELS,
@@ -66,7 +68,9 @@ function sendToRenderer(channel: string, payload: unknown) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   try {
     mainWindow.webContents.send(channel, payload);
-  } catch {}
+  } catch (error) {
+    logger.warn("ipc", `sendToRenderer failed on channel '${channel}'`, error);
+  }
 }
 
 const updateService = new UpdateService((payload) => {
@@ -107,12 +111,12 @@ function stopCodexServersForClose(_reason: string) {
   try {
     codexServerManager.stopAll();
   } catch (error) {
-    console.warn("[app-close] stop codex servers failed", error);
+    logger.warn("app-close", "stop codex servers failed", error);
   }
   try {
     deepSeekResponsesProxyService.stop();
   } catch (error) {
-    console.warn("[app-close] stop DeepSeek proxy failed", error);
+    logger.warn("app-close", "stop DeepSeek proxy failed", error);
   }
 }
 
@@ -125,7 +129,7 @@ function clearAppCloseForceExitWatchdog() {
 function armAppCloseForceExitWatchdog() {
   clearAppCloseForceExitWatchdog();
   appCloseForceExitTimer = setTimeout(() => {
-    console.warn("[app-close] force exiting after close watchdog timeout");
+    logger.warn("app-close", "force exiting after close watchdog timeout");
     stopCodexServersForClose("force-exit-watchdog");
     app.exit(0);
   }, APP_CLOSE_FORCE_EXIT_MS);
@@ -158,7 +162,7 @@ async function runAppCloseFlow(win: BrowserWindow): Promise<void> {
     if (!win.isDestroyed()) win.close();
   })()
     .catch((error) => {
-      console.error("[app-close] flow failed", error);
+      logger.error("app-close", "flow failed", error);
       allowMainWindowClose = true;
       if (!win.isDestroyed()) win.close();
     })
@@ -187,6 +191,10 @@ app
   .then(async () => {
     if (process.platform !== "darwin") {
       Menu.setApplicationMenu(null);
+    }
+
+    if (!isDev) {
+      installContentSecurityPolicy();
     }
 
     const historyCachePath = join(app.getPath("userData"), "thread-history-cache.json");
@@ -231,7 +239,9 @@ app
           const raw = await readFile(historyCachePath, "utf8");
           const parsed = JSON.parse(raw);
           items = Array.isArray(parsed?.items) ? parsed.items.length : 0;
-        } catch {}
+        } catch (error) {
+          logger.warn("cache", "failed to read history cache stats", error);
+        }
         return {
           items,
           bytes,
@@ -317,6 +327,6 @@ app
     });
   })
   .catch((error) => {
-    console.error("[main] app bootstrap failed", error);
+    logger.error("main", "app bootstrap failed", error);
     app.exit(1);
   });

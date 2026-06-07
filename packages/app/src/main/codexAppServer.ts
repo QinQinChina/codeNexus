@@ -5,6 +5,7 @@ import { existsSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { app } from "electron";
 import { discoverExistingCodexPaths } from "./codexNativeDiscovery";
+import { logger } from "./utils/logger";
 import type {
   CodexIncomingMessage,
   CodexNotifyParams,
@@ -164,16 +165,24 @@ export class CodexAppServer {
     this.rejectPending(new Error("codex app-server stopped"));
     try {
       this.rl?.close();
-    } catch {}
+    } catch (error) {
+      logger.warn("codex-server", "failed to close readline", error);
+    }
     try {
       proc.stdin?.destroy();
-    } catch {}
+    } catch (error) {
+      logger.warn("codex-server", "failed to destroy stdin", error);
+    }
     try {
       proc.stdout?.destroy();
-    } catch {}
+    } catch (error) {
+      logger.warn("codex-server", "failed to destroy stdout", error);
+    }
     try {
       proc.stderr?.destroy();
-    } catch {}
+    } catch (error) {
+      logger.warn("codex-server", "failed to destroy stderr", error);
+    }
     try {
       if (process.platform === "win32" && pid) {
         const killer = spawn("taskkill.exe", ["/pid", String(pid), "/t", "/f"], {
@@ -185,14 +194,19 @@ export class CodexAppServer {
       } else {
         proc.kill();
       }
-    } catch {
+    } catch (error) {
+      logger.warn("codex-server", "primary kill failed, retrying", error);
       try {
         proc.kill();
-      } catch {}
+      } catch (retryError) {
+        logger.warn("codex-server", "retry kill also failed", retryError);
+      }
     }
     try {
       proc.unref();
-    } catch {}
+    } catch (error) {
+      logger.warn("codex-server", "failed to unref process", error);
+    }
     this.proc = undefined;
     this.rl = undefined;
   }
