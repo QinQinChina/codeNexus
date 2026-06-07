@@ -53,7 +53,8 @@ function normalizeGoalBudget(value: unknown): number | null {
 }
 
 export function createThreadGoalRuntime(deps: ThreadGoalRuntimeDeps): ThreadGoalRuntime {
-  const { appTimelineId, runtimeStore, threadStore, goalShutdownStore, ensureServerForThread, translate, showToast } = deps;
+  const { appTimelineId, runtimeStore, threadStore, goalShutdownStore, ensureServerForThread, translate, showToast } =
+    deps;
 
   const getCurrentThreadIdOrToast = () => {
     const threadId = String(runtimeStore.currentThreadId ?? "").trim();

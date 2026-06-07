@@ -29,11 +29,10 @@ export type ThreadStartParamsRuntimeDeps = {
 
 export type ThreadStartParamsRuntime = {
   resolveCurrentInstructionProfile: () => CodexInstructionProfile;
-  buildThreadStartParamsForModel: (args: {
-    model: string;
-    workspace: string;
-    sandboxMode: string;
-  }) => { params: ThreadStartParams; configOverrides: ThreadStartConfigOverrides | null };
+  buildThreadStartParamsForModel: (args: { model: string; workspace: string; sandboxMode: string }) => {
+    params: ThreadStartParams;
+    configOverrides: ThreadStartConfigOverrides | null;
+  };
 };
 
 export function createThreadStartParamsRuntime(deps: ThreadStartParamsRuntimeDeps): ThreadStartParamsRuntime {

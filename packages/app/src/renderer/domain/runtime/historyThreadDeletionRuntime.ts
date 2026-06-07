@@ -34,8 +34,15 @@ function readErrorMessage(error: unknown): string {
 export function createHistoryThreadDeletionRuntime(
   deps: HistoryThreadDeletionRuntimeDeps
 ): HistoryThreadDeletionRuntime {
-  const { appTimelineId, threadStore, threadContentCacheByKey, clearThreadRuntimeState, pushEvent, translate, showToast } =
-    deps;
+  const {
+    appTimelineId,
+    threadStore,
+    threadContentCacheByKey,
+    clearThreadRuntimeState,
+    pushEvent,
+    translate,
+    showToast,
+  } = deps;
 
   const deleteHistoryThread = async (threadId: string) => {
     const id = String(threadId ?? "").trim();

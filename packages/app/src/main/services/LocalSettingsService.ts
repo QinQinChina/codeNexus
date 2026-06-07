@@ -7,6 +7,7 @@ import {
   type UserLocalSettings,
   type UserLocalSettingsPatch,
 } from "../../common/localSettings";
+import { SecureStorageService } from "./SecureStorageService";
 
 function tryParseJson(text: string): unknown {
   try {
@@ -20,6 +21,7 @@ export class LocalSettingsService {
   private writeQueue: Promise<UserLocalSettings> = Promise.resolve(
     normalizeUserLocalSettings(DEFAULT_USER_LOCAL_SETTINGS)
   );
+  private readonly secureStorage = new SecureStorageService();
 
   constructor(private readonly filePath: string) {}
 
@@ -27,10 +29,39 @@ export class LocalSettingsService {
     return this.filePath;
   }
 
+  private decryptApiKeys(settings: UserLocalSettings): UserLocalSettings {
+    return {
+      ...settings,
+      imageGeneration: {
+        ...settings.imageGeneration,
+        apiKey: this.secureStorage.decrypt(settings.imageGeneration.apiKey),
+      },
+      flowchartAi: {
+        ...settings.flowchartAi,
+        apiKey: this.secureStorage.decrypt(settings.flowchartAi.apiKey),
+      },
+    };
+  }
+
+  private encryptApiKeys(settings: UserLocalSettings): UserLocalSettings {
+    return {
+      ...settings,
+      imageGeneration: {
+        ...settings.imageGeneration,
+        apiKey: this.secureStorage.encrypt(settings.imageGeneration.apiKey),
+      },
+      flowchartAi: {
+        ...settings.flowchartAi,
+        apiKey: this.secureStorage.encrypt(settings.flowchartAi.apiKey),
+      },
+    };
+  }
+
   private async readFromDisk(): Promise<{ exists: boolean; settings: UserLocalSettings }> {
     try {
       const raw = await readFile(this.filePath, "utf8");
-      return { exists: true, settings: normalizeUserLocalSettings(tryParseJson(raw)) };
+      const settings = normalizeUserLocalSettings(tryParseJson(raw));
+      return { exists: true, settings: this.decryptApiKeys(settings) };
     } catch {
       return { exists: false, settings: normalizeUserLocalSettings(DEFAULT_USER_LOCAL_SETTINGS) };
     }
@@ -47,8 +78,9 @@ export class LocalSettingsService {
       .then(async () => {
         const current = await this.readFromDisk();
         const next = mergeUserLocalSettings(current.settings, patch ?? {});
+        const toWrite = this.encryptApiKeys(next);
         await mkdir(dirname(this.filePath), { recursive: true });
-        await writeFile(this.filePath, `${JSON.stringify(next, null, 2)}\n`, "utf8");
+        await writeFile(this.filePath, `${JSON.stringify(toWrite, null, 2)}\n`, "utf8");
         return next;
       });
     this.writeQueue = task;

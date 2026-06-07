@@ -61,9 +61,7 @@ function skillToSwitcherEntry(skill: SkillState): CodexConfigSwitcherSkillEntry 
   };
 }
 
-export function createCodexConfigSwitcherRuntime(
-  deps: CodexConfigSwitcherRuntimeDeps
-): CodexConfigSwitcherRuntime {
+export function createCodexConfigSwitcherRuntime(deps: CodexConfigSwitcherRuntimeDeps): CodexConfigSwitcherRuntime {
   const {
     codexConfigSwitcherStore,
     skillsStore,

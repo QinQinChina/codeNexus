@@ -4,10 +4,7 @@ import { normalizeMcpServersFromConfig } from "../serverInterop";
 import type { McpServerState } from "../types";
 import type { McpStatusState } from "./mcpRuntime";
 import { codexMcpServerSpecToConfigValue, parseCodexMcpJsonImport } from "@codenexus/shared/codexMcp";
-import type {
-  CodexConfigSwitcherProfile,
-  CodexConfigSwitcherState,
-} from "@codenexus/shared/codexConfigSwitcher";
+import type { CodexConfigSwitcherProfile, CodexConfigSwitcherState } from "@codenexus/shared/codexConfigSwitcher";
 import type { ConfigReadResponse } from "@codenexus/generated/codex-app-server/v2/ConfigReadResponse";
 
 type McpStore = ReturnType<typeof useMcpStore>;
@@ -50,12 +47,7 @@ export type McpManagementRuntimeDeps = {
 export type McpManagementRuntime = {
   refreshMcp: () => Promise<void>;
   scheduleMcpStatusRefresh: (workspacePath: string) => void;
-  applyMcpStartupStatusNotification: (args: {
-    workspace: string;
-    name: string;
-    status: string;
-    error: string;
-  }) => void;
+  applyMcpStartupStatusNotification: (args: { workspace: string; name: string; status: string; error: string }) => void;
   reloadMcpConfig: () => Promise<void>;
   toggleMcpEnabled: (serverKey: string, enabled: boolean) => Promise<void>;
   deleteMcpServer: (serverId: string) => Promise<void>;
@@ -204,7 +196,8 @@ export function createMcpManagementRuntime(deps: McpManagementRuntimeDeps): McpM
     const current = mcpStore.servers;
     const next = current.map((server) => {
       if (server.id !== name) return server;
-      if (status === "starting") return { ...server, state: "connecting" as const, message: translate("runtime.starting") };
+      if (status === "starting")
+        return { ...server, state: "connecting" as const, message: translate("runtime.starting") };
       if (status === "ready") return { ...server, state: "connected" as const, message: undefined };
       if (status === "failed") return { ...server, state: "error" as const, message: error || "failed" };
       if (status === "cancelled") return { ...server, state: "error" as const, message: error || "cancelled" };

@@ -36,12 +36,7 @@ export type CodexServerEventRuntimeDeps = {
   invalidateSkillsSnapshot: (workspacePath?: string) => void;
   scheduleSkillsRefresh: (workspacePath: string) => void;
   invalidateMcpSnapshot: (workspacePath?: string) => void;
-  applyMcpStartupStatusNotification: (args: {
-    workspace: string;
-    name: string;
-    status: string;
-    error: string;
-  }) => void;
+  applyMcpStartupStatusNotification: (args: { workspace: string; name: string; status: string; error: string }) => void;
   scheduleMcpStatusRefresh: (workspacePath: string) => void;
   refreshMcp: () => Promise<void>;
   hydrateThreadHandoffDiagnostics: (threadId: string, opts?: { force?: boolean }) => Promise<void>;
