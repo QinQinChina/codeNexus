@@ -9,7 +9,8 @@
     "format": "pnpm --filter @codenexus/app format",
     "format:check": "pnpm --filter @codenexus/app format:check",
     "typecheck": "pnpm --filter @codenexus/app --filter @codenexus/feature-flowchart --filter @codenexus/feature-imagegen --filter @codenexus/feature-paper typecheck",
-    "ci": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run build",
+    "test": "vitest run",
+    "ci": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
     "codex:types": "pnpm --filter @codenexus/app codex:types",
     "dist": "pnpm --filter @codenexus/app dist"
   },
@@ -30,5 +31,8 @@
       "uuid@11.1.0": "^11.1.1",
       "yaml@>=2.0.0 <2.8.3": "^2.8.3"
     }
+  },
+  "devDependencies": {
+    "vitest": "^4.1.8"
   }
 }
