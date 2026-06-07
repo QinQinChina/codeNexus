@@ -8,6 +8,7 @@ import {
   type UserLocalSettingsPatch,
 } from "../../common/localSettings";
 import { SecureStorageService } from "./SecureStorageService";
+import { logger } from "../utils/logger";
 
 function tryParseJson(text: string): unknown {
   try {
@@ -62,7 +63,8 @@ export class LocalSettingsService {
       const raw = await readFile(this.filePath, "utf8");
       const settings = normalizeUserLocalSettings(tryParseJson(raw));
       return { exists: true, settings: this.decryptApiKeys(settings) };
-    } catch {
+    } catch (error) {
+      logger.info("settings", `settings file not available, using defaults (${this.filePath})`);
       return { exists: false, settings: normalizeUserLocalSettings(DEFAULT_USER_LOCAL_SETTINGS) };
     }
   }
