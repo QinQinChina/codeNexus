@@ -1,8 +1,5 @@
 import { normalizeCustomModelIds } from "./modelCatalog";
-import {
-  normalizeBuiltinDynamicToolName,
-  type BuiltinDynamicToolName,
-} from "./dynamicTools";
+import { dynamicToolRegistry } from "./dynamicTools";
 
 /**
  * 用户本地设置的共享 schema。
@@ -34,7 +31,7 @@ export type LocalFlowchartAiSettings = {
 
 export type LocalThreadWorkspaceGroupsCollapsedState = Record<string, boolean>;
 export type LocalDynamicToolsSettings = {
-  enabledByName: Record<BuiltinDynamicToolName, boolean>;
+  enabledByName: Record<string, boolean>;
 };
 export type LocalGoalShutdownSetting = {
   enabled: boolean;
@@ -136,7 +133,7 @@ export type UserLocalSettingsPatch = {
     timeoutMs: number | null;
   }>;
   dynamicTools?: Partial<{
-    enabledByName: Partial<Record<BuiltinDynamicToolName, boolean>> | null;
+    enabledByName: Partial<Record<string, boolean>> | null;
   }>;
   goalAutomation?: Partial<{
     shutdownByThreadId: Record<
@@ -184,11 +181,8 @@ const UI_FONT_SIZE_ZOOM_FACTORS: Record<UiFontSizePreset, number> = {
   large: 1.08,
 };
 
-function buildDefaultDynamicToolsEnabledByName(): Record<
-  BuiltinDynamicToolName,
-  boolean
-> {
-  return { image_generate: true };
+function buildDefaultDynamicToolsEnabledByName(): Record<string, boolean> {
+  return dynamicToolRegistry.buildDefaultEnabledByName();
 }
 
 function normalizeUiFontFamilyPreset(value: unknown): UiFontFamilyPreset {
@@ -466,23 +460,23 @@ function normalizeDynamicToolsSettings(
   const enabledRecord = toRecord(record?.enabledByName);
   const enabledByName = buildDefaultDynamicToolsEnabledByName();
   for (const [rawName, rawEnabled] of Object.entries(enabledRecord ?? {})) {
-    const name = normalizeBuiltinDynamicToolName(rawName);
-    if (!name || typeof rawEnabled !== "boolean") continue;
-    (enabledByName as Record<string, boolean>)[name] = rawEnabled;
+    const name = String(rawName ?? "").trim();
+    if (!name || !dynamicToolRegistry.isKnownToolName(name) || typeof rawEnabled !== "boolean") continue;
+    enabledByName[name] = rawEnabled;
   }
   return { enabledByName };
 }
 
 function mergeDynamicToolsEnabledByName(
-  current: Record<BuiltinDynamicToolName, boolean>,
+  current: Record<string, boolean>,
   patchValue: unknown,
-): Record<BuiltinDynamicToolName, boolean> {
+): Record<string, boolean> {
   const patchRecord = toRecord(patchValue);
   const next = { ...current };
   for (const [rawName, rawEnabled] of Object.entries(patchRecord ?? {})) {
-    const name = normalizeBuiltinDynamicToolName(rawName);
-    if (!name || typeof rawEnabled !== "boolean") continue;
-    (next as Record<string, boolean>)[name] = rawEnabled;
+    const name = String(rawName ?? "").trim();
+    if (!name || !dynamicToolRegistry.isKnownToolName(name) || typeof rawEnabled !== "boolean") continue;
+    next[name] = rawEnabled;
   }
   return next;
 }
