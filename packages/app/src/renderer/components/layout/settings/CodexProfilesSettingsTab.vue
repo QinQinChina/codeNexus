@@ -32,7 +32,9 @@
 
               <button class="codex-provider-main" type="button" @click="openEditor(profile)">
                 <span class="codex-provider-name">{{ profile.name }}</span>
-                <span class="codex-provider-url mono">{{ profile.baseUrl }}</span>
+                <span class="codex-provider-url mono"
+                  >{{ providerKindLabel(profile.providerKind) }} · {{ profile.baseUrl }}</span
+                >
               </button>
 
               <div class="codex-provider-actions">
@@ -139,6 +141,14 @@
             </label>
 
             <label class="global-row">
+              <span class="context-label">{{ t("codexProfiles.providerType") }}</span>
+              <select v-model="form.providerKind" class="context-input">
+                <option value="openai-responses">{{ t("codexProfiles.openaiResponses") }}</option>
+                <option value="deepseek-chat">{{ t("codexProfiles.deepseekChat") }}</option>
+              </select>
+            </label>
+
+            <label class="global-row">
               <span class="context-label">{{ t("codexProfiles.modelName") }}</span>
               <div class="codex-model-picker">
                 <input
@@ -188,15 +198,19 @@
             </div>
 
             <label class="global-row">
-              <span class="context-label">Base URL</span>
+              <span class="context-label">{{ baseUrlLabel }}</span>
               <input
                 v-model="form.baseUrl"
                 class="context-input mono"
                 type="url"
                 autocomplete="off"
-                placeholder="https://example.com/v1"
+                :placeholder="baseUrlPlaceholder"
               />
             </label>
+
+            <div v-if="form.providerKind === 'deepseek-chat'" class="codex-provider-hint">
+              {{ t("codexProfiles.deepseekProxyHint") }}
+            </div>
 
             <label class="global-row">
               <span class="context-label">API Key</span>
@@ -280,15 +294,22 @@ import { showToast } from "../../../ui/toast";
 import {
   DEFAULT_CODEX_AUTH_FILE_PATH,
   DEFAULT_CODEX_CONFIG_FILE_PATH,
+  DEFAULT_CODEX_PROVIDER_KIND,
   DEFAULT_CODEX_PROFILE_MODEL,
+  normalizeCodexProviderKind,
   normalizeCodexProfileId,
   normalizeCodexProviderId,
+  type CodexProviderKind,
   type CodexProviderProfile,
   type CodexProviderProfileInput,
 } from "@codenexus/shared/codexProfiles";
 
+const DEFAULT_DEEPSEEK_BASE_URL = "https://api.deepseek.com";
+const DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash";
+
 type ProfileForm = {
   name: string;
+  providerKind: CodexProviderKind;
   model: string;
   baseUrl: string;
   apiKey: string;
@@ -317,6 +338,7 @@ const providerModelsStatusText = ref("");
 
 const form = reactive<ProfileForm>({
   name: "",
+  providerKind: DEFAULT_CODEX_PROVIDER_KIND,
   model: DEFAULT_CODEX_PROFILE_MODEL,
   baseUrl: "",
   apiKey: "",
@@ -345,6 +367,12 @@ const canApplyForm = computed(() =>
 );
 const canFetchProviderModels = computed(
   () => Boolean(form.baseUrl.trim() && form.apiKey.trim()) && !providerModelsLoading.value && !mutationPending.value
+);
+const baseUrlLabel = computed(() =>
+  form.providerKind === "deepseek-chat" ? t("codexProfiles.upstreamBaseUrl") : t("codexProfiles.baseUrl")
+);
+const baseUrlPlaceholder = computed(() =>
+  form.providerKind === "deepseek-chat" ? DEFAULT_DEEPSEEK_BASE_URL : "https://example.com/v1"
 );
 
 function readRecord(value: unknown): Record<string, unknown> | null {
@@ -394,6 +422,10 @@ function currentModelProviderId(): string {
   return normalizeCodexProviderId(id);
 }
 
+function providerKindLabel(value: CodexProviderKind): string {
+  return value === "deepseek-chat" ? "DeepSeek" : "Responses";
+}
+
 function buildAuthJsonContent(): string {
   return `${JSON.stringify({ OPENAI_API_KEY: form.apiKey.trim() }, null, 2)}\n`;
 }
@@ -402,7 +434,8 @@ function buildConfigTomlContent(): string {
   const providerId = currentModelProviderId();
   const name = form.name.trim() || providerId;
   const model = form.model.trim() || DEFAULT_CODEX_PROFILE_MODEL;
-  const baseUrl = form.baseUrl.trim();
+  const baseUrl =
+    form.providerKind === "deepseek-chat" ? "<local DeepSeek proxy assigned on enable>" : form.baseUrl.trim();
   return [
     `model_provider = "${escapeTomlString(providerId)}"`,
     `model = "${escapeTomlString(model)}"`,
@@ -435,6 +468,7 @@ function fillForm(profile: CodexProviderProfile) {
   fileEditorsDirty.value = false;
   resetProviderModels();
   form.name = profile.name;
+  form.providerKind = normalizeCodexProviderKind(profile.providerKind);
   form.model = profile.model;
   form.baseUrl = profile.baseUrl;
   form.apiKey = profile.apiKey;
@@ -451,6 +485,7 @@ function resetForm() {
   resetProviderModels();
   const nextOrder = orderedProfiles.value.length;
   form.name = "";
+  form.providerKind = DEFAULT_CODEX_PROVIDER_KIND;
   form.model = DEFAULT_CODEX_PROFILE_MODEL;
   form.baseUrl = "";
   form.apiKey = "";
@@ -489,6 +524,7 @@ function buildInput(): CodexProviderProfileInput {
   return {
     id,
     name: form.name,
+    providerKind: form.providerKind,
     modelProviderId,
     model: form.model,
     baseUrl: form.baseUrl,
@@ -563,6 +599,7 @@ async function fetchProviderModels() {
   providerModelsStatusText.value = t("codexProfiles.fetchingModelsStatus");
   try {
     const result = await codexDesktop.app.testCodexProvider({
+      providerKind: form.providerKind,
       baseUrl: form.baseUrl,
       apiKey: form.apiKey,
       timeoutMs: 15_000,
@@ -652,6 +689,7 @@ async function testProfile(profile: CodexProviderProfile) {
   localSaving.value = true;
   try {
     const result = await codexDesktop.app.testCodexProvider({
+      providerKind: profile.providerKind,
       baseUrl: profile.baseUrl,
       apiKey: profile.apiKey,
       timeoutMs: 15_000,
@@ -775,6 +813,7 @@ async function autoImportCurrentCodexConfig() {
   await profilesStore.upsert({
     id: uniqueProfileId(providerId),
     name: String(provider?.name ?? providerId).trim() || providerId,
+    providerKind: "openai-responses",
     modelProviderId: normalizeCodexProviderId(providerId),
     model,
     baseUrl,
@@ -813,10 +852,22 @@ onMounted(() => {
 });
 
 watch(
-  () => [form.name, form.model, form.baseUrl, form.apiKey],
+  () => [form.name, form.providerKind, form.model, form.baseUrl, form.apiKey],
   () => {
     if (!editorOpen.value || fileEditorsDirty.value) return;
     refreshGeneratedFileEditors();
+  }
+);
+
+watch(
+  () => form.providerKind,
+  (next) => {
+    if (!editorOpen.value) return;
+    resetProviderModels();
+    if (next === "deepseek-chat") {
+      if (!form.baseUrl.trim()) form.baseUrl = DEFAULT_DEEPSEEK_BASE_URL;
+      if (!form.model.trim() || form.model === DEFAULT_CODEX_PROFILE_MODEL) form.model = DEFAULT_DEEPSEEK_MODEL;
+    }
   }
 );
 

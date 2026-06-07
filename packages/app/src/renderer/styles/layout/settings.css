@@ -790,6 +790,17 @@
   white-space: nowrap;
 }
 
+.codex-provider-hint {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--border-accent) 56%, transparent);
+  border-radius: 6px;
+  color: color-mix(in srgb, var(--text) 82%, var(--fg-accent));
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface-1));
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .codex-file-editor-block {
   min-width: 0;
   display: grid;

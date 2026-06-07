@@ -36,12 +36,20 @@ function readErrorMessage(error: unknown): string {
   return String(error ?? "");
 }
 
-function buildCodexProfileConfigChanges(profile: CodexProviderProfile, translate: TranslateFn): ConfigWriteChange[] {
+function resolveCodexProfileBaseUrl(profile: CodexProviderProfile, baseUrlOverride?: string): string {
+  return String(baseUrlOverride ?? profile.baseUrl ?? "").trim();
+}
+
+function buildCodexProfileConfigChanges(
+  profile: CodexProviderProfile,
+  translate: TranslateFn,
+  baseUrlOverride?: string
+): ConfigWriteChange[] {
   const providerId = String(profile.modelProviderId ?? "").trim();
   if (!providerId) throw new Error(translate("runtime.providerIdRequired"));
   const model = String(profile.model ?? "").trim();
   if (!model) throw new Error(translate("runtime.modelIdRequired"));
-  const baseUrl = String(profile.baseUrl ?? "").trim();
+  const baseUrl = resolveCodexProfileBaseUrl(profile, baseUrlOverride);
   if (!baseUrl) throw new Error(translate("runtime.baseUrlRequired"));
   return [
     { keyPath: "model_provider", value: providerId },
@@ -88,25 +96,51 @@ export function createCodexProfileRuntime(deps: CodexProfileRuntimeDeps): CodexP
 
     codexProfilesStore.applyingProfileId = id;
     try {
-      const authFileContent = String(profile.authFileContent ?? "").trim()
-        ? String(profile.authFileContent ?? "")
-        : buildCodexProfileAuthJsonContent(profile);
-      const configFileContent = String(profile.configFileContent ?? "").trim() ? String(profile.configFileContent) : "";
-      if (String(profile.authFilePath ?? "").trim()) {
+      const deepSeekProxy =
+        profile.providerKind === "deepseek-chat"
+          ? await codexDesktop.app.prepareDeepSeekProxy({ upstreamBaseUrl: profile.baseUrl })
+          : null;
+      const isDeepSeekProfile = Boolean(deepSeekProxy);
+      const codexBaseUrl = deepSeekProxy?.baseUrl ?? profile.baseUrl;
+      const authFileContent = isDeepSeekProfile
+        ? buildCodexProfileAuthJsonContent(profile)
+        : String(profile.authFileContent ?? "").trim()
+          ? String(profile.authFileContent ?? "")
+          : buildCodexProfileAuthJsonContent(profile);
+      const configFileContent =
+        !isDeepSeekProfile && String(profile.configFileContent ?? "").trim() ? String(profile.configFileContent) : "";
+      if (isDeepSeekProfile) {
+        await codexDesktop.app.writeCodexAuthApiKey({
+          apiKey: profile.apiKey,
+          filePath: String(profile.authFilePath ?? "").trim() || null,
+        });
+      } else if (String(profile.authFilePath ?? "").trim()) {
         await codexDesktop.app.writeTextFile({ path: profile.authFilePath, content: authFileContent });
       } else {
         await codexDesktop.app.writeCodexAuthApiKey({ apiKey: profile.apiKey });
       }
-      if (String(profile.configFilePath ?? "").trim() && configFileContent) {
+      if (isDeepSeekProfile) {
+        await requestConfigBatchWrite(
+          buildCodexProfileConfigChanges(profile, translate, codexBaseUrl),
+          profile.configFilePath
+        );
+      } else if (String(profile.configFilePath ?? "").trim() && configFileContent) {
         await codexDesktop.app.writeTextFile({ path: profile.configFilePath, content: configFileContent });
       } else {
-        await requestConfigBatchWrite(buildCodexProfileConfigChanges(profile, translate), profile.configFilePath);
+        await requestConfigBatchWrite(
+          buildCodexProfileConfigChanges(profile, translate, codexBaseUrl),
+          profile.configFilePath
+        );
       }
       await codexProfilesStore.setActiveProfile(id);
       await refreshGlobalConfig();
-      pushEvent("codex:profile", `applied ${profile.name}\nprovider=${profile.modelProviderId}\nmodel=${profile.model}`, {
-        threadId: appTimelineId,
-      });
+      pushEvent(
+        "codex:profile",
+        `applied ${profile.name}\nprovider=${profile.modelProviderId}\nkind=${profile.providerKind}\nmodel=${profile.model}`,
+        {
+          threadId: appTimelineId,
+        }
+      );
       showToast({
         kind: "success",
         title: translate("runtime.profileSwitchedTitle"),
