@@ -29,6 +29,29 @@ export type LocalFlowchartAiSettings = {
   timeoutMs: number;
 };
 
+/** 自定义运行时（脱离 codex-app-server）对接的 provider 协议族。本期只有 openai-compatible 真正可用。 */
+export type CustomProviderKind = "openai-compatible" | "anthropic" | "gemini";
+
+/** 单个自定义 provider 的连接信息。apiKey 与 flowchartAi 一样存在本地设置，并由主进程做静态加密。 */
+export type LocalCustomProvider = {
+  id: string;
+  kind: CustomProviderKind;
+  name: string;
+  baseUrl: string | null;
+  apiKey: string | null;
+  model: string;
+  /** 是否开启思考/推理输出（Claude thinking / Gemini includeThoughts / OpenAI reasoning）。 */
+  thinking?: boolean;
+};
+
+/** 自定义 provider 集合与当前激活项。activeProviderId 必须指向仍存在的 provider。 */
+export type LocalCustomProvidersSettings = {
+  activeProviderId: string | null;
+  providers: LocalCustomProvider[];
+  /** 自定义运行时的工作区根目录（沙箱）。为 null 时不挂文件/命令工具，仅纯聊天。 */
+  workspaceRoot: string | null;
+};
+
 export type LocalThreadWorkspaceGroupsCollapsedState = Record<string, boolean>;
 export type LocalDynamicToolsSettings = {
   enabledByName: Record<string, boolean>;
@@ -44,6 +67,8 @@ export type LocalGoalAutomationSettings = {
 };
 
 export type MainView = "chat" | "image" | "flowchart" | "paper";
+/** 应用运行时模式：codex=旧版 codex-app-server；custom=新版自定义 provider；null=尚未选择（显示选择页）。 */
+export type RuntimeMode = "codex" | "custom";
 export type UiLanguage = "zh-CN" | "en-US";
 export type UiFontFamilyPreset = "alibaba-puhuiti" | "source-han-sans-sc";
 export type UiFontSizePreset = "small" | "medium" | "large";
@@ -56,6 +81,7 @@ export type UserLocalSettings = {
     theme: string | null;
     language: UiLanguage;
     mainView: MainView;
+    runtimeMode: RuntimeMode | null;
     leftSidebarVisible: boolean;
     leftSidebarWidthPx: number;
     filesSidebarVisible: boolean;
@@ -76,6 +102,7 @@ export type UserLocalSettings = {
   };
   imageGeneration: LocalImageGenerationSettings;
   flowchartAi: LocalFlowchartAiSettings;
+  customProviders: LocalCustomProvidersSettings;
   dynamicTools: LocalDynamicToolsSettings;
   goalAutomation: LocalGoalAutomationSettings;
   developer: {
@@ -93,6 +120,7 @@ export type UserLocalSettingsPatch = {
     theme: string | null;
     language: UiLanguage | null;
     mainView: MainView;
+    runtimeMode: RuntimeMode | null;
     leftSidebarVisible: boolean;
     leftSidebarWidthPx: number | null;
     filesSidebarVisible: boolean;
@@ -131,6 +159,11 @@ export type UserLocalSettingsPatch = {
     apiKey: string | null;
     model: string | null;
     timeoutMs: number | null;
+  }>;
+  customProviders?: Partial<{
+    activeProviderId: string | null;
+    providers: LocalCustomProvider[];
+    workspaceRoot: string | null;
   }>;
   dynamicTools?: Partial<{
     enabledByName: Partial<Record<string, boolean>> | null;
@@ -243,6 +276,7 @@ export const DEFAULT_USER_LOCAL_SETTINGS: UserLocalSettings = {
     theme: null,
     language: DEFAULT_UI_LANGUAGE,
     mainView: "chat",
+    runtimeMode: null,
     leftSidebarVisible: true,
     leftSidebarWidthPx: 320,
     filesSidebarVisible: true,
@@ -281,6 +315,11 @@ export const DEFAULT_USER_LOCAL_SETTINGS: UserLocalSettings = {
     apiKey: null,
     model: DEFAULT_FLOWCHART_AI_MODEL,
     timeoutMs: DEFAULT_FLOWCHART_AI_TIMEOUT_MS,
+  },
+  customProviders: {
+    activeProviderId: null,
+    providers: [],
+    workspaceRoot: null,
   },
   dynamicTools: {
     enabledByName: buildDefaultDynamicToolsEnabledByName(),
@@ -357,6 +396,57 @@ function normalizeMainView(value: unknown, fallback: MainView): MainView {
   if (value === "paper") return "paper";
   if (value === "chat") return "chat";
   return fallback;
+}
+
+/** 运行时模式只接受 codex/custom；其余（含 undefined）一律视为「未选择」→ null，触发启动选择页。 */
+export function normalizeRuntimeMode(value: unknown): RuntimeMode | null {
+  if (value === "codex") return "codex";
+  if (value === "custom") return "custom";
+  return null;
+}
+
+function normalizeCustomProviderKind(value: unknown): CustomProviderKind {
+  if (value === "anthropic") return "anthropic";
+  if (value === "gemini") return "gemini";
+  return "openai-compatible";
+}
+
+/** 单个 provider 必须带稳定 id，否则丢弃；baseUrl 走统一的 http(s) 校验，非法回落 null。 */
+function normalizeCustomProvider(value: unknown): LocalCustomProvider | null {
+  const record = toRecord(value);
+  if (!record) return null;
+  const id = String(record.id ?? "").trim();
+  if (!id) return null;
+  return {
+    id,
+    kind: normalizeCustomProviderKind(record.kind),
+    name: toNonEmptyString(record.name, id),
+    baseUrl: normalizeHttpBaseUrl(record.baseUrl, null),
+    apiKey: toNullableString(record.apiKey, null),
+    model: String(record.model ?? "").trim(),
+    thinking: toBoolean(record.thinking, false),
+  };
+}
+
+/** provider 列表按 id 去重，并保证 activeProviderId 指向仍存在的 provider。 */
+function normalizeCustomProvidersSettings(
+  value: unknown,
+): LocalCustomProvidersSettings {
+  const record = toRecord(value);
+  const rawProviders = Array.isArray(record?.providers) ? record.providers : [];
+  const byId = new Map<string, LocalCustomProvider>();
+  for (const item of rawProviders) {
+    const provider = normalizeCustomProvider(item);
+    if (provider) byId.set(provider.id, provider);
+  }
+  const providers = [...byId.values()];
+  const activeRaw = String(record?.activeProviderId ?? "").trim();
+  const activeProviderId =
+    activeRaw && providers.some((item) => item.id === activeRaw)
+      ? activeRaw
+      : null;
+  const workspaceRoot = String(record?.workspaceRoot ?? "").trim() || null;
+  return { activeProviderId, providers, workspaceRoot };
 }
 
 /** 图片生成设置会限制压缩率、超时和张数，避免 UI 写入超出服务端预期的值。 */
@@ -461,7 +551,12 @@ function normalizeDynamicToolsSettings(
   const enabledByName = buildDefaultDynamicToolsEnabledByName();
   for (const [rawName, rawEnabled] of Object.entries(enabledRecord ?? {})) {
     const name = String(rawName ?? "").trim();
-    if (!name || !dynamicToolRegistry.isKnownToolName(name) || typeof rawEnabled !== "boolean") continue;
+    if (
+      !name ||
+      !dynamicToolRegistry.isKnownToolName(name) ||
+      typeof rawEnabled !== "boolean"
+    )
+      continue;
     enabledByName[name] = rawEnabled;
   }
   return { enabledByName };
@@ -475,7 +570,12 @@ function mergeDynamicToolsEnabledByName(
   const next = { ...current };
   for (const [rawName, rawEnabled] of Object.entries(patchRecord ?? {})) {
     const name = String(rawName ?? "").trim();
-    if (!name || !dynamicToolRegistry.isKnownToolName(name) || typeof rawEnabled !== "boolean") continue;
+    if (
+      !name ||
+      !dynamicToolRegistry.isKnownToolName(name) ||
+      typeof rawEnabled !== "boolean"
+    )
+      continue;
     next[name] = rawEnabled;
   }
   return next;
@@ -568,6 +668,7 @@ export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
   const models = toRecord(root?.models);
   const imageGeneration = toRecord(root?.imageGeneration);
   const flowchartAi = toRecord(root?.flowchartAi);
+  const customProviders = toRecord(root?.customProviders);
   const dynamicTools = toRecord(root?.dynamicTools);
   const goalAutomation = toRecord(root?.goalAutomation);
   const developer = toRecord(root?.developer);
@@ -580,6 +681,7 @@ export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
       theme: toNullableString(ui?.theme, DEFAULT_USER_LOCAL_SETTINGS.ui.theme),
       language: normalizeUiLanguage(ui?.language),
       mainView: normalizeMainView(ui?.mainView, inferredMainViewFallback),
+      runtimeMode: normalizeRuntimeMode(ui?.runtimeMode),
       leftSidebarVisible: toBoolean(
         ui?.leftSidebarVisible,
         DEFAULT_USER_LOCAL_SETTINGS.ui.leftSidebarVisible,
@@ -631,6 +733,7 @@ export function normalizeUserLocalSettings(value: unknown): UserLocalSettings {
     },
     imageGeneration: normalizeImageGenerationSettings(imageGeneration),
     flowchartAi: normalizeFlowchartAiSettings(flowchartAi),
+    customProviders: normalizeCustomProvidersSettings(customProviders),
     dynamicTools: normalizeDynamicToolsSettings(dynamicTools),
     goalAutomation: normalizeGoalAutomationSettings(goalAutomation),
     developer: {
@@ -657,6 +760,7 @@ export function mergeUserLocalSettings(
   const patchModels = toRecord(patch?.models);
   const patchImageGeneration = toRecord(patch?.imageGeneration);
   const patchFlowchartAi = toRecord(patch?.flowchartAi);
+  const patchCustomProviders = toRecord(patch?.customProviders);
   const patchDynamicTools = toRecord(patch?.dynamicTools);
   const patchGoalAutomation = toRecord(patch?.goalAutomation);
   const patchDeveloper = toRecord(patch?.developer);
@@ -673,6 +777,10 @@ export function mergeUserLocalSettings(
         patchUi && "mainView" in patchUi
           ? patchUi.mainView
           : current.ui.mainView,
+      runtimeMode:
+        patchUi && "runtimeMode" in patchUi
+          ? patchUi.runtimeMode
+          : current.ui.runtimeMode,
       leftSidebarVisible:
         patchUi && "leftSidebarVisible" in patchUi
           ? patchUi.leftSidebarVisible
@@ -801,6 +909,20 @@ export function mergeUserLocalSettings(
         patchFlowchartAi && "timeoutMs" in patchFlowchartAi
           ? patchFlowchartAi.timeoutMs
           : current.flowchartAi.timeoutMs,
+    },
+    customProviders: {
+      activeProviderId:
+        patchCustomProviders && "activeProviderId" in patchCustomProviders
+          ? patchCustomProviders.activeProviderId
+          : current.customProviders.activeProviderId,
+      providers:
+        patchCustomProviders && "providers" in patchCustomProviders
+          ? patchCustomProviders.providers
+          : current.customProviders.providers,
+      workspaceRoot:
+        patchCustomProviders && "workspaceRoot" in patchCustomProviders
+          ? patchCustomProviders.workspaceRoot
+          : current.customProviders.workspaceRoot,
     },
     dynamicTools: {
       enabledByName:

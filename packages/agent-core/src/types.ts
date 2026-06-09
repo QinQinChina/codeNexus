@@ -40,6 +40,15 @@ export type ToolDefinition = {
 export type ModelReply = {
   content: string | null;
   toolCalls: ToolCall[];
+  /** 思考/推理文本（若 provider 返回）。仅用于展示，不回灌进对话历史。 */
+  reasoning?: string | null;
+};
+
+/** 流式回调：回吐文本增量与（可选）思考/推理增量。 */
+export type ChatStreamHandlers = {
+  onTextDelta: (delta: string) => void;
+  /** 思考/推理增量（provider 支持且开启时）；不关心思考的调用方可不传。 */
+  onReasoningDelta?: (delta: string) => void;
 };
 
 /**
@@ -50,7 +59,19 @@ export type ModelReply = {
  * 测试里则用一个脚本化的假实现，不触网。
  */
 export type ChatClient = {
-  send: (messages: AgentMessage[], tools: ToolDefinition[]) => Promise<ModelReply>;
+  send: (
+    messages: AgentMessage[],
+    tools: ToolDefinition[],
+  ) => Promise<ModelReply>;
+  /**
+   * 可选的流式实现：边产出边通过 handlers.onTextDelta 回吐文本增量，最终仍返回完整 ModelReply。
+   * 内核 runAgent 会优先用它（若存在）以驱动流式 UI；未实现则回退到非流式 send。
+   */
+  stream?: (
+    messages: AgentMessage[],
+    tools: ToolDefinition[],
+    handlers: ChatStreamHandlers,
+  ) => Promise<ModelReply>;
 };
 
 /** 运行一次 agent 的输入。 */
@@ -67,6 +88,8 @@ export type RunAgentOptions = {
 /** 内核运行过程中对外广播的事件，供 UI / 日志消费。 */
 export type AgentEvent =
   | { type: "assistant_message"; content: string }
+  | { type: "assistant_message_delta"; delta: string }
+  | { type: "assistant_reasoning_delta"; delta: string }
   | { type: "tool_call"; call: ToolCall }
   | { type: "tool_result"; toolCallId: string; name: string; result: string }
   | { type: "tool_error"; toolCallId: string; name: string; error: string }

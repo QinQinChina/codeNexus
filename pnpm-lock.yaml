@@ -60,6 +60,9 @@ importers:
       '@codemirror/view':
         specifier: ^6.40.0
         version: 6.40.0
+      '@codenexus/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
       '@codenexus/feature-flowchart':
         specifier: workspace:*
         version: link:../feature-flowchart

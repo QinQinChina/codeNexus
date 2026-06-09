@@ -15,8 +15,10 @@ import type { ThreadTaskService } from "../../services/ThreadTaskService";
 import type { ThreadTitleOverrideService } from "../../services/ThreadTitleOverrideService";
 import type { UpdateService } from "../../services/UpdateService";
 import type { DeepSeekResponsesProxyService } from "../../services/DeepSeekResponsesProxyService";
+import type { CustomAgentService } from "../../services/CustomAgentService";
 import { WorkspacePatchService } from "../../services/WorkspacePatchService";
 import { registerAppHandlers } from "./app.handlers";
+import { registerAgentHandlers } from "./agent.handlers";
 import { registerCacheHandlers } from "./cache.handlers";
 import { registerCodexHandlers } from "./codex.handlers";
 import { registerFlowchartHandlers } from "./flowchart.handlers";
@@ -25,7 +27,7 @@ import { registerImageGenerationHandlers } from "./image-generation.handlers";
 import { registerWorkspaceHandlers } from "./workspace.handlers";
 import { registerWindowHandlers } from "./window.handlers";
 import { CacheRegistryService } from "../../services/CacheRegistryService";
-import type { HistoryThreadRunningStateResult } from "@codenexus/shared/ipc/contracts";
+import type { CustomAgentStreamEvent, HistoryThreadRunningStateResult } from "@codenexus/shared/ipc/contracts";
 
 export type IpcHandlersDeps = {
   getMainWindow: () => BrowserWindow | null;
@@ -49,6 +51,8 @@ export type IpcHandlersDeps = {
   flowchartHistoryService: FlowchartHistoryService;
   updateService: UpdateService;
   deepSeekResponsesProxyService: DeepSeekResponsesProxyService;
+  customAgentService: CustomAgentService;
+  sendAgentEvent: (payload: CustomAgentStreamEvent) => void;
   cacheRegistryService: CacheRegistryService;
 };
 
@@ -73,6 +77,7 @@ export function registerAllHandlers(deps: IpcHandlersDeps) {
   });
   registerWindowHandlers({ getMainWindow: deps.getMainWindow });
   registerCodexHandlers({ serverManager: deps.serverManager, sendEvent: deps.sendCodexEvent });
+  registerAgentHandlers({ customAgentService: deps.customAgentService, sendEvent: deps.sendAgentEvent });
   registerCacheHandlers({ cacheRegistryService: deps.cacheRegistryService });
   registerHistoryHandlers({
     historyService: deps.historyService,

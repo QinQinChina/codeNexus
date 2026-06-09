@@ -63,3 +63,70 @@ describe("createFileTools › edit_file", () => {
     ).rejects.toThrow(/escapes sandbox/i);
   });
 });
+
+/**
+ * requireApproval 是写改类工具（write_file / edit_file）的确认接缝：返回 false 即拒绝、不落盘，
+ * 返回拒绝串让模型据此改路；只读类（read_file / list_dir）不应被它拦截。
+ */
+describe("createFileTools › requireApproval", () => {
+  let root: string;
+
+  beforeEach(async () => {
+    root = await mkdtemp(join(tmpdir(), "agent-core-approval-"));
+  });
+
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it("blocks write_file when denied and applies it when granted", async () => {
+    const denied = byName(createFileTools(root, { requireApproval: () => false }), "write_file");
+    const msg = await denied.execute({ path: "a.txt", content: "hi" });
+    expect(msg).toMatch(/Refused/i);
+    await expect(readFile(join(root, "a.txt"), "utf8")).rejects.toThrow();
+
+    const granted = byName(createFileTools(root, { requireApproval: () => true }), "write_file");
+    await granted.execute({ path: "a.txt", content: "hi" });
+    expect(await readFile(join(root, "a.txt"), "utf8")).toBe("hi");
+  });
+
+  it("blocks edit_file when denied, leaving the file untouched", async () => {
+    await writeFile(join(root, "a.txt"), "hello world", "utf8");
+    const edit = byName(createFileTools(root, { requireApproval: () => false }), "edit_file");
+
+    const msg = await edit.execute({ path: "a.txt", oldString: "world", newString: "there" });
+    expect(msg).toMatch(/Refused/i);
+    expect(await readFile(join(root, "a.txt"), "utf8")).toBe("hello world");
+  });
+
+  it("passes the operation (tool/path/preview) to requireApproval", async () => {
+    const ops: Array<{ tool: string; path: string; preview: string }> = [];
+    const write = byName(
+      createFileTools(root, {
+        requireApproval: (op) => {
+          ops.push(op);
+          return true;
+        },
+      }),
+      "write_file"
+    );
+    await write.execute({ path: "note.txt", content: "body-content" });
+    expect(ops).toHaveLength(1);
+    expect(ops[0].tool).toBe("write_file");
+    expect(ops[0].path).toContain("note.txt");
+    expect(ops[0].preview).toContain("body-content");
+  });
+
+  it("does not gate read-only tools on approval", async () => {
+    await writeFile(join(root, "a.txt"), "data", "utf8");
+    let called = false;
+    const tools = createFileTools(root, {
+      requireApproval: () => {
+        called = true;
+        return false;
+      },
+    });
+    expect(await byName(tools, "read_file").execute({ path: "a.txt" })).toBe("data");
+    expect(called).toBe(false);
+  });
+});

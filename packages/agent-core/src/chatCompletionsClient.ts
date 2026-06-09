@@ -1,4 +1,13 @@
-import type { AgentMessage, ChatClient, ModelReply, ToolDefinition, ToolCall } from "./types";
+import type {
+  AgentMessage,
+  ChatClient,
+  ChatStreamHandlers,
+  ModelReply,
+  ToolDefinition,
+  ToolCall,
+} from "./types";
+import { readSseBlocks } from "./sse";
+import { postJson } from "./http";
 
 /**
  * 真实的 ChatClient 实现：直连 OpenAI 兼容的 /v1/chat/completions 接口。
@@ -7,8 +16,8 @@ import type { AgentMessage, ChatClient, ModelReply, ToolDefinition, ToolCall } f
  * Chat Completions 协议（OpenAI、DeepSeek、Kimi、各类中转站、本地 ollama/vLLM…），
  * 填上 baseUrl + apiKey + model 即可驱动同一个 runAgent 内核。
  *
- * 这里刻意用「非流式」实现：内核循环不需要流式即可工作，
- * 流式只是后续优化用户体验（让文字逐字出现）时再加的东西。
+ * 同时实现 send（非流式，一次拿回完整回复）与 stream（SSE：stream:true，readSseBlocks 累积
+ * content delta 与按 index 聚合的 tool_calls）；内核 runAgent 优先走 stream 以驱动逐字 UI。
  */
 
 export type ChatCompletionsClientOptions = {
@@ -33,7 +42,11 @@ function resolveEndpoint(baseUrl: string): string {
 
 /** 把内核的 AgentMessage 转成 Chat Completions 线缆格式（camelCase → snake_case）。 */
 function toWireMessage(message: AgentMessage): WireMessage {
-  if (message.role === "assistant" && message.toolCalls && message.toolCalls.length > 0) {
+  if (
+    message.role === "assistant" &&
+    message.toolCalls &&
+    message.toolCalls.length > 0
+  ) {
     return {
       role: "assistant",
       content: message.content,
@@ -77,7 +90,10 @@ function extractToolCalls(rawToolCalls: unknown): ToolCall[] {
     const name = typeof fn?.name === "string" ? fn.name : "";
     if (!name) continue;
     calls.push({
-      id: typeof record.id === "string" && record.id ? record.id : `call_${calls.length}`,
+      id:
+        typeof record.id === "string" && record.id
+          ? record.id
+          : `call_${calls.length}`,
       name,
       arguments: typeof fn?.arguments === "string" ? fn.arguments : "",
     });
@@ -85,49 +101,133 @@ function extractToolCalls(rawToolCalls: unknown): ToolCall[] {
   return calls;
 }
 
-export function createChatCompletionsClient(options: ChatCompletionsClientOptions): ChatClient {
+export function createChatCompletionsClient(
+  options: ChatCompletionsClientOptions,
+): ChatClient {
   const endpoint = resolveEndpoint(options.baseUrl);
   const timeoutMs = options.timeoutMs ?? 120_000;
 
   return {
-    async send(messages: AgentMessage[], tools: ToolDefinition[]): Promise<ModelReply> {
+    async send(
+      messages: AgentMessage[],
+      tools: ToolDefinition[],
+    ): Promise<ModelReply> {
       const body: Record<string, unknown> = {
         model: options.model,
         messages: messages.map(toWireMessage),
       };
       if (tools.length > 0) body.tools = tools.map(toWireTool);
-      if (typeof options.temperature === "number") body.temperature = options.temperature;
+      if (typeof options.temperature === "number")
+        body.temperature = options.temperature;
 
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
-      let response: Response;
-      try {
-        response = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${options.apiKey}`,
-          },
-          body: JSON.stringify(body),
-          signal: controller.signal,
-        });
-      } finally {
-        clearTimeout(timer);
-      }
-
-      if (!response.ok) {
-        const text = await response.text().catch(() => "");
-        throw new Error(`chat/completions failed (${response.status}): ${text.slice(0, 500)}`);
-      }
+      const response = await postJson(endpoint, {
+        headers: { authorization: `Bearer ${options.apiKey}` },
+        body,
+        timeoutMs,
+        errorLabel: "chat/completions",
+      });
 
       const json = (await response.json()) as Record<string, unknown>;
       const choices = Array.isArray(json.choices) ? json.choices : [];
       const first = choices[0] as Record<string, unknown> | undefined;
       const message = first?.message as Record<string, unknown> | undefined;
-      const content = typeof message?.content === "string" ? message.content : null;
+      const content =
+        typeof message?.content === "string" ? message.content : null;
+      const reasoning =
+        typeof message?.reasoning_content === "string"
+          ? message.reasoning_content
+          : null;
       const toolCalls = extractToolCalls(message?.tool_calls);
 
-      return { content, toolCalls };
+      return { content, toolCalls, reasoning };
+    },
+
+    async stream(
+      messages: AgentMessage[],
+      tools: ToolDefinition[],
+      handlers: ChatStreamHandlers,
+    ): Promise<ModelReply> {
+      const body: Record<string, unknown> = {
+        model: options.model,
+        messages: messages.map(toWireMessage),
+        stream: true,
+      };
+      if (tools.length > 0) body.tools = tools.map(toWireTool);
+      if (typeof options.temperature === "number")
+        body.temperature = options.temperature;
+
+      const response = await postJson(endpoint, {
+        headers: { authorization: `Bearer ${options.apiKey}` },
+        body,
+        timeoutMs,
+        errorLabel: "chat/completions stream",
+        stream: true,
+      });
+
+      let content = "";
+      let reasoning = "";
+      const toolAcc = new Map<
+        number,
+        { id: string; name: string; arguments: string }
+      >();
+      for await (const { data } of readSseBlocks(response)) {
+        if (data === "[DONE]") break;
+        let chunk: Record<string, unknown>;
+        try {
+          chunk = JSON.parse(data) as Record<string, unknown>;
+        } catch {
+          continue;
+        }
+        const choices = Array.isArray(chunk.choices) ? chunk.choices : [];
+        const delta = (choices[0] as Record<string, unknown> | undefined)
+          ?.delta as Record<string, unknown> | undefined;
+        if (!delta) continue;
+        if (typeof delta.content === "string" && delta.content) {
+          content += delta.content;
+          handlers.onTextDelta(delta.content);
+        }
+        if (
+          typeof delta.reasoning_content === "string" &&
+          delta.reasoning_content
+        ) {
+          reasoning += delta.reasoning_content;
+          handlers.onReasoningDelta?.(delta.reasoning_content);
+        }
+        const rawToolCalls = Array.isArray(delta.tool_calls)
+          ? delta.tool_calls
+          : [];
+        for (const rawToolCall of rawToolCalls) {
+          if (!rawToolCall || typeof rawToolCall !== "object") continue;
+          const record = rawToolCall as Record<string, unknown>;
+          const index = typeof record.index === "number" ? record.index : 0;
+          const state = toolAcc.get(index) ?? {
+            id: "",
+            name: "",
+            arguments: "",
+          };
+          if (typeof record.id === "string" && record.id) state.id = record.id;
+          const fn = record.function as Record<string, unknown> | undefined;
+          if (typeof fn?.name === "string" && fn.name) state.name = fn.name;
+          if (typeof fn?.arguments === "string")
+            state.arguments += fn.arguments;
+          toolAcc.set(index, state);
+        }
+      }
+
+      const toolCalls: ToolCall[] = [...toolAcc.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([index, state]) => ({
+          id: state.id || `call_${index}`,
+          name: state.name,
+          arguments: state.arguments,
+        }))
+        .filter((call) => call.name);
+
+      return {
+        content: content || null,
+        toolCalls,
+        reasoning: reasoning || null,
+      };
     },
   };
 }

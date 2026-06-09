@@ -41,6 +41,13 @@ export class LocalSettingsService {
         ...settings.flowchartAi,
         apiKey: this.secureStorage.decrypt(settings.flowchartAi.apiKey),
       },
+      customProviders: {
+        ...settings.customProviders,
+        providers: settings.customProviders.providers.map((provider) => ({
+          ...provider,
+          apiKey: this.secureStorage.decrypt(provider.apiKey),
+        })),
+      },
     };
   }
 
@@ -54,6 +61,13 @@ export class LocalSettingsService {
       flowchartAi: {
         ...settings.flowchartAi,
         apiKey: this.secureStorage.encrypt(settings.flowchartAi.apiKey),
+      },
+      customProviders: {
+        ...settings.customProviders,
+        providers: settings.customProviders.providers.map((provider) => ({
+          ...provider,
+          apiKey: this.secureStorage.encrypt(provider.apiKey),
+        })),
       },
     };
   }

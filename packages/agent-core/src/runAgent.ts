@@ -32,12 +32,17 @@ function parseToolArguments(raw: string): Record<string, unknown> {
 async function executeToolCall(
   call: ToolCall,
   toolsByName: Map<string, ToolDefinition>,
-  onEvent: RunAgentOptions["onEvent"]
+  onEvent: RunAgentOptions["onEvent"],
 ): Promise<AgentMessage> {
   const tool = toolsByName.get(call.name);
   if (!tool) {
     const error = `Unknown tool: ${call.name}`;
-    onEvent?.({ type: "tool_error", toolCallId: call.id, name: call.name, error });
+    onEvent?.({
+      type: "tool_error",
+      toolCallId: call.id,
+      name: call.name,
+      error,
+    });
     return { role: "tool", toolCallId: call.id, content: error };
   }
 
@@ -46,11 +51,21 @@ async function executeToolCall(
     const args = parseToolArguments(call.arguments);
     const result = await tool.execute(args);
     const text = typeof result === "string" ? result : JSON.stringify(result);
-    onEvent?.({ type: "tool_result", toolCallId: call.id, name: call.name, result: text });
+    onEvent?.({
+      type: "tool_result",
+      toolCallId: call.id,
+      name: call.name,
+      result: text,
+    });
     return { role: "tool", toolCallId: call.id, content: text };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    onEvent?.({ type: "tool_error", toolCallId: call.id, name: call.name, error: message });
+    onEvent?.({
+      type: "tool_error",
+      toolCallId: call.id,
+      name: call.name,
+      error: message,
+    });
     // 工具失败不应中断整个 agent：把错误回灌给模型，让它自己决定重试或换路。
     return { role: "tool", toolCallId: call.id, content: `Error: ${message}` };
   }
@@ -65,7 +80,9 @@ async function executeToolCall(
  *
  * 这里不含任何 HTTP / Provider 细节——换模型、换协议只需替换传入的 ChatClient。
  */
-export async function runAgent(options: RunAgentOptions): Promise<RunAgentResult> {
+export async function runAgent(
+  options: RunAgentOptions,
+): Promise<RunAgentResult> {
   const { client, tools, onEvent } = options;
   const maxSteps = options.maxSteps ?? DEFAULT_MAX_STEPS;
   const toolsByName = new Map(tools.map((tool) => [tool.name, tool]));
@@ -77,7 +94,15 @@ export async function runAgent(options: RunAgentOptions): Promise<RunAgentResult
 
   while (steps < maxSteps) {
     steps += 1;
-    const reply = await client.send(messages, tools);
+    // 优先走流式（边产出边回吐文本/思考增量）；client 未实现 stream 时回退到非流式 send。
+    const reply = client.stream
+      ? await client.stream(messages, tools, {
+          onTextDelta: (delta) =>
+            onEvent?.({ type: "assistant_message_delta", delta }),
+          onReasoningDelta: (delta) =>
+            onEvent?.({ type: "assistant_reasoning_delta", delta }),
+        })
+      : await client.send(messages, tools);
 
     if (reply.content) {
       onEvent?.({ type: "assistant_message", content: reply.content });
@@ -98,7 +123,9 @@ export async function runAgent(options: RunAgentOptions): Promise<RunAgentResult
 
     // 并行执行本轮所有工具调用，把每个结果作为独立的 tool 消息塞回历史。
     const toolMessages = await Promise.all(
-      reply.toolCalls.map((call) => executeToolCall(call, toolsByName, onEvent))
+      reply.toolCalls.map((call) =>
+        executeToolCall(call, toolsByName, onEvent),
+      ),
     );
     messages.push(...toolMessages);
   }

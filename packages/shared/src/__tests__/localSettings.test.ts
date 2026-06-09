@@ -51,12 +51,18 @@ describe("localSettings", () => {
 
   describe("normalizeUserLocalSettings", () => {
     it("returns defaults when input is null/undefined", () => {
-      expect(normalizeUserLocalSettings(null)).toEqual(DEFAULT_USER_LOCAL_SETTINGS);
-      expect(normalizeUserLocalSettings(undefined)).toEqual(DEFAULT_USER_LOCAL_SETTINGS);
+      expect(normalizeUserLocalSettings(null)).toEqual(
+        DEFAULT_USER_LOCAL_SETTINGS,
+      );
+      expect(normalizeUserLocalSettings(undefined)).toEqual(
+        DEFAULT_USER_LOCAL_SETTINGS,
+      );
     });
 
     it("returns defaults when input is empty object", () => {
-      expect(normalizeUserLocalSettings({})).toEqual(DEFAULT_USER_LOCAL_SETTINGS);
+      expect(normalizeUserLocalSettings({})).toEqual(
+        DEFAULT_USER_LOCAL_SETTINGS,
+      );
     });
 
     it("preserves valid settings", () => {
@@ -109,9 +115,15 @@ describe("localSettings", () => {
     });
 
     it("handles non-object input gracefully", () => {
-      expect(normalizeUserLocalSettings("string")).toEqual(DEFAULT_USER_LOCAL_SETTINGS);
-      expect(normalizeUserLocalSettings(42)).toEqual(DEFAULT_USER_LOCAL_SETTINGS);
-      expect(normalizeUserLocalSettings([])).toEqual(DEFAULT_USER_LOCAL_SETTINGS);
+      expect(normalizeUserLocalSettings("string")).toEqual(
+        DEFAULT_USER_LOCAL_SETTINGS,
+      );
+      expect(normalizeUserLocalSettings(42)).toEqual(
+        DEFAULT_USER_LOCAL_SETTINGS,
+      );
+      expect(normalizeUserLocalSettings([])).toEqual(
+        DEFAULT_USER_LOCAL_SETTINGS,
+      );
     });
   });
 
@@ -153,6 +165,168 @@ describe("localSettings", () => {
       const result = mergeUserLocalSettings(base, patch);
       expect(result.ui.theme).toBe("pink");
       expect(result.notification.soundVolumePercent).toBe(80);
+    });
+  });
+
+  describe("runtimeMode", () => {
+    it("defaults to null (unchosen → show launch chooser)", () => {
+      expect(normalizeUserLocalSettings({}).ui.runtimeMode).toBeNull();
+    });
+
+    it("accepts codex and custom; rejects anything else", () => {
+      expect(
+        normalizeUserLocalSettings({ ui: { runtimeMode: "codex" } }).ui
+          .runtimeMode,
+      ).toBe("codex");
+      expect(
+        normalizeUserLocalSettings({ ui: { runtimeMode: "custom" } }).ui
+          .runtimeMode,
+      ).toBe("custom");
+      expect(
+        normalizeUserLocalSettings({ ui: { runtimeMode: "nope" } }).ui
+          .runtimeMode,
+      ).toBeNull();
+    });
+
+    it("can be set and cleared via merge", () => {
+      const chosen = mergeUserLocalSettings(
+        {},
+        { ui: { runtimeMode: "custom" } },
+      );
+      expect(chosen.ui.runtimeMode).toBe("custom");
+      const cleared = mergeUserLocalSettings(chosen, {
+        ui: { runtimeMode: null },
+      });
+      expect(cleared.ui.runtimeMode).toBeNull();
+    });
+  });
+
+  describe("customProviders", () => {
+    it("defaults to empty with no active provider", () => {
+      expect(normalizeUserLocalSettings({}).customProviders).toEqual({
+        activeProviderId: null,
+        providers: [],
+        workspaceRoot: null,
+      });
+    });
+
+    it("keeps valid providers, drops ones without id, and dedupes by id (last wins)", () => {
+      const result = normalizeUserLocalSettings({
+        customProviders: {
+          providers: [
+            {
+              id: "a",
+              kind: "openai-compatible",
+              name: "A",
+              baseUrl: "https://a.example.com/v1",
+              apiKey: "k",
+              model: "m",
+            },
+            { kind: "openai-compatible", name: "no-id" },
+            {
+              id: "a",
+              kind: "anthropic",
+              name: "A2",
+              baseUrl: "https://a2.example.com",
+              apiKey: "k2",
+              model: "m2",
+            },
+          ],
+        },
+      });
+      expect(result.customProviders.providers).toHaveLength(1);
+      expect(result.customProviders.providers[0].id).toBe("a");
+      expect(result.customProviders.providers[0].kind).toBe("anthropic");
+    });
+
+    it("rejects invalid provider baseUrl (missing scheme)", () => {
+      const result = normalizeUserLocalSettings({
+        customProviders: { providers: [{ id: "a", baseUrl: "not-a-url" }] },
+      });
+      expect(result.customProviders.providers[0].baseUrl).toBeNull();
+    });
+
+    it("nulls activeProviderId when it points to a missing provider, keeps it when present", () => {
+      const missing = normalizeUserLocalSettings({
+        customProviders: { activeProviderId: "ghost", providers: [] },
+      });
+      expect(missing.customProviders.activeProviderId).toBeNull();
+
+      const present = normalizeUserLocalSettings({
+        customProviders: {
+          activeProviderId: "a",
+          providers: [
+            {
+              id: "a",
+              kind: "openai-compatible",
+              name: "A",
+              baseUrl: "https://a.example.com",
+              apiKey: "k",
+              model: "m",
+            },
+          ],
+        },
+      });
+      expect(present.customProviders.activeProviderId).toBe("a");
+    });
+
+    it("merge replaces providers and active id", () => {
+      const result = mergeUserLocalSettings(
+        {},
+        {
+          customProviders: {
+            activeProviderId: "a",
+            providers: [
+              {
+                id: "a",
+                kind: "openai-compatible",
+                name: "A",
+                baseUrl: "https://a.example.com",
+                apiKey: "k",
+                model: "m",
+              },
+            ],
+          },
+        },
+      );
+      expect(result.customProviders.activeProviderId).toBe("a");
+      expect(result.customProviders.providers).toHaveLength(1);
+    });
+
+    it("normalizes workspaceRoot (trims; blank → null) and merges it", () => {
+      expect(
+        normalizeUserLocalSettings({
+          customProviders: { workspaceRoot: "  /tmp/ws  " },
+        }).customProviders.workspaceRoot,
+      ).toBe("/tmp/ws");
+      expect(
+        normalizeUserLocalSettings({
+          customProviders: { workspaceRoot: "   " },
+        }).customProviders.workspaceRoot,
+      ).toBeNull();
+      expect(
+        normalizeUserLocalSettings({}).customProviders.workspaceRoot,
+      ).toBeNull();
+
+      const merged = mergeUserLocalSettings(
+        {},
+        { customProviders: { workspaceRoot: "/work" } },
+      );
+      expect(merged.customProviders.workspaceRoot).toBe("/work");
+    });
+
+    it("normalizes provider.thinking (defaults false, keeps true)", () => {
+      const off = normalizeUserLocalSettings({
+        customProviders: { providers: [{ id: "a", kind: "anthropic" }] },
+      });
+      expect(off.customProviders.providers[0].thinking).toBe(false);
+
+      const on = normalizeUserLocalSettings({
+        customProviders: {
+          providers: [{ id: "a", kind: "anthropic", thinking: true }],
+        },
+      });
+      expect(on.customProviders.providers[0].thinking).toBe(true);
     });
   });
 });

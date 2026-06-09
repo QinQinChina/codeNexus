@@ -1,5 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { access } from "node:fs/promises";
+import { watch as fsWatch } from "node:fs";
 import net from "node:net";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
@@ -17,6 +18,10 @@ const smokeMode = process.argv.includes("--smoke");
 
 const children = [];
 let shuttingDown = false;
+// 主进程不会随 esbuild 重建自动加载新代码，这里手动监听 dist 重建并重启 electron。
+let electronChild = null;
+let electronRestartTimer = null;
+let restartingElectron = false;
 
 function spawnPnpm(args, options = {}) {
   const name = options.name ?? args.join(" ");
@@ -190,6 +195,66 @@ function bindShutdownSignals() {
   });
 }
 
+function launchElectron(viteUrl) {
+  const child = spawnByPlatform(["exec", "electron", "."], {
+    env: { VITE_DEV_SERVER_URL: viteUrl },
+  });
+  electronChild = child;
+  children.push(child);
+
+  child.on("exit", (code, signal) => {
+    if (shuttingDown || restartingElectron) return;
+    const suffix = signal ? `signal ${signal}` : `code ${code}`;
+    console.error(`[dev] electron exited with ${suffix}`);
+    void shutdown(typeof code === "number" ? code : 0, "electron exited");
+  });
+
+  child.on("error", (error) => {
+    if (shuttingDown) return;
+    console.error(`[dev] electron failed to start: ${error.message}`);
+    void shutdown(1, "electron failed to start");
+  });
+
+  return child;
+}
+
+// 主进程 bundle 重建后重启 electron（debounce：esbuild 会分别写 main.cjs / preload.cjs）。
+function scheduleElectronRestart(viteUrl) {
+  if (shuttingDown) return;
+  if (electronRestartTimer) clearTimeout(electronRestartTimer);
+  electronRestartTimer = setTimeout(() => {
+    electronRestartTimer = null;
+    if (shuttingDown) return;
+    const previous = electronChild;
+    if (!previous) {
+      launchElectron(viteUrl);
+      return;
+    }
+    console.info("[dev] main/preload rebuilt — restarting electron...");
+    restartingElectron = true;
+    const index = children.indexOf(previous);
+    if (index >= 0) children.splice(index, 1);
+    previous.once("exit", () => {
+      restartingElectron = false;
+      if (shuttingDown) return;
+      launchElectron(viteUrl);
+    });
+    killChildTree(previous);
+  }, 400);
+}
+
+function watchMainBundleForElectronRestart(viteUrl) {
+  const distDir = resolve(projectRoot, "dist");
+  try {
+    fsWatch(distDir, { persistent: false }, (_event, filename) => {
+      const name = String(filename ?? "");
+      if (name === "main.cjs" || name === "preload.cjs") scheduleElectronRestart(viteUrl);
+    });
+  } catch (error) {
+    console.warn(`[dev] could not watch dist for electron auto-restart: ${error.message}`);
+  }
+}
+
 async function start() {
   bindShutdownSignals();
   const vitePort = await findAvailablePort(viteHost, defaultVitePort);
@@ -241,11 +306,9 @@ async function start() {
     return;
   }
 
-  spawnPnpm(["exec", "electron", "."], {
-    name: "electron",
-    env: { VITE_DEV_SERVER_URL: viteUrl },
-  });
-  console.info("[dev] electron launched");
+  launchElectron(viteUrl);
+  watchMainBundleForElectronRestart(viteUrl);
+  console.info("[dev] electron launched (auto-restarts on main/preload rebuild)");
 }
 
 void start().catch((error) => {

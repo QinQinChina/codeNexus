@@ -19,6 +19,7 @@
     "dist": "pnpm run build && pnpm exec electron-builder --config electron-builder.yml"
   },
   "dependencies": {
+    "@codenexus/agent-core": "workspace:*",
     "@codenexus/generated": "workspace:*",
     "@codenexus/feature-flowchart": "workspace:*",
     "@codenexus/feature-imagegen": "workspace:*",

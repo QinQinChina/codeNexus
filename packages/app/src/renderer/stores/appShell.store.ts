@@ -6,6 +6,8 @@ import {
   DEFAULT_UI_WORKSPACE_FILE_ICON_THEME,
   normalizeUiLanguage,
   normalizeUiWorkspaceFileIconTheme,
+  normalizeRuntimeMode,
+  type RuntimeMode,
   type UiLanguage,
   type UiWorkspaceFileIconTheme,
   type MainView,
@@ -58,6 +60,10 @@ export const useAppShellStore = defineStore("appShell", {
     serverError: "" as string,
     language: "zh-CN" as UiLanguage,
     mainView: DEFAULT_MAIN_VIEW as MainView,
+    // 运行时模式：null=尚未选择（启动显示选择页）；codex=旧版；custom=新版自定义 provider。
+    runtimeMode: null as RuntimeMode | null,
+    // 瞬时标记：用于在已选择模式后重新打开选择页进行切换，不清空已存偏好。
+    modeChooserOpen: false,
     globalConfigDrawerOpen: false,
     envSetupDrawerOpen: false,
     integrationsDrawerOpen: false,
@@ -86,6 +92,7 @@ export const useAppShellStore = defineStore("appShell", {
       this.language = normalizeUiLanguage(cached.settings.ui.language);
       setUiI18nLanguage(this.language);
       this.mainView = cached.settings.ui.mainView;
+      this.runtimeMode = normalizeRuntimeMode(cached.settings.ui.runtimeMode);
       this.workspaceFileIconTheme = normalizeUiWorkspaceFileIconTheme(cached.settings.ui.workspaceFileIconTheme);
       this.leftSidebarVisible = cached.settings.ui.leftSidebarVisible;
       this.leftSidebarWidthPx = clampSidebarWidthPx(
@@ -135,6 +142,21 @@ export const useAppShellStore = defineStore("appShell", {
       this.mainView = normalized;
       if (!shouldSave) return;
       void patchUserLocalSettings({ ui: { mainView: normalized } });
+    },
+    // 选择运行时模式并记忆；选择即关闭选择页。
+    setRuntimeMode(next: RuntimeMode, opts?: { save?: boolean }) {
+      const shouldSave = opts?.save ?? true;
+      this.runtimeMode = next;
+      this.modeChooserOpen = false;
+      if (!shouldSave) return;
+      void patchUserLocalSettings({ ui: { runtimeMode: next } });
+    },
+    // 重新打开模式选择页用于切换（不清空已记忆的偏好）。
+    openModeChooser() {
+      this.modeChooserOpen = true;
+    },
+    closeModeChooser() {
+      this.modeChooserOpen = false;
     },
     openFeatureWorkbench(next: FeatureMainView, opts?: { save?: boolean }) {
       this.setMainView(next, opts);

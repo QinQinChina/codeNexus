@@ -16,6 +16,9 @@
         <div v-if="settingsOpen" key="settings" class="center-content-host">
           <SettingsPage />
         </div>
+        <div v-else-if="isCustomMode" key="custom" class="center-content-host">
+          <CustomWorkbench />
+        </div>
         <div v-else-if="activeFeature" :key="activeFeature.mainView" class="center-content-host">
           <component :is="activeFeature.workbenchComponent" />
         </div>
@@ -54,6 +57,7 @@
     <div class="app-overlays">
       <AppClosingOverlay v-if="showAppClosingOverlay" />
       <GoalShutdownCountdownOverlay v-if="showGoalShutdownOverlay" />
+      <RuntimeModeChooser v-if="showModeChooser" />
     </div>
   </div>
 </template>
@@ -64,6 +68,8 @@ import { useI18n } from "vue-i18n";
 import TopBar from "./components/layout/TopBar.vue";
 import CenterPane from "./components/layout/CenterPane.vue";
 import BottomBar from "./components/layout/BottomBar.vue";
+import RuntimeModeChooser from "./components/custom/RuntimeModeChooser.vue";
+import CustomWorkbench from "./components/custom/CustomWorkbench.vue";
 import {
   AppClosingOverlay,
   DebugTimelineSidebar,
@@ -119,17 +125,20 @@ const settingsOpen = computed(() => appShellStore.settingsOpen);
 const showAppClosingOverlay = computed(() => appClosingStore.visible);
 const showGoalShutdownOverlay = computed(() => goalShutdownStore.visible);
 const mainView = computed(() => appShellStore.mainView);
+const isCustomMode = computed(() => appShellStore.runtimeMode === "custom");
+const showModeChooser = computed(() => appShellStore.runtimeMode === null || appShellStore.modeChooserOpen);
 const activeFeature = computed(() => getFeatureByMainView(mainView.value));
 const featureWorkspaceSidebar = computed(() => {
-  if (settingsOpen.value || !appShellStore.leftSidebarVisible) return null;
+  if (isCustomMode.value || settingsOpen.value || !appShellStore.leftSidebarVisible) return null;
   return activeFeature.value?.workspaceSidebarComponent ?? null;
 });
 const featureSettingsSidebar = computed(() => {
-  if (settingsOpen.value) return null;
+  if (isCustomMode.value || settingsOpen.value) return null;
   return activeFeature.value?.settingsSidebarComponent ?? null;
 });
 const showLeftSidebar = computed(
   () =>
+    !isCustomMode.value &&
     !settingsOpen.value &&
     appShellStore.leftSidebarVisible &&
     !featureWorkspaceSidebar.value &&
@@ -137,10 +146,11 @@ const showLeftSidebar = computed(
 );
 const showLeftPane = computed(() => Boolean(featureWorkspaceSidebar.value) || showLeftSidebar.value);
 const showDebugSidebar = computed(
-  () => !settingsOpen.value && mainView.value === "chat" && runtimeStore.timelineDebugEnabled
+  () => !isCustomMode.value && !settingsOpen.value && mainView.value === "chat" && runtimeStore.timelineDebugEnabled
 );
 const showFilesSidebar = computed(() => {
   return (
+    !isCustomMode.value &&
     !settingsOpen.value &&
     allowsWorkspaceFilesSidebar(mainView.value) &&
     Boolean(String(runtimeStore.workspacePath ?? "").trim()) &&

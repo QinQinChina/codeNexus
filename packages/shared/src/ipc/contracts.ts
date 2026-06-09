@@ -1,5 +1,12 @@
-import type { UserLocalSettings, UserLocalSettingsPatch } from "../localSettings";
-import type { CodexProviderKind, CodexProviderProfileInput, CodexProviderProfilesState } from "../codexProfiles";
+import type {
+  UserLocalSettings,
+  UserLocalSettingsPatch,
+} from "../localSettings";
+import type {
+  CodexProviderKind,
+  CodexProviderProfileInput,
+  CodexProviderProfilesState,
+} from "../codexProfiles";
 import type { CodexSkillRootsState } from "../codexSkillRoots";
 import type {
   CodexConfigSwitcherActivateResult,
@@ -30,7 +37,6 @@ export type CodexDiagnosticsResult = {
   node: { ok: boolean; details?: string };
   npm: { ok: boolean; details?: string };
 };
-
 
 /*
  * 历史会话与消息契约
@@ -162,7 +168,11 @@ export type HistoryThreadLastSummaryResult =
       source?: "cache" | "disk";
     };
 
-export type HistoryThreadTaskStatus = "todo" | "in_progress" | "done" | "blocked";
+export type HistoryThreadTaskStatus =
+  | "todo"
+  | "in_progress"
+  | "done"
+  | "blocked";
 
 export type HistoryThreadTask = {
   taskId: string;
@@ -243,7 +253,10 @@ export type HistoryThreadTaskListArgs = {
   includeDone?: boolean;
 };
 
-export type HistoryThreadTaskListFailureCode = "INVALID_THREAD_ID" | "TASK_STORE_CORRUPTED" | "TASK_STORE_READ_FAILED";
+export type HistoryThreadTaskListFailureCode =
+  | "INVALID_THREAD_ID"
+  | "TASK_STORE_CORRUPTED"
+  | "TASK_STORE_READ_FAILED";
 
 export type HistoryThreadTaskListResult =
   | {
@@ -367,7 +380,9 @@ export type HistoryUpdatedPayload = {
  */
 
 // 反向补丁 dry-run/apply 的统一返回结构。
-export type WorkspaceReverseDiffResult = { ok: true; files: string[] } | { ok: false; error: string; files?: string[] };
+export type WorkspaceReverseDiffResult =
+  | { ok: true; files: string[] }
+  | { ok: false; error: string; files?: string[] };
 
 export type WorkspaceGitStatusCode = "M" | "A" | "D" | "R" | "C" | "U" | "?";
 
@@ -613,49 +628,87 @@ export type CodexSkillRootsMutationResult = {
 
 export type CodexDesktopAppApi = {
   openExternal(args: { url: string }): Promise<{ ok: true }>;
-  readTextFile(args: {
+  readTextFile(args: { path: string }): Promise<{
+    ok: true;
+    content: string;
+    encoding: AppTextEncoding;
+    lineEnding?: AppTextLineEnding | null;
+  }>;
+  writeTextFile(args: {
     path: string;
-  }): Promise<{ ok: true; content: string; encoding: AppTextEncoding; lineEnding?: AppTextLineEnding | null }>;
-  writeTextFile(args: { path: string; content: string; encoding?: AppTextEncoding }): Promise<{ ok: true }>;
+    content: string;
+    encoding?: AppTextEncoding;
+  }): Promise<{ ok: true }>;
   deleteFile(args: { path: string }): Promise<{ ok: true }>;
-  readDirectory(args: { path: string }): Promise<{ ok: true; entries: AppDirectoryEntry[] }>;
-  getFileMetadata(args: { path: string }): Promise<{ ok: true; metadata: AppFileMetadata }>;
+  readDirectory(args: {
+    path: string;
+  }): Promise<{ ok: true; entries: AppDirectoryEntry[] }>;
+  getFileMetadata(args: {
+    path: string;
+  }): Promise<{ ok: true; metadata: AppFileMetadata }>;
   listNotificationSounds(): Promise<{ items: NotificationSoundItem[] }>;
-  readNotificationSoundDataUrl(args: { id: string }): Promise<{ ok: true; dataUrl: string }>;
-  showSystemNotification(args: SystemNotificationShowArgs): Promise<SystemNotificationShowResult>;
+  readNotificationSoundDataUrl(args: {
+    id: string;
+  }): Promise<{ ok: true; dataUrl: string }>;
+  showSystemNotification(
+    args: SystemNotificationShowArgs,
+  ): Promise<SystemNotificationShowResult>;
   shutdownSystemNow(): Promise<SystemPowerShutdownResult>;
   getUpdateState(): Promise<AppUpdateSnapshot>;
   checkForUpdates(): Promise<AppUpdateSnapshot>;
   downloadUpdate(): Promise<AppUpdateSnapshot>;
   installUpdate(): Promise<{ ok: true }>;
   onUpdateState(cb: (payload: AppUpdateSnapshot) => void): () => void;
-  appendFileChangeLog(args: { record: unknown }): Promise<{ ok: true; path: string }>;
+  appendFileChangeLog(args: {
+    record: unknown;
+  }): Promise<{ ok: true; path: string }>;
   readClipboardImageDataUrl(): Promise<{ ok: true; dataUrl: string | null }>;
   writeClipboardImageFromPath(args: { path: string }): Promise<{ ok: true }>;
-  readImageFileDataUrl(args: { path: string }): Promise<{ ok: true; dataUrl: string }>;
+  readImageFileDataUrl(args: {
+    path: string;
+  }): Promise<{ ok: true; dataUrl: string }>;
   readCodexProfiles(): Promise<CodexProviderProfilesSnapshot>;
-  upsertCodexProfile(args: { profile: CodexProviderProfileInput }): Promise<CodexProviderProfilesMutationResult>;
-  deleteCodexProfile(args: { id: string }): Promise<CodexProviderProfilesMutationResult>;
-  setActiveCodexProfile(args: { id: string | null }): Promise<CodexProviderProfilesMutationResult>;
+  upsertCodexProfile(args: {
+    profile: CodexProviderProfileInput;
+  }): Promise<CodexProviderProfilesMutationResult>;
+  deleteCodexProfile(args: {
+    id: string;
+  }): Promise<CodexProviderProfilesMutationResult>;
+  setActiveCodexProfile(args: {
+    id: string | null;
+  }): Promise<CodexProviderProfilesMutationResult>;
   readCodexAuthApiKey(): Promise<CodexAuthReadApiKeyResult>;
-  writeCodexAuthApiKey(args: { apiKey: string; filePath?: string | null }): Promise<CodexAuthWriteApiKeyResult>;
+  writeCodexAuthApiKey(args: {
+    apiKey: string;
+    filePath?: string | null;
+  }): Promise<CodexAuthWriteApiKeyResult>;
   testCodexProvider(args: {
     providerKind?: CodexProviderKind;
     baseUrl: string;
     apiKey: string;
     timeoutMs?: number;
   }): Promise<CodexProviderTestResult>;
-  prepareDeepSeekProxy(args: { upstreamBaseUrl: string }): Promise<{ ok: true; baseUrl: string }>;
+  prepareDeepSeekProxy(args: {
+    upstreamBaseUrl: string;
+  }): Promise<{ ok: true; baseUrl: string }>;
   readCodexSkillRoots(): Promise<CodexSkillRootsSnapshot>;
   setCodexSkillRootsForWorkspace(args: {
     workspacePath: string;
     roots: string[];
   }): Promise<CodexSkillRootsMutationResult>;
   readCodexConfigSwitcher(): Promise<CodexConfigSwitcherSnapshot>;
-  saveCodexConfigSwitcher(args: { state: CodexConfigSwitcherState }): Promise<CodexConfigSwitcherMutationResult>;
-  activateCodexConfigSwitcherProfile(args: { profileId: string }): Promise<CodexConfigSwitcherActivateResult>;
-  importCurrentCodexConfigSwitcher(args: CodexConfigSwitcherImportArgs): Promise<CodexConfigSwitcherMutationResult>;
-  restoreCodexConfigSwitcherBackup(args: { backupId: string }): Promise<CodexConfigSwitcherMutationResult>;
+  saveCodexConfigSwitcher(args: {
+    state: CodexConfigSwitcherState;
+  }): Promise<CodexConfigSwitcherMutationResult>;
+  activateCodexConfigSwitcherProfile(args: {
+    profileId: string;
+  }): Promise<CodexConfigSwitcherActivateResult>;
+  importCurrentCodexConfigSwitcher(
+    args: CodexConfigSwitcherImportArgs,
+  ): Promise<CodexConfigSwitcherMutationResult>;
+  restoreCodexConfigSwitcherBackup(args: {
+    backupId: string;
+  }): Promise<CodexConfigSwitcherMutationResult>;
 };
 
 export type CodexDesktopWindowApi = {
@@ -670,7 +723,9 @@ export type CodexDesktopWindowApi = {
 export type CodexDesktopLocalStateApi = {
   initialSettingsSnapshot: LocalSettingsSnapshot;
   readSettings(): Promise<LocalSettingsSnapshot>;
-  patchSettings(args: { patch: UserLocalSettingsPatch }): Promise<PatchedLocalSettingsSnapshot>;
+  patchSettings(args: {
+    patch: UserLocalSettingsPatch;
+  }): Promise<PatchedLocalSettingsSnapshot>;
 };
 
 export type CodexDesktopCacheApi = {
@@ -686,42 +741,155 @@ export type CodexDesktopCodexServerApi = {
     capabilities?: { experimentalApi?: boolean };
   }>;
   stop(args: { serverId: string }): Promise<{ ok: true }>;
-  rpc<M extends CodexRpcMethod>(args: CodexRpcArgs<M>): Promise<CodexRpcResponse<M>>;
+  rpc<M extends CodexRpcMethod>(
+    args: CodexRpcArgs<M>,
+  ): Promise<CodexRpcResponse<M>>;
   notify<M extends string>(args: CodexNotifyArgs<M>): Promise<{ ok: true }>;
-  respond<M extends SupportedCodexServerRequestMethod>(args: CodexServerRespondArgs<M>): Promise<{ ok: true }>;
+  respond<M extends SupportedCodexServerRequestMethod>(
+    args: CodexServerRespondArgs<M>,
+  ): Promise<{ ok: true }>;
   onEvent(cb: (payload: CodexEventPayload) => void): () => void;
 };
 
 export type CodexDesktopWorkspaceApi = {
   select(): Promise<string | null>;
-  dryRunApplyReverseDiff(args: { cwd: string; diffText: string }): Promise<WorkspaceReverseDiffResult>;
-  applyReverseDiff(args: { cwd: string; diffText: string }): Promise<WorkspaceReverseDiffResult>;
+  dryRunApplyReverseDiff(args: {
+    cwd: string;
+    diffText: string;
+  }): Promise<WorkspaceReverseDiffResult>;
+  applyReverseDiff(args: {
+    cwd: string;
+    diffText: string;
+  }): Promise<WorkspaceReverseDiffResult>;
   readGitStatus(args: { cwd: string }): Promise<WorkspaceGitStatusResult>;
 };
 
 export type CodexDesktopHistoryApi = {
   list(): Promise<{ items: HistoryThread[] }>;
   refresh(): Promise<{ items: HistoryThread[] }>;
-  mergeThreadMetadata(args: { threads: HistoryThreadMetadataPatch[] }): Promise<{ items: HistoryThread[] }>;
+  mergeThreadMetadata(args: {
+    threads: HistoryThreadMetadataPatch[];
+  }): Promise<{ items: HistoryThread[] }>;
   deleteThread(args: { threadId: string }): Promise<{ ok: true }>;
   getThreadTitleOverrides(): Promise<HistoryThreadTitleOverridesResult>;
-  setThreadTitleOverride(args: HistoryThreadTitleOverrideSetArgs): Promise<{ ok: true }>;
-  clearThreadTitleOverride(args: HistoryThreadTitleOverrideClearArgs): Promise<{ ok: true }>;
-  getThreadContent(args: HistoryThreadContentArgs): Promise<HistoryThreadContentResult>;
-  getThreadMessages(args: { threadId: string; limit?: number }): Promise<{ messages: HistoryMessage[] }>;
+  setThreadTitleOverride(
+    args: HistoryThreadTitleOverrideSetArgs,
+  ): Promise<{ ok: true }>;
+  clearThreadTitleOverride(
+    args: HistoryThreadTitleOverrideClearArgs,
+  ): Promise<{ ok: true }>;
+  getThreadContent(
+    args: HistoryThreadContentArgs,
+  ): Promise<HistoryThreadContentResult>;
+  getThreadMessages(args: {
+    threadId: string;
+    limit?: number;
+  }): Promise<{ messages: HistoryMessage[] }>;
   getThreadEvents(args: {
     threadId: string;
     limit?: number;
     before?: number;
     includeAux?: boolean;
   }): Promise<HistoryThreadEventsPage>;
-  createThreadTask(args: HistoryThreadTaskCreateArgs): Promise<HistoryThreadTaskCreateResult>;
-  updateThreadTask(args: HistoryThreadTaskUpdateArgs): Promise<HistoryThreadTaskUpdateResult>;
-  listThreadTasks(args: HistoryThreadTaskListArgs): Promise<HistoryThreadTaskListResult>;
-  publishThreadArtifact(args: HistoryThreadArtifactPublishArgs): Promise<HistoryThreadArtifactPublishResult>;
-  listThreadArtifacts(args: HistoryThreadArtifactListArgs): Promise<HistoryThreadArtifactListResult>;
-  getThreadArtifact(args: HistoryThreadArtifactGetArgs): Promise<HistoryThreadArtifactGetResult>;
+  createThreadTask(
+    args: HistoryThreadTaskCreateArgs,
+  ): Promise<HistoryThreadTaskCreateResult>;
+  updateThreadTask(
+    args: HistoryThreadTaskUpdateArgs,
+  ): Promise<HistoryThreadTaskUpdateResult>;
+  listThreadTasks(
+    args: HistoryThreadTaskListArgs,
+  ): Promise<HistoryThreadTaskListResult>;
+  publishThreadArtifact(
+    args: HistoryThreadArtifactPublishArgs,
+  ): Promise<HistoryThreadArtifactPublishResult>;
+  listThreadArtifacts(
+    args: HistoryThreadArtifactListArgs,
+  ): Promise<HistoryThreadArtifactListResult>;
+  getThreadArtifact(
+    args: HistoryThreadArtifactGetArgs,
+  ): Promise<HistoryThreadArtifactGetResult>;
   onUpdated(cb: (payload: HistoryUpdatedPayload) => void): () => void;
+};
+
+/*
+ * 自定义运行时（agent-core）契约
+ * ─────────────────────────────────────────────────────────────
+ * 作用域：Agent 模块（脱离 codex-app-server 的自定义 provider 运行时）
+ * 角色：renderer 把对话历史交给主进程，由 agent-core 内核驱动激活的自定义 provider
+ * 数据流：renderer.run → preload → main CustomAgentService → agent-core runAgent → 流式回吐 delta（agent:event）并返回最终文本
+ * 说明：单回合执行；流式文本增量经 CustomAgentStreamEvent 走 agent:event 事件通道，由 runId 关联
+ */
+
+// 自定义运行时对话消息的最小形态：renderer 只发 user/assistant 文本轮；
+// 工具调用/结果由主进程内核在单次 run 内部管理，不在此协议里。
+export type CustomAgentMessage = {
+  role: "system" | "user" | "assistant";
+  content: string;
+};
+
+export type CustomAgentRunArgs = {
+  // 不传则使用 localSettings.customProviders.activeProviderId。
+  providerId?: string;
+  // 关联本次运行的流式增量事件（agent:event）；不传则不推流。
+  runId?: string;
+  messages: CustomAgentMessage[];
+};
+
+export type CustomAgentRunResult =
+  | { ok: true; finalText: string; steps: number }
+  | { ok: false; error: string };
+
+// 自定义运行时的流式事件（main → renderer，经 agent:event 广播），按 runId 关联到某条助手消息。
+// 完成/失败通过 run() 的 Promise 返回，不单独发事件。
+// - delta：助手文本增量
+// - reasoning：助手思考/推理增量（provider 开启 thinking 时）
+// - tool_call/tool_result/tool_error：工具活动（接 agent-core 内核的同名 AgentEvent）
+// - approval_request：写改/命令需用户审批，renderer 经 agent:approve 回传决策（见 CustomAgentApproveArgs）
+export type CustomAgentStreamEvent =
+  | { type: "delta"; runId: string; text: string }
+  | { type: "reasoning"; runId: string; text: string }
+  | {
+      type: "tool_call";
+      runId: string;
+      callId: string;
+      name: string;
+      argsText: string;
+    }
+  | {
+      type: "tool_result";
+      runId: string;
+      callId: string;
+      name: string;
+      resultText: string;
+    }
+  | {
+      type: "tool_error";
+      runId: string;
+      callId: string;
+      name: string;
+      error: string;
+    }
+  | {
+      type: "approval_request";
+      runId: string;
+      approvalId: string;
+      kind: "command" | "file";
+      title: string;
+      detail: string;
+    };
+
+// renderer → main：回传一次审批决策，解开主进程里挂起的 requireApproval/requireConfirmation Promise。
+export type CustomAgentApproveArgs = {
+  runId: string;
+  approvalId: string;
+  approved: boolean;
+};
+
+export type CodexDesktopAgentApi = {
+  run(args: CustomAgentRunArgs): Promise<CustomAgentRunResult>;
+  approve(args: CustomAgentApproveArgs): Promise<{ ok: boolean }>;
+  onEvent(cb: (payload: CustomAgentStreamEvent) => void): () => void;
 };
 
 /*
@@ -748,6 +916,7 @@ export type CodexDesktopApi = {
   codexServer: CodexDesktopCodexServerApi;
   workspace: CodexDesktopWorkspaceApi;
   history: CodexDesktopHistoryApi;
+  agent: CodexDesktopAgentApi;
 };
 
 import type {

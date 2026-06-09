@@ -7,9 +7,30 @@ import type { ToolDefinition } from "./types";
  *
  * 安全要点：模型生成的 path 不可信，必须先解析成绝对路径、再确认它仍落在
  * rootDir 之内，杜绝 ../../ 之类的路径穿越读到沙箱外的文件。
+ *
+ * 写改类工具（write_file / edit_file）可经 options.requireApproval 挂上用户确认；
+ * 只读类（read_file / list_dir）不拦。未传 requireApproval 时一律放行（与旧行为一致）。
  */
 
 const MAX_READ_BYTES = 256 * 1024;
+
+/** 审批预览文本上限，避免把超大内容塞进 IPC / 审批 UI。 */
+const MAX_PREVIEW_CHARS = 4000;
+
+export type FileToolsOptions = {
+  /**
+   * 可选的写改确认钩子。write_file / edit_file 落盘前调用，返回 false 则拒绝本次写改。
+   * 真实 UI 接入时在此弹审批；未指定则不拦截（与 commandTools 的 requireConfirmation 对称）。
+   */
+  requireApproval?: (op: { tool: "write_file" | "edit_file"; path: string; preview: string }) => Promise<boolean> | boolean;
+};
+
+/** 末尾截断成预览串。 */
+function clampPreview(text: string): string {
+  return text.length > MAX_PREVIEW_CHARS
+    ? `${text.slice(0, MAX_PREVIEW_CHARS)}…（还有 ${text.length - MAX_PREVIEW_CHARS} 字）`
+    : text;
+}
 
 function resolveInsideRoot(rootDir: string, userPath: unknown): string {
   const root = resolve(rootDir);
@@ -23,7 +44,7 @@ function resolveInsideRoot(rootDir: string, userPath: unknown): string {
   return target;
 }
 
-export function createFileTools(rootDir: string): ToolDefinition[] {
+export function createFileTools(rootDir: string, options: FileToolsOptions = {}): ToolDefinition[] {
   return [
     {
       name: "read_file",
@@ -76,10 +97,15 @@ export function createFileTools(rootDir: string): ToolDefinition[] {
       },
       execute: async (args) => {
         const target = resolveInsideRoot(rootDir, args.path);
-        await mkdir(dirname(target), { recursive: true });
         const content = typeof args.content === "string" ? args.content : String(args.content ?? "");
+        const rel = join(".", relative(resolve(rootDir), target));
+        if (options.requireApproval) {
+          const ok = await options.requireApproval({ tool: "write_file", path: rel, preview: clampPreview(content) });
+          if (!ok) return `Refused: write to ${rel} was not approved by the user.`;
+        }
+        await mkdir(dirname(target), { recursive: true });
         await writeFile(target, content, "utf8");
-        return `wrote ${content.length} characters to ${join(".", relative(resolve(rootDir), target))}`;
+        return `wrote ${content.length} characters to ${rel}`;
       },
     },
     {
@@ -120,9 +146,14 @@ export function createFileTools(rootDir: string): ToolDefinition[] {
           );
         }
 
+        const rel = join(".", relative(resolve(rootDir), target));
+        if (options.requireApproval) {
+          const preview = `${rel}\n- ${clampPreview(oldString)}\n+ ${clampPreview(newString)}`;
+          const ok = await options.requireApproval({ tool: "edit_file", path: rel, preview });
+          if (!ok) return `Refused: edit to ${rel} was not approved by the user.`;
+        }
         const updated = original.slice(0, firstIndex) + newString + original.slice(firstIndex + oldString.length);
         await writeFile(target, updated, "utf8");
-        const rel = join(".", relative(resolve(rootDir), target));
         return `edited ${rel} (replaced ${oldString.length} chars with ${newString.length} chars)`;
       },
     },

@@ -30,6 +30,7 @@ import { ThreadTitleOverrideService } from "./services/ThreadTitleOverrideServic
 import { UpdateService } from "./services/UpdateService";
 import { WorkspacePatchService } from "./services/WorkspacePatchService";
 import { DeepSeekResponsesProxyService } from "./services/DeepSeekResponsesProxyService";
+import { CustomAgentService } from "./services/CustomAgentService";
 import { createMainWindow } from "./windows/mainWindow";
 
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
@@ -201,6 +202,7 @@ app
     const historyStore = new HistoryStore(historyCachePath);
     const historyService = new HistoryService(historyStore);
     const localSettingsService = new LocalSettingsService(join(app.getPath("userData"), "user-settings.json"));
+    const customAgentService = new CustomAgentService(localSettingsService);
     const codexProfileService = new CodexProfileService(join(app.getPath("userData"), "codex-profiles.json"));
     const codexSkillRootsService = new CodexSkillRootsService(join(app.getPath("userData"), "codex-skill-roots.json"));
     const codexConfigSwitcherService = new CodexConfigSwitcherService(
@@ -293,6 +295,8 @@ app
       flowchartHistoryService,
       updateService,
       deepSeekResponsesProxyService,
+      customAgentService,
+      sendAgentEvent: (payload) => sendToRenderer(IPC_EVENT_CHANNELS.agentEvent, payload),
       cacheRegistryService,
     });
 
