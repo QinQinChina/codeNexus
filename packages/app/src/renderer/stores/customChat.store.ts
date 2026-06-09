@@ -142,9 +142,10 @@ export const useCustomChatStore = defineStore("customChat", {
       this.pendingApprovals.splice(idx, 1);
       await codexDesktop.agent.approve({ runId: request.runId, approvalId, approved });
     },
-    async send(text: string): Promise<void> {
+    async send(text: string, opts?: { providerId?: string | null }): Promise<void> {
       const content = String(text ?? "").trim();
       if (!content || this.sending) return;
+      const providerId = String(opts?.providerId ?? "").trim() || undefined;
       this.ensureStreamSubscription();
 
       this.messages.push({ id: nextMessageId("user"), role: "user", content });
@@ -158,7 +159,7 @@ export const useCustomChatStore = defineStore("customChat", {
       this.messages.push({ id: assistantId, role: "assistant", content: "", runId, streaming: true });
       this.sending = true;
       try {
-        const result = await codexDesktop.agent.run({ runId, messages: history });
+        const result = await codexDesktop.agent.run({ runId, providerId, messages: history });
         const message = this.messages.find((item) => item.id === assistantId);
         if (message) {
           message.streaming = false;

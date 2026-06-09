@@ -164,7 +164,14 @@
           尚未配置可用 Provider，<button type="button" class="cw-link" @click="showConfig = true">点此配置</button>。
         </p>
         <div v-else class="cw-composer__meta">
-          <span>当前：{{ activeProviderLabel }}</span>
+          <label class="cw-provider-switcher">
+            <span>当前</span>
+            <select :value="activeProviderId ?? ''" :disabled="customChatStore.sending" @change="onProviderSelect">
+              <option v-for="provider in providers" :key="provider.id" :value="provider.id">
+                {{ providerOptionLabel(provider) }}
+              </option>
+            </select>
+          </label>
           <span class="cw-ws">
             工作区：<span class="cw-ws__path">{{ workspaceRoot || "未选择（仅聊天）" }}</span>
             <button type="button" class="cw-link" @click="selectWorkspace">
@@ -265,11 +272,9 @@ const hasActiveProvider = computed(() =>
     activeProvider.value && activeProvider.value.baseUrl && activeProvider.value.apiKey && activeProvider.value.model
   )
 );
-const activeProviderLabel = computed(() =>
-  activeProvider.value
-    ? `${activeProvider.value.name} · ${kindLabel(activeProvider.value.kind)} · ${activeProvider.value.model}`
-    : ""
-);
+function providerOptionLabel(provider: LocalCustomProvider): string {
+  return `${provider.name} · ${kindLabel(provider.kind)} · ${provider.model || "未设置模型"}`;
+}
 
 const canSave = computed(
   () =>
@@ -356,6 +361,12 @@ async function activate(id: string) {
   await persist();
 }
 
+async function onProviderSelect(event: Event) {
+  const id = String((event.target as HTMLSelectElement | null)?.value ?? "").trim();
+  if (!id || id === activeProviderId.value || customChatStore.sending) return;
+  await activate(id);
+}
+
 async function remove(id: string) {
   providers.value = providers.value.filter((item) => item.id !== id);
   if (activeProviderId.value === id) activeProviderId.value = providers.value[0]?.id ?? null;
@@ -386,9 +397,10 @@ async function testConnection() {
 
 function submit() {
   if (!canSend.value) return;
+  const providerId = activeProvider.value?.id ?? activeProviderId.value;
   const text = draft.value;
   draft.value = "";
-  void customChatStore.send(text);
+  void customChatStore.send(text, { providerId });
 }
 
 async function selectWorkspace() {
@@ -899,7 +911,37 @@ onMounted(() => {
 .cw-composer__meta {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 4px 16px;
+}
+
+.cw-provider-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cw-provider-switcher select {
+  max-width: min(420px, 52vw);
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 0 28px 0 9px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.cw-provider-switcher select:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.cw-provider-switcher select:focus {
+  outline: none;
+  border-color: var(--border-accent);
 }
 
 .cw-ws {
