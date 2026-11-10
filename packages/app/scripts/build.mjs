@@ -1,12 +1,14 @@
 import { execFileSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { stageT3Client } from "./stage-t3-client.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..");
 const nodeExec = process.execPath;
 const npmExecPath = process.env.npm_execpath;
 const pnpmFallback = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+const t3AdapterOutput = resolve(projectRoot, "../t3-web/public/codenexus-adapter.js");
 
 function runPnpm(args) {
   const options = {
@@ -29,7 +31,32 @@ function withExecSeparator(args) {
   return ["exec", "--", ...args.slice(1)];
 }
 
-runPnpm(["exec", "vite", "build"]);
+if (!process.env.T3_CODE_CLIENT_DIR) {
+  runPnpm([
+    "exec",
+    "esbuild",
+    "src/t3/entry.ts",
+    "--bundle",
+    "--platform=browser",
+    "--format=iife",
+    "--target=chrome140",
+    `--outfile=${t3AdapterOutput}`,
+  ]);
+  runPnpm(["--filter", "@t3tools/web", "build"]);
+}
+
+if (await stageT3Client()) {
+  runPnpm([
+    "exec",
+    "esbuild",
+    "src/t3/entry.ts",
+    "--bundle",
+    "--platform=browser",
+    "--format=iife",
+    "--target=chrome140",
+    "--outfile=dist/t3-client/codenexus-adapter.js",
+  ]);
+}
 
 runPnpm([
   "exec",
